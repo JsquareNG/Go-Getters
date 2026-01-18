@@ -15,7 +15,7 @@ const Home = () => {
             </div>
 
             <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold text-foreground leading-tight mb-6">
-              Experience <span className="text-primary">hassle-free</span>{" "}
+              Experience <span className="text-red-500">hassle-free</span>{" "}
               banking
             </h1>
 
@@ -55,7 +55,7 @@ const Home = () => {
           {/* Right Content - Registration Form Preview */}
           <div className="relative animate-scale-in">
             <div className="card-elevated p-8">
-              <h3 className="text-xl font-semibold text-primary mb-6">
+              <h3 className="text-xl font-semibold text-red-500 mb-6">
                 Register
               </h3>
 
