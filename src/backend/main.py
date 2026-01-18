@@ -1,20 +1,13 @@
-from fastapi import FastAPI, Depends
-from sqlalchemy.orm import Session
-from backend.database import SessionLocal
-from backend.models.test import SME
+from fastapi import FastAPI
+
+from backend.database import Base, engine
+from backend.models.application import ApplicationForm  # import so table is registered
+from backend.api.application import router as application_router
 
 app = FastAPI()
 
-# Dependency to get DB session
-def get_db():
-    db = SessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()
+# create table (for prototype)
+Base.metadata.create_all(bind=engine)
 
-# Route to fetch all SMEs
-@app.get("/smes")
-def read_smes(db: Session = Depends(get_db)):
-    smes = db.query(SME).all()
-    return smes
+# register routes
+app.include_router(application_router)
