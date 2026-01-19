@@ -14,18 +14,6 @@ const Navbar = () => {
   const navItems = [
     { icon: LayoutGrid, label: "Overview", href: "#overview", active: false },
     { icon: Wallet, label: "Accounts", href: "#accounts", active: true },
-    {
-      icon: ArrowLeftRight,
-      label: "Transactions",
-      href: "#transactions",
-      active: false,
-    },
-    {
-      icon: Globe,
-      label: "Cross-Border",
-      href: "#crossborder",
-      active: false,
-    },
     { icon: User, label: "Profile", href: "#profile", active: false },
   ];
 
