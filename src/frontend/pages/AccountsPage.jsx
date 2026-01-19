@@ -5,7 +5,7 @@ import TransactionsTable from "../components/ui/TransactionsTable";
 const AccountsPage = () => {
   return (
     <div className="min-h-screen bg-background">
-      <main className="container mx-auto px-6 py-8">
+      <main className="container mx-auto px-6 py-12">
         <AccountsGrid />
         <TransactionsTable />
       </main>

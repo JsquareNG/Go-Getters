@@ -28,9 +28,12 @@ const AccountsGrid = () => {
 
   return (
     <section className="mb-10">
-      <h2 className="text-xl font-bold text-foreground mb-6">
+      <h1 className="text-2xl font-semibold text-foreground mb-1">
         Accounts
-      </h2>
+      </h1>
+      <p className="text-muted-foreground mb-5">
+        Manage and track your account transactions
+      </p>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         {accounts.map((account) => (

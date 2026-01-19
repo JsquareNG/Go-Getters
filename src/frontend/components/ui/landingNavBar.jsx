@@ -24,7 +24,6 @@ const Navbar = () => {
   const navItems = [
     { icon: LayoutGrid, label: "Applications", to: "/landingpage" },
     { icon: Wallet, label: "Accounts", to: "/accountspage" },
-    { icon: User, label: "Profile", to: "/profile" },
   ];
 
   const handleLogout = () => {

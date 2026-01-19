@@ -182,18 +182,6 @@ const LoginModal = ({ isOpen, onClose, onSwitchToRegister }) => {
           <div className="space-y-2">
             <div className="flex justify-between items-center">
               <Label htmlFor="modal-password">Password</Label>
-              <button
-                type="button"
-                className="text-xs text-red-500 hover:underline"
-                onClick={() =>
-                  toast({
-                    title: "Forgot Password",
-                    description: "Password reset coming soon.",
-                  })
-                }
-              >
-                Forgot password?
-              </button>
             </div>
 
             <div className="relative">
@@ -227,6 +215,18 @@ const LoginModal = ({ isOpen, onClose, onSwitchToRegister }) => {
               </button>
             </div>
             <ErrorMessage message={errors.password} />
+            <button
+                type="button"
+                className="text-xs text-red-500 hover:underline"
+                onClick={() =>
+                  toast({
+                    title: "Forgot Password",
+                    description: "Password reset coming soon.",
+                  })
+                }
+              >
+                Forgot password?
+              </button>
           </div>
 
           {/* Sign In */}
@@ -238,25 +238,6 @@ const LoginModal = ({ isOpen, onClose, onSwitchToRegister }) => {
             {isLoading ? "Signing in..." : "Sign In"}
           </Button>
         </form>
-
-        {/* OR Divider */}
-        <div className="relative my-6">
-          <Separator />
-          <span className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 bg-white px-4 text-sm font-medium text-gray-500">
-            OR
-          </span>
-        </div>
-
-        {/* Google Login */}
-        <Button
-          type="button"
-          variant="outline"
-          className="w-full h-12 text-base"
-          onClick={handleGoogleAuth}
-          disabled={isLoading}
-        >
-          Continue with Google
-        </Button>
       </DialogContent>
     </Dialog>
   );

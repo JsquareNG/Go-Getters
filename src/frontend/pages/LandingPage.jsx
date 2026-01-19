@@ -67,7 +67,7 @@ export default function LandingPage() {
   return (
     <div className="min-h-screen bg-background">
 
-      <main className="container mx-auto px-6 py-8 animate-fade-in">
+      <main className="container mx-auto px-6 py-12 animate-fade-in">
         {/* Page Header */}
         <div className="flex flex-col gap-6 md:flex-row md:items-start md:justify-between mb-8">
           <div>
