@@ -237,4 +237,25 @@ def approve_application(application_id: str, data: dict = Body(...), db: Session
         "reviewer_id": app.reviewer_id
     }
 
+# Reviewer escalating the application back to user
+@router.put("/withdraw/{application_id}")
+def approve_application(application_id: str, db: Session = Depends(get_db)):
+    app = (
+        db.query(ApplicationForm)
+        .filter(ApplicationForm.application_id == application_id)
+        .first()
+    )
 
+    if not app:
+        raise HTTPException(status_code=404, detail="Application not found")
+
+    app.status = "Withdrawn"
+
+    db.commit()
+    db.refresh(app)
+
+    return {
+        "application_id": app.application_id,
+        "status": app.status,
+        "reviewer_id": app.reviewer_id
+    }
