@@ -11,19 +11,19 @@ const statuses = [
 ];
 
 const statusStyles = {
-  All: "data-[active=true]:bg-foreground data-[active=true]:text-background",
+  All: "data-[active=true]:bg-slate-50 data-[active=true]:text-slate-950",
   "Not started":
-    "data-[active=true]:bg-status-not-started data-[active=true]:text-background",
+    "data-[active=true]:bg-slate-500 data-[active=true]:text-background",
   "In Progress":
-    "data-[active=true]:bg-status-in-progress data-[active=true]:text-background",
+    "data-[active=true]:bg-blue-500 data-[active=true]:text-background",
   Submitted:
-    "data-[active=true]:bg-status-submitted data-[active=true]:text-background",
+    "data-[active=true]:bg-violet-500 data-[active=true]:text-background",
   "In Review":
-    "data-[active=true]:bg-status-in-review data-[active=true]:text-background",
+    "data-[active=true]:bg-amber-500 data-[active=true]:text-background",
   "Requires Action":
-    "data-[active=true]:bg-status-requires-action data-[active=true]:text-background",
+    "data-[active=true]:bg-rose-600 data-[active=true]:text-background",
   Approved:
-    "data-[active=true]:bg-status-approved data-[active=true]:text-background",
+    "data-[active=true]:bg-emerald-400 data-[active=true]:text-background",
 };
 
 export function StatusFilter({

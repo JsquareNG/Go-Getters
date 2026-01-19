@@ -24,11 +24,6 @@ const AccountsGrid = () => {
       currency: "€",
       country: "European Union",
     },
-    {
-      id: 4,
-      isAddCard: true,
-      currency: "S$",
-    },
   ];
 
   return (

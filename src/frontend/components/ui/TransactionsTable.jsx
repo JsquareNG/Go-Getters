@@ -84,7 +84,6 @@ const TransactionsTable = () => {
         </h2>
 
         <a
-          href="#all-transactions"
           className="flex items-center gap-1 text-accent text-sm font-medium hover:underline"
         >
           View All <ArrowRight className="w-4 h-4" />

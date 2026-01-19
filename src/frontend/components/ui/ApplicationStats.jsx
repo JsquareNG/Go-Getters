@@ -9,8 +9,8 @@ import { Card, CardContent } from "./card";
 function StatCard({ icon, label, value, variant = "default" }) {
   const variantStyles = {
     default: "text-muted-foreground",
-    warning: "text-status-requires-action",
-    success: "text-status-approved",
+    warning: "text-rose-500",
+    success: "text-emerald-400",
   };
 
   return (

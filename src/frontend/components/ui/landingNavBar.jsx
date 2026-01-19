@@ -7,6 +7,15 @@ import {
   LogOut,
 } from "lucide-react";
 import { NavLink, useNavigate } from "react-router-dom";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "./dropdown-menu";
+import { Avatar, AvatarFallback } from "./avatar";
+import { Button } from "./button";
 import dbslogo from "../../assets/dbslogo.png";
 
 const Navbar = () => {
@@ -24,6 +33,14 @@ const Navbar = () => {
     // sessionStorage.clear();
 
     navigate("/"); // Redirect to Home page
+  };
+
+  const handleProfile = () => {
+    // OPTIONAL (future-proofing):
+    // localStorage.removeItem("authToken");
+    // sessionStorage.clear();
+
+    navigate("/profile"); // Redirect to Home page
   };
 
   return (
@@ -61,13 +78,40 @@ const Navbar = () => {
             </button>
 
             {/* Logout */}
-            <button
-              onClick={handleLogout}
-              className="nav-item text-muted-foreground hover:text-foreground"
-            >
-              <LogOut className="w-4 h-4" />
-              <span>Logout</span>
-            </button>
+            <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" className="ml-2 gap-2 px-2">
+                <Avatar className="h-8 w-8">
+                  <AvatarFallback className="bg-secondary text-secondary-foreground text-sm font-medium">
+                    JC
+                  </AvatarFallback>
+                </Avatar>
+                <span className="hidden text-sm font-medium md:inline-block">John Chen</span>
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-56">
+              <DropdownMenuItem>
+                <button
+                  onClick={handleProfile}
+                  className="nav-item text-muted-foreground hover:text-foreground"
+                >
+                  <User className="mr-2 h-4 w-4" />
+                  <span>Profile Settings</span>
+                </button>
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem className="text-destructive focus:text-destructive">
+                <button
+                  onClick={handleLogout}
+                  className="nav-item text-muted-foreground hover:text-foreground"
+                >
+                  <LogOut className="w-4 h-4" />
+                  <span>Logout</span>
+                </button>
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+            
           </div>
         </div>
       </div>

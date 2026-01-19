@@ -44,7 +44,7 @@ export function ApplicationCard({ application }) {
     <Card
       className={cn(
         "group cursor-pointer transition-all duration-200 hover:shadow-card-hover",
-        isUrgent && "ring-1 ring-status-requires-action/20"
+        isUrgent && "ring-1 ring-rose-500/20"
       )}
       onClick={handleClick}
     >
@@ -83,9 +83,9 @@ export function ApplicationCard({ application }) {
                     <span>Progress</span>
                     <span>{application.progress}%</span>
                   </div>
-                  <div className="h-1.5 w-full rounded-full bg-secondary">
+                  <div className="h-1.5 w-full rounded-full bg-gray-200">
                     <div
-                      className="h-full rounded-full bg-status-in-progress transition-all"
+                      className="h-full rounded-full bg-blue-500 transition-all"
                       style={{ width: `${application.progress}%` }}
                     />
                   </div>
@@ -94,9 +94,9 @@ export function ApplicationCard({ application }) {
 
             {/* Action Required Alert */}
             {isUrgent && application.actionRequired && (
-              <div className="mt-3 flex items-start gap-2 rounded-md bg-status-requires-action/5 p-2.5">
-                <AlertCircle className="h-4 w-4 shrink-0 text-status-requires-action mt-0.5" />
-                <p className="text-xs text-status-requires-action">
+              <div className="mt-3 flex items-start gap-2 rounded-md bg-rose-500/5 p-2.5">
+                <AlertCircle className="h-4 w-4 shrink-0 text-rose-500 mt-0.5" />
+                <p className="text-xs text-rose-500">
                   {application.actionRequired}
                 </p>
               </div>
@@ -111,7 +111,7 @@ export function ApplicationCard({ application }) {
               className={cn(
                 "gap-1.5",
                 isUrgent &&
-                  "bg-status-requires-action hover:bg-status-requires-action/90"
+                  "bg-rose-500 hover:bg-rose-500/90"
               )}
               onClick={(e) => {
                 e.stopPropagation();

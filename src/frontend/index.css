@@ -73,6 +73,14 @@
     --nav-active-foreground: 0 0% 100%;
     --amount-positive: 142 71% 45%;
     --amount-negative: 0 84% 60%;
+
+    /* ✅ Added: tokens referenced in tailwind.config.js */
+    --success: 142 71% 45%;
+    --success-foreground: 0 0% 100%;
+
+    --dbs-red: var(--primary);
+    --dbs-red-dark: 351 85% 40%;
+    --dbs-red-light: 351 85% 60%;
   }
 
   .dark {
@@ -121,6 +129,14 @@
     --nav-active-foreground: 0 0% 100%;
     --amount-positive: 142 71% 45%;
     --amount-negative: 0 62% 55%;
+
+    /* ✅ Added: tokens referenced in tailwind.config.js (dark) */
+    --success: 142 71% 45%;
+    --success-foreground: 0 0% 100%;
+
+    --dbs-red: var(--primary);
+    --dbs-red-dark: 351 85% 45%;
+    --dbs-red-light: 351 85% 65%;
   }
 
   /* Tailwind v4-friendly base styles */
