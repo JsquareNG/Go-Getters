@@ -6,6 +6,7 @@ import "./index.css";
 import Home from "./pages/Home";
 import LandingPage from "./pages/LandingPage";
 import HomeLayout from "./layouts/HomeLayout";
+import LandingLayout from "./layouts/LandingLayout"
 
 ReactDOM.createRoot(document.getElementById("root")).render(
   <React.StrictMode>
@@ -19,7 +20,14 @@ ReactDOM.createRoot(document.getElementById("root")).render(
             </HomeLayout>
           }
         />
-        <Route path="/landingpage" element={<LandingPage />} />
+        <Route
+          path="/landingpage"
+          element={
+            <LandingLayout>
+              <LandingPage />
+            </LandingLayout>
+          }
+        />
       </Routes>
     </BrowserRouter>
   </React.StrictMode>
