@@ -1,36 +1,33 @@
 @import "tailwindcss";
 
-/* DBS Bank Inspired Design System (Tailwind v4) */
+/* DBS Bank Design System - Professional Enterprise Banking (Tailwind v4) */
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap");
 
 @layer base {
   :root {
-    /* DBS Reds */
-    --dbs-red: 348 89% 49%;
-    --dbs-red-dark: 348 89% 42%;
-    --dbs-red-light: 348 89% 95%;
-
-    /* Base tokens */
+    /* DBS Brand Colors (your new CSS) */
     --background: 0 0% 98%;
-    --foreground: 220 20% 14%;
+    --foreground: 220 20% 15%;
 
     --card: 0 0% 100%;
-    --card-foreground: 220 20% 14%;
+    --card-foreground: 220 20% 15%;
 
     --popover: 0 0% 100%;
-    --popover-foreground: 220 20% 14%;
+    --popover-foreground: 220 20% 15%;
 
-    /* Brand primary = DBS red */
-    --primary: 348 89% 49%;
+    /* DBS Red */
+    --primary: 351 85% 49%;
     --primary-foreground: 0 0% 100%;
 
-    /* Surfaces */
     --secondary: 220 14% 96%;
-    --secondary-foreground: 220 20% 14%;
+    --secondary-foreground: 220 20% 15%;
 
     --muted: 220 14% 96%;
-    --muted-foreground: 220 10% 46%;
+    --muted-foreground: 220 10% 45%;
 
-    /* Accent = green (positive actions + account strip) */
+    /* IMPORTANT:
+       Your components (account-card, completed status, amount-positive)
+       rely on accent = green, so we keep accent green to preserve your UI. */
     --accent: 142 71% 45%;
     --accent-foreground: 0 0% 100%;
 
@@ -39,16 +36,39 @@
 
     --border: 220 13% 91%;
     --input: 220 13% 91%;
-    --ring: 348 89% 49%;
+    --ring: 351 85% 49%;
 
-    --radius: 0.75rem;
+    --radius: 0.5rem;
 
-    /* Status colors */
+    /* Status Colors (your old + new combined) */
     --status-pending: 220 10% 46%;
     --status-completed: 142 71% 45%;
     --status-canceled: 0 84% 60%;
 
-    /* Custom tokens used by components */
+    /* Workflow status set (your new CSS) */
+    --status-not-started: 220 14% 75%;
+    --status-in-progress: 210 100% 50%;
+    --status-submitted: 262 83% 58%;
+    --status-in-review: 38 92% 50%;
+    --status-requires-action: 0 84% 60%;
+    --status-approved: 142 71% 45%;
+
+    /* Semantic tokens (your new CSS) */
+    --header-bg: 0 0% 100%;
+    --surface-elevated: 0 0% 100%;
+    --surface-subtle: 220 14% 98%;
+
+    /* Sidebar tokens (your new CSS) */
+    --sidebar-background: 0 0% 100%;
+    --sidebar-foreground: 220 20% 15%;
+    --sidebar-primary: 351 85% 49%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 220 14% 96%;
+    --sidebar-accent-foreground: 220 20% 15%;
+    --sidebar-border: 220 13% 91%;
+    --sidebar-ring: 351 85% 49%;
+
+    /* Custom tokens used by your components */
     --nav-active: 142 71% 45%;
     --nav-active-foreground: 0 0% 100%;
     --amount-positive: 142 71% 45%;
@@ -56,33 +76,46 @@
   }
 
   .dark {
-    --background: 220 20% 8%;
-    --foreground: 0 0% 98%;
+    --background: 222 47% 8%;
+    --foreground: 210 40% 98%;
 
-    --card: 220 20% 10%;
-    --card-foreground: 0 0% 98%;
+    --card: 222 47% 11%;
+    --card-foreground: 210 40% 98%;
 
-    --popover: 220 20% 10%;
-    --popover-foreground: 0 0% 98%;
+    --popover: 222 47% 11%;
+    --popover-foreground: 210 40% 98%;
 
-    --primary: 348 89% 55%;
+    --primary: 351 85% 55%;
     --primary-foreground: 0 0% 100%;
 
-    --secondary: 220 14% 18%;
-    --secondary-foreground: 0 0% 98%;
+    --secondary: 217 33% 17%;
+    --secondary-foreground: 210 40% 98%;
 
-    --muted: 220 14% 18%;
-    --muted-foreground: 220 10% 65%;
+    --muted: 217 33% 17%;
+    --muted-foreground: 215 20% 65%;
 
     --accent: 142 71% 45%;
     --accent-foreground: 0 0% 100%;
 
-    --destructive: 0 62% 45%;
-    --destructive-foreground: 0 0% 98%;
+    --destructive: 0 63% 31%;
+    --destructive-foreground: 210 40% 98%;
 
-    --border: 220 14% 18%;
-    --input: 220 14% 18%;
-    --ring: 348 89% 55%;
+    --border: 217 33% 17%;
+    --input: 217 33% 17%;
+    --ring: 351 85% 55%;
+
+    --header-bg: 222 47% 11%;
+    --surface-elevated: 222 47% 11%;
+    --surface-subtle: 222 47% 9%;
+
+    --sidebar-background: 222 47% 8%;
+    --sidebar-foreground: 210 40% 98%;
+    --sidebar-primary: 351 85% 55%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 217 33% 17%;
+    --sidebar-accent-foreground: 210 40% 98%;
+    --sidebar-border: 217 33% 17%;
+    --sidebar-ring: 351 85% 55%;
 
     --nav-active: 142 71% 45%;
     --nav-active-foreground: 0 0% 100%;
@@ -90,7 +123,7 @@
     --amount-negative: 0 62% 55%;
   }
 
-  /* Tailwind v4-friendly base styles (no @apply for tokens) */
+  /* Tailwind v4-friendly base styles */
   * {
     border-color: hsl(var(--border));
   }
@@ -111,7 +144,6 @@
 }
 
 @layer components {
-  /* Container used in your Home page */
   .section-container {
     max-width: 80rem;
     margin-left: auto;
@@ -128,7 +160,6 @@
     .section-container { padding-left: 2rem; padding-right: 2rem; }
   }
 
-  /* Elevated card used in Home register panel */
   .card-elevated {
     background-color: hsl(var(--card));
     border-radius: 0.75rem;
@@ -141,7 +172,6 @@
     box-shadow: 0 6px 14px rgb(0 0 0 / 0.08);
   }
 
-  /* NAV styles used by your dashboard navbar */
   .nav-item {
     display: inline-flex;
     align-items: center;
@@ -164,12 +194,11 @@
     background-color: hsl(var(--secondary));
   }
 
-  /* ACCOUNT CARD used by AccountCard.jsx */
   .account-card {
     position: relative;
     background-color: hsl(var(--card));
     border-radius: 0.75rem;
-    padding: 1.25rem; /* 20px */
+    padding: 1.25rem;
     border: 1px solid hsl(var(--border));
     box-shadow: 0 1px 2px rgb(0 0 0 / 0.06);
     transition: box-shadow 200ms, transform 200ms;
@@ -181,20 +210,18 @@
     transform: translateY(-1px);
   }
 
-  /* Green strip on the left */
   .account-card::before {
     content: "";
     position: absolute;
     left: 0;
     top: 0;
     bottom: 0;
-    width: 0.25rem; /* 4px */
+    width: 0.25rem;
     background-color: hsl(var(--accent));
     border-top-left-radius: 0.75rem;
     border-bottom-left-radius: 0.75rem;
   }
 
-  /* Status badge helpers */
   .status-badge {
     display: inline-flex;
     align-items: center;
@@ -219,9 +246,28 @@
     color: hsl(var(--destructive-foreground));
   }
 
-  /* Amount colors */
   .amount-positive { color: hsl(var(--amount-positive)); }
   .amount-negative { color: hsl(var(--amount-negative)); }
+
+  .transaction-icon-positive,
+  .transaction-icon-negative {
+    width: 1.5rem;
+    height: 1.5rem;
+    border-radius: 9999px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .transaction-icon-positive {
+    background-color: hsl(var(--accent));
+    color: hsl(var(--accent-foreground));
+  }
+
+  .transaction-icon-negative {
+    background-color: hsl(var(--destructive));
+    color: hsl(var(--destructive-foreground));
+  }
 
   .gradient-text {
     background-image: linear-gradient(

@@ -2,20 +2,29 @@ import React from "react";
 import {
   LayoutGrid,
   Wallet,
-  ArrowLeftRight,
-  Globe,
   User,
   Bell,
   LogOut,
 } from "lucide-react";
-import dbslogo from "../../assets/dbslogo.png"
+import { NavLink, useNavigate } from "react-router-dom";
+import dbslogo from "../../assets/dbslogo.png";
 
 const Navbar = () => {
+  const navigate = useNavigate();
+
   const navItems = [
-    { icon: LayoutGrid, label: "Overview", href: "#overview", active: false },
-    { icon: Wallet, label: "Accounts", href: "#accounts", active: true },
-    { icon: User, label: "Profile", href: "#profile", active: false },
+    { icon: LayoutGrid, label: "Applications", to: "/landingpage" },
+    { icon: Wallet, label: "Accounts", to: "/accountspage" },
+    { icon: User, label: "Profile", to: "/profile" },
   ];
+
+  const handleLogout = () => {
+    // OPTIONAL (future-proofing):
+    // localStorage.removeItem("authToken");
+    // sessionStorage.clear();
+
+    navigate("/"); // Redirect to Home page
+  };
 
   return (
     <header className="fixed top-0 left-0 right-0 z-50 bg-background/95 backdrop-blur-sm border-b border-border">
@@ -31,16 +40,16 @@ const Navbar = () => {
           {/* Navigation */}
           <nav className="hidden md:flex items-center gap-1">
             {navItems.map((item) => (
-              <a
+              <NavLink
                 key={item.label}
-                href={item.href}
-                className={`nav-item ${
-                  item.active ? "nav-item-active" : ""
-                }`}
+                to={item.to}
+                className={({ isActive }) =>
+                  `nav-item ${isActive ? "nav-item-active" : ""}`
+                }
               >
                 <item.icon className="w-4 h-4" />
                 <span>{item.label}</span>
-              </a>
+              </NavLink>
             ))}
           </nav>
 
@@ -51,7 +60,11 @@ const Navbar = () => {
               <span className="absolute top-1 right-1 w-2 h-2 bg-primary rounded-full"></span>
             </button>
 
-            <button className="nav-item text-muted-foreground hover:text-foreground">
+            {/* Logout */}
+            <button
+              onClick={handleLogout}
+              className="nav-item text-muted-foreground hover:text-foreground"
+            >
               <LogOut className="w-4 h-4" />
               <span>Logout</span>
             </button>
