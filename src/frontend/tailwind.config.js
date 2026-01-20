@@ -1,7 +1,7 @@
 /** @type {import('tailwindcss').Config} */
 module.exports = {
   darkMode: ["class"],
-  content: ["./index.html", "./src/**/*.{js,jsx}"],
+  content: ["./index.html", "./src/**/*.{js,jsx,ts,tsx}"],
   theme: {
     container: {
       center: true,
@@ -44,6 +44,7 @@ module.exports = {
           DEFAULT: "hsl(var(--card))",
           foreground: "hsl(var(--card-foreground))",
         },
+
         success: {
           DEFAULT: "hsl(var(--success))",
           foreground: "hsl(var(--success-foreground))",
@@ -54,6 +55,14 @@ module.exports = {
           "red-dark": "hsl(var(--dbs-red-dark))",
           "red-light": "hsl(var(--dbs-red-light))",
         },
+
+        /* ✅ Added: status colors used by your pages */
+        "status-not-started": "hsl(var(--status-not-started))",
+        "status-in-progress": "hsl(var(--status-in-progress))",
+        "status-submitted": "hsl(var(--status-submitted))",
+        "status-in-review": "hsl(var(--status-in-review))",
+        "status-requires-action": "hsl(var(--status-requires-action))",
+        "status-approved": "hsl(var(--status-approved))",
 
         sidebar: {
           DEFAULT: "hsl(var(--sidebar-background))",
