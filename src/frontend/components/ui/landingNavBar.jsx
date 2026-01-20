@@ -1,6 +1,7 @@
 import React from "react";
 import {
   LayoutGrid,
+  FileSearch,
   Wallet,
   User,
   Bell,
@@ -24,6 +25,7 @@ const Navbar = () => {
   const navItems = [
     { icon: LayoutGrid, label: "Applications", to: "/landingpage" },
     { icon: Wallet, label: "Accounts", to: "/accountspage" },
+    { icon: FileSearch, label: "Staff Landing", to: "/staff-landingpage" },
   ];
 
   const handleLogout = () => {
@@ -39,7 +41,7 @@ const Navbar = () => {
     // localStorage.removeItem("authToken");
     // sessionStorage.clear();
 
-    navigate("/profile"); // Redirect to Home page
+    navigate("/profile"); // Redirect to Profile page
   };
 
   return (

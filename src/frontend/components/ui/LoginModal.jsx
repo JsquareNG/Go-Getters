@@ -10,20 +10,41 @@ import {
 import { Button } from "./button";
 import { Input } from "./input";
 import { Label } from "./label";
-import { Separator } from "./separator";
 import { Eye, EyeOff, Mail, Lock, AlertCircle } from "lucide-react";
 import { useToast } from "../../hooks/use-toast";
 
-// Mock database of registered SME users (replace with real API/database)
+// Mock database of registered users (replace with real API/database)
 const MOCK_USERS = [
-  { email: "admin@sme.com", password: "Password123!", companyName: "SME Corp" },
-  { email: "test@company.com", password: "Test1234!", companyName: "Test Company" },
+  {
+    email: "admin@sme.com",
+    password: "Password123!",
+    companyName: "SME Corp",
+    role: "sme",
+  },
+  {
+    email: "test@company.com",
+    password: "Test1234!",
+    companyName: "Test Company",
+    role: "sme",
+  },
+  {
+    email: "staff@yourapp.com",
+    password: "Staff1234!",
+    name: "Staff Account",
+    role: "staff",
+  },
 ];
 
 // Validation helpers
 const validateEmail = (email) => {
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
   return emailRegex.test(email);
+};
+
+// Decide where to route based on role
+const getLandingRoute = (role) => {
+  if (role === "staff") return "/staff-landingpage";
+  return "/landingpage"; // default for SME users
 };
 
 const LoginModal = ({ isOpen, onClose, onSwitchToRegister }) => {
@@ -64,7 +85,6 @@ const LoginModal = ({ isOpen, onClose, onSwitchToRegister }) => {
 
     setIsLoading(true);
 
-    // Simulate API call delay
     setTimeout(() => {
       const user = MOCK_USERS.find(
         (u) => u.email.toLowerCase() === email.toLowerCase()
@@ -92,20 +112,32 @@ const LoginModal = ({ isOpen, onClose, onSwitchToRegister }) => {
         return;
       }
 
-      // ✅ Login successful → redirect to landing page
+      // ✅ Login successful
       setIsLoading(false);
       onClose();
 
+      // OPTIONAL: save user info (so you can check role elsewhere)
+      localStorage.setItem(
+        "authUser",
+        JSON.stringify({
+          email: user.email,
+          role: user.role,
+          companyName: user.companyName,
+          name: user.name,
+        })
+      );
+
       toast({
         title: "Login Successful",
-        description: "Welcome back!",
+        description: `Welcome back${user.role === "staff" ? ", staff" : ""}!`,
       });
 
-      navigate("/landingpage");
+      // ✅ Role-based routing
+      navigate(getLandingRoute(user.role));
     }, 1200);
   };
 
-  // Handle Google authentication
+  // Handle Google authentication (mock)
   const handleGoogleAuth = () => {
     setIsLoading(true);
 
@@ -113,12 +145,17 @@ const LoginModal = ({ isOpen, onClose, onSwitchToRegister }) => {
       setIsLoading(false);
       onClose();
 
+      // In real life, Google sign-in response should tell you role from your backend.
+      // For now, default to SME:
+      const googleUser = { email: "googleuser@example.com", role: "sme" };
+      localStorage.setItem("authUser", JSON.stringify(googleUser));
+
       toast({
         title: "Login Successful",
         description: "Signed in with Google.",
       });
 
-      navigate("/landingpage");
+      navigate(getLandingRoute(googleUser.role));
     }, 1000);
   };
 
@@ -151,7 +188,7 @@ const LoginModal = ({ isOpen, onClose, onSwitchToRegister }) => {
             Welcome Back
           </DialogTitle>
           <DialogDescription className="text-center text-gray-600">
-            Sign in to your SME account
+            Sign in to your account
           </DialogDescription>
         </DialogHeader>
 
@@ -198,8 +235,7 @@ const LoginModal = ({ isOpen, onClose, onSwitchToRegister }) => {
                 value={password}
                 onChange={(e) => {
                   setPassword(e.target.value);
-                  if (errors.password)
-                    setErrors({ ...errors, password: "" });
+                  if (errors.password) setErrors({ ...errors, password: "" });
                 }}
               />
               <button
@@ -215,18 +251,19 @@ const LoginModal = ({ isOpen, onClose, onSwitchToRegister }) => {
               </button>
             </div>
             <ErrorMessage message={errors.password} />
+
             <button
-                type="button"
-                className="text-xs text-red-500 hover:underline"
-                onClick={() =>
-                  toast({
-                    title: "Forgot Password",
-                    description: "Password reset coming soon.",
-                  })
-                }
-              >
-                Forgot password?
-              </button>
+              type="button"
+              className="text-xs text-red-500 hover:underline"
+              onClick={() =>
+                toast({
+                  title: "Forgot Password",
+                  description: "Password reset coming soon.",
+                })
+              }
+            >
+              Forgot password?
+            </button>
           </div>
 
           {/* Sign In */}

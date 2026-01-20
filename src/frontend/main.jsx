@@ -9,7 +9,9 @@ import HomeLayout from "./layouts/HomeLayout";
 import LandingLayout from "./layouts/LandingLayout";
 import AccountsPage from "./pages/AccountsPage";
 import NewApplication from "./pages/NewApplication";
-import ApplicationDetail from "./pages/ApplicationDetail"; // ✅ ADD THIS
+import ApplicationDetail from "./pages/ApplicationDetail"; 
+import StaffLandingPage from "./pages/StaffLandingPage";
+import ApplicationReviewDetail from "./pages/ApplicationReviewDetail";
 
 ReactDOM.createRoot(document.getElementById("root")).render(
   <React.StrictMode>
@@ -61,6 +63,22 @@ ReactDOM.createRoot(document.getElementById("root")).render(
           element={
             <LandingLayout>
               <AccountsPage />
+            </LandingLayout>
+          }
+        />
+        <Route
+          path="/staff-landingpage"
+          element={
+            <LandingLayout>
+              <StaffLandingPage />
+            </LandingLayout>
+          }
+        />
+        <Route
+          path="/staff-landingpage/:id"
+          element={
+            <LandingLayout>
+              <ApplicationReviewDetail />
             </LandingLayout>
           }
         />
