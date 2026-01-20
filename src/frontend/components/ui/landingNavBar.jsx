@@ -23,27 +23,30 @@ import dbslogo from "../../assets/dbslogo.png";
 const Navbar = () => {
   const navigate = useNavigate();
 
+  // ✅ Read role from localStorage (set in LoginModal.jsx)
+  const authUser = JSON.parse(localStorage.getItem("authUser") || "null");
+  const userRole = authUser?.role; // "staff" | "sme" | undefined
+
+  // ✅ Add roles per nav item
   const navItems = [
-    { icon: LayoutGrid, label: "Applications", to: "/landingpage" },
-    { icon: Wallet, label: "Accounts", to: "/accountspage" },
-    { icon: FileSearch, label: "Staff Landing", to: "/staff-landingpage" },
-    { icon: LayoutDashboard, label: "Dashboard", to: "/dashboard" },
+    { icon: FileSearch, label: "Staff Landing", to: "/staff-landingpage", roles: ["staff"] },
+    { icon: LayoutDashboard, label: "Dashboard", to: "/dashboard", roles: ["staff"] },
+
+    { icon: LayoutGrid, label: "Applications", to: "/landingpage", roles: ["sme"] },
+    { icon: Wallet, label: "Accounts", to: "/accountspage", roles: ["sme"] },
   ];
 
-  const handleLogout = () => {
-    // OPTIONAL (future-proofing):
-    // localStorage.removeItem("authToken");
-    // sessionStorage.clear();
+  // ✅ Filter items by role
+  const visibleNavItems = navItems.filter((item) => item.roles.includes(userRole));
 
-    navigate("/"); // Redirect to Home page
+  const handleLogout = () => {
+    // Recommended: clear auth info so navbar updates immediately after logout
+    localStorage.removeItem("authUser");
+    navigate("/");
   };
 
   const handleProfile = () => {
-    // OPTIONAL (future-proofing):
-    // localStorage.removeItem("authToken");
-    // sessionStorage.clear();
-
-    navigate("/profile"); // Redirect to Profile page
+    navigate("/profile");
   };
 
   return (
@@ -51,15 +54,11 @@ const Navbar = () => {
       <div className="container mx-auto px-6">
         <div className="flex items-center justify-between h-16">
           {/* Logo */}
-          <img
-            src={dbslogo}
-            alt="DBS SME Logo"
-            className="h-6 w-auto"
-          />
+          <img src={dbslogo} alt="DBS SME Logo" className="h-6 w-auto" />
 
           {/* Navigation */}
           <nav className="hidden md:flex items-center gap-1">
-            {navItems.map((item) => (
+            {visibleNavItems.map((item) => (
               <NavLink
                 key={item.label}
                 to={item.to}
@@ -80,41 +79,45 @@ const Navbar = () => {
               <span className="absolute top-1 right-1 w-2 h-2 bg-primary rounded-full"></span>
             </button>
 
-            {/* Logout */}
+            {/* Logout/Profile */}
             <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="ghost" className="ml-2 gap-2 px-2">
-                <Avatar className="h-8 w-8">
-                  <AvatarFallback className="bg-secondary text-secondary-foreground text-sm font-medium">
-                    JC
-                  </AvatarFallback>
-                </Avatar>
-                <span className="hidden text-sm font-medium md:inline-block">John Chen</span>
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-56">
-              <DropdownMenuItem>
-                <button
-                  onClick={handleProfile}
-                  className="nav-item text-muted-foreground hover:text-foreground"
-                >
-                  <User className="mr-2 h-4 w-4" />
-                  <span>Profile Settings</span>
-                </button>
-              </DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem className="text-destructive focus:text-destructive">
-                <button
-                  onClick={handleLogout}
-                  className="nav-item text-muted-foreground hover:text-foreground"
-                >
-                  <LogOut className="w-4 h-4" />
-                  <span>Logout</span>
-                </button>
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-            
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" className="ml-2 gap-2 px-2">
+                  <Avatar className="h-8 w-8">
+                    <AvatarFallback className="bg-secondary text-secondary-foreground text-sm font-medium">
+                      JC
+                    </AvatarFallback>
+                  </Avatar>
+                  <span className="hidden text-sm font-medium md:inline-block">
+                    John Chen
+                  </span>
+                </Button>
+              </DropdownMenuTrigger>
+
+              <DropdownMenuContent align="end" className="w-56">
+                <DropdownMenuItem>
+                  <button
+                    onClick={handleProfile}
+                    className="nav-item text-muted-foreground hover:text-foreground"
+                  >
+                    <User className="mr-2 h-4 w-4" />
+                    <span>Profile Settings</span>
+                  </button>
+                </DropdownMenuItem>
+
+                <DropdownMenuSeparator />
+
+                <DropdownMenuItem className="text-destructive focus:text-destructive">
+                  <button
+                    onClick={handleLogout}
+                    className="nav-item text-muted-foreground hover:text-foreground"
+                  >
+                    <LogOut className="w-4 h-4" />
+                    <span>Logout</span>
+                  </button>
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
         </div>
       </div>
