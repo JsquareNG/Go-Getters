@@ -1,5 +1,6 @@
 import React from "react";
 import {
+  LayoutDashboard,
   LayoutGrid,
   FileSearch,
   Wallet,
@@ -26,6 +27,7 @@ const Navbar = () => {
     { icon: LayoutGrid, label: "Applications", to: "/landingpage" },
     { icon: Wallet, label: "Accounts", to: "/accountspage" },
     { icon: FileSearch, label: "Staff Landing", to: "/staff-landingpage" },
+    { icon: LayoutDashboard, label: "Dashboard", to: "/dashboard" },
   ];
 
   const handleLogout = () => {

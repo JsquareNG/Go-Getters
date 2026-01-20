@@ -12,6 +12,7 @@ import NewApplication from "./pages/NewApplication";
 import ApplicationDetail from "./pages/ApplicationDetail"; 
 import StaffLandingPage from "./pages/StaffLandingPage";
 import ApplicationReviewDetail from "./pages/ApplicationReviewDetail";
+import Dashboard from "./pages/Dashboard";
 
 ReactDOM.createRoot(document.getElementById("root")).render(
   <React.StrictMode>
@@ -79,6 +80,14 @@ ReactDOM.createRoot(document.getElementById("root")).render(
           element={
             <LandingLayout>
               <ApplicationReviewDetail />
+            </LandingLayout>
+          }
+        />
+        <Route
+          path="/dashboard"
+          element={
+            <LandingLayout>
+              <Dashboard />
             </LandingLayout>
           }
         />
