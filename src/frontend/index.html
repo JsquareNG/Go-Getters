@@ -1,11 +1,77 @@
 <!DOCTYPE html>
-<html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <title>Go-Getters</title>
-  </head>
-  <body>
-    <div id="root"></div>
-    <script type="module" src="./main.jsx"></script>
-  </body>
+<html>
+<head>
+    <title>SME Onboarding Portal</title>
+    <style>
+        body { font-family: Arial; max-width: 700px; margin: auto; }
+        input, select, button { padding: 8px; margin: 5px; width: 100%; }
+        .box { border: 1px solid #ccc; padding: 20px; margin-top: 20px; }
+    </style>
+</head>
+<body>
+
+<h2>SME Onboarding Portal</h2>
+
+<div class="box">
+    <h3>Create Application</h3>
+    <input id="app_id" placeholder="Application ID">
+    <input id="email" placeholder="Email">
+    <button onclick="createApplication()">Create</button>
+</div>
+
+<div class="box">
+    <h3>Update Status</h3>
+    <input id="status_app_id" placeholder="Application ID">
+
+    <select id="status">
+        <option>Under Review</option>
+        <option>Under Manual Review</option>
+        <option>Approved</option>
+        <option>Rejected</option>
+        <option>Requires Action</option>
+    </select>
+
+    <button onclick="updateStatus()">Update Status</button>
+</div>
+
+<div class="box">
+    <h3>Upload Missing Documents</h3>
+    <input id="doc_app_id" placeholder="Application ID">
+    <button onclick="uploadDocs()">Upload Documents</button>
+</div>
+
+<script>
+const API = "http://localhost:8000";
+
+function createApplication() {
+    const form = new FormData();
+    form.append("app_id", app_id.value);
+    form.append("email", email.value);
+
+    fetch(API + "/application/create", { method: "POST", body: form })
+        .then(res => res.json())
+        .then(alert);
+}
+
+function updateStatus() {
+    const form = new FormData();
+    form.append("app_id", status_app_id.value);
+    form.append("status", status.value);
+
+    fetch(API + "/application/update-status", { method: "POST", body: form })
+        .then(res => res.json())
+        .then(alert);
+}
+
+function uploadDocs() {
+    const form = new FormData();
+    form.append("app_id", doc_app_id.value);
+
+    fetch(API + "/application/upload-documents", { method: "POST", body: form })
+        .then(res => res.json())
+        .then(alert);
+}
+</script>
+
+</body>
 </html>
