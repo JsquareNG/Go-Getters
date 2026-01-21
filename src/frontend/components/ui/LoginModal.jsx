@@ -13,7 +13,8 @@ import { Label } from "./label";
 import { Eye, EyeOff, Mail, Lock, AlertCircle } from "lucide-react";
 import { useToast } from "../../hooks/use-toast";
 
-// Mock database of registered users (replace with real API/database)
+// Mock database of registered users
+// TODO: replace with real API/database)
 const MOCK_USERS = [
   {
     email: "admin@sme.com",
@@ -22,16 +23,15 @@ const MOCK_USERS = [
     role: "sme",
   },
   {
-    email: "test@company.com",
-    password: "Test1234!",
-    companyName: "Test Company",
-    role: "sme",
+    email: "staff@dbs.com",
+    password: "Staff1234!",
+    role: "dbs",
   },
   {
     email: "staff@yourapp.com",
     password: "Staff1234!",
     name: "Staff Account",
-    role: "staff",
+    role: "dbs",
   },
 ];
 
@@ -43,7 +43,7 @@ const validateEmail = (email) => {
 
 // Decide where to route based on role
 const getLandingRoute = (role) => {
-  if (role === "staff") return "/staff-landingpage";
+  if (role === "dbs") return "/staff-landingpage";
   return "/landingpage"; // default for SME users
 };
 
@@ -87,7 +87,7 @@ const LoginModal = ({ isOpen, onClose, onSwitchToRegister }) => {
 
     setTimeout(() => {
       const user = MOCK_USERS.find(
-        (u) => u.email.toLowerCase() === email.toLowerCase()
+        (u) => u.email.toLowerCase() === email.toLowerCase(),
       );
 
       if (!user) {
@@ -112,7 +112,7 @@ const LoginModal = ({ isOpen, onClose, onSwitchToRegister }) => {
         return;
       }
 
-      // ✅ Login successful
+      //Login successful
       setIsLoading(false);
       onClose();
 
@@ -124,7 +124,7 @@ const LoginModal = ({ isOpen, onClose, onSwitchToRegister }) => {
           role: user.role,
           companyName: user.companyName,
           name: user.name,
-        })
+        }),
       );
 
       toast({
@@ -203,7 +203,9 @@ const LoginModal = ({ isOpen, onClose, onSwitchToRegister }) => {
                 type="email"
                 placeholder="your@company.com"
                 className={`pl-10 h-12 ${
-                  errors.email ? "border-red-500 focus-visible:ring-red-500" : ""
+                  errors.email
+                    ? "border-red-500 focus-visible:ring-red-500"
+                    : ""
                 }`}
                 value={email}
                 onChange={(e) => {
