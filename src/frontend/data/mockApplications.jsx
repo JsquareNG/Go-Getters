@@ -1,0 +1,55 @@
+export const mockApplications = [
+  {
+    id: "app-001",
+    companyName: "TechStart Innovations Pte Ltd",
+    accountType: "SME Business Account",
+    status: "Requires Action",
+    lastUpdated: "Updated 2 hours ago",
+    actionRequired:
+      "Additional documentation required for business verification. Please upload your latest financial statements.",
+  },
+  {
+    id: "app-002",
+    companyName: "Global Trade Solutions",
+    accountType: "Cross-Border Payments",
+    status: "In Progress",
+    lastUpdated: "Updated yesterday",
+    progress: 65,
+  },
+  {
+    id: "app-003",
+    companyName: "Asia Pacific Exports Ltd",
+    accountType: "Multi-Currency Account",
+    status: "In Review",
+    lastUpdated: "Submitted 3 days ago",
+  },
+  {
+    id: "app-004",
+    companyName: "Sunrise Manufacturing",
+    accountType: "SME Business Account",
+    status: "Approved",
+    lastUpdated: "Approved on Jan 15, 2026",
+  },
+  {
+    id: "app-005",
+    companyName: "Digital Commerce Hub",
+    accountType: "E-Commerce Account",
+    status: "Submitted",
+    lastUpdated: "Submitted today",
+  },
+  {
+    id: "app-006",
+    companyName: "NextGen Logistics",
+    accountType: "Cross-Border Payments",
+    status: "Not started",
+    lastUpdated: "Created Jan 10, 2026",
+  },
+  {
+    id: "app-007",
+    companyName: "HealthTech Solutions",
+    accountType: "SME Business Account",
+    status: "In Progress",
+    lastUpdated: "Updated 5 hours ago",
+    progress: 30,
+  },
+];
