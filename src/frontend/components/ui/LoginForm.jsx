@@ -167,7 +167,7 @@ const LoginForm = ({ onSwitchToRegister }) => {
         disabled={isLoading}
         onClick={handleSubmit}
       >
-        {isLoading ? "Signing In..." : "Sign In"}
+        {isLoading ? "Logging In..." : "Log In"}
       </Button>
 
       <Separator className="my-6" />
