@@ -1,107 +1,106 @@
-from fastapi import FastAPI, BackgroundTasks, Form
-from fastapi.middleware.cors import CORSMiddleware
-from models import Application, ApplicationStatus
+from fastapi import FastAPI, BackgroundTasks
+from datetime import datetime
+
+from models import User, Application, ApplicationStatus
+from database import users, applications
 from email_service import send_email
-from reminder_scheduler import schedule_reminder, cancel_reminder
+from notification_service import *
+from reminder_scheduler import check_and_send_draft_reminder
 
-app = FastAPI()
+app = FastAPI(title="SME Onboarding Backend")
 
-# Enable frontend access
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+@app.post("/register")
+def register_user(user: User, background_tasks: BackgroundTasks):
+    users[user.user_id] = user
 
-applications = {}
+    subject, body = build_account_created_email(user)
+    background_tasks.add_task(send_email, user.email, subject, body)
 
+    return {"message": "Account created successfully"}
 
-def build_email(application):
-    status = application.status
-    app_id = application.app_id
+@app.post("/applications/draft")
+def save_draft(app_data: Application):
+    app_data.status = ApplicationStatus.DRAFT
+    app_data.last_updated = datetime.utcnow()
 
-    if status == ApplicationStatus.APPROVED:
-        return "Application Approved", f"""
-Your application is approved!
+    applications[app_data.application_id] = app_data
 
-Reference ID: {app_id}
-Next steps:
-http://localhost:8000
-"""
+    return {"message": "Draft saved successfully"}
 
-    if status == ApplicationStatus.REJECTED:
-        return "Application Rejected", f"""
-Your application was rejected.
+@app.post("/applications/submit")
+def submit_application(app_id: int, background_tasks: BackgroundTasks):
+    app = applications[app_id]
+    app.status = ApplicationStatus.UNDER_REVIEW
+    app.last_updated = datetime.utcnow()
 
-Reason: Incomplete Documentation
-Resubmit here:
-http://localhost:8000
-"""
+    user = users[app.user_id]
 
-    if status == ApplicationStatus.UNDER_REVIEW:
-        return "Application Under Review", f"""
-Your application {app_id} is under system review.
-No action required.
-"""
+    subject, body = build_application_submitted_email(app, user)
+    background_tasks.add_task(send_email, user.email, subject, body)
 
-    if status == ApplicationStatus.UNDER_MANUAL_REVIEW:
-        return "Application Under Manual Review", f"""
-Your application {app_id} is under staff review.
-No action required.
-"""
+    return {"message": "Application submitted"}
 
-    if status == ApplicationStatus.REQUIRES_ACTION:
-        return "Action Required", f"""
-Your application {app_id} requires action.
+@app.post("/applications/{app_id}/manual-review")
+def manual_review(app_id: int, reviewer_id: int, background_tasks: BackgroundTasks):
+    app = applications[app_id]
+    app.status = ApplicationStatus.UNDER_MANUAL_REVIEW
+    app.reviewer_id = reviewer_id
 
-Upload missing documents now.
-"""
+    user = users[app.user_id]
+    staff = users[reviewer_id]
 
+    subject, body = build_staff_manual_review_email(app, staff)
+    background_tasks.add_task(send_email, staff.email, subject, body)
 
-@app.post("/application/create")
-def create_application(app_id: str = Form(...), email: str = Form(...)):
-    app_obj = Application(app_id, email, ApplicationStatus.UNDER_REVIEW)
-    applications[app_id] = app_obj
+    subject, body = build_user_manual_review_email(app, user)
+    background_tasks.add_task(send_email, user.email, subject, body)
 
-    subject, body = build_email(app_obj)
-    send_email(email, subject, body)
+    return {"message": "Application escalated for manual review"}
 
-    return {"message": "Application created"}
+@app.post("/applications/{app_id}/approve")
+def approve_application(app_id: int, background_tasks: BackgroundTasks):
+    app = applications[app_id]
+    app.status = ApplicationStatus.APPROVED
 
+    user = users[app.user_id]
 
-@app.post("/application/update-status")
-def update_status(app_id: str = Form(...), status: str = Form(...), background_tasks: BackgroundTasks = None):
-    application = applications.get(app_id)
+    subject, body = build_approved_email(app, user)
+    background_tasks.add_task(send_email, user.email, subject, body)
 
-    if not application:
-        return {"error": "Application not found"}
+    return {"message": "Application approved"}
 
-    try:
-        status_enum = ApplicationStatus(status)
-    except:
-        return {"error": "Invalid status value"}
+@app.post("/applications/{app_id}/reject")
+def reject_application(app_id: int, reason: str, background_tasks: BackgroundTasks):
+    app = applications[app_id]
+    app.status = ApplicationStatus.REJECTED
+    app.reason = reason
 
-    application.status = status_enum
+    user = users[app.user_id]
 
-    subject, body = build_email(application)
-    background_tasks.add_task(send_email, application.email, subject, body)
+    subject, body = build_rejected_email(app, user)
+    background_tasks.add_task(send_email, user.email, subject, body)
 
-    if status_enum == ApplicationStatus.REQUIRES_ACTION:
-        schedule_reminder(application)
-    else:
-        cancel_reminder(app_id)
+    return {"message": "Application rejected"}
 
-    return {"message": "Status updated successfully"}
+@app.post("/applications/{app_id}/action-required")
+def action_required(app_id: int, reason: str, background_tasks: BackgroundTasks):
+    app = applications[app_id]
+    app.status = ApplicationStatus.REQUIRES_ACTION
+    app.reason = reason
 
-@app.post("/application/upload-documents")
-def upload_documents(app_id: str = Form(...)):
-    application = applications.get(app_id)
+    user = users[app.user_id]
 
-    if not application:
-        return {"error": "Application not found"}
+    subject, body = build_action_required_email(app, user)
+    background_tasks.add_task(send_email, user.email, subject, body)
 
-    application.missing_docs_uploaded = True
-    cancel_reminder(app_id)
+    return {"message": "User notified for action required"}
 
-    return {"message": "Documents uploaded successfully"}
+@app.get("/check-draft-reminders")
+def check_drafts():
+    for app in applications.values():
+        user = users.get(app.user_id)
+        if user:
+            check_and_send_draft_reminder(app, user)
+
+    return {"message": "Draft reminders checked"}
+

@@ -1,54 +1,15 @@
-from apscheduler.schedulers.background import BackgroundScheduler
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from email_service import send_email
+from notification_service import build_draft_reminder_email
 
-scheduler = BackgroundScheduler()
-scheduler.start()
+def check_and_send_draft_reminder(app, user):
+    if app.status == "DRAFT":
+        now_utc = datetime.now(timezone.utc)
 
-pending_reminders = {}
+        # Ensure last_updated is also timezone-aware
+        if app.last_updated.tzinfo is None:
+            app.last_updated = app.last_updated.replace(tzinfo=timezone.utc)
 
-def schedule_reminder(application):
-    deadline = datetime.utcnow() + timedelta(seconds=15)
-    pending_reminders[application.app_id] = deadline
-
-    scheduler.add_job(
-        send_reminder,
-        "date",
-        run_date=deadline,
-        args=[application.app_id],
-        id=application.app_id,
-        replace_existing=True
-    )
-
-
-def cancel_reminder(app_id):
-    try:
-        scheduler.remove_job(app_id)
-    except:
-        pass
-
-
-def send_reminder(app_id):
-    from main import applications
-
-    app = applications.get(app_id)
-
-    if not app:
-        return
-
-    if app.status != "Requires Action":
-        return
-
-    if app.missing_docs_uploaded:
-        return
-
-    send_email(
-        app.email,
-        "Reminder: Action Required on Your Application",
-        f"""
-Your SME application ({app.app_id}) still requires action.
-
-Please upload your missing documents:
-http://localhost:8000
-"""
-    )
+        if now_utc - app.last_updated >= timedelta(minutes=1):
+            subject, body = build_draft_reminder_email(app, user)
+            send_email(user.email, subject, body)
