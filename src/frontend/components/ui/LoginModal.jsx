@@ -86,6 +86,7 @@ const LoginModal = ({ isOpen, onClose, onSwitchToRegister }) => {
     setIsLoading(true);
 
     setTimeout(() => {
+      //TODO: Replace with real authentication API call
       const user = MOCK_USERS.find(
         (u) => u.email.toLowerCase() === email.toLowerCase(),
       );
@@ -116,7 +117,7 @@ const LoginModal = ({ isOpen, onClose, onSwitchToRegister }) => {
       setIsLoading(false);
       onClose();
 
-      // OPTIONAL: save user info (so you can check role elsewhere)
+      // save user info (so you can check role elsewhere)
       localStorage.setItem(
         "authUser",
         JSON.stringify({
@@ -132,7 +133,7 @@ const LoginModal = ({ isOpen, onClose, onSwitchToRegister }) => {
         description: `Welcome back${user.role === "staff" ? ", staff" : ""}!`,
       });
 
-      // ✅ Role-based routing
+      // Role-based routing
       navigate(getLandingRoute(user.role));
     }, 1200);
   };

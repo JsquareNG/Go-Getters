@@ -13,6 +13,7 @@ import ApplicationDetail from "./pages/ApplicationDetail";
 import StaffLandingPage from "./pages/StaffLandingPage";
 import ApplicationReviewDetail from "./pages/ApplicationReviewDetail";
 import Dashboard from "./pages/Dashboard";
+import { Toaster } from "./components/ui/toaster";
 
 // Simple route guard
 const RequireRole = ({ role, children }) => {
@@ -35,6 +36,9 @@ ReactDOM.createRoot(document.getElementById("root")).render(
             </HomeLayout>
           }
         />
+
+        {/* Register */}
+        <Route path="/register" element={<Home />} />
 
         {/* SME routes */}
         <Route
@@ -116,5 +120,6 @@ ReactDOM.createRoot(document.getElementById("root")).render(
         />
       </Routes>
     </BrowserRouter>
-  </React.StrictMode>
+    <Toaster />
+  </React.StrictMode>,
 );
