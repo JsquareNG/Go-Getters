@@ -14,7 +14,7 @@ import StaffLandingPage from "./pages/StaffLandingPage";
 import ApplicationReviewDetail from "./pages/ApplicationReviewDetail";
 import Dashboard from "./pages/Dashboard";
 
-// ✅ Simple route guard
+// Simple route guard
 const RequireRole = ({ role, children }) => {
   const authUser = JSON.parse(localStorage.getItem("authUser") || "null");
   if (!authUser) return <Navigate to="/" replace />;
@@ -85,7 +85,7 @@ ReactDOM.createRoot(document.getElementById("root")).render(
         <Route
           path="/staff-landingpage"
           element={
-            <RequireRole role="staff">
+            <RequireRole role="dbs">
               <LandingLayout>
                 <StaffLandingPage />
               </LandingLayout>
@@ -96,7 +96,7 @@ ReactDOM.createRoot(document.getElementById("root")).render(
         <Route
           path="/staff-landingpage/:id"
           element={
-            <RequireRole role="staff">
+            <RequireRole role="dbs">
               <LandingLayout>
                 <ApplicationReviewDetail />
               </LandingLayout>
@@ -107,7 +107,7 @@ ReactDOM.createRoot(document.getElementById("root")).render(
         <Route
           path="/dashboard"
           element={
-            <RequireRole role="staff">
+            <RequireRole role="dbs">
               <LandingLayout>
                 <Dashboard />
               </LandingLayout>
