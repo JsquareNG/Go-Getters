@@ -31,7 +31,6 @@ def register_sme(data: dict = Body(...), db: Session = Depends(get_db)):
         last_name=data["last_name"],
         email=data["email"],
         password=hash_password(data["password"]),
-        mobile_number=data["mobile_number"],
         user_role="SME"
     )
     db.add(new_user)
@@ -67,7 +66,6 @@ def get_all_staff(db: Session = Depends(get_db)):
         "first_name": u.first_name,
         "last_name": u.last_name,
         "email": u.email,
-        "mobile_number": u.mobile_number
     } for u in staff]
 
 @router.get("/all-sme")
@@ -78,7 +76,6 @@ def get_all_sme(db: Session = Depends(get_db)):
         "first_name": u.first_name,
         "last_name": u.last_name,
         "email": u.email,
-        "mobile_number": u.mobile_number
     } for u in sme]
 
 @router.post("/create-staff")  # Admin creates staff
@@ -91,7 +88,6 @@ def create_staff(data: dict = Body(...), db: Session = Depends(get_db)):
         last_name=data["last_name"],
         email=data["email"],
         password=hash_password(data["password"]),  # Temp password
-        mobile_number=data["mobile_number"],
         user_role="STAFF"
     )
     db.add(new_staff)
@@ -101,4 +97,18 @@ def create_staff(data: dict = Body(...), db: Session = Depends(get_db)):
     return {
         "user_id": new_staff.user_id,
         "message": "Staff created successfully"
+    }
+
+@router.get("/{user_id}")
+def get_user_by_id(user_id: str, db: Session = Depends(get_db)):
+    user = db.query(User).filter(User.user_id == user_id).first()
+    if not user:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "User not found")
+    
+    return {
+        "user_id": user.user_id,
+        "first_name": user.first_name,
+        "last_name": user.last_name,
+        "email": user.email,
+        "user_role": user.user_role
     }
