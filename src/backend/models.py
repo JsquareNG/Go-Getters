@@ -1,6 +1,7 @@
 from enum import Enum
-from pydantic import BaseModel
-from datetime import datetime
+from pydantic import BaseModel,Field
+from datetime import datetime,timezone
+from typing import Optional
 
 class UserRole(str, Enum):
     SME = "SME"
@@ -29,7 +30,7 @@ class Application(BaseModel):
     business_country: str
     status: ApplicationStatus
     user_id: int
-    reviewer_id: int | None = None
-    reason: str | None = None
-    last_updated: datetime
+    reviewer_id: Optional[int] = None
+    reason: Optional[str] = None
+    last_updated: Optional[datetime] = None
 

@@ -1,15 +1,31 @@
 from datetime import datetime, timedelta, timezone
 from email_service import send_email
+from config import DRAFT_REMINDER_THRESHOLD
 from notification_service import build_draft_reminder_email
 
-def check_and_send_draft_reminder(app, user):
-    if app.status == "DRAFT":
-        now_utc = datetime.now(timezone.utc)
+def check_and_send_draft_reminders(applications: dict, users: dict):
+    now = datetime.now(timezone.utc)
 
-        # Ensure last_updated is also timezone-aware
-        if app.last_updated.tzinfo is None:
-            app.last_updated = app.last_updated.replace(tzinfo=timezone.utc)
+    for app in applications.values():
+        if app.status == "DRAFT":
+            inactivity = now - app.last_updated
 
-        if now_utc - app.last_updated >= timedelta(minutes=1):
-            subject, body = build_draft_reminder_email(app, user)
-            send_email(user.email, subject, body)
+            if inactivity >= DRAFT_REMINDER_THRESHOLD:
+                user = users.get(app.user_id)
+
+                if not user:
+                    continue  # safety guard
+
+                send_email(
+                    user.email,
+                    "Reminder: Complete Your Application",
+                    f"""
+Hi {user.first_name},
+
+Your application for {app.business_name}
+(Application ID: {app.application_id})
+has been inactive for over 48 hours.
+
+Please complete and submit your application.
+"""
+                )

@@ -22,6 +22,27 @@ Onboarding Team
 
     return subject, body
 
+def build_draft_saved_email(application):
+    subject = "Draft Application Saved – Action Required"
+
+    body = f"""
+Hi,
+
+You have saved a draft application for:
+
+Business Name: {application.business_name}
+Application ID: {application.application_id}
+
+Your application has not been submitted yet.
+If no action is taken, this draft will be automatically deleted after 7 days.
+
+Please return to complete and submit your application.
+
+Regards,
+SME Onboarding Team
+"""
+    return subject, body
+
 def build_application_submitted_email(app: Application, user: User):
     subject = "Application Submitted Successfully"
 
@@ -52,7 +73,7 @@ Your application for "{app.business_name}" is still incomplete.
 
 Application ID: {app.application_id}
 
-Please return to complete and submit your application.
+Our system will delete incomplete application after 48 days. Please return to complete and submit your application.
 
 Resume here:
 {WEBSITE_URL}/applications/{app.application_id}
