@@ -17,7 +17,6 @@ class User(Base):
     last_name = Column(String(50), nullable=False)
     email = Column(String(255), nullable=False)  # Stores hash as per schema
     password = Column(String(255), nullable=False)
-    mobile_number = Column(String(20), nullable=False)
     user_role = Column(String(50), nullable=False, server_default="STAFF")  # Default SME:STAFF
 
     __table_args__ = (
