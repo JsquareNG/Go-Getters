@@ -5,9 +5,11 @@ import { Label } from "./label";
 import { Separator } from "./separator";
 import { Eye, EyeOff, Mail, Lock, AlertCircle, Phone } from "lucide-react";
 import { useToast } from "../../hooks/use-toast";
+import toast, { Toaster } from 'react-hot-toast';
+import { registerSME } from "../../api/usersApi";
 
 const RegisterForm = ({ onSwitchToLogin }) => {
-  const { toast } = useToast();
+  // const { toast } = useToast();
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -15,7 +17,7 @@ const RegisterForm = ({ onSwitchToLogin }) => {
     firstName: "",
     lastName: "",
     email: "",
-    phone: "",
+    // phone: "",
     password: "",
     confirmPassword: "",
   });
@@ -45,12 +47,6 @@ const RegisterForm = ({ onSwitchToLogin }) => {
       newErrors.email = "Please enter a valid email address";
     }
 
-    if (!formData.phone.trim()) {
-      newErrors.phone = "Phone number is required";
-    } else if (!/^\+?[\d\s\-\(\)]+$/.test(formData.phone)) {
-      newErrors.phone = "Please enter a valid phone number";
-    }
-
     if (!formData.password) {
       newErrors.password = "Password is required";
     } else if (formData.password.length < 8) {
@@ -76,27 +72,45 @@ const RegisterForm = ({ onSwitchToLogin }) => {
 
     setIsLoading(true);
 
-    // Mock register
-    await new Promise((resolve) => setTimeout(resolve, 1000));
+    try {
+      await registerSME({
+        first_name: formData.firstName.trim(),
+        last_name: formData.lastName.trim(),
+        email: formData.email.trim(),
+        password: formData.password,
+      });
 
-    toast({
-      title: "Registration successful",
-      description: "Your account has been created! Please log in.",
-    });
+      toast({
+        title: "Registration successful",
+        description: "Your account has been created! Please log in.",
+      });
 
-    // Reset form
-    setFormData({
-      firstName: "",
-      lastName: "",
-      email: "",
-      phone: "",
-      password: "",
-      confirmPassword: "",
-    });
+      // Reset form
+      setFormData({
+        firstName: "",
+        lastName: "",
+        email: "",
+        password: "",
+        confirmPassword: "",
+      });
 
-    if (onSwitchToLogin) onSwitchToLogin();
+      if (onSwitchToLogin) onSwitchToLogin();
+    } catch (err) {
+      const msg =
+        err?.response?.data?.detail ||
+        err?.response?.data?.message ||
+        "An error occurred during registration. Please try again.";
 
-    setIsLoading(false);
+      setErrors({ general: msg });
+
+      toast({
+        title: "Registration failed",
+        description: msg,
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -170,32 +184,6 @@ const RegisterForm = ({ onSwitchToLogin }) => {
           <p className="text-red-500 text-sm mt-1 flex items-center gap-1">
             <AlertCircle className="h-4 w-4" />
             {errors.email}
-          </p>
-        )}
-      </div>
-
-      <div>
-        <Label
-          htmlFor="phone"
-          className="block text-sm font-medium text-foreground mb-2"
-        >
-          Phone Number *
-        </Label>
-        <div className="relative">
-          <Phone className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input
-            id="phone"
-            type="tel"
-            placeholder="Enter your phone number"
-            value={formData.phone}
-            onChange={(e) => handleInputChange("phone", e.target.value)}
-            className={`pl-10 ${errors.phone ? "border-red-500" : ""}`}
-          />
-        </div>
-        {errors.phone && (
-          <p className="text-red-500 text-sm mt-1 flex items-center gap-1">
-            <AlertCircle className="h-4 w-4" />
-            {errors.phone}
           </p>
         )}
       </div>

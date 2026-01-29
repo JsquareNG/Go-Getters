@@ -4,22 +4,24 @@ import { Input } from "./input";
 import { Label } from "./label";
 import { Separator } from "./separator";
 import { Eye, EyeOff, Mail, Lock, AlertCircle } from "lucide-react";
-import { useToast } from "../../hooks/use-toast";
+// import { useToast } from "../../hooks/use-toast";
+import toast, { Toaster } from 'react-hot-toast';
 import { useNavigate } from "react-router-dom";
+import { loginUser } from "../../api/usersApi";
 
 // Mock database of registered SME users (replace with real API/database)
-const MOCK_USERS = [
-  { email: "admin@sme.com", password: "Password123!", companyName: "SME Corp" },
-  {
-    email: "test@company.com",
-    password: "Test1234!",
-    companyName: "Test Company",
-  },
-];
+// const MOCK_USERS = [
+//   { email: "admin@sme.com", password: "Password123!", companyName: "SME Corp" },
+//   {
+//     email: "test@company.com",
+//     password: "Test1234!",
+//     companyName: "Test Company",
+//   },
+// ];
 
 const LoginForm = ({ onSwitchToRegister }) => {
   const navigate = useNavigate();
-  const { toast } = useToast();
+  // const { toast } = useToast();
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [formData, setFormData] = useState({
@@ -58,34 +60,43 @@ const LoginForm = ({ onSwitchToRegister }) => {
 
     setIsLoading(true);
 
-    // Mock login - check only email for prototype simplicity
-    const user = MOCK_USERS.find((u) => u.email === formData.email);
-    if (user) {
+    try {
+      const data = await loginUser(formData.email, formData.password);
+
       toast({
         title: "Login successful",
-        description: `Welcome back, ${user.companyName}!`,
+        description: `Welcome back, ${data.first_name}!`,
       });
-      // Set auth user in localStorage
-      const role = user.email === "admin@sme.com" ? "sme" : "staff";
+      //TODO: to be changed to state management later
       localStorage.setItem(
         "authUser",
         JSON.stringify({
-          email: user.email,
-          role,
-          companyName: user.companyName,
+          user_id: data.user_id,
+          email: data.email,
+          first_name: data.first_name,
+          last_name: data.last_name,
+          role: data.role, // sme or staff
         }),
       );
+
       // Navigate based on role
       if (role === "sme") {
         navigate("/landingpage");
-      } else {
+      } else if (role === "staff") {
         navigate("/staff-landingpage");
+      } else {
+        navigate("/"); // fallback
       }
-    } else {
-      setErrors({ general: "Invalid email or password" });
-    }
+    } catch (err) {
+      const msg =
+        err?.response?.data?.detail ||
+        err?.response?.data?.message ||
+        "Invalid email or password";
 
-    setIsLoading(false);
+      setErrors({ general: msg });
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
