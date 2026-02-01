@@ -161,7 +161,9 @@ def first_submit_application(
     user_firstName = data.get('firstName')
 
     subject, body = build_application_submitted_email(new_app, user_firstName)
-    background_tasks.add_task(send_email, user_email, subject, body)
+    send_email(user_email, subject, body)
+
+    # background_tasks.add_task(send_email, user_email, subject, body)
 
     return {
         "application_id": new_app.application_id,
