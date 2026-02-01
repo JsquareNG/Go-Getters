@@ -6,6 +6,11 @@ import "./index.css";
 import Home from "./pages/Home";
 import LandingPage from "./pages/LandingPage";
 import HomeLayout from "./layouts/HomeLayout";
+<<<<<<< HEAD
+import LandingLayout from "./layouts/LandingLayout"
+import TestDocument from "./pages/TestDocument"   // ✅ add this
+import OneDocument from "./pages/OneDocument";
+=======
 import LandingLayout from "./layouts/LandingLayout";
 import AccountsPage from "./pages/AccountsPage";
 import NewApplication from "./pages/NewApplication";
@@ -22,6 +27,7 @@ const RequireRole = ({ role, children }) => {
   if (authUser.role !== role) return <Navigate to="/" replace />;
   return children;
 };
+>>>>>>> main
 
 ReactDOM.createRoot(document.getElementById("root")).render(
   <React.StrictMode>
@@ -116,6 +122,22 @@ ReactDOM.createRoot(document.getElementById("root")).render(
                 <Dashboard />
               </LandingLayout>
             </RequireRole>
+          }
+        />
+         <Route
+          path="/testdocument"
+          element={
+            <HomeLayout>
+              <TestDocument />
+            </HomeLayout>
+          }
+        />
+        <Route
+          path="/OneDocument"
+          element={
+            <HomeLayout>
+              <OneDocument />
+            </HomeLayout>
           }
         />
       </Routes>
