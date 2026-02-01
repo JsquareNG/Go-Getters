@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, Body, HTTPException
+from fastapi import APIRouter, Depends, Body, HTTPException, BackgroundTasks
 from sqlalchemy.orm import Session
 from sqlalchemy import desc
 
@@ -9,6 +9,9 @@ from backend.database import SessionLocal
 from backend.models.application import ApplicationForm
 from backend.models.documents import Document
 from backend.services.supabase_client import supabase_admin, BUCKET
+from backend.api.notification import *
+from backend.services.email import send_email
+
 
 router = APIRouter(prefix="/applications", tags=["applications"])
 
@@ -136,7 +139,7 @@ def second_save(application_id: str, data: dict = Body(...), db: Session = Depen
 
 # Submitting an application
 @router.post("/firstSubmit")
-def first_submit_application(data: dict = Body(...), db: Session = Depends(get_db)):
+def first_submit_application(data: dict = Body(...), background_tasks: BackgroundTasks = None , db: Session = Depends(get_db)):
     new_app = ApplicationForm(
         business_country=data["business_country"],
         business_name=data["business_name"],
@@ -145,10 +148,15 @@ def first_submit_application(data: dict = Body(...), db: Session = Depends(get_d
         previous_status=None,               # blank in DB (NULL)
         current_status="Under Review",      # set current status
     )
-
+    
     db.add(new_app)
     db.commit()
     db.refresh(new_app)
+
+    user_email = data.get('email')
+
+    subject, body = build_application_submitted_email(app, user)
+    background_tasks.add_task(send_email, user_email, subject, body)
 
     return {
         "application_id": new_app.application_id,
