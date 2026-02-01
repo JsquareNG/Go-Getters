@@ -9,6 +9,7 @@ from backend.database import SessionLocal
 from backend.models.application import ApplicationForm
 from backend.models.documents import Document
 from backend.services.supabase_client import supabase_admin, BUCKET
+from backend.models.user import User
 from backend.api.notification import *
 from backend.services.email import send_email
 
@@ -136,7 +137,6 @@ def second_save(application_id: str, data: dict = Body(...), db: Session = Depen
         "current_status": app.current_status,
     }
 
-
 # Submitting an application
 @router.post("/firstSubmit")
 def first_submit_application(
@@ -169,7 +169,7 @@ def first_submit_application(
     }
 
 @router.put("/secondSubmit/{application_id}")
-def second_submit(application_id: str, data: dict = Body(...), db: Session = Depends(get_db)):
+def second_submit(application_id: str, background_tasks: BackgroundTasks, data: dict = Body(...), db: Session = Depends(get_db)):
 
     app = db.query(ApplicationForm).filter(ApplicationForm.application_id == application_id).first()
     
@@ -189,18 +189,37 @@ def second_submit(application_id: str, data: dict = Body(...), db: Session = Dep
     prev_blank = (prev is None) or (prev == "")
     app.is_open_user = False 
 
+    user_email = data.get('email')
+    user_firstName = data.get('firstName')
+
+    if app.reviewer_id:
+        staff = db.query(User).filter(User.user_id == app.reviewer_id).first()
+        staff_email = staff.email
+        staff_firstName = staff.first_name
+
     if curr == "Draft" and prev_blank:
         app.previous_status = app.current_status
         app.current_status = "Under Review"
+        subject, body = build_application_submitted_email(app, user_firstName)
+        background_tasks.add_task(send_email, user_email, subject, body)
 
     elif curr == "Requires Action" and prev == "Under Manual Review":
         app.previous_status = app.current_status
         app.current_status = "Under Manual Review"
         app.is_open_staff = False
 
+        subject, body = build_user_manual_review_email(app, user_firstName)
+        background_tasks.add_task(send_email, user_email, subject, body)
+        subject, body = build_staff_manual_review_email(app, staff_firstName)
+        background_tasks.add_task(send_email, staff_email, subject, body)
+
     elif curr == "Draft" and prev == "Requires Action":
         app.current_status = "Under Manual Review"
         app.is_open_staff = False
+        subject, body = build_user_manual_review_email(app, user_firstName)
+        background_tasks.add_task(send_email, user_email, subject, body)
+        subject, body = build_staff_manual_review_email(app, staff_firstName)
+        background_tasks.add_task(send_email, staff_email, subject, body)
 
 
     db.commit()
@@ -216,6 +235,7 @@ def second_submit(application_id: str, data: dict = Body(...), db: Session = Dep
 @router.put("/needManualReview/{application_id}")
 def need_manual_review(
     application_id: str,
+    background_tasks: BackgroundTasks,
     data: dict = Body(default={}),   # body optional for now
     db: Session = Depends(get_db)
 ):
@@ -225,6 +245,9 @@ def need_manual_review(
         .first()
     )
 
+    staff = db.query(User).filter(User.user_id == app.reviewer_id).first()
+    user = db.query(User).filter(User.user_id == app.user_id).first()
+
     curr = app.current_status
 
     if curr == "Under Review":
@@ -232,6 +255,11 @@ def need_manual_review(
         app.current_status = "Under Manual Review"
     
     app.is_open_user = False
+
+    subject, body = build_user_manual_review_email(app, user.first_name)
+    background_tasks.add_task(send_email, user.email, subject, body)
+    subject, body = build_staff_manual_review_email(app, staff.first_name)
+    background_tasks.add_task(send_email, staff.email, subject, body)
 
     db.commit()
     db.refresh(app)
@@ -282,7 +310,7 @@ def delete_application(application_id: str, db: Session = Depends(get_db)):
 
 # Reviewer approving the application
 @router.put("/approve/{application_id}")
-def approve_application(application_id: str, data: dict = Body(...), db: Session = Depends(get_db)):
+def approve_application(application_id: str, background_tasks: BackgroundTasks, data: dict = Body(...), db: Session = Depends(get_db)):
     app = (
         db.query(ApplicationForm)
         .filter(ApplicationForm.application_id == application_id)
@@ -308,6 +336,12 @@ def approve_application(application_id: str, data: dict = Body(...), db: Session
     db.commit()
     db.refresh(app)
 
+    user_email = data.get('email')
+    user_firstName = data.get('firstName')
+
+    subject, body = build_approved_email(app, user_firstName)
+    background_tasks.add_task(send_email, user_email, subject, body)
+
     return {
         "application_id": app.application_id,
         "status": app.current_status,
@@ -317,7 +351,7 @@ def approve_application(application_id: str, data: dict = Body(...), db: Session
 
 # Reviewer rejecting the application
 @router.put("/reject/{application_id}")
-def approve_application(application_id: str, data: dict = Body(...), db: Session = Depends(get_db)):
+def approve_application(application_id: str, background_tasks: BackgroundTasks, data: dict = Body(...), db: Session = Depends(get_db)):
     app = (
         db.query(ApplicationForm)
         .filter(ApplicationForm.application_id == application_id)
@@ -335,6 +369,12 @@ def approve_application(application_id: str, data: dict = Body(...), db: Session
     db.commit()
     db.refresh(app)
     app.is_open_user = False
+
+    user_email = data.get('email')
+    user_firstName = data.get('firstName')
+
+    subject, body = build_rejected_email(app, user_firstName)
+    background_tasks.add_task(send_email, user_email, subject, body)
     
     return {
         "application_id": app.application_id,
@@ -345,7 +385,7 @@ def approve_application(application_id: str, data: dict = Body(...), db: Session
 
 # Reviewer escalating the application back to user
 @router.put("/escalate/{application_id}")
-def approve_application(application_id: str, data: dict = Body(...), db: Session = Depends(get_db)):
+def approve_application(application_id: str, background_tasks: BackgroundTasks, data: dict = Body(...), db: Session = Depends(get_db)):
     app = (
         db.query(ApplicationForm)
         .filter(ApplicationForm.application_id == application_id)
@@ -365,6 +405,12 @@ def approve_application(application_id: str, data: dict = Body(...), db: Session
     db.commit()
     db.refresh(app)
 
+    user_email = data.get('email')
+    user_firstName = data.get('firstName')
+
+    subject, body = build_action_required_email(app, user_firstName)
+    background_tasks.add_task(send_email, user_email, subject, body)
+
     return {
         "application_id": app.application_id,
         "status": app.current_status,
@@ -374,7 +420,7 @@ def approve_application(application_id: str, data: dict = Body(...), db: Session
 
 # Reviewer escalating the application back to user
 @router.put("/withdraw/{application_id}")
-def approve_application(application_id: str, db: Session = Depends(get_db)):
+def approve_application(application_id: str, background_tasks: BackgroundTasks, db: Session = Depends(get_db)):
     app = (
         db.query(ApplicationForm)
         .filter(ApplicationForm.application_id == application_id)
@@ -389,8 +435,15 @@ def approve_application(application_id: str, db: Session = Depends(get_db)):
     app.is_open_user = False
     app.is_open_staff = False
 
+    user = db.query(User).filter(User.user_id == app.reviewer_id).first()
+    user_email = user.email
+    user_firstName = user.first_name
+
     db.commit()
     db.refresh(app)
+
+    subject, body = build_rejected_email(app, user_firstName)
+    background_tasks.add_task(send_email, user_email, subject, body)
 
     return {
         "application_id": app.application_id,
@@ -539,7 +592,6 @@ def mark_staff_one_open(staff_id: str, application_id: str, db: Session = Depend
 
     db.commit()
     return {"message": "ok"}
-
 
 @router.put("/markOneUserApplication/{user_id}/open/{application_id}")
 def mark_staff_one_open(user_id: str, application_id: str, db: Session = Depends(get_db)):
