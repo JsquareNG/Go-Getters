@@ -140,7 +140,6 @@ def second_save(application_id: str, data: dict = Body(...), db: Session = Depen
 # Submitting an application
 @router.post("/firstSubmit")
 def first_submit_application(
-    background_tasks: BackgroundTasks,
     data: dict = Body(...),
     db: Session = Depends(get_db),
 ):
