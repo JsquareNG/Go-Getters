@@ -39,3 +39,12 @@ app.add_middleware(
 app.include_router(application_router)
 app.include_router(application_document)
 app.include_router(user_router)      
+
+#add cors middleware
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:5173", "http://127.0.0.1:5173"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)

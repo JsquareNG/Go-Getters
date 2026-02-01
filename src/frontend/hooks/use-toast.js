@@ -126,7 +126,7 @@ function useToast() {
       const index = listeners.indexOf(setState);
       if (index > -1) listeners.splice(index, 1);
     };
-    // ✅ note: no [state] dependency here (prevents re-subscribing on every render)
+    // note: no [state] dependency here (prevents re-subscribing on every render)
   }, []);
 
   return {
