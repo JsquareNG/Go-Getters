@@ -10,20 +10,41 @@ import {
 import { Button } from "./button";
 import { Input } from "./input";
 import { Label } from "./label";
-import { Separator } from "./separator";
 import { Eye, EyeOff, Mail, Lock, AlertCircle } from "lucide-react";
 import { useToast } from "../../hooks/use-toast";
 
-// Mock database of registered SME users (replace with real API/database)
+// Mock database of registered users
+// TODO: replace with real API/database)
 const MOCK_USERS = [
-  { email: "admin@sme.com", password: "Password123!", companyName: "SME Corp" },
-  { email: "test@company.com", password: "Test1234!", companyName: "Test Company" },
+  {
+    email: "admin@sme.com",
+    password: "Password123!",
+    companyName: "SME Corp",
+    role: "sme",
+  },
+  {
+    email: "staff@dbs.com",
+    password: "Staff1234!",
+    role: "dbs",
+  },
+  {
+    email: "staff@yourapp.com",
+    password: "Staff1234!",
+    name: "Staff Account",
+    role: "dbs",
+  },
 ];
 
 // Validation helpers
 const validateEmail = (email) => {
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
   return emailRegex.test(email);
+};
+
+// Decide where to route based on role
+const getLandingRoute = (role) => {
+  if (role === "dbs") return "/staff-landingpage";
+  return "/landingpage"; // default for SME users
 };
 
 const LoginModal = ({ isOpen, onClose, onSwitchToRegister }) => {
@@ -64,10 +85,9 @@ const LoginModal = ({ isOpen, onClose, onSwitchToRegister }) => {
 
     setIsLoading(true);
 
-    // Simulate API call delay
     setTimeout(() => {
       const user = MOCK_USERS.find(
-        (u) => u.email.toLowerCase() === email.toLowerCase()
+        (u) => u.email.toLowerCase() === email.toLowerCase(),
       );
 
       if (!user) {
@@ -92,20 +112,32 @@ const LoginModal = ({ isOpen, onClose, onSwitchToRegister }) => {
         return;
       }
 
-      // ✅ Login successful → redirect to landing page
+      //Login successful
       setIsLoading(false);
       onClose();
 
+      // OPTIONAL: save user info (so you can check role elsewhere)
+      localStorage.setItem(
+        "authUser",
+        JSON.stringify({
+          email: user.email,
+          role: user.role,
+          companyName: user.companyName,
+          name: user.name,
+        }),
+      );
+
       toast({
         title: "Login Successful",
-        description: "Welcome back!",
+        description: `Welcome back${user.role === "staff" ? ", staff" : ""}!`,
       });
 
-      navigate("/landingpage");
+      // ✅ Role-based routing
+      navigate(getLandingRoute(user.role));
     }, 1200);
   };
 
-  // Handle Google authentication
+  // Handle Google authentication (mock)
   const handleGoogleAuth = () => {
     setIsLoading(true);
 
@@ -113,12 +145,17 @@ const LoginModal = ({ isOpen, onClose, onSwitchToRegister }) => {
       setIsLoading(false);
       onClose();
 
+      // In real life, Google sign-in response should tell you role from your backend.
+      // For now, default to SME:
+      const googleUser = { email: "googleuser@example.com", role: "sme" };
+      localStorage.setItem("authUser", JSON.stringify(googleUser));
+
       toast({
         title: "Login Successful",
         description: "Signed in with Google.",
       });
 
-      navigate("/landingpage");
+      navigate(getLandingRoute(googleUser.role));
     }, 1000);
   };
 
@@ -151,7 +188,7 @@ const LoginModal = ({ isOpen, onClose, onSwitchToRegister }) => {
             Welcome Back
           </DialogTitle>
           <DialogDescription className="text-center text-gray-600">
-            Sign in to your SME account
+            Sign in to your account
           </DialogDescription>
         </DialogHeader>
 
@@ -166,7 +203,9 @@ const LoginModal = ({ isOpen, onClose, onSwitchToRegister }) => {
                 type="email"
                 placeholder="your@company.com"
                 className={`pl-10 h-12 ${
-                  errors.email ? "border-red-500 focus-visible:ring-red-500" : ""
+                  errors.email
+                    ? "border-red-500 focus-visible:ring-red-500"
+                    : ""
                 }`}
                 value={email}
                 onChange={(e) => {
@@ -182,18 +221,6 @@ const LoginModal = ({ isOpen, onClose, onSwitchToRegister }) => {
           <div className="space-y-2">
             <div className="flex justify-between items-center">
               <Label htmlFor="modal-password">Password</Label>
-              <button
-                type="button"
-                className="text-xs text-red-500 hover:underline"
-                onClick={() =>
-                  toast({
-                    title: "Forgot Password",
-                    description: "Password reset coming soon.",
-                  })
-                }
-              >
-                Forgot password?
-              </button>
             </div>
 
             <div className="relative">
@@ -210,8 +237,7 @@ const LoginModal = ({ isOpen, onClose, onSwitchToRegister }) => {
                 value={password}
                 onChange={(e) => {
                   setPassword(e.target.value);
-                  if (errors.password)
-                    setErrors({ ...errors, password: "" });
+                  if (errors.password) setErrors({ ...errors, password: "" });
                 }}
               />
               <button
@@ -227,6 +253,19 @@ const LoginModal = ({ isOpen, onClose, onSwitchToRegister }) => {
               </button>
             </div>
             <ErrorMessage message={errors.password} />
+
+            <button
+              type="button"
+              className="text-xs text-red-500 hover:underline"
+              onClick={() =>
+                toast({
+                  title: "Forgot Password",
+                  description: "Password reset coming soon.",
+                })
+              }
+            >
+              Forgot password?
+            </button>
           </div>
 
           {/* Sign In */}
@@ -238,25 +277,6 @@ const LoginModal = ({ isOpen, onClose, onSwitchToRegister }) => {
             {isLoading ? "Signing in..." : "Sign In"}
           </Button>
         </form>
-
-        {/* OR Divider */}
-        <div className="relative my-6">
-          <Separator />
-          <span className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 bg-white px-4 text-sm font-medium text-gray-500">
-            OR
-          </span>
-        </div>
-
-        {/* Google Login */}
-        <Button
-          type="button"
-          variant="outline"
-          className="w-full h-12 text-base"
-          onClick={handleGoogleAuth}
-          disabled={isLoading}
-        >
-          Continue with Google
-        </Button>
       </DialogContent>
     </Dialog>
   );
