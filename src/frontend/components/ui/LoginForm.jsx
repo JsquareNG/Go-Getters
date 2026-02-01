@@ -4,24 +4,25 @@ import { Input } from "./input";
 import { Label } from "./label";
 import { Separator } from "./separator";
 import { Eye, EyeOff, Mail, Lock, AlertCircle } from "lucide-react";
-// import { useToast } from "../../hooks/use-toast";
-import toast, { Toaster } from 'react-hot-toast';
+import { useToast } from "../../hooks/use-toast";
 import { useNavigate } from "react-router-dom";
 import { loginUser } from "../../api/usersApi";
 
-// Mock database of registered SME users (replace with real API/database)
-// const MOCK_USERS = [
-//   { email: "admin@sme.com", password: "Password123!", companyName: "SME Corp" },
-//   {
-//     email: "test@company.com",
-//     password: "Test1234!",
-//     companyName: "Test Company",
-//   },
-// ];
+/*
+TO TEST WITH DATA:
+- email: sme@gmail.com
+- password: Sme1234!
+- role: SME
+
+- email:  staff@gmail.com
+- password: Staff1234!
+- role: STAFF
+*/ 
+
 
 const LoginForm = ({ onSwitchToRegister }) => {
   const navigate = useNavigate();
-  // const { toast } = useToast();
+  const { toast } = useToast();
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [formData, setFormData] = useState({
@@ -62,12 +63,14 @@ const LoginForm = ({ onSwitchToRegister }) => {
 
     try {
       const data = await loginUser(formData.email, formData.password);
+      console.log("Login successful:", data);
 
       toast({
         title: "Login successful",
         description: `Welcome back, ${data.first_name}!`,
       });
-      //TODO: to be changed to state management later
+
+      // TODO: to be changed to state management later
       localStorage.setItem(
         "authUser",
         JSON.stringify({
@@ -75,19 +78,21 @@ const LoginForm = ({ onSwitchToRegister }) => {
           email: data.email,
           first_name: data.first_name,
           last_name: data.last_name,
-          role: data.role, // sme or staff
+          role: data.role, // SME or STAFF
         }),
       );
 
       // Navigate based on role
-      if (role === "sme") {
+      console.log("User role:", data.role);
+      if (data.role === "SME") {
         navigate("/landingpage");
-      } else if (role === "staff") {
+      } else if (data.role === "STAFF") {
         navigate("/staff-landingpage");
       } else {
         navigate("/"); // fallback
       }
     } catch (err) {
+      console.error("Login failed:", err);
       const msg =
         err?.response?.data?.detail ||
         err?.response?.data?.message ||

@@ -44,7 +44,7 @@ ReactDOM.createRoot(document.getElementById("root")).render(
         <Route
           path="/landingpage"
           element={
-            <RequireRole role="sme">
+            <RequireRole role="SME">
               <LandingLayout>
                 <LandingPage />
               </LandingLayout>
@@ -55,7 +55,7 @@ ReactDOM.createRoot(document.getElementById("root")).render(
         <Route
           path="/landingpage/newapplication"
           element={
-            <RequireRole role="sme">
+            <RequireRole role="SME">
               <LandingLayout>
                 <NewApplication />
               </LandingLayout>
@@ -66,7 +66,7 @@ ReactDOM.createRoot(document.getElementById("root")).render(
         <Route
           path="/landingpage/:id"
           element={
-            <RequireRole role="sme">
+            <RequireRole role="SME">
               <LandingLayout>
                 <ApplicationDetail />
               </LandingLayout>
@@ -77,7 +77,7 @@ ReactDOM.createRoot(document.getElementById("root")).render(
         <Route
           path="/accountspage"
           element={
-            <RequireRole role="sme">
+            <RequireRole role="SME">
               <LandingLayout>
                 <AccountsPage />
               </LandingLayout>
@@ -89,7 +89,7 @@ ReactDOM.createRoot(document.getElementById("root")).render(
         <Route
           path="/staff-landingpage"
           element={
-            <RequireRole role="dbs">
+            <RequireRole role="STAFF">
               <LandingLayout>
                 <StaffLandingPage />
               </LandingLayout>
@@ -100,7 +100,7 @@ ReactDOM.createRoot(document.getElementById("root")).render(
         <Route
           path="/staff-landingpage/:id"
           element={
-            <RequireRole role="dbs">
+            <RequireRole role="STAFF">
               <LandingLayout>
                 <ApplicationReviewDetail />
               </LandingLayout>
@@ -111,7 +111,7 @@ ReactDOM.createRoot(document.getElementById("root")).render(
         <Route
           path="/dashboard"
           element={
-            <RequireRole role="dbs">
+            <RequireRole role="STAFF">
               <LandingLayout>
                 <Dashboard />
               </LandingLayout>

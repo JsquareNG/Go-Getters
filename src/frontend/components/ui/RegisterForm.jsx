@@ -5,11 +5,11 @@ import { Label } from "./label";
 import { Separator } from "./separator";
 import { Eye, EyeOff, Mail, Lock, AlertCircle, Phone } from "lucide-react";
 import { useToast } from "../../hooks/use-toast";
-import toast, { Toaster } from 'react-hot-toast';
+// import toast, { Toaster } from 'react-hot-toast';
 import { registerSME } from "../../api/usersApi";
 
 const RegisterForm = ({ onSwitchToLogin }) => {
-  // const { toast } = useToast();
+  const { toast } = useToast();
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
