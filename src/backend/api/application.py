@@ -11,8 +11,7 @@ from backend.models.documents import Document
 from backend.services.supabase_client import supabase_admin, BUCKET
 from backend.models.user import User
 from backend.api.notification import *
-from backend.services.email import send_email
-
+from backend.api.resend import send_email
 
 router = APIRouter(prefix="/applications", tags=["applications"])
 
@@ -139,34 +138,40 @@ def second_save(application_id: str, data: dict = Body(...), db: Session = Depen
 
 # Submitting an application
 @router.post("/firstSubmit")
-def first_submit_application(
-    data: dict = Body(...),
-    db: Session = Depends(get_db),
-):
+def first_submit_application(data: dict = Body(...), db: Session = Depends(get_db)):
     new_app = ApplicationForm(
         business_country=data["business_country"],
         business_name=data["business_name"],
         user_id=data["user_id"],
-        # ✅ your requested statuses
-        previous_status=None,               # blank in DB (NULL)
-        current_status="Under Review",      # set current status
+        previous_status=None,
+        current_status="Under Review",
     )
-    
+
     db.add(new_app)
     db.commit()
     db.refresh(new_app)
 
-    user_email = data.get('email')
-    user_firstName = data.get('firstName')
+    user_email = data.get("email")
+    user_firstName = data.get("firstName")
 
     subject, body = build_application_submitted_email(new_app, user_firstName)
-    send_email(user_email, subject, body)
 
-    # background_tasks.add_task(send_email, user_email, subject, body)
+    try:
+        send_email(user_email, subject, body)
+    except Exception as e:
+        # Don’t crash the API just because email failed
+        print("❌ Email failed:", str(e))
+        return {
+            "application_id": new_app.application_id,
+            "current_status": new_app.current_status,
+            "email_sent": False,
+            "email_error": str(e),
+        }
 
     return {
         "application_id": new_app.application_id,
         "current_status": new_app.current_status,
+        "email_sent": True,
     }
 
 @router.put("/secondSubmit/{application_id}")
