@@ -139,7 +139,11 @@ def second_save(application_id: str, data: dict = Body(...), db: Session = Depen
 
 # Submitting an application
 @router.post("/firstSubmit")
-def first_submit_application(data: dict = Body(...), background_tasks: BackgroundTasks = None , db: Session = Depends(get_db)):
+def first_submit_application(
+    background_tasks: BackgroundTasks,
+    data: dict = Body(...),
+    db: Session = Depends(get_db),
+):
     new_app = ApplicationForm(
         business_country=data["business_country"],
         business_name=data["business_name"],
@@ -154,8 +158,9 @@ def first_submit_application(data: dict = Body(...), background_tasks: Backgroun
     db.refresh(new_app)
 
     user_email = data.get('email')
+    user_firstName = data.get('firstName')
 
-    subject, body = build_application_submitted_email(app, user)
+    subject, body = build_application_submitted_email(new_app, user_firstName)
     background_tasks.add_task(send_email, user_email, subject, body)
 
     return {

@@ -1,5 +1,5 @@
 from backend.models.application import ApplicationForm
-# from backend.models.application import User
+from backend.models.user import User
 
 WEBSITE_URL = "https://placeholder-bank.com"
 INTERNAL_URL = "https://internal-placeholder-bank.com"
@@ -44,7 +44,7 @@ SME Onboarding Team
 """
     return subject, body
 
-def build_draft_reminder_email(app: Application, user: User):
+def build_draft_reminder_email(app: ApplicationForm, user: User):
     subject = "Reminder: Incomplete Application"
 
     body = f"""
@@ -65,7 +65,26 @@ Onboarding Team
 
     return subject, body
 
-def build_approved_email(app: Application, user: User):
+def build_application_submitted_email(app: ApplicationForm, firstName: str):
+    subject = "Application Submitted Successfully"
+
+    body = f"""
+        Dear {firstName},
+
+        Your application to open a business account for "{app.business_name}" has been successfully submitted.
+
+        Application ID: {app.application_id}
+        Current Status: Under Review
+
+        Track your application here:
+        {WEBSITE_URL}/applications/{app.application_id}
+
+        Best regards,
+        Onboarding Team
+        """
+    return subject, body
+
+def build_approved_email(app: ApplicationForm, user: User):
     subject = "Application Approved"
 
     body = f"""
@@ -84,7 +103,7 @@ Onboarding Team
 
     return subject, body
 
-def build_rejected_email(app: Application, user: User):
+def build_rejected_email(app: ApplicationForm, user: User):
     subject = "Application Unsuccessful"
 
     body = f"""
@@ -106,7 +125,7 @@ Onboarding Team
 
     return subject, body
 
-def build_staff_manual_review_email(app: Application, staff: User):
+def build_staff_manual_review_email(app: ApplicationForm, staff: User):
     subject = f"Manual Review Required: Application {app.application_id}"
 
     body = f"""
@@ -126,7 +145,7 @@ Onboarding System
 
     return subject, body
 
-def build_user_manual_review_email(app: Application, user: User):
+def build_user_manual_review_email(app: ApplicationForm, user: User):
     subject = "Application Under Manual Review"
 
     body = f"""
@@ -144,7 +163,7 @@ Onboarding Team
 
     return subject, body
 
-def build_action_required_email(app: Application, user: User):
+def build_action_required_email(app: ApplicationForm, user: User):
     subject = "Action Required: Application Update Needed"
 
     body = f"""
