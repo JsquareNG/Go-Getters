@@ -30,6 +30,7 @@ class ApplicationForm(Base):
     reason = Column(String(500), nullable=True)
     is_open_user = Column(Boolean,nullable=False, server_default=text("false"))
     is_open_staff = Column(Boolean,nullable=False, server_default=text("false"))
+    has_sent = Column(Boolean, nullable=False, default=False, server_default="false")
 
     # Store as SGT-naive timestamp (TIMESTAMP WITHOUT TIME ZONE)
     last_edited = Column(
