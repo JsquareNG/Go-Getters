@@ -32,66 +32,32 @@ export const COUNTRIES = {
       },
     },
   },
-  HK: {
-    name: "Hong Kong",
-    code: "HK",
-    currency: "HKD",
+
+  ID: {
+    name: "Indonesia",
+    code: "ID",
+    currency: "IDR",
     fields: {
-      businessRegistrationNumber: {
-        label: "Business Registration Certificate Number",
+      npwp: {
+        label: "NPWP (Tax Identification Number)",
         required: true,
-        placeholder: "e.g., 123456",
-        validation: (value) => /^\d{6}$/.test(value),
-        error: "Invalid BR Number (6 digits)",
+        placeholder: "e.g., 12.345.678.9-012.345",
+        validation: (value) => /^\d{2}\.\d{3}\.\d{3}\.\d-\d{3}\.\d{3}$/.test(value),
+        error: "Invalid NPWP format (XX.XXX.XXX.X-XXX.XXX)",
       },
       companyRegistrationNumber: {
-        label: "Company Registration Number",
+        label: "Company Registration Number (NIB)",
         required: true,
-        placeholder: "e.g., 1234567",
-        validation: (value) => /^\d{7}$/.test(value),
-        error: "Invalid CR Number (7 digits)",
+        placeholder: "e.g., 0123456789012345",
+        validation: (value) => /^\d{16}$/.test(value),
+        error: "Invalid NIB format (16 digits)",
       },
-    },
-  },
-  US: {
-    name: "United States",
-    code: "US",
-    currency: "USD",
-    fields: {
-      ein: {
-        label: "Employer Identification Number (EIN)",
-        required: true,
-        placeholder: "e.g., 12-3456789",
-        validation: (value) => /^\d{2}-\d{7}$/.test(value),
-        error: "Invalid EIN format (XX-XXXXXXX)",
-      },
-      ssn: {
-        label: "Social Security Number",
+      siupNumber: {
+        label: "SIUP Number",
         required: false,
-        placeholder: "e.g., 123-45-6789",
-        validation: (value) => !value || /^\d{3}-\d{2}-\d{4}$/.test(value),
-        error: "Invalid SSN format (XXX-XX-XXXX)",
-      },
-    },
-  },
-  MY: {
-    name: "Malaysia",
-    code: "MY",
-    currency: "MYR",
-    fields: {
-      registrationNumber: {
-        label: "SSM Registration Number",
-        required: true,
-        placeholder: "e.g., 123456-12-3456",
-        validation: (value) => /^\d{6}-\d{2}-\d{4}$/.test(value),
-        error: "Invalid Registration format (XXXXXX-XX-XXXX)",
-      },
-      taxIdentificationNumber: {
-        label: "Tax Identification Number",
-        required: true,
-        placeholder: "e.g., 12-3456-78901-000",
-        validation: (value) => /^\d{2}-\d{4}-\d{5}-\d{3}$/.test(value),
-        error: "Invalid TIN format",
+        placeholder: "e.g., 123/XYZ/2024",
+        validation: (value) => !value || /^\d{1,4}\/[A-Z]+\/\d{4}$/.test(value),
+        error: "Invalid SIUP format (e.g., 123/XYZ/2024)",
       },
     },
   },
