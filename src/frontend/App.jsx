@@ -14,11 +14,16 @@ import Dashboard from "./pages/Dashboard";
 
 import { Toaster } from "./components/ui/toaster";
 
+import { useSelector } from "react-redux";
+import { selectUser } from "./store/authSlice";
+import { Navigate } from "react-router-dom";
+
+
 // Simple route guard
 const RequireRole = ({ role, children }) => {
-  const authUser = JSON.parse(localStorage.getItem("authUser") || "null");
-  if (!authUser) return <Navigate to="/" replace />;
-  if (authUser.role !== role) return <Navigate to="/" replace />;
+  const user = useSelector(selectUser);
+  if (!user) return <Navigate to="/" replace />;
+  if (user.role !== role) return <Navigate to="/" replace />;
   return children;
 };
 
