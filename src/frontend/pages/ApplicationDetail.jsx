@@ -37,7 +37,7 @@ const stepsByStatus = {
     { label: "Review & Submit", completed: true, current: false },
     { label: "Bank Review", completed: false, current: true },
   ],
-  "In Review": [
+  "Under Review": [
     { label: "Company Information", completed: true, current: false },
     { label: "Business Documentation", completed: true, current: false },
     { label: "Authorized Signatories", completed: true, current: false },
@@ -218,7 +218,7 @@ export default function ApplicationDetail() {
 
                         {step.current && (
                           <p className="text-sm text-slate-600 mt-0.5">
-                            {application.status === "In Review" ||
+                            {application.status === "Under Review" ||
                             application.status === "Submitted"
                               ? "Your application is being reviewed by our team"
                               : "Currently in progress"}
@@ -232,7 +232,7 @@ export default function ApplicationDetail() {
             </Card>
 
             {/* Submitted Information */}
-            {["Submitted", "In Review", "Approved", "Requires Action"].includes(
+            {["Submitted", "Under Review", "Approved", "Requires Action"].includes(
               application.status
             ) && (
               <Card>

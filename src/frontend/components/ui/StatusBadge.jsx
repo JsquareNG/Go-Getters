@@ -13,7 +13,7 @@ const statusConfig = {
     className: "bg-violet-500/10 text-violet-500",
     dotClassName: "bg-violet-500",
   },
-  "In Review": {
+  "Under Review": {
     className: "bg-amber-500/10 text-amber-500",
     dotClassName: "bg-amber-500",
   },
