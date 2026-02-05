@@ -13,6 +13,7 @@ import ApplicationDetail from "./pages/ApplicationDetail";
 import StaffLandingPage from "./pages/StaffLandingPage";
 import ApplicationReviewDetail from "./pages/ApplicationReviewDetail";
 import Dashboard from "./pages/Dashboard";
+import { Toaster } from "./components/ui/toaster";
 
 // Simple route guard
 const RequireRole = ({ role, children }) => {
@@ -36,11 +37,14 @@ ReactDOM.createRoot(document.getElementById("root")).render(
           }
         />
 
+        {/* Register */}
+        <Route path="/register" element={<Home />} />
+
         {/* SME routes */}
         <Route
           path="/landingpage"
           element={
-            <RequireRole role="sme">
+            <RequireRole role="SME">
               <LandingLayout>
                 <LandingPage />
               </LandingLayout>
@@ -51,7 +55,7 @@ ReactDOM.createRoot(document.getElementById("root")).render(
         <Route
           path="/landingpage/newapplication"
           element={
-            <RequireRole role="sme">
+            <RequireRole role="SME">
               <LandingLayout>
                 <NewApplication />
               </LandingLayout>
@@ -62,7 +66,7 @@ ReactDOM.createRoot(document.getElementById("root")).render(
         <Route
           path="/landingpage/:id"
           element={
-            <RequireRole role="sme">
+            <RequireRole role="SME">
               <LandingLayout>
                 <ApplicationDetail />
               </LandingLayout>
@@ -73,7 +77,7 @@ ReactDOM.createRoot(document.getElementById("root")).render(
         <Route
           path="/accountspage"
           element={
-            <RequireRole role="sme">
+            <RequireRole role="SME">
               <LandingLayout>
                 <AccountsPage />
               </LandingLayout>
@@ -85,7 +89,7 @@ ReactDOM.createRoot(document.getElementById("root")).render(
         <Route
           path="/staff-landingpage"
           element={
-            <RequireRole role="dbs">
+            <RequireRole role="STAFF">
               <LandingLayout>
                 <StaffLandingPage />
               </LandingLayout>
@@ -96,7 +100,7 @@ ReactDOM.createRoot(document.getElementById("root")).render(
         <Route
           path="/staff-landingpage/:id"
           element={
-            <RequireRole role="dbs">
+            <RequireRole role="STAFF">
               <LandingLayout>
                 <ApplicationReviewDetail />
               </LandingLayout>
@@ -107,14 +111,31 @@ ReactDOM.createRoot(document.getElementById("root")).render(
         <Route
           path="/dashboard"
           element={
-            <RequireRole role="dbs">
+            <RequireRole role="STAFF">
               <LandingLayout>
                 <Dashboard />
               </LandingLayout>
             </RequireRole>
           }
         />
+         <Route
+          path="/testdocument"
+          element={
+            <HomeLayout>
+              <TestDocument />
+            </HomeLayout>
+          }
+        />
+        <Route
+          path="/OneDocument"
+          element={
+            <HomeLayout>
+              <OneDocument />
+            </HomeLayout>
+          }
+        />
       </Routes>
     </BrowserRouter>
-  </React.StrictMode>
+    <Toaster />
+  </React.StrictMode>,
 );
