@@ -20,28 +20,51 @@ import { Avatar, AvatarFallback } from "./avatar";
 import { Button } from "./button";
 import dbslogo from "../../assets/dbslogo.png";
 
+import { useDispatch } from "react-redux";
+import { useSelector } from "react-redux";
+import { selectUser , logout } from "../../store/authSlice";
+
+
 const Navbar = () => {
   const navigate = useNavigate();
+  const dispatch = useDispatch();
+  
+  const user = useSelector(selectUser);
+  console.log("Navbar user:", user);
+  const userRole = user.role; // "STAFF" | "SME" | undefined
 
-  // ✅ Read role from localStorage (set in LoginModal.jsx)
-  const authUser = JSON.parse(localStorage.getItem("authUser") || "null");
-  const userRole = authUser?.role; // "staff" | "sme" | undefined
-
-  // ✅ Add roles per nav item
+  // Add roles per nav item
   const navItems = [
-    { icon: FileSearch, label: "Staff Landing", to: "/staff-landingpage", roles: ["staff"] },
-    { icon: LayoutDashboard, label: "Dashboard", to: "/dashboard", roles: ["staff"] },
+    {
+      icon: FileSearch,
+      label: "Staff Landing",
+      to: "/staff-landingpage",
+      roles: ["STAFF"],
+    },
+    {
+      icon: LayoutDashboard,
+      label: "Dashboard",
+      to: "/dashboard",
+      roles: ["STAFF"],
+    },
 
-    { icon: LayoutGrid, label: "Applications", to: "/landingpage", roles: ["sme"] },
-    { icon: Wallet, label: "Accounts", to: "/accountspage", roles: ["sme"] },
+    {
+      icon: LayoutGrid,
+      label: "Applications",
+      to: "/landingpage",
+      roles: ["SME"],
+    },
+    { icon: Wallet, label: "Accounts", to: "/accountspage", roles: ["SME"] },
   ];
 
-  // ✅ Filter items by role
-  const visibleNavItems = navItems.filter((item) => item.roles.includes(userRole));
+  // Filter items by role
+  const visibleNavItems = navItems.filter((item) =>
+    item.roles.includes(userRole),
+  );
 
   const handleLogout = () => {
-    // Recommended: clear auth info so navbar updates immediately after logout
-    localStorage.removeItem("authUser");
+    // localStorage.removeItem("authUser");
+    dispatch(logout());
     navigate("/");
   };
 

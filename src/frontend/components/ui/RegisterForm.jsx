@@ -5,19 +5,20 @@ import { Label } from "./label";
 import { Separator } from "./separator";
 import { Eye, EyeOff, Mail, Lock, AlertCircle, Phone } from "lucide-react";
 import { useToast } from "../../hooks/use-toast";
-// import toast, { Toaster } from 'react-hot-toast';
-import { registerSME } from "../../api/usersApi";
+
+import { registerApi } from "../../api/authApi";
 
 const RegisterForm = ({ onSwitchToLogin }) => {
   const { toast } = useToast();
+
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+
   const [formData, setFormData] = useState({
     firstName: "",
     lastName: "",
     email: "",
-    // phone: "",
     password: "",
     confirmPassword: "",
   });
@@ -73,25 +74,17 @@ const RegisterForm = ({ onSwitchToLogin }) => {
     setIsLoading(true);
 
     try {
-      await registerSME({
+      const data = await registerApi({
         first_name: formData.firstName.trim(),
         last_name: formData.lastName.trim(),
         email: formData.email.trim(),
         password: formData.password,
       });
+      console.log(data)
 
       toast({
-        title: "Registration successful",
+        title: data.message,
         description: "Your account has been created! Please log in.",
-      });
-
-      // Reset form
-      setFormData({
-        firstName: "",
-        lastName: "",
-        email: "",
-        password: "",
-        confirmPassword: "",
       });
 
       if (onSwitchToLogin) onSwitchToLogin();
