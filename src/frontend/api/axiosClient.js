@@ -3,7 +3,7 @@ import { store } from "../store/store";
 import { logout } from "../store/authSlice";
 
 const axiosClient = axios.create({
-  baseURL: "https://go-getters-onboarding.onrender.com", // FastAPI URL
+  baseURL: "http://127.0.0.1:8000", // FastAPI URL
   headers: {
     "Content-Type": "application/json",
   },
