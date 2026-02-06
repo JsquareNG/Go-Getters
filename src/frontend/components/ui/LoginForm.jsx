@@ -8,6 +8,10 @@ import { useToast } from "../../hooks/use-toast";
 import { useNavigate } from "react-router-dom";
 import { loginUser } from "../../api/usersApi";
 
+import { useDispatch } from "react-redux";
+import { loginSuccess } from "../../store/authSlice";
+import { loginApi } from "../../api/authApi";
+
 /*
 TO TEST WITH DATA:
 - email: sme@gmail.com
@@ -17,12 +21,13 @@ TO TEST WITH DATA:
 - email:  staff@gmail.com
 - password: Staff1234!
 - role: STAFF
-*/ 
-
+*/
 
 const LoginForm = ({ onSwitchToRegister }) => {
   const navigate = useNavigate();
+  const dispatch = useDispatch();
   const { toast } = useToast();
+
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [formData, setFormData] = useState({
@@ -62,25 +67,29 @@ const LoginForm = ({ onSwitchToRegister }) => {
     setIsLoading(true);
 
     try {
-      const data = await loginUser(formData.email, formData.password);
-      console.log("Login successful:", data);
+      const data = await loginApi(formData.email, formData.password);
 
-      toast({
-        title: "Login successful",
-        description: `Welcome back, ${data.first_name}!`,
-      });
+      const token = data.access_token;
+      const user = data.user ?? {
+        user_id: data.user_id,
+        email: data.email,
+        first_name: data.first_name,
+        last_name: data.last_name,
+        role: data.role,
+      };
 
-      // TODO: to be changed to state management later
-      localStorage.setItem(
-        "authUser",
-        JSON.stringify({
-          user_id: data.user_id,
-          email: data.email,
-          first_name: data.first_name,
-          last_name: data.last_name,
-          role: data.role, // SME or STAFF
+      // store in redux (persist will save it)
+      dispatch(
+        loginSuccess({
+          token,
+          user,
         }),
       );
+
+      toast({
+        title: data.message,
+        description: `Welcome back, ${data.first_name}!`,
+      });
 
       // Navigate based on role
       console.log("User role:", data.role);
@@ -93,6 +102,7 @@ const LoginForm = ({ onSwitchToRegister }) => {
       }
     } catch (err) {
       console.error("Login failed:", err);
+
       const msg =
         err?.response?.data?.detail ||
         err?.response?.data?.message ||
@@ -105,7 +115,7 @@ const LoginForm = ({ onSwitchToRegister }) => {
   };
 
   return (
-    <div className="space-y-4">
+    <form onSubmit={handleSubmit} className="space-y-4">
       <div>
         <Label
           htmlFor="email"
@@ -181,7 +191,7 @@ const LoginForm = ({ onSwitchToRegister }) => {
         className="w-full"
         size="lg"
         disabled={isLoading}
-        onClick={handleSubmit}
+        // onClick={handleSubmit}
       >
         {isLoading ? "Logging In..." : "Log In"}
       </Button>
@@ -198,7 +208,7 @@ const LoginForm = ({ onSwitchToRegister }) => {
           Register
         </button>
       </p>
-    </div>
+    </form>
   );
 };
 
