@@ -45,7 +45,8 @@ const ApplicationReviewDetail = () => {
   const { id } = useParams(); // ✅ removed TS generic
   const navigate = useNavigate();
 
-  const application = mockApplicationsReview.find((app) => app.id === id);
+  const application = mockApplicationsReview.find((app) => String(app.id) === String(id));
+
 
   const [showApproveDialog, setShowApproveDialog] = useState(false);
   const [showRejectDialog, setShowRejectDialog] = useState(false);

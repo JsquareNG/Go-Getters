@@ -1,7 +1,9 @@
 from fastapi import APIRouter, Depends, Body, HTTPException, status
 from sqlalchemy.orm import Session
 from typing import List
-import bcrypt  # pip install bcrypt
+import bcrypt  
+from backend.auth.jwt import create_access_token
+
 
 from backend.database import SessionLocal
 from backend.models.user import User  # Adjust path if needed
@@ -49,14 +51,22 @@ def login(data: dict = Body(...), db: Session = Depends(get_db)):
     if not user or not verify_password(data["password"], user.password):
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Invalid credentials")
     
-    return {
+    token = create_access_token({
         "user_id": user.user_id,
+        "role": user.user_role
+    })
+
+    return {
+        "message": "Login successful",
+        "access_token": token,
+        "token_type": "bearer",
+        "user_id": user.user_id,
+        "role": user.user_role,
         "first_name": user.first_name,
         "last_name": user.last_name,
         "email": user.email,
-        "role": user.user_role,
-        "message": "Login successful"
     }
+    
 
 @router.get("/all-staff")
 def get_all_staff(db: Session = Depends(get_db)):
