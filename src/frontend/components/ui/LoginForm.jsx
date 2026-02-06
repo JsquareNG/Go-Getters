@@ -91,7 +91,7 @@ const LoginForm = ({ onSwitchToRegister }) => {
       });
 
       // Navigate based on role
-      console.log("User role:", data.role);
+      // console.log("User role:", data.role);
       if (data.role === "SME") {
         navigate("/landingpage");
       } else if (data.role === "STAFF") {

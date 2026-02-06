@@ -10,6 +10,11 @@ import Step3ComplianceDocumentation from "./steps/Step3ComplianceDocumentation";
 import Step4ReviewSubmit from "./steps/Step4ReviewSubmit";
 import { useSMEApplicationForm } from "./hooks/useSMEApplicationForm";
 import { useToast } from "../../../hooks/use-toast";
+import { useNavigate } from "react-router-dom";
+
+import { useSelector } from "react-redux";
+import { selectUser } from "../../../store/authSlice";
+import { submitApplicationApi } from "../../../api/applicationApi";
 
 /**
  * SMEApplicationForm - Main Component
@@ -28,10 +33,12 @@ import { useToast } from "../../../hooks/use-toast";
  */
 const SMEApplicationForm = ({
   onSubmitSuccess,
-  apiEndpoint = "/api/sme/application",
 }) => {
   const { toast } = useToast();
+  const navigate = useNavigate();
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+   const user = useSelector(selectUser);
 
   const {
     state,
@@ -169,29 +176,35 @@ const SMEApplicationForm = ({
       }
 
       // Submit to API
-      const response = await fetch(apiEndpoint, {
-        method: "POST",
-        body: formData,
-      });
+      const response = await submitApplicationApi({business_country: state.data.country, business_name: state.data.companyName,user_id: user.user_id, business_type: state.data.businessType, email: user.email, firstName: user.firstName});
+      console.log("Submission response:", response);
 
-      if (!response.ok) {
-        throw new Error("Failed to submit application");
-      }
+      // const response = await fetch(apiEndpoint, {
+      //   method: "POST",
+      //   body: formData,
+      // });
 
-      const result = await response.json();
+      // if (!response.ok) {
+      //   throw new Error("Failed to submit application");
+      // }
+
+      // const result = await response.json();
 
       toast({
         title: "Success!",
         description:
           "Your application has been submitted successfully. We'll review it shortly.",
       });
+      
+      navigate("/landingpage");
 
       // Reset form
-      reset();
+      // reset();
 
       // Call success callback
       if (onSubmitSuccess) {
-        onSubmitSuccess(result);
+        // onSubmitSuccess(result);
+        onSubmitSuccess(response);
       }
     } catch (error) {
       console.error("Submission error:", error);
@@ -373,7 +386,7 @@ const SMEApplicationForm = ({
           <p>
             Need help?{" "}
             <a
-              href="mailto:support@example.com"
+              href="gogetters.support@example.com"
               className="text-red-500 hover:underline"
             >
               Contact Support
