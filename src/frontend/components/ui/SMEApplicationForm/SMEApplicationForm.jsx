@@ -3,6 +3,7 @@ import { Button } from "../button";
 import { Card, CardContent } from "../card";
 import { Loader } from "lucide-react";
 import FormStepper from "./components/FormStepper";
+import Step0Brief from "./steps/Step0Brief";
 import Step1BasicInformation from "./steps/Step1BasicInformation";
 import Step2FinancialDetails from "./steps/Step2FinancialDetails";
 import Step3ComplianceDocumentation from "./steps/Step3ComplianceDocumentation";
@@ -41,6 +42,7 @@ const SMEApplicationForm = ({
     setError,
     nextStep,
     prevStep,
+    goToStep,
     reset,
     validateCurrentStep,
     countrySpecificFieldsConfig,
@@ -48,6 +50,7 @@ const SMEApplicationForm = ({
   } = useSMEApplicationForm();
 
   const STEP_LABELS = [
+    "To Get Started",
     "Basic Information",
     "Financial Details",
     "Compliance",
@@ -64,31 +67,57 @@ const SMEApplicationForm = ({
     }
   };
 
-  // Proceed to next step after validation
+  // Proceed to next step (validation commented out for mock)
   const handleNextStep = () => {
-    if (validateCurrentStep()) {
-      nextStep();
-      // Scroll to top
-      window.scrollTo({ top: 0, behavior: "smooth" });
-    } else {
+    // TODO: Uncomment validation when ready for production
+    // if (validateCurrentStep()) {
+    //   nextStep();
+    //   // Scroll to top
+    //   window.scrollTo({ top: 0, behavior: "smooth" });
+    // } else {
+    //   toast({
+    //     title: "Validation Error",
+    //     description: "Please fix the errors above before proceeding.",
+    //     variant: "destructive",
+    //   });
+    // }
+
+    // Mock mode: skip validation
+    nextStep();
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
+  // Handle save draft
+  const handleSaveDraft = async () => {
+    setIsSubmitting(true);
+    try {
       toast({
-        title: "Validation Error",
-        description: "Please fix the errors above before proceeding.",
+        title: "Draft Saved",
+        description: "Your application draft has been saved successfully.",
+      });
+    } catch (error) {
+      console.error("Draft save error:", error);
+      toast({
+        title: "Error",
+        description: "Failed to save draft. Please try again.",
         variant: "destructive",
       });
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
   // Handle form submission
   const handleSubmit = async () => {
-    if (!validateCurrentStep()) {
-      toast({
-        title: "Validation Error",
-        description: "Please review all information before submitting.",
-        variant: "destructive",
-      });
-      return;
-    }
+    // TODO: Uncomment validation when ready for production
+    // if (!validateCurrentStep()) {
+    //   toast({
+    //     title: "Validation Error",
+    //     description: "Please review all information before submitting.",
+    //     variant: "destructive",
+    //   });
+    //   return;
+    // }
 
     setIsSubmitting(true);
 
@@ -194,13 +223,29 @@ const SMEApplicationForm = ({
         {/* Stepper */}
         <FormStepper
           currentStep={state.currentStep}
-          totalSteps={4}
+          totalSteps={5}
           stepLabels={STEP_LABELS}
         />
 
         {/* Form Card */}
         <Card className="bg-white shadow-lg">
           <CardContent className="p-8">
+            {/* Step 0: To Get Started */}
+            {state.currentStep === 0 && (
+              <Step0Brief
+                data={state.data}
+                errors={state.errors}
+                touched={state.touched}
+                onFieldChange={setField}
+                // onCountrySpecificFieldChange={setCountrySpecificField}
+                // onBusinessTypeFieldChange={setBusinessTypeField}
+                // countrySpecificFieldsConfig={countrySpecificFieldsConfig}
+                // businessTypeSpecificFieldsConfig={
+                //   businessTypeSpecificFieldsConfig
+                // }
+              />
+            )}
+
             {/* Step 1: Basic Information */}
             {state.currentStep === 1 && (
               <Step1BasicInformation
@@ -239,21 +284,28 @@ const SMEApplicationForm = ({
 
             {/* Step 4: Review & Submit */}
             {state.currentStep === 4 && (
+              // <Step4ReviewSubmit
+              //   data={state.data}
+              //   onEdit={(step) => {
+              //     // Set current step and scroll to top
+              //     if (step === 1) {
+              //       state.currentStep = 1;
+              //     } else if (step === 2) {
+              //       state.currentStep = 2;
+              //     } else if (step === 3) {
+              //       state.currentStep = 3;
+              //     }
+              //     // Navigate directly - use prevStep or nextStep as needed
+              //     window.scrollTo({ top: 0, behavior: "smooth" });
+              //   }}
+              //   isSubmitting={isSubmitting}
+              // />
               <Step4ReviewSubmit
                 data={state.data}
                 onEdit={(step) => {
-                  // Set current step and scroll to top
-                  if (step === 1) {
-                    state.currentStep = 1;
-                  } else if (step === 2) {
-                    state.currentStep = 2;
-                  } else if (step === 3) {
-                    state.currentStep = 3;
-                  }
-                  // Navigate directly - use prevStep or nextStep as needed
+                  goToStep(step);
                   window.scrollTo({ top: 0, behavior: "smooth" });
                 }}
-                isSubmitting={isSubmitting}
               />
             )}
 
@@ -261,41 +313,57 @@ const SMEApplicationForm = ({
             <div className="mt-8 flex items-center justify-between gap-4 pt-6 border-t">
               <Button
                 onClick={prevStep}
-                disabled={state.currentStep === 1 || isSubmitting}
+                disabled={state.currentStep === 0 || isSubmitting}
                 variant="outline"
               >
                 ← Previous
               </Button>
 
-              {state.currentStep < 4 ? (
-                <Button
-                  onClick={handleNextStep}
-                  disabled={isSubmitting}
-                  className="bg-red-500 hover:bg-red-600"
-                >
-                  Next →
-                </Button>
-              ) : (
-                <Button
-                  onClick={handleSubmit}
-                  disabled={isSubmitting}
-                  className="bg-green-500 hover:bg-green-600"
-                >
-                  {isSubmitting ? (
-                    <>
-                      <Loader className="mr-2 h-4 w-4 animate-spin" />
-                      Submitting...
-                    </>
-                  ) : (
-                    "Submit Application"
-                  )}
-                </Button>
-              )}
+              <div className="flex gap-3">
+                {/* Save Draft Button - visible on all steps except submit */}
+                {state.currentStep < 4 && (
+                  <Button
+                    onClick={handleSaveDraft}
+                    disabled={isSubmitting}
+                    variant="outline"
+                    className="border-gray-400 text-gray-700 hover:bg-gray-100"
+                  >
+                    💾 Save Draft
+                  </Button>
+                )}
+
+                {/* Next Button - visible on steps 0-3 */}
+                {state.currentStep < 4 ? (
+                  <Button
+                    onClick={handleNextStep}
+                    disabled={isSubmitting}
+                    className="bg-red-500 hover:bg-red-600"
+                  >
+                    Next →
+                  </Button>
+                ) : (
+                  /* Submit Button - visible on step 4 (Review) */
+                  <Button
+                    onClick={handleSubmit}
+                    disabled={isSubmitting}
+                    className="bg-green-500 hover:bg-green-600"
+                  >
+                    {isSubmitting ? (
+                      <>
+                        <Loader className="mr-2 h-4 w-4 animate-spin" />
+                        Submitting...
+                      </>
+                    ) : (
+                      "Submit Application"
+                    )}
+                  </Button>
+                )}
+              </div>
             </div>
 
             {/* Form Progress Info */}
             <p className="text-center text-xs text-gray-500 mt-4">
-              Step {state.currentStep} of 4
+              Step {state.currentStep + 1} of 5
             </p>
           </CardContent>
         </Card>

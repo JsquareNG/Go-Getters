@@ -44,9 +44,6 @@ components/ui/SMEApplicationForm/
 ### 1. **Dynamic Country-Specific Fields**
 
 - Singapore: GST Number, Business Registration, ACRA UEN
-- Hong Kong: Business Registration Certificate, Company Registration
-- USA: EIN, Social Security Number
-- Malaysia: SSM Registration, Tax ID
 - **Easily extensible** - Add new countries in `countriesConfig.js`
 
 ### 2. **Dynamic Business-Type Fields**

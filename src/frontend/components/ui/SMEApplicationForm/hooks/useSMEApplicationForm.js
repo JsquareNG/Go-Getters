@@ -10,13 +10,17 @@ import { BUSINESS_TYPES } from "../config/businessTypesConfig";
 
 // Initial form state structure
 const initialState = {
-  currentStep: 1,
+  currentStep: 0,
   data: {
+    //Step 0: Brief Information
+    country: "",
+    businessType: "",
+
     // Step 1: Basic Information
     companyName: "",
     registrationNumber: "",
-    country: "",
-    businessType: "",
+    // country: "",
+    // businessType: "",
     email: "",
     phone: "",
 
@@ -145,6 +149,12 @@ const formReducer = (state, action) => {
         currentStep: Math.max(1, state.currentStep - 1),
       };
 
+    case "SET_STEP":
+      return {
+        ...state,
+        currentStep: action.payload,
+      };
+
     case "RESET":
       return initialState;
 
@@ -210,6 +220,11 @@ export const useSMEApplicationForm = () => {
     dispatch({ type: "PREV_STEP" });
   }, []);
 
+  // Jump directly to a specific step (used by Review page)
+  const goToStep = useCallback((step) => {
+    dispatch({ type: "SET_STEP", payload: step });
+  }, []);
+
   // Reset form to initial state
   const reset = useCallback(() => {
     dispatch({ type: "RESET" });
@@ -240,14 +255,21 @@ export const useSMEApplicationForm = () => {
   /**
    * Validate current step and return validation result
    * @returns {boolean} - True if all fields in current step are valid
+   * NOTE: Validation is commented out for mock mode - uncomment for production
    */
   const validateCurrentStep = useCallback(() => {
+    // TODO: Uncomment for production validation
+    // Mock mode: always return true to allow navigation without validation
+    return true;
+
+    /* COMMENTED OUT FOR MOCK MODE
     const stepFieldsMap = {
+      0: ["country", "businessType"],
       1: [
         "companyName",
         "registrationNumber",
-        "country",
-        "businessType",
+        // "country",
+        // "businessType",
         "email",
         "phone",
       ],
@@ -321,6 +343,7 @@ export const useSMEApplicationForm = () => {
     });
 
     return isValid;
+    */
   }, [state.currentStep, state.data, setError]);
 
   return {
@@ -332,6 +355,7 @@ export const useSMEApplicationForm = () => {
     setError,
     nextStep,
     prevStep,
+    goToStep,
     reset,
     validateCurrentStep,
     countrySpecificFieldsConfig,

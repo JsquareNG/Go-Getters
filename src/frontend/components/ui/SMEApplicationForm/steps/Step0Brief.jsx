@@ -1,63 +1,40 @@
 import React from "react";
 import FormFieldGroup from "../components/FormFieldGroup";
-// import { COUNTRIES } from "../config/countriesConfig";
-// import { BUSINESS_TYPES } from "../config/businessTypesConfig";
+import { COUNTRIES } from "../config/countriesConfig";
+import { BUSINESS_TYPES } from "../config/businessTypesConfig";
 
 /**
- * Step1BasicInformation component
- * Collects SME basic information and dynamically shows country/business-specific fields
+ * Step0Brief component
+ * Collects SME country of operation and business type
  */
-const Step1BasicInformation = ({
+const Step0Brief = ({
   data,
   errors,
   touched,
   onFieldChange,
-  onCountrySpecificFieldChange,
-  onBusinessTypeFieldChange,
-  countrySpecificFieldsConfig,
-  businessTypeSpecificFieldsConfig,
+//   onCountrySpecificFieldChange,
+//   onBusinessTypeFieldChange,
+//   countrySpecificFieldsConfig,
+//   businessTypeSpecificFieldsConfig,
 }) => {
-  // const countryOptions = Object.values(COUNTRIES).map((country) => ({
-  //   label: country.name,
-  //   value: country.code,
-  // }));
+  const countryOptions = Object.values(COUNTRIES).map((country) => ({
+    label: country.name,
+    value: country.code,
+  }));
 
-  // const businessTypeOptions = Object.values(BUSINESS_TYPES).map((type) => ({
-  //   label: type.label,
-  //   value: type.id,
-  // }));
+  const businessTypeOptions = Object.values(BUSINESS_TYPES).map((type) => ({
+    label: type.label,
+    value: type.id,
+  }));
 
   return (
     <div>
       <h2 className="text-2xl font-bold mb-6 text-gray-900">
-        Basic Information
+        Before we get started, tell us about your business.
       </h2>
 
-      {/* Standard Fields */}
-      <FormFieldGroup
-        fieldName="companyName"
-        label="Company Name"
-        placeholder="Enter company legal name"
-        value={data.companyName}
-        onChange={onFieldChange}
-        error={errors.companyName}
-        touched={touched.companyName}
-        required
-      />
-
-      <FormFieldGroup
-        fieldName="registrationNumber"
-        label="Business Registration Number"
-        placeholder="Enter registration number"
-        value={data.registrationNumber}
-        onChange={onFieldChange}
-        error={errors.registrationNumber}
-        touched={touched.registrationNumber}
-        required
-      />
-
       {/* Country Selection - Required for conditional fields */}
-      {/* <FormFieldGroup
+      <FormFieldGroup
         fieldName="country"
         label="Country of Operation"
         value={data.country}
@@ -67,10 +44,10 @@ const Step1BasicInformation = ({
         type="select"
         options={countryOptions}
         required
-      /> */}
+      />
 
       {/* Dynamic Country-Specific Fields */}
-      {data.country &&
+      {/* {data.country &&
         Object.entries(countrySpecificFieldsConfig).map(
           ([fieldName, fieldConfig]) => (
             <FormFieldGroup
@@ -86,10 +63,10 @@ const Step1BasicInformation = ({
               helpText={`Format: ${fieldConfig.placeholder}`}
             />
           ),
-        )}
+        )} */}
 
       {/* Business Type Selection - Required for conditional fields */}
-      {/* <FormFieldGroup
+      <FormFieldGroup
         fieldName="businessType"
         label="Business Type"
         value={data.businessType}
@@ -99,10 +76,10 @@ const Step1BasicInformation = ({
         type="select"
         options={businessTypeOptions}
         required
-      /> */}
+      />
 
       {/* Dynamic Business-Type-Specific Fields */}
-      {data.businessType &&
+      {/* {data.businessType &&
         Object.entries(businessTypeSpecificFieldsConfig).map(
           ([fieldName, fieldConfig]) => (
             <FormFieldGroup
@@ -118,34 +95,9 @@ const Step1BasicInformation = ({
               type={fieldName.includes("Details") ? "textarea" : "text"}
             />
           ),
-        )}
-
-      {/* Contact Information */}
-      <FormFieldGroup
-        fieldName="email"
-        label="Email Address"
-        placeholder="company@example.com"
-        value={data.email}
-        onChange={onFieldChange}
-        error={errors.email}
-        touched={touched.email}
-        type="email"
-        required
-      />
-
-      <FormFieldGroup
-        fieldName="phone"
-        label="Phone Number"
-        placeholder="+1 (555) 000-0000"
-        value={data.phone}
-        onChange={onFieldChange}
-        error={errors.phone}
-        touched={touched.phone}
-        type="tel"
-        required
-      />
+        )} */}
     </div>
   );
 };
 
-export default Step1BasicInformation;
+export default Step0Brief;

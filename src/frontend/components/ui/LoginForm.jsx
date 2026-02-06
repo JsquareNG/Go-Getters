@@ -6,7 +6,6 @@ import { Separator } from "./separator";
 import { Eye, EyeOff, Mail, Lock, AlertCircle } from "lucide-react";
 import { useToast } from "../../hooks/use-toast";
 import { useNavigate } from "react-router-dom";
-import { loginUser } from "../../api/usersApi";
 
 import { useDispatch } from "react-redux";
 import { loginSuccess } from "../../store/authSlice";
