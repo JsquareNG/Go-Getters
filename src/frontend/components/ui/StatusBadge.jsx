@@ -1,19 +1,19 @@
 import { cn } from "../../lib/utils";
 
 const statusConfig = {
-  "Not started": {
-    className: "bg-slate-500/10 text-muted-foreground",
-    dotClassName: "bg-slate-500",
-  },
-  "In Progress": {
+  "Draft": {
     className: "bg-blue-500/10 text-blue-500",
     dotClassName: "bg-blue-500",
   },
-  Submitted: {
+  "Withdrawn": {
     className: "bg-violet-500/10 text-violet-500",
     dotClassName: "bg-violet-500",
   },
   "Under Review": {
+    className: "bg-amber-500/10 text-amber-500",
+    dotClassName: "bg-amber-500",
+  },
+  "Under Manual Review": {
     className: "bg-amber-500/10 text-amber-500",
     dotClassName: "bg-amber-500",
   },
@@ -24,6 +24,10 @@ const statusConfig = {
   Approved: {
     className: "bg-emerald-400/10 text-emerald-400",
     dotClassName: "bg-emerald-400",
+  },
+  "Rejected": {
+    className: "bg-red-500/10 text-red-500",
+    dotClassName: "bg-red-500",
   },
 };
 

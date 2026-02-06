@@ -15,14 +15,17 @@ import { useNavigate } from "react-router-dom";
 
 function getActionText(status) {
   switch (status) {
-    case "In Progress":
+    case "Draft":
       return "Continue";
-    case "Submitted":
     case "Under Review":
+      return "View Status";
+    case "Under Manual Review":
       return "View Status";
     case "Requires Action":
       return "Take Action";
     case "Approved":
+      return "View Details";
+    case "Rejected":
       return "View Details";
     default:
       return "View";
@@ -39,7 +42,7 @@ export function ApplicationCard({ application }) {
   const status = application.current_status;
   const lastUpdated = application.last_edited;
 
-  const isActionable = ["In Progress", "Requires Action"].includes(status);
+  const isActionable = ["Draft", "Requires Action"].includes(status);
   const isUrgent = status === "Requires Action";
 
   const handleClick = () => {

@@ -49,13 +49,13 @@ export default function LandingPage() {
   // Stats Logic (Dynamic based on API data)
   const stats = useMemo(() => ({
     total: applications.length,
-    pending: applications.filter(a => ["Submitted", "Under Review"].includes(a.current_status)).length,
+    pending: applications.filter(a => ["Under Manual Review", "Under Review"].includes(a.current_status)).length,
     requiresAction: applications.filter(a => a.current_status === "Requires Action").length,
     approved: applications.filter(a => a.current_status === "Approved").length,
   }), [applications]);
 
   const statusCounts = useMemo(() => {
-    const counts = { All: applications.length, "In Progress": 0, "Submitted": 0, "Under Review": 0, "Requires Action": 0, Approved: 0 };
+    const counts = { All: applications.length, "In Progress": 0, "Submitted": 0, "Under Review": 0, "Under Manual Review": 0, "Requires Action": 0, Approved: 0, "Rejected": 0, "Withdrawn": 0 };
     applications.forEach(a => { if(counts[a.current_status] !== undefined) counts[a.current_status]++; });
     return counts;
   }, [applications]);

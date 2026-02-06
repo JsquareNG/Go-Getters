@@ -24,7 +24,7 @@ const stepsByStatus = {
     { label: "Authorized Signatories", completed: false, current: false },
     { label: "Review & Submit", completed: false, current: false },
   ],
-  "In Progress": [
+  "Draft": [
     { label: "Company Information", completed: true, current: false },
     { label: "Business Documentation", completed: true, current: false },
     { label: "Authorized Signatories", completed: false, current: true },
@@ -86,7 +86,7 @@ export default function ApplicationDetail() {
   }
 
   const steps = stepsByStatus[application.status] || [];
-  const isEditable = ["Not started", "In Progress", "Requires Action"].includes(
+  const isEditable = ["Not started", "Draft", "Requires Action"].includes(
     application.status
   );
 

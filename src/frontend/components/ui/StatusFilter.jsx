@@ -3,25 +3,33 @@ import { cn } from "../../lib/utils";
 const statuses = [
   "All",
   "Requires Action",
-  "In Progress",
-  "Submitted",
+  "Draft",
+  "Under Manual Review",
   "Under Review",
   "Approved",
+  "Rejected",
+  "Withdrawn"
 ];
 
 const statusStyles = {
   All: 
     "data-[active=true]:bg-slate-500 data-[active=true]:text-background",
-  "In Progress":
+  "Draft":
     "data-[active=true]:bg-blue-500 data-[active=true]:text-background",
   Submitted:
     "data-[active=true]:bg-violet-500 data-[active=true]:text-background",
   "Under Review":
     "data-[active=true]:bg-amber-500 data-[active=true]:text-background",
+  "Under Manual Review":
+    "data-[active=true]:bg-amber-500 data-[active=true]:text-background",
   "Requires Action":
     "data-[active=true]:bg-rose-600 data-[active=true]:text-background",
   Approved:
     "data-[active=true]:bg-emerald-400 data-[active=true]:text-background",
+  "Rejected":
+    "data-[active=true]:bg-red-400 data-[active=true]:text-background",
+  "Withdrawn":
+    "data-[active=true]:bg-red-400 data-[active=true]:text-background"
 };
 
 export function StatusFilter({
