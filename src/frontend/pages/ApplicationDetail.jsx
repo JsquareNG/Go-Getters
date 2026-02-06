@@ -230,6 +230,31 @@ export default function ApplicationDetail() {
                 </div>
               </CardContent>
             </Card>
+            {["Under Review", "Approved", "Requires Action"].includes(application.current_status) && (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-lg">Submitted Information</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div>
+                    <p className="text-sm text-slate-600 mb-2">Documents Submitted</p>
+                    <div className="space-y-2">
+                      {["Business Registration Certificate", "Directors' Resolution", "Proof of Address"].map((doc) => (
+                        <div key={doc} className="flex items-center justify-between py-2 px-3 rounded-md bg-secondary/50">
+                          <div className="flex items-center gap-2">
+                            <FileText className="h-4 w-4 text-slate-600" />
+                            <span className="text-sm">{doc}</span>
+                          </div>
+                          <Button variant="ghost" size="sm" className="h-8">
+                            <ExternalLink className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
           </div>
         </div>
       </main>

@@ -9,8 +9,16 @@ import { EmptyState } from "../components/ui/EmptyState";
 import { useNavigate } from "react-router-dom";
 import { getApplicationsByUserId } from "../api/applicationApi";
 
+// 1. Import Redux hooks and your selector
+import { useSelector } from "react-redux";
+import { selectUser } from "../store/authSlice";
+
 export default function LandingPage() {
   const navigate = useNavigate();
+  
+  // 2. Access the logged-in user from Redux state
+  const user = useSelector(selectUser);
+  
   const [applications, setApplications] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -19,15 +27,19 @@ export default function LandingPage() {
 
   useEffect(() => {
     const fetchApps = async () => {
+      // 3. Ensure we have a user and user_id before fetching
+      if (!user?.user_id) {
+        setIsLoading(false);
+        return;
+      }
+
       try {
         setIsLoading(true);
-        // Getting user info from storage (set during login)
-        const userData = JSON.parse(localStorage.getItem("user") || "{}");
-        const userId = userData.user_id || "00000010"; 
-        console.log("Heloo")
-        const data = await getApplicationsByUserId(userId);
-        if (data)
-          console.log("CALLED")
+        // 4. Use the user_id provided by the Redux store
+        const data = await getApplicationsByUserId(user.user_id);
+        
+        if (data) console.log("FETCHED FOR USER:", user.user_id);
+        
         setApplications(Array.isArray(data) ? data : [data]);
       } catch (err) {
         setError("Failed to load applications. Please try again.");
@@ -35,8 +47,9 @@ export default function LandingPage() {
         setIsLoading(false);
       }
     };
+    
     fetchApps();
-  }, []);
+  }, [user?.user_id]); // 5. Dependency array now tracks the Redux user ID
 
   // Filter Logic
   const filteredApplications = useMemo(() => {
@@ -48,7 +61,7 @@ export default function LandingPage() {
     });
   }, [selectedStatus, searchQuery, applications]);
 
-  // Stats Logic (Dynamic based on API data)
+  // Stats Logic
   const stats = useMemo(() => ({
     total: applications.length,
     pending: applications.filter(a => ["Under Manual Review", "Under Review"].includes(a.current_status)).length,
@@ -74,7 +87,7 @@ export default function LandingPage() {
     <div className="min-h-screen bg-background">
       <main className="container mx-auto px-6 py-12 animate-fade-in">
         
-        {/* 1. THE HEADER & NEW APPLICATION BUTTON */}
+        {/* HEADER */}
         <div className="flex flex-col gap-6 md:flex-row md:items-start md:justify-between mb-8">
           <div>
             <h1 className="text-2xl font-semibold text-foreground mb-1">
@@ -94,12 +107,12 @@ export default function LandingPage() {
           </Button>
         </div>
 
-        {/* 2. STATS OVERVIEW */}
+        {/* STATS OVERVIEW */}
         <div className="mb-8">
           <ApplicationStats {...stats} />
         </div>
 
-        {/* 3. FILTERS & SEARCH */}
+        {/* FILTERS & SEARCH */}
         <div className="flex flex-col gap-4 mb-6">
           <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <StatusFilter
@@ -120,7 +133,7 @@ export default function LandingPage() {
           </div>
         </div>
 
-        {/* 4. APPLICATIONS LIST */}
+        {/* APPLICATIONS LIST */}
         {error ? (
           <div className="p-4 bg-red-50 text-red-600 rounded-lg flex items-center gap-2">
             <AlertCircle className="h-5 w-5" /> {error}
