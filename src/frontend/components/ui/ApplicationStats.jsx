@@ -42,15 +42,15 @@ export function ApplicationStats({
         value={total}
       />
       <StatCard
-        icon={<Clock className="h-5 w-5" />}
-        label="Pending Review"
-        value={pending}
-      />
-      <StatCard
         icon={<AlertTriangle className="h-5 w-5" />}
         label="Requires Action"
         value={requiresAction}
         variant="warning"
+      />
+      <StatCard
+        icon={<Clock className="h-5 w-5" />}
+        label="Pending Review"
+        value={pending}
       />
       <StatCard
         icon={<CheckCircle2 className="h-5 w-5" />}

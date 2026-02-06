@@ -11,8 +11,10 @@ import ApplicationDetail from "./pages/ApplicationDetail";
 import StaffLandingPage from "./pages/StaffLandingPage";
 import ApplicationReviewDetail from "./pages/ApplicationReviewDetail";
 import Dashboard from "./pages/Dashboard";
-
+import TestDocumentMulti from "./pages/TestDocument";
+import ViewSubmittedApplication from "./pages/OneDocument";
 import { Toaster } from "./components/ui/toaster";
+
 
 import { useSelector } from "react-redux";
 import { selectUser } from "./store/authSlice";

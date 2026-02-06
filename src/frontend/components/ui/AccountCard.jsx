@@ -43,18 +43,6 @@ const AccountCard = ({ account }) => {
         </p>
       )}
 
-      <div className="flex gap-2">
-        <Button
-          variant="default"
-          size="sm"
-          className="bg-accent hover:bg-accent/90 text-accent-foreground"
-        >
-          Fund
-        </Button>
-        <Button variant="outline" size="sm">
-          Withdraw
-        </Button>
-      </div>
     </div>
   );
 };
