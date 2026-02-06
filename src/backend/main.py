@@ -25,7 +25,7 @@ async def log_requests(request: Request, call_next):
 
 
 # create table (for prototype)
-# Base.metadata.create_all(bind=engine)
+Base.metadata.create_all(bind=engine)
 
 app.add_middleware(
     CORSMiddleware,
