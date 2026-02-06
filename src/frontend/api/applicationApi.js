@@ -6,3 +6,8 @@ export const getApplicationsByUserId = async (userId) => {
   const res = await axiosClient.get(`/applications/byUserID/${userId}`);
   return res.data;
 };
+
+export const getApplicationByAppId = async (id) => {
+  const res = await axiosClient.get(`/applications/byAppID/${id}`);
+  return res.data;
+};

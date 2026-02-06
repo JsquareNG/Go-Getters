@@ -1,6 +1,6 @@
 export const mockApplications = [
   {
-    id: "app-001",
+    id: "00000110",
     companyName: "TechStart Innovations Pte Ltd",
     accountType: "SME Business Account",
     status: "Requires Action",

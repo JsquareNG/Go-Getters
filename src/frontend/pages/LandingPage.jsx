@@ -24,8 +24,10 @@ export default function LandingPage() {
         // Getting user info from storage (set during login)
         const userData = JSON.parse(localStorage.getItem("user") || "{}");
         const userId = userData.user_id || "00000010"; 
-
+        console.log("Heloo")
         const data = await getApplicationsByUserId(userId);
+        if (data)
+          console.log("CALLED")
         setApplications(Array.isArray(data) ? data : [data]);
       } catch (err) {
         setError("Failed to load applications. Please try again.");
@@ -55,7 +57,7 @@ export default function LandingPage() {
   }), [applications]);
 
   const statusCounts = useMemo(() => {
-    const counts = { All: applications.length, "In Progress": 0, "Submitted": 0, "Under Review": 0, "Under Manual Review": 0, "Requires Action": 0, Approved: 0, "Rejected": 0, "Withdrawn": 0 };
+    const counts = { All: applications.length, "Draft": 0, "Submitted": 0, "Under Review": 0, "Under Manual Review": 0, "Requires Action": 0, Approved: 0, "Rejected": 0, "Withdrawn": 0 };
     applications.forEach(a => { if(counts[a.current_status] !== undefined) counts[a.current_status]++; });
     return counts;
   }, [applications]);

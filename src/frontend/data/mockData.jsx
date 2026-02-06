@@ -1,6 +1,6 @@
 export const mockApplicationsReview = [
   {
-    id: "APP-2024-001",
+    id: "00000110",
     customerName: "Sarah Mitchell",
     businessName: "Mitchell & Co Ltd",
     riskLevel: "critical",

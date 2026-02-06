@@ -2,8 +2,8 @@ import { cn } from "../../lib/utils";
 
 const statuses = [
   "All",
-  "Requires Action",
   "Draft",
+  "Requires Action",
   "Under Manual Review",
   "Under Review",
   "Approved",
