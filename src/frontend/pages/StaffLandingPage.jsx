@@ -4,6 +4,7 @@ import { ApplicationCard } from "../components/ui/ApplicationReviewCard";
 import { FilterBar } from "../components/ui/FilterBar";
 import { mockApplicationsReview } from "../data/mockData";
 import { AlertCircle, FileSearch } from "lucide-react";
+import { StaffStats } from "../components/ui/StaffStats";
 
 const riskPriority = {
   critical: 0,
@@ -66,22 +67,11 @@ const Index = () => {
           </p>
         </div>
 
-        {/* Alert Banner */}
-        {criticalCount > 0 && (
-          <div className="mb-6 p-4 bg-risk-critical/10 border border-risk-critical/20 rounded-lg flex items-center gap-3">
-            <AlertCircle className="h-5 w-5 text-risk-critical" />
-            <div>
-              <p className="font-medium text-foreground">
-                {criticalCount} critical and {highCount} high-risk applications require immediate attention
-              </p>
-              <p className="text-sm text-muted-foreground">
-                Applications are sorted by risk level and SLA deadline
-              </p>
-            </div>
-          </div>
-        )}
 
         {/* Stats Summary */}
+        {/* <div className="mb-8">
+          <StaffStats {...stats} />
+        </div> */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
           <div className="p-4 bg-card border rounded-lg">
             <p className="text-sm text-muted-foreground">Total Pending</p>
