@@ -14,12 +14,12 @@ SUPABASE_URL = os.getenv("SUPABASE_URL")
 # -----------------------------
 # DB dependency
 # -----------------------------
-def get_db():
-    db = SessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()
+# def get_db():
+#     db = SessionLocal()
+#     try:
+#         yield db
+#     finally:
+#         db.close()
 
 # -----------------------------
 # Config: required doc types
