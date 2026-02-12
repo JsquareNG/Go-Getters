@@ -11,3 +11,8 @@ export const getApplicationByAppId = async (id) => {
   const res = await axiosClient.get(`/applications/byAppID/${id}`);
   return res.data;
 };
+
+export const getApplicationByReviewer = async (reviewerId) => {
+  const res = await axiosClient.get(`/applications/byEmployeeID/${reviewerId}`);
+  return res.data;
+};
