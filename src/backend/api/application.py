@@ -13,6 +13,7 @@ from backend.services.supabase_client import supabase_admin, BUCKET
 from backend.models.user import User
 from backend.api.notification import *
 from backend.api.resend import send_email
+from backend.database import get_db
 
 router = APIRouter(prefix="/applications", tags=["applications"])
 
