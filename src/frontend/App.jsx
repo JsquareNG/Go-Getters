@@ -94,7 +94,7 @@ export default function App() {
         <Route
           path="/applications/form"
           element={
-            <RequireRole role={["SME", "STAFF"]}>
+            <RequireRole role="SME">
               <LandingLayout>
                 <SMEApplicationForm />
               </LandingLayout>
