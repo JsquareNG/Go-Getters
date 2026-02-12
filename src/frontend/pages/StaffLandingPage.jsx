@@ -1,16 +1,10 @@
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
-import { Loader2, FileSearch, AlertCircle, Search } from "lucide-react";
-import { ApplicationReviewCard } from "../components/ui/ApplicationReviewCard"
+import { ApplicationCard } from "../components/ui/ApplicationReviewCard";
+import { FilterBar } from "../components/ui/FilterBar";
+import { mockApplicationsReview } from "../data/mockData";
+import { AlertCircle, FileSearch } from "lucide-react";
 import { StaffStats } from "../components/ui/StaffStats";
-import { getApplicationByReviewer } from "../api/applicationApi";
-
-// ✅ same as LandingPage
-import { StatusFilter } from "../components/ui/StatusFilter";
-import { Input } from "../components/ui/input";
-
-import { useSelector } from "react-redux";
-import { selectUser } from "../store/authSlice";
 
 const riskPriority = {
   critical: 0,
@@ -19,210 +13,110 @@ const riskPriority = {
   low: 3,
 };
 
-export default function StaffLandingPage() {
+const Index = () => {
   const navigate = useNavigate();
-
-  // Logged-in staff
-  const user = useSelector(selectUser);
-
-  // ✅ make sure this is the correct employee ID field
-  const employeeId = user?.employee_id ?? user?.employeeId ?? user?.user_id;
-
-  const [applications, setApplications] = useState([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState(null);
-
-  // ✅ StatusFilter state (same pattern as LandingPage)
-  const [selectedStatus, setSelectedStatus] = useState("All");
-
-  // Search (same as LandingPage)
   const [searchQuery, setSearchQuery] = useState("");
+  const [riskFilter, setRiskFilter] = useState("all");
+  const [statusFilter, setStatusFilter] = useState("all");
+  const [productFilter, setProductFilter] = useState("all");
 
-  useEffect(() => {
-    const fetchAssignedApps = async () => {
-      if (!employeeId) {
-        setIsLoading(false);
-        return;
-      }
+  const filteredApplications = useMemo(() => {
+    return mockApplicationsReview
+      .filter((app) => {
+        const q = searchQuery.toLowerCase();
 
-      try {
-        setIsLoading(true);
-        setError(null);
+        const matchesSearch =
+          q === "" ||
+          String(app.id).toLowerCase().includes(q) ||
+          String(app.customerName).toLowerCase().includes(q) ||
+          (app.businessName ? String(app.businessName).toLowerCase().includes(q) : false);
 
-        const data = await getApplicationByReviewer(employeeId);
-        setApplications(Array.isArray(data) ? data : data ? [data] : []);
-      } catch (e) {
-        setError("Failed to load assigned applications. Please try again.");
-        setApplications([]);
-      } finally {
-        setIsLoading(false);
-      }
-    };
+        const matchesRisk = riskFilter === "all" || app.riskLevel === riskFilter;
+        const matchesStatus = statusFilter === "all" || app.status === statusFilter;
+        const matchesProduct = productFilter === "all" || app.productType === productFilter;
 
-    fetchAssignedApps();
-  }, [employeeId]);
+        return matchesSearch && matchesRisk && matchesStatus && matchesProduct;
+      })
+      .sort((a, b) => (riskPriority[a.riskLevel] ?? 999) - (riskPriority[b.riskLevel] ?? 999));
+  }, [searchQuery, riskFilter, statusFilter, productFilter]);
+
+  const clearFilters = () => {
+    setSearchQuery("");
+    setRiskFilter("all");
+    setStatusFilter("all");
+    setProductFilter("all");
+  };
 
   const handleReview = (id) => {
     navigate(`/staff-landingpage/${id}`);
   };
 
-  const getStatus = (a) => a.current_status ?? a.status;
-  const getRisk = (a) => a.risk_level ?? a.riskLevel;
-
-  // ✅ staff-only capsule counts for StatusFilter
-  const statusCounts = useMemo(() => {
-    const counts = {
-      All: applications.length,
-      "Under Manual Review": 0,
-      "Awaiting Resubmission": 0, // maps to "Requires Action"
-      Approved: 0,
-      Critical: 0, // risk-based
-    };
-
-    applications.forEach((a) => {
-      const status = getStatus(a);
-      const risk = getRisk(a);
-
-      if (status === "Under Manual Review") counts["Under Manual Review"]++;
-      if (status === "Requires Action") counts["Awaiting Resubmission"]++;
-      if (status === "Approved") counts["Approved"]++;
-      if (risk === "critical") counts["Critical"]++;
-    });
-
-    return counts;
-  }, [applications]);
-
-  // ✅ Filter + Sort using selectedStatus (capsules) + search
-  const filteredApplications = useMemo(() => {
-    return applications
-      .filter((app) => {
-        const q = searchQuery.toLowerCase();
-
-        const id = String(app.application_id ?? app.id ?? "");
-        const customerName = String(app.customer_name ?? app.customerName ?? "");
-        const businessName = String(app.business_name ?? app.businessName ?? "");
-        const status = getStatus(app);
-        const risk = getRisk(app);
-
-        const matchesSearch =
-          q === "" ||
-          id.toLowerCase().includes(q) ||
-          customerName.toLowerCase().includes(q) ||
-          businessName.toLowerCase().includes(q);
-
-        let matchesCapsule = true;
-
-        if (selectedStatus === "All") matchesCapsule = true;
-        else if (selectedStatus === "Under Manual Review")
-          matchesCapsule = status === "Under Manual Review";
-        else if (selectedStatus === "Awaiting Resubmission")
-          matchesCapsule = status === "Requires Action";
-        else if (selectedStatus === "Approved")
-          matchesCapsule = status === "Approved";
-        else if (selectedStatus === "Critical")
-          matchesCapsule = risk === "critical";
-
-        return matchesSearch && matchesCapsule;
-      })
-      .sort((a, b) => {
-        const ra = getRisk(a);
-        const rb = getRisk(b);
-        return (riskPriority[ra] ?? 999) - (riskPriority[rb] ?? 999);
-      });
-  }, [applications, searchQuery, selectedStatus]);
-
-  // ✅ Stats for StaffStats component
-  const stats = useMemo(() => {
-    const pendingStatuses = ["Under Manual Review", "Under Review"];
-
-    const totalPending = applications.filter((a) =>
-      pendingStatuses.includes(getStatus(a))
-    ).length;
-
-    const critical = applications.filter(
-      (a) => pendingStatuses.includes(getStatus(a)) && getRisk(a) === "critical"
-    ).length;
-
-    const awaitingResubmission = applications.filter(
-      (a) => getStatus(a) === "Requires Action"
-    ).length;
-
-    const approved = applications.filter((a) => getStatus(a) === "Approved").length;
-
-    return { totalPending, critical, awaitingResubmission, approved };
-  }, [applications]);
-
-  if (isLoading) {
-    return (
-      <div className="flex h-screen items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
-      </div>
-    );
-  }
+  const criticalCount = mockApplicationsReview.filter((a) => a.riskLevel === "critical").length;
+  const highCount = mockApplicationsReview.filter((a) => a.riskLevel === "high").length;
 
   return (
     <div className="min-h-screen bg-background">
       <main className="container mx-auto px-6 py-12">
-        {/* Header */}
+        {/* Page Header */}
         <div className="mb-8">
           <h1 className="text-2xl font-bold text-foreground mb-2">
             Application Review Queue
           </h1>
           <p className="text-muted-foreground">
-            View applications assigned to you for review
+            Review and process high-risk applications requiring manual verification
           </p>
         </div>
 
-        {/* Staff Stats */}
-        <div className="mb-8">
+
+        {/* Stats Summary */}
+        {/* <div className="mb-8">
           <StaffStats {...stats} />
-        </div>
-
-        {/* Error */}
-        {error && (
-          <div className="mb-6 p-4 bg-red-50 text-red-600 rounded-lg flex items-center gap-2">
-            <AlertCircle className="h-5 w-5" />
-            {error}
+        </div> */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+          <div className="p-4 bg-card border rounded-lg">
+            <p className="text-sm text-muted-foreground">Total Pending</p>
+            <p className="text-2xl font-bold text-foreground">{mockApplicationsReview.length}</p>
           </div>
-        )}
-
-        {/* ✅ StatusFilter capsules + Search (same style as LandingPage) */}
-        <div className="flex flex-col gap-4 mb-6">
-          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-            <StatusFilter
-              selectedStatus={selectedStatus}
-              onStatusChange={setSelectedStatus}
-              statusCounts={statusCounts}
-            />
-
-            <div className="relative w-full sm:w-72">
-              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-              <Input
-                placeholder="Search by business name..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-9"
-              />
-            </div>
+          <div className="p-4 bg-card border rounded-lg border-l-4 border-l-risk-critical">
+            <p className="text-sm text-muted-foreground">Critical</p>
+            <p className="text-2xl font-bold text-risk-critical">{criticalCount}</p>
+          </div>
+          <div className="p-4 bg-card border rounded-lg border-l-4 border-l-risk-high">
+            <p className="text-sm text-muted-foreground">High Risk</p>
+            <p className="text-2xl font-bold text-risk-high">{highCount}</p>
+          </div>
+          <div className="p-4 bg-card border rounded-lg border-l-4 border-l-status-warning">
+            <p className="text-sm text-muted-foreground">Awaiting Resubmission</p>
+            <p className="text-2xl font-bold text-status-warning">
+              {mockApplicationsReview.filter((a) => a.status === "awaiting_resubmission").length}
+            </p>
           </div>
         </div>
+
+        {/* Filters */}
+        <FilterBar
+          searchQuery={searchQuery}
+          onSearchChange={setSearchQuery}
+          riskFilter={riskFilter}
+          onRiskFilterChange={setRiskFilter}
+          statusFilter={statusFilter}
+          onStatusFilterChange={setStatusFilter}
+          productFilter={productFilter}
+          onProductFilterChange={setProductFilter}
+          onClearFilters={clearFilters}
+        />
 
         {/* Applications Grid */}
         <div className="mt-6">
           {filteredApplications.length > 0 ? (
-            <div className="grid gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {filteredApplications.map((application, index) => (
                 <div
-                  key={application.application_id ?? application.id}
+                  key={application.id}
                   className="animate-fade-in"
                   style={{ animationDelay: `${index * 50}ms` }}
                 >
-                  <ApplicationReviewCard
-                    application={application}
-                    onReview={() =>
-                      handleReview(application.application_id ?? application.id)
-                    }
-                  />
+                  <ApplicationCard application={application} onReview={handleReview} />
                 </div>
               ))}
             </div>
@@ -232,13 +126,13 @@ export default function StaffLandingPage() {
               <h3 className="text-lg font-medium text-foreground mb-2">
                 No applications found
               </h3>
-              <p className="text-muted-foreground">
-                Try adjusting your filter or search query
-              </p>
+              <p className="text-muted-foreground">Try adjusting your filters or search query</p>
             </div>
           )}
         </div>
       </main>
     </div>
   );
-}
+};
+
+export default Index;

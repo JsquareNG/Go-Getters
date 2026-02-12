@@ -1,21 +1,35 @@
 import { cn } from "../../lib/utils";
 
 const statuses = [
-  "Total Pending",
-  "Critical",
-  "Awaiting Resubmission",
-  "Approved"
+  "All",
+  "Draft",
+  "Requires Action",
+  "Under Manual Review",
+  "Under Review",
+  "Approved",
+  "Rejected",
+  "Withdrawn"
 ];
 
 const statusStyles = {
-  "Total Pending": 
+  All: 
     "data-[active=true]:bg-slate-500 data-[active=true]:text-background",
-  "Critical":
+  "Draft":
     "data-[active=true]:bg-blue-500 data-[active=true]:text-background",
-  "Awaiting Resubmission":
+  Submitted:
     "data-[active=true]:bg-violet-500 data-[active=true]:text-background",
+  "Under Review":
+    "data-[active=true]:bg-amber-500 data-[active=true]:text-background",
+  "Under Manual Review":
+    "data-[active=true]:bg-amber-500 data-[active=true]:text-background",
+  "Requires Action":
+    "data-[active=true]:bg-rose-600 data-[active=true]:text-background",
   Approved:
     "data-[active=true]:bg-emerald-400 data-[active=true]:text-background",
+  "Rejected":
+    "data-[active=true]:bg-red-400 data-[active=true]:text-background",
+  "Withdrawn":
+    "data-[active=true]:bg-red-400 data-[active=true]:text-background"
 };
 
 export function StatusFilter({
