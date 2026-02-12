@@ -20,3 +20,13 @@ export const getApplicationByReviewer = async (reviewerId) => {
   const res = await axiosClient.get(`/applications/byEmployeeID/${reviewerId}`);
   return res.data;
 };
+
+export const approveApplication = async (applicationId) => {
+  const res = await axiosClient.put(`/applications/approve/${applicationId}`);
+  return res.data;
+};
+
+export const rejectApplication = async (applicationId) => {
+  const res = await axiosClient.put(`/applications/reject/${applicationId}`);
+  return res.data;
+};
