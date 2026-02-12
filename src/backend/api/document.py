@@ -7,6 +7,7 @@ import os
 from backend.database import SessionLocal
 from backend.models.documents import Document
 from backend.services.supabase_client import supabase, supabase_admin, BUCKET
+from backend.database import get_db
 
 router = APIRouter(prefix="/documents", tags=["documents"])
 SUPABASE_URL = os.getenv("SUPABASE_URL")
@@ -14,12 +15,12 @@ SUPABASE_URL = os.getenv("SUPABASE_URL")
 # -----------------------------
 # DB dependency
 # -----------------------------
-def get_db():
-    db = SessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()
+# def get_db():
+#     db = SessionLocal()
+#     try:
+#         yield db
+#     finally:
+#         db.close()
 
 # -----------------------------
 # Config: required doc types

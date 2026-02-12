@@ -13,6 +13,7 @@ from backend.services.supabase_client import supabase_admin, BUCKET
 from backend.models.user import User
 from backend.api.notification import *
 from backend.api.resend import send_email
+from backend.database import get_db
 
 router = APIRouter(prefix="/applications", tags=["applications"])
 
@@ -24,12 +25,12 @@ EXCLUDED_STATUSES = ("Withdrawn", "Approved", "Rejected")  # not "active"
 def to_dict(self):
     return {c.name: getattr(self, c.name) for c in self.__table__.columns}
 
-def get_db():
-    db = SessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()
+# def get_db():
+#     db = SessionLocal()
+#     try:
+#         yield db
+#     finally:
+#         db.close()
 
 @router.get("/")
 def get_all_applications(db: Session = Depends(get_db)):
@@ -90,10 +91,15 @@ def get_application_by_app_id(application_id: str, db: Session = Depends(get_db)
 # Saving Application as Draft
 @router.post("/firstSave")
 def save_application(data: dict = Body(...), db: Session = Depends(get_db)):
+    
+    form_data = data.get("form_data", {})
+
     new_app = ApplicationForm(
         business_country=data["business_country"],
         business_name=data['business_name'],
+        business_type=data['business_type'],
         user_id=data["user_id"],
+        form_data=form_data,
         previous_status=None,      
         current_status="Draft"
     )
@@ -121,9 +127,12 @@ def second_save(application_id: str, data: dict = Body(...), db: Session = Depen
             continue
         if hasattr(app, key):
             setattr(app, key, value)
+        else:
+            app.form_data[key] = value
 
     curr = app.current_status
     prev = app.previous_status
+
     app.is_open_user = False
     if app.has_sent:
         app.has_sent = False
@@ -144,66 +153,36 @@ def second_save(application_id: str, data: dict = Body(...), db: Session = Depen
         "current_status": app.current_status,
     }
 
-# Submitting an application
-# @router.post("/firstSubmit")
-# def first_submit_application(data: dict = Body(...), db: Session = Depends(get_db)):
-#     new_app = ApplicationForm(
-#         business_country=data["business_country"],
-#         business_name=data["business_name"],
-#         user_id=data["user_id"],
-#         previous_status=None,
-#         current_status="Under Review",
-#     )
-
-#     db.add(new_app)
-#     db.commit()
-#     db.refresh(new_app)
-
-#     user_email = data.get("email")
-#     user_firstName = data.get("firstName")
-
-#     subject, body = build_application_submitted_email(new_app, user_firstName)
-
-#     try:
-#         send_email(user_email, subject, body)
-#     except Exception as e:
-#         # Don’t crash the API just because email failed
-#         print("❌ Email failed:", str(e))
-#         return {
-#             "application_id": new_app.application_id,
-#             "current_status": new_app.current_status,
-#             "email_sent": False,
-#             "email_error": str(e),
-#         }
-
-#     return {
-#         "application_id": new_app.application_id,
-#         "current_status": new_app.current_status,
-#         "email_sent": True,
-#     }
-
 @router.post("/firstSubmit")
 def first_submit_application(
     background_tasks: BackgroundTasks,
     data: dict = Body(...),
     db: Session = Depends(get_db),
 ):
-    
-    allowed = {c.name for c in ApplicationForm.__table__.columns}
-    payload = {k: v for k, v in data.items() if k in allowed}
+    business_country = data.get("business_country")
+    business_type = data.get("business_type")
+    business_name = data.get("business_name")
+    user_id = data.get("user_id")
 
-    payload["previous_status"] = None
-    payload["current_status"] = "Under Review"
+    form_data = data.get("form_data", {})
 
-    new_app = ApplicationForm(**payload)
+    new_app = ApplicationForm(
+        business_country=business_country,
+        business_name=business_name,
+        business_type=business_type,
+        user_id=user_id,
+        previous_status=None,
+        current_status="Under Review",
+        form_data=form_data,
+    )
 
-    # new_app = ApplicationForm(
-    #     business_country=data["business_country"],
-    #     business_name=data["business_name"],
-    #     user_id=data["user_id"],
-    #     previous_status=None,
-    #     current_status="Under Review",
-    # )
+    # allowed = {c.name for c in ApplicationForm.__table__.columns}
+    # payload = {k: v for k, v in data.items() if k in allowed}
+
+    # payload["previous_status"] = None
+    # payload["current_status"] = "Under Review"
+
+    # new_app = ApplicationForm(**payload)
 
     db.add(new_app)
     db.commit()
@@ -235,123 +214,6 @@ def first_submit_application(
         "email_notes": email_notes,
     }
 
-# @router.put("/secondSubmit/{application_id}")
-# def second_submit(application_id: str, data: dict = Body(...), db: Session = Depends(get_db)):
-
-#     app = db.query(ApplicationForm).filter(ApplicationForm.application_id == application_id).first()
-    
-#     if not app:
-#         raise HTTPException(status_code=404, detail="Application not found")
-    
-#     # update fields
-#     for key, value in (data or {}).items():
-#         if key == "application_id":
-#             continue
-#         if hasattr(app, key):
-#             setattr(app, key, value)
-
-#     curr = app.current_status
-#     prev = app.previous_status
-
-#     prev_blank = (prev is None) or (prev == "")
-#     app.is_open_user = False 
-
-#     user_email = data.get('email')
-#     user_firstName = data.get('firstName')
-
-#     if app.reviewer_id:
-#         staff = db.query(User).filter(User.user_id == app.reviewer_id).first()
-#         staff_email = staff.email
-#         staff_firstName = staff.first_name
-
-#     if curr == "Draft" and prev_blank:
-#         app.previous_status = app.current_status
-#         app.current_status = "Under Review"
-#         subject, body = build_application_submitted_email(app, user_firstName)
-#         # background_tasks.add_task(send_email, user_email, subject, body)
-
-#         try:
-#             send_email(user_email, subject, body)
-#         except Exception as e:
-#             # Don’t crash the API just because email failed
-#             print("❌ Email failed:", str(e))
-#             return {
-#                 "application_id": app.application_id,
-#                 "current_status": app.current_status,
-#                 "email_sent": False,
-#                 "email_error": str(e),
-#             }
-
-#         return {
-#             "application_id": app.application_id,
-#             "current_status": app.current_status,
-#             "email_sent": True,
-#         }
-
-#     elif curr == "Requires Action" and prev == "Under Manual Review":
-#         app.previous_status = app.current_status
-#         app.current_status = "Under Manual Review"
-#         app.is_open_staff = False
-
-#         user_subject, user_body = build_user_manual_review_email(app, user_firstName)
-#         # background_tasks.add_task(send_email, user_email, subject, body)
-#         staff_subject, staff_body = build_staff_manual_review_email(app, staff_firstName)
-#         # background_tasks.add_task(send_email, staff_email, subject, body)
-
-#         errors = {}
-
-#         try:
-#             send_email(user_email, user_subject, user_body)
-#         except Exception as e:
-#             errors["user"] = str(e)
-
-#         try:
-#             send_email(staff_email, staff_subject, staff_body)
-#         except Exception as e:
-#             errors["staff"] = str(e)
-
-#         return {
-#             "application_id": app.application_id,
-#             "current_status": app.current_status,
-#             "email_sent": True,
-#         }
-
-#     elif curr == "Draft" and prev == "Requires Action":
-#         app.current_status = "Under Manual Review"
-#         app.is_open_staff = False
-#         user_subject, user_body = build_user_manual_review_email(app, user_firstName)
-#         # background_tasks.add_task(send_email, user_email, subject, body)
-#         staff_subject, staff_body = build_staff_manual_review_email(app, staff_firstName)
-#         # background_tasks.add_task(send_email, staff_email, subject, body)
-
-#         errors = {}
-
-#         try:
-#             send_email(user_email, user_subject, user_body)
-#         except Exception as e:
-#             errors["user"] = str(e)
-
-#         try:
-#             send_email(staff_email, staff_subject, staff_body)
-#         except Exception as e:
-#             errors["staff"] = str(e)
-
-#         return {
-#             "application_id": app.application_id,
-#             "current_status": app.current_status,
-#             "email_sent": True,
-#         }
-
-
-#     db.commit()
-#     db.refresh(app)
-
-#     return {
-#         "application_id": app.application_id,
-#         "previous_status": app.previous_status,
-#         "current_status": app.current_status,
-#     }
-
 @router.put("/secondSubmit/{application_id}")
 def second_submit(
     application_id: str,
@@ -376,6 +238,8 @@ def second_submit(
             continue
         if hasattr(app, key):
             setattr(app, key, value)
+        else:
+            app.form_data[key] = value
 
     curr = app.current_status
     prev = app.previous_status
@@ -674,7 +538,7 @@ def approve_application(
     # Status update
     app.previous_status = app.current_status
     app.current_status = "Approved"
-    app.reason = reason  # may be None
+    app.form_data["reason"] = reason
     app.is_open_user = False
 
     # Persist first
@@ -721,44 +585,7 @@ def approve_application(
         "emails_queued": emails_queued,
         "email_notes": email_notes,
     }
-# def approve_application(application_id: str, background_tasks: BackgroundTasks, data: dict = Body(...), db: Session = Depends(get_db)):
-#     app = (
-#         db.query(ApplicationForm)
-#         .filter(ApplicationForm.application_id == application_id)
-#         .first()
-#     )
 
-#     if not app:
-#         raise HTTPException(status_code=404, detail="Application not found")
-
-#     reason = data.get("reason")
-
-#     # Only require reason if approving from Under Manual Review
-#     if app.current_status == "Under Manual Review":
-#         if reason is None or str(reason).strip() == "":
-#             raise HTTPException(status_code=400, detail="reason is required when approving from Under Manual Review")
-
-#     # Status update
-#     app.previous_status = app.current_status
-#     app.current_status = "Approved"
-#     app.reason = reason  # will be None if not provided
-#     app.is_open_user = False
-
-#     db.commit()
-#     db.refresh(app)
-
-#     user_email = data.get('email')
-#     user_firstName = data.get('firstName')
-
-#     subject, body = build_approved_email(app, user_firstName)
-#     background_tasks.add_task(send_email, user_email, subject, body)
-
-#     return {
-#         "application_id": app.application_id,
-#         "status": app.current_status,
-#         "reason": app.reason,
-#         "reviewer_id": app.reviewer_id
-#     }
 
 # Reviewer rejecting the application
 @router.put("/reject/{application_id}")
@@ -786,7 +613,7 @@ def reject_application(
     # Status update
     app.previous_status = app.current_status
     app.current_status = "Rejected"
-    app.reason = reason
+    app.form_data["reason"] = reason
     app.is_open_user = False
 
     # Persist first
@@ -833,37 +660,6 @@ def reject_application(
         "emails_queued": emails_queued,
         "email_notes": email_notes,
     }
-# def approve_application(application_id: str, background_tasks: BackgroundTasks, data: dict = Body(...), db: Session = Depends(get_db)):
-#     app = (
-#         db.query(ApplicationForm)
-#         .filter(ApplicationForm.application_id == application_id)
-#         .first()
-#     )
-
-#     if not app:
-#         raise HTTPException(status_code=404, detail="Application not found")
-
-#     reason = data.get("reason")
-#     app.previous_status = app.current_status
-#     app.current_status = "Rejected"
-#     app.reason = reason  # save approval reason
-
-#     db.commit()
-#     db.refresh(app)
-#     app.is_open_user = False
-
-#     user_email = data.get('email')
-#     user_firstName = data.get('firstName')
-
-#     subject, body = build_rejected_email(app, user_firstName)
-#     background_tasks.add_task(send_email, user_email, subject, body)
-    
-#     return {
-#         "application_id": app.application_id,
-#         "status": app.current_status,
-#         "reason": app.reason,
-#         "reviewer_id": app.reviewer_id
-#     }
 
 # Reviewer escalating the application back to user
 @router.put("/escalate/{application_id}")
@@ -894,7 +690,7 @@ def require_action(
     # Status update
     app.previous_status = app.current_status
     app.current_status = "Requires Action"
-    app.reason = reason
+    app.form_data["reason"] = reason
     app.is_open_user = False
 
     # Persist first
@@ -940,38 +736,7 @@ def require_action(
         "emails_queued": emails_queued,
         "email_notes": email_notes,
     }
-# def approve_application(application_id: str, background_tasks: BackgroundTasks, data: dict = Body(...), db: Session = Depends(get_db)):
-#     app = (
-#         db.query(ApplicationForm)
-#         .filter(ApplicationForm.application_id == application_id)
-#         .first()
-#     )
 
-#     if not app:
-#         raise HTTPException(status_code=404, detail="Application not found")
-
-#     reason = data.get("reason")
-
-#     app.previous_status = app.current_status
-#     app.current_status = "Requires Action"
-#     app.reason = reason  # save approval reason
-#     app.is_open_user = False
-
-#     db.commit()
-#     db.refresh(app)
-
-#     user_email = data.get('email')
-#     user_firstName = data.get('firstName')
-
-#     subject, body = build_action_required_email(app, user_firstName)
-#     background_tasks.add_task(send_email, user_email, subject, body)
-
-#     return {
-#         "application_id": app.application_id,
-#         "status": app.current_status,
-#         "reason": app.reason,
-#         "reviewer_id": app.reviewer_id
-#     }
 
 # Reviewer escalating the application back to user
 @router.put("/withdraw/{application_id}")
@@ -1045,36 +810,6 @@ def withdraw_application(
         "emails_queued": emails_queued,
         "email_notes": email_notes,
     }
-# def approve_application(application_id: str, background_tasks: BackgroundTasks, db: Session = Depends(get_db)):
-#     app = (
-#         db.query(ApplicationForm)
-#         .filter(ApplicationForm.application_id == application_id)
-#         .first()
-#     )
-
-#     if not app:
-#         raise HTTPException(status_code=404, detail="Application not found")
-    
-#     app.previous_status = app.current_status
-#     app.current_status = "Withdrawn"
-#     app.is_open_user = False
-#     app.is_open_staff = False
-
-#     user = db.query(User).filter(User.user_id == app.reviewer_id).first()
-#     user_email = user.email
-#     user_firstName = user.first_name
-
-#     db.commit()
-#     db.refresh(app)
-
-#     subject, body = build_rejected_email(app, user_firstName)
-#     background_tasks.add_task(send_email, user_email, subject, body)
-
-#     return {
-#         "application_id": app.application_id,
-#         "status": app.current_status,
-#         "reviewer_id": app.reviewer_id
-#     }
 
 def staff_message(app: ApplicationForm) -> str:
     # Staff only cares about statuses relevant to review

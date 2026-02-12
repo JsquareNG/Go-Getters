@@ -26,6 +26,7 @@ const Step1BasicInformation = ({
   //   label: type.label,
   //   value: type.id,
   // }));
+  console.log(data)
 
   return (
     <div>

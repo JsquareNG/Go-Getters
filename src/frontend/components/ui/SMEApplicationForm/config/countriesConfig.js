@@ -31,6 +31,22 @@ export const COUNTRIES = {
         error: "Invalid UEN format",
       },
     },
+    documents: {
+      proofOfAddress: {
+        key: "proof_of_address",
+        label: "Proof of Business Address",
+        required: true,
+        accept: [".pdf", ".jpg", ".png"],
+        maxSizeMB: 10,
+      },
+      bankStatement3m: {
+        key: "bank_statement_3m",
+        label: "Bank Statement (Last 3 months)",
+        required: true,
+        accept: [".pdf"],
+        maxSizeMB: 20,
+      },
+    }
   },
 
   ID: {
@@ -58,6 +74,22 @@ export const COUNTRIES = {
         placeholder: "e.g., 123/XYZ/2024",
         validation: (value) => !value || /^\d{1,4}\/[A-Z]+\/\d{4}$/.test(value),
         error: "Invalid SIUP format (e.g., 123/XYZ/2024)",
+      },
+    },
+    documents: {
+      proofOfAddress: {
+        key: "proof_of_address",
+        label: "Proof of Business Address",
+        required: true,
+        accept: [".pdf", ".jpg", ".png"],
+        maxSizeMB: 10,
+      },
+      nibCertificate: {
+        key: "nib_certificate",
+        label: "NIB Certificate",
+        required: true,
+        accept: [".pdf", ".jpg", ".png"],
+        maxSizeMB: 10,
       },
     },
   },

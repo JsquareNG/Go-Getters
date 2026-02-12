@@ -1,35 +1,30 @@
 import { useState, useMemo, useEffect } from "react";
-import { Plus, Search, Loader2, AlertCircle } from "lucide-react";
+import { Plus, Loader2, AlertCircle } from "lucide-react";
 import {
   Button,
-  Input,
   ApplicationCard,
-  StatusFilter,
   ApplicationStats,
   EmptyState,
 } from "@/components/ui";
 import { useNavigate } from "react-router-dom";
 import { getApplicationsByUserId } from "../api/applicationApi";
 
-// 1. Import Redux hooks and your selector
 import { useSelector } from "react-redux";
 import { selectUser } from "../store/authSlice";
 
 export default function LandingPage() {
   const navigate = useNavigate();
-
-  // 2. Access the logged-in user from Redux state
   const user = useSelector(selectUser);
 
   const [applications, setApplications] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
+
   const [selectedStatus, setSelectedStatus] = useState("All");
   const [searchQuery, setSearchQuery] = useState("");
 
   useEffect(() => {
     const fetchApps = async () => {
-      // 3. Ensure we have a user and user_id before fetching
       if (!user?.user_id) {
         setIsLoading(false);
         return;
@@ -37,12 +32,11 @@ export default function LandingPage() {
 
       try {
         setIsLoading(true);
-        // 4. Use the user_id provided by the Redux store
+        setError(null);
+
         const data = await getApplicationsByUserId(user.user_id);
-
-        if (data) console.log("FETCHED FOR USER:", user.user_id);
-
-        setApplications(Array.isArray(data) ? data : [data]);
+        const apps = Array.isArray(data) ? data : (data ? [data] : []);
+        setApplications(apps);
       } catch (err) {
         setError("Failed to load applications. Please try again.");
       } finally {
@@ -51,15 +45,43 @@ export default function LandingPage() {
     };
 
     fetchApps();
-  }, [user?.user_id]); // 5. Dependency array now tracks the Redux user ID
+  }, [user?.user_id]);
+
+  /**
+   * Restriction logic:
+   * Block new application if user has any existing application in these statuses
+   */
+  const BLOCKING_STATUSES = useMemo(
+    () => ["Draft", "Under Review", "Under Manual Review", "Requires Action", "Approved"],
+    []
+  );
+
+  const blocksNewApplication = useMemo(() => {
+    return applications.some((a) => BLOCKING_STATUSES.includes(a.current_status));
+  }, [applications, BLOCKING_STATUSES]);
+
+  const restrictionMessage = useMemo(() => {
+    if (!blocksNewApplication) return null;
+
+    // optional: give a nicer message depending on the status they have
+    const blockingApp = applications.find((a) => BLOCKING_STATUSES.includes(a.current_status));
+    const status = blockingApp?.current_status;
+
+    if (status === "Approved") return "You already have an approved SME account. You cannot create another application.";
+    if (status === "Requires Action") return "You already have an SME application that requires action. Please complete it instead of creating a new one.";
+    if (status === "Draft") return "You already have a draft SME application. Please continue that application instead of creating a new one.";
+    return "You already have an SME application in progress. You can only submit one application per user.";
+  }, [applications, blocksNewApplication, BLOCKING_STATUSES]);
 
   // Filter Logic
   const filteredApplications = useMemo(() => {
     return applications.filter((app) => {
       const matchesStatus =
         selectedStatus === "All" || app.current_status === selectedStatus;
+
       const q = searchQuery.toLowerCase();
       const matchesSearch = (app.business_name || "").toLowerCase().includes(q);
+
       return matchesStatus && matchesSearch;
     });
   }, [selectedStatus, searchQuery, applications]);
@@ -69,34 +91,13 @@ export default function LandingPage() {
     () => ({
       total: applications.length,
       pending: applications.filter((a) =>
-        ["Under Manual Review", "Under Review"].includes(a.current_status),
+        ["Under Manual Review", "Under Review"].includes(a.current_status)
       ).length,
-      requiresAction: applications.filter(
-        (a) => a.current_status === "Requires Action",
-      ).length,
-      approved: applications.filter((a) => a.current_status === "Approved")
-        .length,
+      requiresAction: applications.filter((a) => a.current_status === "Requires Action").length,
+      approved: applications.filter((a) => a.current_status === "Approved").length,
     }),
-    [applications],
+    [applications]
   );
-
-  const statusCounts = useMemo(() => {
-    const counts = {
-      All: applications.length,
-      Draft: 0,
-      Submitted: 0,
-      "Under Review": 0,
-      "Under Manual Review": 0,
-      "Requires Action": 0,
-      Approved: 0,
-      Rejected: 0,
-      Withdrawn: 0,
-    };
-    applications.forEach((a) => {
-      if (counts[a.current_status] !== undefined) counts[a.current_status]++;
-    });
-    return counts;
-  }, [applications]);
 
   if (isLoading) {
     return (
@@ -118,11 +119,24 @@ export default function LandingPage() {
             <p className="text-muted-foreground">
               Manage and track your business account applications
             </p>
+
+            {/* Restriction banner */}
+            {blocksNewApplication && (
+              <div className="mt-4 rounded-lg border border-yellow-200 bg-yellow-50 p-3 text-sm text-yellow-800 flex items-start gap-2">
+                <AlertCircle className="h-4 w-4 mt-0.5" />
+                <span>{restrictionMessage}</span>
+              </div>
+            )}
           </div>
 
           <Button
-            onClick={() => navigate("/landingpage/newapplication")}
-            className="gap-2 shrink-0 bg-red-500 hover:bg-red-600"
+            disabled={blocksNewApplication}
+            onClick={() => {
+              if (blocksNewApplication) return;
+              navigate("/landingpage/newapplication");
+            }}
+            className="gap-2 shrink-0 bg-red-500 hover:bg-red-600 disabled:opacity-50 disabled:cursor-not-allowed"
+            title={blocksNewApplication ? "You already have an existing SME application" : "Create a new application"}
           >
             <Plus className="h-4 w-4" />
             New Application
@@ -132,27 +146,6 @@ export default function LandingPage() {
         {/* STATS OVERVIEW */}
         <div className="mb-8">
           <ApplicationStats {...stats} />
-        </div>
-
-        {/* FILTERS & SEARCH */}
-        <div className="flex flex-col gap-4 mb-6">
-          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-            <StatusFilter
-              selectedStatus={selectedStatus}
-              onStatusChange={setSelectedStatus}
-              statusCounts={statusCounts}
-            />
-
-            <div className="relative w-full sm:w-72">
-              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-              <Input
-                placeholder="Search by business name..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-9"
-              />
-            </div>
-          </div>
         </div>
 
         {/* APPLICATIONS LIST */}
