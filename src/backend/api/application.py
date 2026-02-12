@@ -24,12 +24,12 @@ EXCLUDED_STATUSES = ("Withdrawn", "Approved", "Rejected")  # not "active"
 def to_dict(self):
     return {c.name: getattr(self, c.name) for c in self.__table__.columns}
 
-def get_db():
-    db = SessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()
+# def get_db():
+#     db = SessionLocal()
+#     try:
+#         yield db
+#     finally:
+#         db.close()
 
 @router.get("/")
 def get_all_applications(db: Session = Depends(get_db)):
