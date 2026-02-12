@@ -44,6 +44,7 @@ const SMEApplicationForm = ({ onSubmitSuccess }) => {
     setCountrySpecificField,
     setBusinessTypeField,
     setDocument,
+    uploadDocument,
     setError,
     nextStep,
     prevStep,
@@ -63,12 +64,32 @@ const SMEApplicationForm = ({ onSubmitSuccess }) => {
   ];
 
   // Handle document upload with error management
-  const handleDocumentChange = (documentType, file, error = "") => {
+  const handleDocumentChange = async (documentType, file, error = "") => {
     if (error) {
       setError(documentType, error);
       setDocument(documentType, null);
-    } else {
-      setDocument(documentType, file);
+      return;
+    }
+
+    // Optimistically set file so UI shows filename immediately
+    setDocument(documentType, file);
+
+    // Upload in background and capture progress
+    try {
+      await uploadDocument(documentType, file, {
+        onProgress: (pct) => {
+          // Could show local progress UI or toast if desired
+        },
+      });
+    } catch (err) {
+      // uploadDocument already sets an error in the hook; reflect via toast
+      toast({
+        title: "Upload Failed",
+        description: `Failed to upload ${documentType}. Please try again.`,
+        variant: "destructive",
+      });
+      // clear the file in state
+      setDocument(documentType, null);
     }
   };
 
@@ -297,6 +318,7 @@ const SMEApplicationForm = ({ onSubmitSuccess }) => {
                 errors={state.errors}
                 touched={state.touched}
                 onDocumentChange={handleDocumentChange}
+                documentsProgress={state.data.documentsProgress}
               />
             )}
 
