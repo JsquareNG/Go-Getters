@@ -57,7 +57,7 @@ export default function NewApplication() {
 
   const handleSelectType = (typeId) => {
     // In a real app, this would start the application flow
-    navigate("/");
+    navigate("/applications/form");
   };
 
   return (

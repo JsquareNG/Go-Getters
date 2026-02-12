@@ -6,7 +6,6 @@ import { Separator } from "./separator";
 import { Eye, EyeOff, Mail, Lock, AlertCircle } from "lucide-react";
 import { useToast } from "../../hooks/use-toast";
 import { useNavigate } from "react-router-dom";
-import { loginUser } from "../../api/usersApi";
 
 import { useDispatch } from "react-redux";
 import { loginSuccess } from "../../store/authSlice";
@@ -92,7 +91,7 @@ const LoginForm = ({ onSwitchToRegister }) => {
       });
 
       // Navigate based on role
-      console.log("User role:", data.role);
+      // console.log("User role:", data.role);
       if (data.role === "SME") {
         navigate("/landingpage");
       } else if (data.role === "STAFF") {

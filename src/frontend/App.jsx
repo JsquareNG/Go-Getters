@@ -19,6 +19,7 @@ import { Toaster } from "./components/ui/toaster";
 import { useSelector } from "react-redux";
 import { selectUser } from "./store/authSlice";
 import { Navigate } from "react-router-dom";
+import { SMEApplicationForm } from "./components/ui/SMEApplicationForm";
 
 
 // Simple route guard
@@ -86,6 +87,17 @@ export default function App() {
             <RequireRole role="SME">
               <LandingLayout>
                 <AccountsPage />
+              </LandingLayout>
+            </RequireRole>
+          }
+        />
+
+        <Route
+          path="/applications/form"
+          element={
+            <RequireRole role="SME">
+              <LandingLayout>
+                <SMEApplicationForm />
               </LandingLayout>
             </RequireRole>
           }
