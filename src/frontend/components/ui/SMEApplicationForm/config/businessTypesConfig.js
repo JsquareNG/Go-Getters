@@ -24,6 +24,15 @@ export const BUSINESS_TYPES = {
         error: "Invalid ID number",
       },
     },
+    documents: {
+      ownerId: {
+        key: "owner_id",
+        label: "Owner ID (NRIC/Passport)",
+        required: true,
+        accept: [".pdf", ".jpg", ".png"],
+        maxSizeMB: 10,
+      }
+    }
   },
   PARTNERSHIP: {
     id: "partnership",
@@ -45,6 +54,24 @@ export const BUSINESS_TYPES = {
         error: "Please provide details for all partners",
       },
     },
+    documents: {
+      partnershipAgreement: {
+      key: "partnership_agreement",
+      label: "Partnership Agreement (signed)",
+      required: true,
+      accept: [".pdf", ".jpg", ".png"],
+      maxSizeMB: 15,
+      },
+      allPartnersId: {
+        key: "all_partners_id",
+        label: "Partners' IDs (NRIC / Passport) - all partners",
+        required: true,
+        multiple: true,
+        maxFiles: 20,
+        accept: [".pdf", ".jpg", ".png"],
+        maxSizeMB: 10,
+      }
+    }
   },
   PRIVATE_LIMITED: {
     id: "private_limited",
@@ -80,6 +107,47 @@ export const BUSINESS_TYPES = {
         error: "Please provide shareholder details",
       },
     },
+    documents:{
+      certificateOfIncorporation: {
+        key: "certificate_of_incorporation",
+        label: "Certificate of Incorporation",
+        required: true,
+        accept: [".pdf", ".jpg", ".png"],
+        maxSizeMB: 10,
+      },
+      businessProfile: {
+        key: "business_profile",
+        label: "Company Profile (e.g., ACRA BizFile / NIB extract)",
+        required: true,
+        accept: [".pdf"],
+        maxSizeMB: 10,
+      },
+      directorsId: {
+        key: "all_directors_id",
+        label: "Directors' IDs (NRIC / Passport)",
+        required: true,
+        multiple: true,
+        maxFiles: 20,
+        accept: [".pdf", ".jpg", ".png"],
+        maxSizeMB: 10,
+      },
+      shareholdersId: {
+        key: "all_shareholders_id",
+        label: "Shareholders' IDs (NRIC / Passport)",
+        required: true,
+        multiple: true,
+        maxFiles: 50,
+        accept: [".pdf", ".jpg", ".png"],
+        maxSizeMB: 10,
+      },
+      ownershipChart: {
+        key: "ownership_structure_chart",
+        label: "Ownership Structure Chart (if applicable)",
+        required: false,
+        accept: [".pdf", ".jpg", ".png"],
+        maxSizeMB: 15,
+      },
+    }
   },
   PUBLIC_LIMITED: {
     id: "public_limited",
@@ -101,6 +169,29 @@ export const BUSINESS_TYPES = {
         error: "Invalid ticker symbol format",
       },
     },
+    documents:{
+      certificateOfIncorporation: {
+        key: "certificate_of_incorporation",
+        label: "Certificate of Incorporation",
+        required: true,
+        accept: [".pdf", ".jpg", ".png"],
+        maxSizeMB: 10,
+      },
+      businessProfile: {
+        key: "business_profile",
+        label: "Company Profile (e.g., ACRA BizFile / equivalent)",
+        required: true,
+        accept: [".pdf"],
+        maxSizeMB: 10,
+      },
+      annualReport: {
+        key: "latest_annual_report",
+        label: "Latest Annual Report",
+        required: true,
+        accept: [".pdf"],
+        maxSizeMB: 30,
+      },
+    }
   },
 };
 
