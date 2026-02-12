@@ -23,6 +23,7 @@ class ApplicationForm(Base):
 
     business_name = Column(String(255), nullable=False)
     business_country = Column(String(50), nullable=False)
+    business_type = Column(String(255), nullable=False)
     previous_status = Column(String(50), nullable=True)
     current_status = Column(String(50), nullable=False)
     user_id = Column(String(8), nullable=False)
@@ -31,6 +32,7 @@ class ApplicationForm(Base):
     is_open_user = Column(Boolean,nullable=False, server_default=text("false"))
     is_open_staff = Column(Boolean,nullable=False, server_default=text("false"))
     has_sent = Column(Boolean, nullable=False, default=False, server_default="false")
+    
 
     # Store as SGT-naive timestamp (TIMESTAMP WITHOUT TIME ZONE)
     last_edited = Column(
