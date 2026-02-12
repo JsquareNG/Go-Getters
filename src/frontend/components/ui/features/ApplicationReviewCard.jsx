@@ -11,19 +11,8 @@ import {
   Button,
   Card,
   CardContent,
-  CardFooter,
-  CardHeader,
   StatusBadge,
 } from "../primitives";
-import { RiskBadge } from "./RiskBadge";
-import {
-  Clock,
-  AlertTriangle,
-  User,
-  Building2,
-  ArrowRight,
-} from "lucide-react";
-import { formatDistanceToNow, differenceInHours, parseISO } from "date-fns";
 import { cn } from "@/lib/utils";
 
 function getActionText(status) {

@@ -4,9 +4,7 @@ import { Loader2, FileSearch, AlertCircle, Search } from "lucide-react";
 import { getApplicationByReviewer } from "../api/applicationApi";
 import { useSelector } from "react-redux";
 import { selectUser } from "../store/authSlice";
-import { ApplicationCard, StatusFilter, Input, ApplicationReviewCard, StaffStats} from "@/components/ui";
-import { mockApplicationsReview } from "../data/mockData";
-import { AlertCircle, FileSearch } from "lucide-react";
+import { StatusFilter, Input, ApplicationReviewCard, StaffStats} from "@/components/ui";
 
 const riskPriority = {
   critical: 0,

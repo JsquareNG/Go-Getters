@@ -1,3 +1,9 @@
+export {
+  Accordion,
+  AccordionItem,
+  AccordionTrigger,
+  AccordionContent,
+} from "./accordion";
 export { Button, buttonVariants } from "./Button";
 export { Input } from "./Input";
 export { Label } from "./Label";
@@ -35,5 +41,13 @@ export {
   SelectScrollDownButton,
 } from "./Select";
 export { StatusBadge } from "./StatusBadge";
-export { ToastProvider, ToastViewport, Toast, ToastTitle, ToastDescription, ToastClose, ToastAction } from "./Toast";
+export {
+  ToastProvider,
+  ToastViewport,
+  Toast,
+  ToastTitle,
+  ToastDescription,
+  ToastClose,
+  ToastAction,
+} from "./Toast";
 export { Toaster } from "./Toaster";

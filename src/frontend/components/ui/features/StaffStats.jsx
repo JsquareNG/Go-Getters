@@ -4,7 +4,7 @@ import {
   AlertTriangle,
   FileText,
 } from "lucide-react";
-import { Card, CardContent } from "./card";
+import { Card, CardContent } from "../primitives";
 
 function StatCard({ icon, label, value, variant = "default" }) {
   const variantStyles = {
@@ -28,12 +28,12 @@ function StatCard({ icon, label, value, variant = "default" }) {
   );
 }
 
-export function StaffStats({
+const StaffStats = ({
   totalPending,
   critical,
   awaitingResubmission,
   approved,
-}) {
+}) => {
   return (
     <div className="flex flex-wrap gap-4">
       <StatCard
@@ -61,3 +61,5 @@ export function StaffStats({
     </div>
   );
 }
+
+export { StaffStats };
