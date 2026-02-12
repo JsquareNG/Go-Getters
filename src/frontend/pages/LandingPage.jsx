@@ -69,12 +69,6 @@ export default function LandingPage() {
     approved: applications.filter(a => a.current_status === "Approved").length,
   }), [applications]);
 
-  const statusCounts = useMemo(() => {
-    const counts = { All: applications.length, "Draft": 0, "Submitted": 0, "Under Review": 0, "Under Manual Review": 0, "Requires Action": 0, Approved: 0, "Rejected": 0, "Withdrawn": 0 };
-    applications.forEach(a => { if(counts[a.current_status] !== undefined) counts[a.current_status]++; });
-    return counts;
-  }, [applications]);
-
   if (isLoading) {
     return (
       <div className="flex h-screen items-center justify-center">
@@ -110,27 +104,6 @@ export default function LandingPage() {
         {/* STATS OVERVIEW */}
         <div className="mb-8">
           <ApplicationStats {...stats} />
-        </div>
-
-        {/* FILTERS & SEARCH */}
-        <div className="flex flex-col gap-4 mb-6">
-          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-            <StatusFilter
-              selectedStatus={selectedStatus}
-              onStatusChange={setSelectedStatus}
-              statusCounts={statusCounts}
-            />
-
-            <div className="relative w-full sm:w-72">
-              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-              <Input
-                placeholder="Search by business name..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-9"
-              />
-            </div>
-          </div>
         </div>
 
         {/* APPLICATIONS LIST */}

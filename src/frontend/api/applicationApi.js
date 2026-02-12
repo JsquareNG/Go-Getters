@@ -15,3 +15,8 @@ export const submitApplicationApi = async (payload) => {
   const res = await axiosClient.post("/applications/firstSubmit", payload);
   return res.data;
 };
+
+export const getApplicationByReviewer = async (reviewerId) => {
+  const res = await axiosClient.get(`/applications/byEmployeeID/${reviewerId}`);
+  return res.data;
+};
