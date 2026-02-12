@@ -1,27 +1,28 @@
 import { useState } from "react";
-import { useParams, useNavigate } from "react-router-dom";;
-import { RiskBadge } from "../components/ui/RiskBadge";
-import { StatusBadge } from "../components/ui/StatusBadge";
-import { DocumentItem } from "../components/ui/documentItem";
-import { Button } from "../components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card";
-import { Textarea } from "../components/ui/textarea";
-import { Checkbox } from "../components/ui/checkbox";
+import { useParams, useNavigate } from "react-router-dom";
 import {
+  RiskBadge,
+  StatusBadge,
+  DocumentItem,
+  Button,
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  Textarea,
+  Checkbox,
   Dialog,
   DialogContent,
   DialogDescription,
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from "../components/ui/dialog";
-import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "../components/ui/select";
+} from "@/components/ui";
 import { mockApplicationsReview } from "../data/mockData";
 import {
   ArrowLeft,
@@ -42,11 +43,12 @@ import { format, parseISO, differenceInHours } from "date-fns";
 import { toast } from "sonner";
 
 const ApplicationReviewDetail = () => {
-  const { id } = useParams(); // ✅ removed TS generic
+  const { id } = useParams(); 
   const navigate = useNavigate();
 
-  const application = mockApplicationsReview.find((app) => String(app.id) === String(id));
-
+  const application = mockApplicationsReview.find(
+    (app) => String(app.id) === String(id),
+  );
 
   const [showApproveDialog, setShowApproveDialog] = useState(false);
   const [showRejectDialog, setShowRejectDialog] = useState(false);
@@ -66,22 +68,31 @@ const ApplicationReviewDetail = () => {
             <p className="text-muted-foreground mb-4">
               The application you're looking for doesn't exist.
             </p>
-            <Button onClick={() => navigate("/staff-landingpage")}>Back to Applications</Button>
+            <Button onClick={() => navigate("/staff-landingpage")}>
+              Back to Applications
+            </Button>
           </div>
         </main>
       </div>
     );
   }
 
-  const hoursUntilSLA = differenceInHours(parseISO(application.slaDeadline), new Date());
+  const hoursUntilSLA = differenceInHours(
+    parseISO(application.slaDeadline),
+    new Date(),
+  );
   const isOverdue = hoursUntilSLA <= 0;
 
   const handleViewDocument = (doc) => {
-    toast.info(`Viewing ${doc.name}`, { description: "Document viewer would open here" });
+    toast.info(`Viewing ${doc.name}`, {
+      description: "Document viewer would open here",
+    });
   };
 
   const handleAddNote = (doc) => {
-    toast.info(`Adding note to ${doc.name}`, { description: "Note dialog would open here" });
+    toast.info(`Adding note to ${doc.name}`, {
+      description: "Note dialog would open here",
+    });
   };
 
   const handleApprove = () => {
@@ -110,17 +121,20 @@ const ApplicationReviewDetail = () => {
 
   const toggleDocSelection = (docId) => {
     setSelectedDocs((prev) =>
-      prev.includes(docId) ? prev.filter((x) => x !== docId) : [...prev, docId]
+      prev.includes(docId) ? prev.filter((x) => x !== docId) : [...prev, docId],
     );
   };
 
   return (
     <div className="min-h-screen bg-background">
-
       <main className="container mx-auto px-6 py-12">
         {/* Back Button & Title */}
         <div className="flex items-center gap-4 mb-6">
-          <Button variant="ghost" size="sm" onClick={() => navigate("/staff-landingpage")}>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => navigate("/staff-landingpage")}
+          >
             <ArrowLeft className="h-4 w-4 mr-2" />
             Back to Applications
           </Button>
@@ -130,11 +144,15 @@ const ApplicationReviewDetail = () => {
         <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-6 mb-8">
           <div>
             <div className="flex items-center gap-3 mb-2">
-              <span className="text-sm font-mono text-muted-foreground">{application.id}</span>
+              <span className="text-sm font-mono text-muted-foreground">
+                {application.id}
+              </span>
               <RiskBadge level={application.riskLevel} />
               <StatusBadge status={application.status} />
             </div>
-            <h1 className="text-3xl font-bold text-foreground">{application.customerName}</h1>
+            <h1 className="text-3xl font-bold text-foreground">
+              {application.customerName}
+            </h1>
             {application.businessName && (
               <p className="text-lg text-muted-foreground flex items-center gap-2 mt-1">
                 <Building2 className="h-5 w-5" />
@@ -152,12 +170,18 @@ const ApplicationReviewDetail = () => {
             }`}
           >
             <div className="flex items-center gap-2 mb-1">
-              <Clock className={`h-4 w-4 ${isOverdue ? "text-risk-critical" : "text-muted-foreground"}`} />
-              <span className={`text-sm font-medium ${isOverdue ? "text-risk-critical" : "text-muted-foreground"}`}>
+              <Clock
+                className={`h-4 w-4 ${isOverdue ? "text-risk-critical" : "text-muted-foreground"}`}
+              />
+              <span
+                className={`text-sm font-medium ${isOverdue ? "text-risk-critical" : "text-muted-foreground"}`}
+              >
                 SLA Deadline
               </span>
             </div>
-            <p className={`text-2xl font-bold ${isOverdue ? "text-risk-critical" : "text-foreground"}`}>
+            <p
+              className={`text-2xl font-bold ${isOverdue ? "text-risk-critical" : "text-foreground"}`}
+            >
               {isOverdue ? "OVERDUE" : `${hoursUntilSLA}h remaining`}
             </p>
             <p className="text-sm text-muted-foreground">
@@ -189,7 +213,8 @@ const ApplicationReviewDetail = () => {
                 <div className="flex items-center gap-3">
                   <Calendar className="h-4 w-4 text-muted-foreground" />
                   <span className="text-sm">
-                    Submitted {format(parseISO(application.submissionDate), "PPP")}
+                    Submitted{" "}
+                    {format(parseISO(application.submissionDate), "PPP")}
                   </span>
                 </div>
                 <div className="pt-2 border-t">
@@ -243,7 +268,9 @@ const ApplicationReviewDetail = () => {
                       <div className="pb-4">
                         <p className="text-sm font-medium">{event.action}</p>
                         {event.details && (
-                          <p className="text-xs text-muted-foreground">{event.details}</p>
+                          <p className="text-xs text-muted-foreground">
+                            {event.details}
+                          </p>
                         )}
                         <p className="text-xs text-muted-foreground mt-1">
                           {format(parseISO(event.timestamp), "PPP p")}
@@ -324,20 +351,27 @@ const ApplicationReviewDetail = () => {
           <DialogHeader>
             <DialogTitle>Approve Application</DialogTitle>
             <DialogDescription>
-              Are you sure you want to approve {application.customerName}'s application for{" "}
-              {application.productType}?
+              Are you sure you want to approve {application.customerName}'s
+              application for {application.productType}?
             </DialogDescription>
           </DialogHeader>
           <div className="p-4 bg-status-success/10 border border-status-success/20 rounded-lg">
             <p className="text-sm text-status-success font-medium">
-              This action will mark the application as approved and notify the customer.
+              This action will mark the application as approved and notify the
+              customer.
             </p>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setShowApproveDialog(false)}>
+            <Button
+              variant="outline"
+              onClick={() => setShowApproveDialog(false)}
+            >
               Cancel
             </Button>
-            <Button className="bg-status-success hover:bg-status-success/90" onClick={handleApprove}>
+            <Button
+              className="bg-status-success hover:bg-status-success/90"
+              onClick={handleApprove}
+            >
               Confirm Approval
             </Button>
           </DialogFooter>
@@ -350,22 +384,34 @@ const ApplicationReviewDetail = () => {
           <DialogHeader>
             <DialogTitle>Reject Application</DialogTitle>
             <DialogDescription>
-              Are you sure you want to reject {application.customerName}'s application?
+              Are you sure you want to reject {application.customerName}'s
+              application?
             </DialogDescription>
           </DialogHeader>
 
           <div className="space-y-4">
             <div>
               <label className="text-sm font-medium">Rejection Reason</label>
-              <Select value={rejectionReason} onValueChange={setRejectionReason}>
+              <Select
+                value={rejectionReason}
+                onValueChange={setRejectionReason}
+              >
                 <SelectTrigger className="mt-1.5">
                   <SelectValue placeholder="Select a reason" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="failed_verification">Failed identity verification</SelectItem>
-                  <SelectItem value="aml_concerns">AML/Compliance concerns</SelectItem>
-                  <SelectItem value="incomplete_docs">Incomplete documentation</SelectItem>
-                  <SelectItem value="credit_risk">Unacceptable credit risk</SelectItem>
+                  <SelectItem value="failed_verification">
+                    Failed identity verification
+                  </SelectItem>
+                  <SelectItem value="aml_concerns">
+                    AML/Compliance concerns
+                  </SelectItem>
+                  <SelectItem value="incomplete_docs">
+                    Incomplete documentation
+                  </SelectItem>
+                  <SelectItem value="credit_risk">
+                    Unacceptable credit risk
+                  </SelectItem>
                   <SelectItem value="other">Other</SelectItem>
                 </SelectContent>
               </Select>
@@ -383,7 +429,10 @@ const ApplicationReviewDetail = () => {
           </div>
 
           <DialogFooter>
-            <Button variant="outline" onClick={() => setShowRejectDialog(false)}>
+            <Button
+              variant="outline"
+              onClick={() => setShowRejectDialog(false)}
+            >
               Cancel
             </Button>
             <Button variant="destructive" onClick={handleReject}>
@@ -399,13 +448,16 @@ const ApplicationReviewDetail = () => {
           <DialogHeader>
             <DialogTitle>Request Document Resubmission</DialogTitle>
             <DialogDescription>
-              Select the documents that need to be resubmitted and provide feedback.
+              Select the documents that need to be resubmitted and provide
+              feedback.
             </DialogDescription>
           </DialogHeader>
 
           <div className="space-y-4">
             <div>
-              <label className="text-sm font-medium mb-2 block">Select Documents</label>
+              <label className="text-sm font-medium mb-2 block">
+                Select Documents
+              </label>
               <div className="space-y-2">
                 {application.documents.map((doc) => (
                   <label
@@ -418,7 +470,9 @@ const ApplicationReviewDetail = () => {
                     />
                     <div className="flex-1">
                       <p className="text-sm font-medium">{doc.name}</p>
-                      <p className="text-xs text-muted-foreground">{doc.type}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {doc.type}
+                      </p>
                     </div>
                     <StatusBadge status={doc.status} type="document" />
                   </label>
@@ -427,23 +481,33 @@ const ApplicationReviewDetail = () => {
             </div>
 
             <div>
-              <label className="text-sm font-medium">Reason for Resubmission</label>
+              <label className="text-sm font-medium">
+                Reason for Resubmission
+              </label>
               <Select>
                 <SelectTrigger className="mt-1.5">
                   <SelectValue placeholder="Select a reason" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="poor_quality">Poor image quality</SelectItem>
+                  <SelectItem value="poor_quality">
+                    Poor image quality
+                  </SelectItem>
                   <SelectItem value="expired">Document expired</SelectItem>
-                  <SelectItem value="incomplete">Incomplete/partial document</SelectItem>
+                  <SelectItem value="incomplete">
+                    Incomplete/partial document
+                  </SelectItem>
                   <SelectItem value="mismatch">Information mismatch</SelectItem>
-                  <SelectItem value="wrong_type">Wrong document type</SelectItem>
+                  <SelectItem value="wrong_type">
+                    Wrong document type
+                  </SelectItem>
                 </SelectContent>
               </Select>
             </div>
 
             <div>
-              <label className="text-sm font-medium">Instructions for Customer</label>
+              <label className="text-sm font-medium">
+                Instructions for Customer
+              </label>
               <Textarea
                 placeholder="Explain what the customer needs to correct or resubmit..."
                 className="mt-1.5"
@@ -453,10 +517,16 @@ const ApplicationReviewDetail = () => {
           </div>
 
           <DialogFooter>
-            <Button variant="outline" onClick={() => setShowResubmitDialog(false)}>
+            <Button
+              variant="outline"
+              onClick={() => setShowResubmitDialog(false)}
+            >
               Cancel
             </Button>
-            <Button onClick={handleRequestResubmission} disabled={selectedDocs.length === 0}>
+            <Button
+              onClick={handleRequestResubmission}
+              disabled={selectedDocs.length === 0}
+            >
               Send Request ({selectedDocs.length} selected)
             </Button>
           </DialogFooter>

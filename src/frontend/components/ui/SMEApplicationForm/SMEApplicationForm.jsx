@@ -1,6 +1,6 @@
 import React, { useState } from "react";
-import { Button } from "../button";
-import { Card, CardContent } from "../card";
+import { Button } from "../primitives/Button";
+import { Card, CardContent } from "../primitives/Card";
 import { Loader } from "lucide-react";
 import FormStepper from "./components/FormStepper";
 import Step0Brief from "./steps/Step0Brief";
@@ -9,12 +9,12 @@ import Step2FinancialDetails from "./steps/Step2FinancialDetails";
 import Step3ComplianceDocumentation from "./steps/Step3ComplianceDocumentation";
 import Step4ReviewSubmit from "./steps/Step4ReviewSubmit";
 import { useSMEApplicationForm } from "./hooks/useSMEApplicationForm";
-import { useToast } from "../../../hooks/use-toast";
+import { useToast } from "@/hooks/use-toast";
 import { useNavigate } from "react-router-dom";
 
 import { useSelector } from "react-redux";
-import { selectUser } from "../../../store/authSlice";
-import { submitApplicationApi } from "../../../api/applicationApi";
+import { selectUser } from "@/store/authSlice";
+import { submitApplicationApi } from "@/api/applicationApi";
 
 /**
  * SMEApplicationForm - Main Component
@@ -31,14 +31,12 @@ import { submitApplicationApi } from "../../../api/applicationApi";
  * Usage:
  * <SMEApplicationForm onSubmitSuccess={handleSuccess} />
  */
-const SMEApplicationForm = ({
-  onSubmitSuccess,
-}) => {
+const SMEApplicationForm = ({ onSubmitSuccess }) => {
   const { toast } = useToast();
   const navigate = useNavigate();
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-   const user = useSelector(selectUser);
+  const user = useSelector(selectUser);
 
   const {
     state,
@@ -176,7 +174,14 @@ const SMEApplicationForm = ({
       }
 
       // Submit to API
-      const response = await submitApplicationApi({business_country: state.data.country, business_name: state.data.companyName,user_id: user.user_id, business_type: state.data.businessType, email: user.email, firstName: user.firstName});
+      const response = await submitApplicationApi({
+        business_country: state.data.country,
+        business_name: state.data.companyName,
+        user_id: user.user_id,
+        business_type: state.data.businessType,
+        email: user.email,
+        firstName: user.firstName,
+      });
       console.log("Submission response:", response);
 
       // const response = await fetch(apiEndpoint, {
@@ -195,7 +200,7 @@ const SMEApplicationForm = ({
         description:
           "Your application has been submitted successfully. We'll review it shortly.",
       });
-      
+
       navigate("/landingpage");
 
       // Reset form

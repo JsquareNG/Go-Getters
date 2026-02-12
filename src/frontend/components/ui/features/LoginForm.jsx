@@ -1,0 +1,211 @@
+import React, { useState } from "react";
+import { Button, Label, Input, Separator } from "../primitives";
+import { Eye, EyeOff, Mail, Lock, AlertCircle } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
+import { useNavigate } from "react-router-dom";
+
+import { useDispatch } from "react-redux";
+import { loginSuccess } from "@/store/authSlice";
+import { loginApi } from "@/api/authApi";
+
+/*
+TO TEST WITH DATA:
+- email: sme@gmail.com
+- password: Sme1234!
+- role: SME
+
+- email:  staff@gmail.com
+- password: Staff1234!
+- role: STAFF
+*/
+
+const LoginForm = ({ onSwitchToRegister }) => {
+  const navigate = useNavigate();
+  const dispatch = useDispatch();
+  const { toast } = useToast();
+
+  const [showPassword, setShowPassword] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [formData, setFormData] = useState({
+    email: "",
+    password: "",
+  });
+  const [errors, setErrors] = useState({});
+
+  const handleInputChange = (field, value) => {
+    setFormData((prev) => ({ ...prev, [field]: value }));
+    if (errors[field]) {
+      setErrors((prev) => ({ ...prev, [field]: "" }));
+    }
+  };
+
+  const validateForm = () => {
+    const newErrors = {};
+
+    if (!formData.email.trim()) {
+      newErrors.email = "Email address is required";
+    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
+      newErrors.email = "Please enter a valid email address";
+    }
+
+    if (!formData.password) {
+      newErrors.password = "Password is required";
+    }
+
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    if (!validateForm()) return;
+
+    setIsLoading(true);
+
+    try {
+      const data = await loginApi(formData.email, formData.password);
+
+      const token = data.access_token;
+      const user = data.user ?? {
+        user_id: data.user_id,
+        email: data.email,
+        first_name: data.first_name,
+        last_name: data.last_name,
+        role: data.role,
+      };
+
+      // store in redux (persist will save it)
+      dispatch(
+        loginSuccess({
+          token,
+          user,
+        }),
+      );
+
+      toast({
+        title: data.message,
+        description: `Welcome back, ${data.first_name}!`,
+      });
+
+      // Navigate based on role
+      // console.log("User role:", data.role);
+      if (data.role === "SME") {
+        navigate("/landingpage");
+      } else if (data.role === "STAFF") {
+        navigate("/staff-landingpage");
+      } else {
+        navigate("/"); // fallback
+      }
+    } catch (err) {
+      console.error("Login failed:", err);
+
+      const msg =
+        err?.response?.data?.detail ||
+        err?.response?.data?.message ||
+        "Invalid email or password";
+
+      setErrors({ general: msg });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  return (
+    <form onSubmit={handleSubmit} className="space-y-4">
+      <div>
+        <Label
+          htmlFor="email"
+          className="block text-sm font-medium text-foreground mb-2"
+        >
+          Email Address *
+        </Label>
+        <div className="relative">
+          <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input
+            id="email"
+            type="email"
+            placeholder="Enter your email"
+            value={formData.email}
+            onChange={(e) => handleInputChange("email", e.target.value)}
+            className={`pl-10 ${errors.email ? "border-red-500" : ""}`}
+          />
+        </div>
+        {errors.email && (
+          <p className="text-red-500 text-sm mt-1 flex items-center gap-1">
+            <AlertCircle className="h-4 w-4" />
+            {errors.email}
+          </p>
+        )}
+      </div>
+
+      <div>
+        <Label
+          htmlFor="password"
+          className="block text-sm font-medium text-foreground mb-2"
+        >
+          Password *
+        </Label>
+        <div className="relative">
+          <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input
+            id="password"
+            type={showPassword ? "text" : "password"}
+            placeholder="Enter your password"
+            value={formData.password}
+            onChange={(e) => handleInputChange("password", e.target.value)}
+            className={`pl-10 pr-10 ${errors.password ? "border-red-500" : ""}`}
+          />
+          <button
+            type="button"
+            onClick={() => setShowPassword(!showPassword)}
+            className="absolute right-3 top-1/2 transform -translate-y-1/2 text-muted-foreground hover:text-foreground"
+          >
+            {showPassword ? (
+              <EyeOff className="h-4 w-4" />
+            ) : (
+              <Eye className="h-4 w-4" />
+            )}
+          </button>
+        </div>
+        {errors.password && (
+          <p className="text-red-500 text-sm mt-1 flex items-center gap-1">
+            <AlertCircle className="h-4 w-4" />
+            {errors.password}
+          </p>
+        )}
+      </div>
+
+      {errors.general && (
+        <p className="text-red-500 text-sm mt-1 flex items-center gap-1">
+          <AlertCircle className="h-4 w-4" />
+          {errors.general}
+        </p>
+      )}
+
+      <Button
+        type="submit"
+        className="w-full"
+        size="lg"
+        disabled={isLoading}
+        // onClick={handleSubmit}
+      >
+        {isLoading ? "Logging In..." : "Log In"}
+      </Button>
+
+      <Separator className="my-6" />
+
+      <p className="text-center text-sm text-muted-foreground">
+        Don't have an account?{" "}
+        <button
+          type="button"
+          className="text-primary cursor-pointer hover:underline font-medium"
+          onClick={onSwitchToRegister}
+        >
+          Register
+        </button>
+      </p>
+    </form>
+  );
+};
+
+export { LoginForm };

@@ -11,16 +11,15 @@ import ApplicationDetail from "./pages/ApplicationDetail";
 import StaffLandingPage from "./pages/StaffLandingPage";
 import ApplicationReviewDetail from "./pages/ApplicationReviewDetail";
 import Dashboard from "./pages/Dashboard";
-import TestDocumentMulti from "./pages/TestDocument";
-import ViewSubmittedApplication from "./pages/OneDocument";
-import { Toaster } from "./components/ui/toaster";
-
+import AdminConfigPage from "./pages/AdminConfigPage";
+// import TestDocumentMulti from "./pages/TestDocument";
+// import ViewSubmittedApplication from "./pages/OneDocument";
+import { Toaster } from "./components/ui/primitives/Toaster";
 
 import { useSelector } from "react-redux";
 import { selectUser } from "./store/authSlice";
 import { Navigate } from "react-router-dom";
 import { SMEApplicationForm } from "./components/ui/SMEApplicationForm";
-
 
 // Simple route guard
 const RequireRole = ({ role, children }) => {
@@ -95,7 +94,7 @@ export default function App() {
         <Route
           path="/applications/form"
           element={
-            <RequireRole role="SME">
+            <RequireRole role={["SME", "STAFF"]}>
               <LandingLayout>
                 <SMEApplicationForm />
               </LandingLayout>
@@ -132,6 +131,18 @@ export default function App() {
             <RequireRole role="STAFF">
               <LandingLayout>
                 <Dashboard />
+              </LandingLayout>
+            </RequireRole>
+          }
+        />
+
+        {/* Admin Config Page */}
+        <Route
+          path="/admin-config"
+          element={
+            <RequireRole role="STAFF">
+              <LandingLayout>
+                <AdminConfigPage />
               </LandingLayout>
             </RequireRole>
           }

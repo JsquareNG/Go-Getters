@@ -1,11 +1,13 @@
 import { useState, useMemo, useEffect } from "react";
 import { Plus, Search, Loader2, AlertCircle } from "lucide-react";
-import { Button } from "../components/ui/button";
-import { Input } from "../components/ui/input";
-import { ApplicationCard } from "../components/ui/ApplicationCard";
-import { StatusFilter } from "../components/ui/StatusFilter";
-import { ApplicationStats } from "../components/ui/ApplicationStats";
-import { EmptyState } from "../components/ui/EmptyState";
+import {
+  Button,
+  Input,
+  ApplicationCard,
+  StatusFilter,
+  ApplicationStats,
+  EmptyState,
+} from "@/components/ui";
 import { useNavigate } from "react-router-dom";
 import { getApplicationsByUserId } from "../api/applicationApi";
 
@@ -15,10 +17,10 @@ import { selectUser } from "../store/authSlice";
 
 export default function LandingPage() {
   const navigate = useNavigate();
-  
+
   // 2. Access the logged-in user from Redux state
   const user = useSelector(selectUser);
-  
+
   const [applications, setApplications] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -37,9 +39,9 @@ export default function LandingPage() {
         setIsLoading(true);
         // 4. Use the user_id provided by the Redux store
         const data = await getApplicationsByUserId(user.user_id);
-        
+
         if (data) console.log("FETCHED FOR USER:", user.user_id);
-        
+
         setApplications(Array.isArray(data) ? data : [data]);
       } catch (err) {
         setError("Failed to load applications. Please try again.");
@@ -47,14 +49,15 @@ export default function LandingPage() {
         setIsLoading(false);
       }
     };
-    
+
     fetchApps();
   }, [user?.user_id]); // 5. Dependency array now tracks the Redux user ID
 
   // Filter Logic
   const filteredApplications = useMemo(() => {
     return applications.filter((app) => {
-      const matchesStatus = selectedStatus === "All" || app.current_status === selectedStatus;
+      const matchesStatus =
+        selectedStatus === "All" || app.current_status === selectedStatus;
       const q = searchQuery.toLowerCase();
       const matchesSearch = (app.business_name || "").toLowerCase().includes(q);
       return matchesStatus && matchesSearch;
@@ -62,16 +65,36 @@ export default function LandingPage() {
   }, [selectedStatus, searchQuery, applications]);
 
   // Stats Logic
-  const stats = useMemo(() => ({
-    total: applications.length,
-    pending: applications.filter(a => ["Under Manual Review", "Under Review"].includes(a.current_status)).length,
-    requiresAction: applications.filter(a => a.current_status === "Requires Action").length,
-    approved: applications.filter(a => a.current_status === "Approved").length,
-  }), [applications]);
+  const stats = useMemo(
+    () => ({
+      total: applications.length,
+      pending: applications.filter((a) =>
+        ["Under Manual Review", "Under Review"].includes(a.current_status),
+      ).length,
+      requiresAction: applications.filter(
+        (a) => a.current_status === "Requires Action",
+      ).length,
+      approved: applications.filter((a) => a.current_status === "Approved")
+        .length,
+    }),
+    [applications],
+  );
 
   const statusCounts = useMemo(() => {
-    const counts = { All: applications.length, "Draft": 0, "Submitted": 0, "Under Review": 0, "Under Manual Review": 0, "Requires Action": 0, Approved: 0, "Rejected": 0, "Withdrawn": 0 };
-    applications.forEach(a => { if(counts[a.current_status] !== undefined) counts[a.current_status]++; });
+    const counts = {
+      All: applications.length,
+      Draft: 0,
+      Submitted: 0,
+      "Under Review": 0,
+      "Under Manual Review": 0,
+      "Requires Action": 0,
+      Approved: 0,
+      Rejected: 0,
+      Withdrawn: 0,
+    };
+    applications.forEach((a) => {
+      if (counts[a.current_status] !== undefined) counts[a.current_status]++;
+    });
     return counts;
   }, [applications]);
 
@@ -86,7 +109,6 @@ export default function LandingPage() {
   return (
     <div className="min-h-screen bg-background">
       <main className="container mx-auto px-6 py-12 animate-fade-in">
-        
         {/* HEADER */}
         <div className="flex flex-col gap-6 md:flex-row md:items-start md:justify-between mb-8">
           <div>
@@ -141,7 +163,11 @@ export default function LandingPage() {
         ) : filteredApplications.length > 0 ? (
           <div className="grid gap-4">
             {filteredApplications.map((app, index) => (
-              <div key={app.application_id} className="animate-fade-in" style={{ animationDelay: `${index * 50}ms` }}>
+              <div
+                key={app.application_id}
+                className="animate-fade-in"
+                style={{ animationDelay: `${index * 50}ms` }}
+              >
                 <ApplicationCard application={app} />
               </div>
             ))}
@@ -149,7 +175,10 @@ export default function LandingPage() {
         ) : (
           <EmptyState
             hasFilter={selectedStatus !== "All" || searchQuery !== ""}
-            onClearFilter={() => { setSelectedStatus("All"); setSearchQuery(""); }}
+            onClearFilter={() => {
+              setSelectedStatus("All");
+              setSearchQuery("");
+            }}
           />
         )}
       </main>
