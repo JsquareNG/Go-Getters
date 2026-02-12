@@ -1,6 +1,8 @@
 from backend.database import Base
 from sqlalchemy import Column, String, CheckConstraint, event, DDL, text, DateTime, func, Boolean
 from sqlalchemy.orm import relationship
+from sqlalchemy.dialects.postgresql import JSONB
+
 
 class ApplicationForm(Base):
     __tablename__ = "application_form"
@@ -26,9 +28,10 @@ class ApplicationForm(Base):
     business_type = Column(String(255), nullable=False)
     previous_status = Column(String(50), nullable=True)
     current_status = Column(String(50), nullable=False)
+    form_data = Column(JSONB, nullable=False, server_default=text("'{}'::jsonb"))
     user_id = Column(String(8), nullable=False)
     reviewer_id = Column(String(8), nullable=True)
-    reason = Column(String(500), nullable=True)
+    # reason = Column(String(500), nullable=True)
     is_open_user = Column(Boolean,nullable=False, server_default=text("false"))
     is_open_staff = Column(Boolean,nullable=False, server_default=text("false"))
     has_sent = Column(Boolean, nullable=False, default=False, server_default="false")
@@ -41,6 +44,9 @@ class ApplicationForm(Base):
         server_default=text("(now() AT TIME ZONE 'Asia/Singapore')"),
         onupdate=text("(now() AT TIME ZONE 'Asia/Singapore')"),
     )
+    created_at = Column(DateTime(timezone=False), server_default=text("(now() AT TIME ZONE 'Asia/Singapore')"), nullable=False)
+
+    
 
     __table_args__ = (
         CheckConstraint("char_length(application_id) = 8", name="chk_application_id_len"),
