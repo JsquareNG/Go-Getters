@@ -1,7 +1,7 @@
 import { cn } from "../../lib/utils";
 
 const statusConfig = {
-  "Total Pending": {
+  "Draft": {
     className: "bg-blue-500/10 text-blue-500",
     dotClassName: "bg-blue-500",
   },

@@ -4,13 +4,10 @@ import {
   ArrowLeft,
   Building2,
   Calendar,
-  CheckCircle2,
   Clock,
   FileText,
   AlertCircle,
   Upload,
-  FileQuestion,
-  XCircle,
   User,
   MapPin,
   Mail,
@@ -66,25 +63,25 @@ export default function ApplicationDetail() {
     return Array.isArray(arr) ? arr : [];
   }, [application]);
 
-  const handleRequestDocuments = () => {
-    toast.success("Document request sent to applicant", {
-      description: "An email has been sent requesting the missing documents.",
-    });
-  };
+  // const handleRequestDocuments = () => {
+  //   toast.success("Document request sent to applicant", {
+  //     description: "An email has been sent requesting the missing documents.",
+  //   });
+  // };
 
-  const handleApprove = () => {
-    toast.success("Application Approved", {
-      description: `${application?.business_name} has been approved.`,
-    });
-    navigate("/staff");
-  };
+  // const handleApprove = () => {
+  //   toast.success("Application Approved", {
+  //     description: `${application?.business_name} has been approved.`,
+  //   });
+  //   navigate("/staff");
+  // };
 
-  const handleReject = () => {
-    toast.error("Application Rejected", {
-      description: `${application?.business_name}'s application has been rejected.`,
-    });
-    navigate("/staff");
-  };
+  // const handleReject = () => {
+  //   toast.error("Application Rejected", {
+  //     description: `${application?.business_name}'s application has been rejected.`,
+  //   });
+  //   navigate("/staff");
+  // };
 
   if (isLoading) {
     return (
@@ -207,44 +204,74 @@ export default function ApplicationDetail() {
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                {directors.length === 0 ? (<p className="text-sm text-muted-foreground">No directors provided.</p>) : 
-                (<Accordion type="single" collapsible defaultValue="contact-0" className="w-full">
-                  {directors.map((d, idx) => (
-                    <AccordionItem key={`${d?.idNumber || d?.fullName || idx}`} className="border-border">
-                      <AccordionTrigger className="hover:no-underline py-3">
-                        <div className="flex items-center gap-3 text-left">
-                          <div className="flex h-8 w-8 items-center justify-center rounded-full bg-muted">
-                            <User className="h-4 w-4 text-muted-foreground" />
-                          </div>
-                          <div>
-                            <p className="font-medium text-foreground">{d?.fullName || `Director ${idx + 1}`}</p>
-                            <p className="text-xs text-muted-foreground">{d?.idNumber || "-"}</p>
-                          </div>
-                        </div>
-                      </AccordionTrigger>
-                      <AccordionContent>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pl-11 pt-1">
-                          <div className="flex items-center gap-2">
-                            <Mail className="h-4 w-4 text-muted-foreground" />
-                            <div>
-                              <p className="text-sm text-muted-foreground">Email</p>
-                              <p className="font-medium text-foreground">{d?.email || "-"}</p>
+                {directors.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">
+                    No directors provided.
+                  </p>
+                ) : (
+                  <Accordion
+                    type="single"
+                    collapsible
+                    defaultValue="director-0"
+                    className="w-full"
+                  >
+                    {directors.map((d, idx) => {
+                      const itemValue = `director-${idx}`;
+                      return (
+                        <AccordionItem
+                          key={itemValue}
+                          value={itemValue}
+                          className="border-border"
+                        >
+                          <AccordionTrigger className="hover:no-underline py-3">
+                            <div className="flex items-center gap-3 text-left">
+                              <div className="flex h-8 w-8 items-center justify-center rounded-full bg-muted">
+                                <User className="h-4 w-4 text-muted-foreground" />
+                              </div>
+                              <div>
+                                <p className="font-medium text-foreground">
+                                  {d?.fullName || `Director ${idx + 1}`}
+                                </p>
+                                <p className="text-xs text-muted-foreground">
+                                  {d?.idNumber || "-"}
+                                </p>
+                              </div>
                             </div>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <Phone className="h-4 w-4 text-muted-foreground" />
-                            <div>
-                              <p className="text-sm text-muted-foreground">Phone</p>
-                              <p className="font-medium text-foreground">{d?.phone || "-"}</p>
+                          </AccordionTrigger>
+                          <AccordionContent>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pl-11 pt-1">
+                              <div className="flex items-center gap-2">
+                                <Mail className="h-4 w-4 text-muted-foreground" />
+                                <div>
+                                  <p className="text-sm text-muted-foreground">
+                                    Email
+                                  </p>
+                                  <p className="font-medium text-foreground">
+                                    {d?.email || "-"}
+                                  </p>
+                                </div>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <Phone className="h-4 w-4 text-muted-foreground" />
+                                <div>
+                                  <p className="text-sm text-muted-foreground">
+                                    Phone
+                                  </p>
+                                  <p className="font-medium text-foreground">
+                                    {d?.phone || "-"}
+                                  </p>
+                                </div>
+                              </div>
                             </div>
-                          </div>
-                        </div>
-                      </AccordionContent>
-                    </AccordionItem>
-                  ))}
-                </Accordion>)}
+                          </AccordionContent>
+                        </AccordionItem>
+                      );
+                    })}
+                  </Accordion>
+                )}
               </CardContent>
             </Card>
+
 {/* Registered Address */}
             <Card>
               <CardHeader>

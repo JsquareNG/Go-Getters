@@ -6,7 +6,6 @@ import LandingPage from "./pages/LandingPage";
 import HomeLayout from "./layouts/HomeLayout";
 import LandingLayout from "./layouts/LandingLayout";
 import AccountsPage from "./pages/AccountsPage";
-import NewApplication from "./pages/NewApplication";
 import ApplicationDetail from "./pages/ApplicationDetail";
 import StaffLandingPage from "./pages/StaffLandingPage";
 import ApplicationReviewDetail from "./pages/ApplicationReviewDetail";
@@ -54,17 +53,6 @@ export default function App() {
             <RequireRole role="SME">
               <LandingLayout>
                 <LandingPage />
-              </LandingLayout>
-            </RequireRole>
-          }
-        />
-
-        <Route
-          path="/landingpage/newapplication"
-          element={
-            <RequireRole role="SME">
-              <LandingLayout>
-                <NewApplication />
               </LandingLayout>
             </RequireRole>
           }

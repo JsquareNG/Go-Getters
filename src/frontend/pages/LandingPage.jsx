@@ -131,7 +131,7 @@ export default function LandingPage() {
             disabled={blocksNewApplication}
             onClick={() => {
               if (blocksNewApplication) return;
-              navigate("/landingpage/newapplication");
+              navigate("/applications/form");
             }}
             className="gap-2 shrink-0 bg-red-500 hover:bg-red-600 disabled:opacity-50 disabled:cursor-not-allowed"
             title={blocksNewApplication ? "You already have an existing SME application" : "Create a new application"}
