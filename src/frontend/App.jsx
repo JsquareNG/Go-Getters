@@ -6,21 +6,19 @@ import LandingPage from "./pages/LandingPage";
 import HomeLayout from "./layouts/HomeLayout";
 import LandingLayout from "./layouts/LandingLayout";
 import AccountsPage from "./pages/AccountsPage";
-import NewApplication from "./pages/NewApplication";
 import ApplicationDetail from "./pages/ApplicationDetail";
 import StaffLandingPage from "./pages/StaffLandingPage";
 import ApplicationReviewDetail from "./pages/ApplicationReviewDetail";
 import Dashboard from "./pages/Dashboard";
-import TestDocumentMulti from "./pages/TestDocument";
-import ViewSubmittedApplication from "./pages/OneDocument";
-import { Toaster } from "./components/ui/toaster";
-
+import AdminConfigPage from "./pages/AdminConfigPage";
+// import TestDocumentMulti from "./pages/TestDocument";
+// import ViewSubmittedApplication from "./pages/OneDocument";
+import { Toaster } from "./components/ui/primitives/Toaster";
 
 import { useSelector } from "react-redux";
 import { selectUser } from "./store/authSlice";
 import { Navigate } from "react-router-dom";
 import { SMEApplicationForm } from "./components/ui/SMEApplicationForm";
-
 
 // Simple route guard
 const RequireRole = ({ role, children }) => {
@@ -54,17 +52,6 @@ export default function App() {
             <RequireRole role="SME">
               <LandingLayout>
                 <LandingPage />
-              </LandingLayout>
-            </RequireRole>
-          }
-        />
-
-        <Route
-          path="/landingpage/newapplication"
-          element={
-            <RequireRole role="SME">
-              <LandingLayout>
-                <NewApplication />
               </LandingLayout>
             </RequireRole>
           }
@@ -132,6 +119,18 @@ export default function App() {
             <RequireRole role="STAFF">
               <LandingLayout>
                 <Dashboard />
+              </LandingLayout>
+            </RequireRole>
+          }
+        />
+
+        {/* Admin Config Page */}
+        <Route
+          path="/admin-config"
+          element={
+            <RequireRole role="STAFF">
+              <LandingLayout>
+                <AdminConfigPage />
               </LandingLayout>
             </RequireRole>
           }

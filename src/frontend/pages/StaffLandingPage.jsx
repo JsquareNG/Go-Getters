@@ -1,17 +1,10 @@
 import { useState, useMemo, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Loader2, FileSearch, AlertCircle, Search } from "lucide-react";
-
-import { ApplicationReviewCard } from "../components/ui/ApplicationReviewCard";
-import { StaffStats } from "../components/ui/StaffStats";
 import { getApplicationByReviewer } from "../api/applicationApi";
-
-// same as LandingPage
-import { StatusFilter } from "../components/ui/StatusFilter";
-import { Input } from "../components/ui/input";
-
 import { useSelector } from "react-redux";
 import { selectUser } from "../store/authSlice";
+import { StatusFilter, Input, ApplicationReviewCard, StaffStats} from "@/components/ui";
 
 const riskPriority = {
   critical: 0,
@@ -51,7 +44,15 @@ export default function StaffLandingPage() {
         setError(null);
 
         const data = await getApplicationByReviewer(employeeId);
-        setApplications(Array.isArray(data) ? data : data ? [data] : []);
+        const list = Array.isArray(data) ? data : data ? [data] : [];
+
+        // ✅ remove finalised applications from staff queue
+        const reviewable = list.filter((app) => {
+          const status = app.current_status ?? app.status;
+          return status !== "Approved" && status !== "Rejected";
+        });
+
+        setApplications(reviewable);
       } catch (e) {
         setError("Failed to load assigned applications. Please try again.");
         setApplications([]);

@@ -8,14 +8,14 @@ import {
   CreditCard,
   Briefcase,
 } from "lucide-react";
-import { Button } from "../components/ui/button";
 import {
+  Button,
   Card,
   CardContent,
   CardDescription,
   CardHeader,
-  CardTitle,
-} from "../components/ui/card";
+  CardTitle
+} from "@/components/ui";
 
 const accountTypes = [
   {
@@ -24,7 +24,11 @@ const accountTypes = [
     title: "SME Business Account",
     description:
       "For small and medium enterprises looking for comprehensive banking solutions",
-    features: ["Multi-currency support", "Online banking", "Business debit card"],
+    features: [
+      "Multi-currency support",
+      "Online banking",
+      "Business debit card",
+    ],
   },
   {
     id: "cross-border",

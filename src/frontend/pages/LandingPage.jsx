@@ -1,9 +1,11 @@
 import { useState, useMemo, useEffect } from "react";
 import { Plus, Loader2, AlertCircle } from "lucide-react";
-import { Button } from "../components/ui/button";
-import { ApplicationCard } from "../components/ui/ApplicationCard";
-import { ApplicationStats } from "../components/ui/ApplicationStats";
-import { EmptyState } from "../components/ui/EmptyState";
+import {
+  Button,
+  ApplicationCard,
+  ApplicationStats,
+  EmptyState,
+} from "@/components/ui";
 import { useNavigate } from "react-router-dom";
 import { getApplicationsByUserId } from "../api/applicationApi";
 
@@ -33,7 +35,7 @@ export default function LandingPage() {
         setError(null);
 
         const data = await getApplicationsByUserId(user.user_id);
-        const apps = Array.isArray(data) ? data : (data ? [data] : []);
+        const apps = Array.isArray(data) ? data : data ? [data] : [];
         setApplications(apps);
       } catch (err) {
         setError("Failed to load applications. Please try again.");
@@ -61,13 +63,17 @@ export default function LandingPage() {
   const restrictionMessage = useMemo(() => {
     if (!blocksNewApplication) return null;
 
-    // optional: give a nicer message depending on the status they have
-    const blockingApp = applications.find((a) => BLOCKING_STATUSES.includes(a.current_status));
+    const blockingApp = applications.find((a) =>
+      BLOCKING_STATUSES.includes(a.current_status)
+    );
     const status = blockingApp?.current_status;
 
-    if (status === "Approved") return "You already have an approved SME account. You cannot create another application.";
-    if (status === "Requires Action") return "You already have an SME application that requires action. Please complete it instead of creating a new one.";
-    if (status === "Draft") return "You already have a draft SME application. Please continue that application instead of creating a new one.";
+    if (status === "Approved")
+      return "You already have an approved SME account. You cannot create another application.";
+    if (status === "Requires Action")
+      return "You already have an SME application that requires action. Please complete it instead of creating a new one.";
+    if (status === "Draft")
+      return "You already have a draft SME application. Please continue that application instead of creating a new one.";
     return "You already have an SME application in progress. You can only submit one application per user.";
   }, [applications, blocksNewApplication, BLOCKING_STATUSES]);
 
@@ -96,6 +102,14 @@ export default function LandingPage() {
     }),
     [applications]
   );
+
+  // ✅ new: detect empty state for this user (no apps)
+  const hasNoApplications = applications.length === 0 && !error;
+
+  const handleCreateNew = () => {
+    if (blocksNewApplication) return;
+    navigate("/applications/form");
+  };
 
   if (isLoading) {
     return (
@@ -129,12 +143,13 @@ export default function LandingPage() {
 
           <Button
             disabled={blocksNewApplication}
-            onClick={() => {
-              if (blocksNewApplication) return;
-              navigate("/landingpage/newapplication");
-            }}
+            onClick={handleCreateNew}
             className="gap-2 shrink-0 bg-red-500 hover:bg-red-600 disabled:opacity-50 disabled:cursor-not-allowed"
-            title={blocksNewApplication ? "You already have an existing SME application" : "Create a new application"}
+            title={
+              blocksNewApplication
+                ? "You already have an existing SME application"
+                : "Create a new application"
+            }
           >
             <Plus className="h-4 w-4" />
             New Application
@@ -145,6 +160,29 @@ export default function LandingPage() {
         <div className="mb-8">
           <ApplicationStats {...stats} />
         </div>
+
+        {/* ✅ NEW: If no applications yet, show CTA below stats */}
+        {hasNoApplications && (
+          <div className="mb-8 rounded-xl border bg-card p-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <p className="text-base font-medium text-foreground">
+                You do not have an application yet.
+              </p>
+              <p className="text-sm text-muted-foreground">
+                Click below to create one now.
+              </p>
+            </div>
+
+            <Button
+              disabled={blocksNewApplication}
+              onClick={handleCreateNew}
+              className="gap-2 bg-red-500 hover:bg-red-600 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <Plus className="h-4 w-4" />
+              New Application
+            </Button>
+          </div>
+        )}
 
         {/* APPLICATIONS LIST */}
         {error ? (

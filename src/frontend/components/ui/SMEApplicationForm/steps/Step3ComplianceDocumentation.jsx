@@ -10,6 +10,7 @@ const Step3ComplianceDocumentation = ({
   errors,
   touched,
   onDocumentChange,
+  documentsProgress = {},
 }) => {
   const handleFileChange = (fieldName, file, error = "") => {
     onDocumentChange(fieldName, file, error);
@@ -48,6 +49,7 @@ const Step3ComplianceDocumentation = ({
         acceptTypes="application/pdf,image/jpeg,image/png"
         maxSize={5242880}
         helpText="Accepted: PDF, JPG, PNG (Max 5MB). Upload a clear copy of your passport, national ID, or driver's license."
+        uploadProgress={documentsProgress.kycDocument}
       />
 
       {/* Business License Upload */}
@@ -62,6 +64,7 @@ const Step3ComplianceDocumentation = ({
         acceptTypes="application/pdf,image/jpeg,image/png"
         maxSize={5242880}
         helpText="Accepted: PDF, JPG, PNG (Max 5MB). Upload your business registration certificate or certificate of incorporation."
+        uploadProgress={documentsProgress.businessLicense}
       />
 
       {/* Proof of Address Upload */}
@@ -76,6 +79,7 @@ const Step3ComplianceDocumentation = ({
         acceptTypes="application/pdf,image/jpeg,image/png"
         maxSize={5242880}
         helpText="Accepted: PDF, JPG, PNG (Max 5MB). Upload a recent utility bill, lease agreement, or official letter not older than 3 months."
+        uploadProgress={documentsProgress.proofOfAddress}
       />
 
       {/* Compliance Note */}

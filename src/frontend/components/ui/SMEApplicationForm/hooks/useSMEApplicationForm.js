@@ -7,6 +7,7 @@ import { useReducer, useCallback, useMemo } from "react";
 import { validateField, validateFile } from "../config/validationRules";
 import { COUNTRIES } from "../config/countriesConfig";
 import { BUSINESS_TYPES } from "../config/businessTypesConfig";
+import { uploadDocumentApi } from "@/api/documentApi";
 
 // Initial form state structure
 const initialState = {
@@ -37,6 +38,10 @@ const initialState = {
       businessLicense: null,
       proofOfAddress: null,
     },
+    // Upload progress per document (0-100)
+    documentsProgress: {},
+    // Server metadata for uploaded documents
+    documentsMeta: {},
 
     // Dynamic country-specific fields
     countrySpecificFields: {},
@@ -146,7 +151,31 @@ const formReducer = (state, action) => {
     case "PREV_STEP":
       return {
         ...state,
-        currentStep: Math.max(1, state.currentStep - 1),
+        currentStep: Math.max(0, state.currentStep - 1),
+      };
+
+    case "SET_UPLOAD_PROGRESS":
+      return {
+        ...state,
+        data: {
+          ...state.data,
+          documentsProgress: {
+            ...state.data.documentsProgress,
+            [action.payload.documentType]: action.payload.progress,
+          },
+        },
+      };
+
+    case "SET_DOCUMENT_META":
+      return {
+        ...state,
+        data: {
+          ...state.data,
+          documentsMeta: {
+            ...state.data.documentsMeta,
+            [action.payload.documentType]: action.payload.meta,
+          },
+        },
       };
 
     case "SET_STEP":
@@ -201,6 +230,81 @@ export const useSMEApplicationForm = () => {
       payload: { documentType, file },
     });
   }, []);
+
+  // Upload a document to the server (keeps optimistic UI)
+  // const uploadDocument = useCallback(
+  //   async (documentType, file, { onProgress } = {}) => {
+  //     // Optimistic: set the selected file so UI shows a preview/name
+  //     dispatch({ type: "SET_DOCUMENT", payload: { documentType, file } });
+
+  //     try {
+  //       const uploaded = await uploadDocumentApi(documentType, file, (pct) => {
+  //         // dispatch progress
+  //         dispatch({
+  //           type: "SET_UPLOAD_PROGRESS",
+  //           payload: { documentType, progress: pct },
+  //         });
+  //         if (onProgress) onProgress(pct);
+  //       });
+
+  //       // store server metadata (id/url) separately
+  //       dispatch({
+  //         type: "SET_DOCUMENT_META",
+  //         payload: { documentType, meta: uploaded },
+  //       });
+
+  //       // keep the original File in state.data.documents for final FormData submit
+  //       return uploaded;
+  //     } catch (err) {
+  //       // set error and rethrow
+  //       dispatch({
+  //         type: "SET_ERROR",
+  //         payload: { fieldName: documentType, error: "Upload failed" },
+  //       });
+  //       throw err;
+  //     }
+  //   },
+  //   [],
+  // );
+  const uploadDocument = useCallback(
+    async (documentType, file, { onProgress } = {}) => {
+      // Optimistic UI: show the file immediately
+      dispatch({ type: "SET_DOCUMENT", payload: { documentType, file } });
+
+      // Prepare payload for init API
+      const payload = {
+        application_id: "YOUR_APP_ID", // replace dynamically
+        document_type: documentType,
+        filename: file.name,
+        mime_type: file.type,
+      };
+
+      try {
+        const uploaded = await uploadDocumentApi(payload, file, (pct) => {
+          dispatch({
+            type: "SET_UPLOAD_PROGRESS",
+            payload: { documentType, progress: pct },
+          });
+          if (onProgress) onProgress(pct);
+        });
+
+        // store server metadata separately
+        dispatch({
+          type: "SET_DOCUMENT_META",
+          payload: { documentType, meta: uploaded },
+        });
+
+        return uploaded;
+      } catch (err) {
+        dispatch({
+          type: "SET_ERROR",
+          payload: { fieldName: documentType, error: "Upload failed" },
+        });
+        throw err;
+      }
+    },
+    [dispatch],
+  );
 
   // Set field error
   const setError = useCallback((fieldName, error) => {
@@ -352,6 +456,7 @@ export const useSMEApplicationForm = () => {
     setCountrySpecificField,
     setBusinessTypeField,
     setDocument,
+    uploadDocument,
     setError,
     nextStep,
     prevStep,

@@ -1,13 +1,11 @@
-import NavBar from "../components/ui/landingNavBar";
+import { LandingNavBar } from "@/components/ui";
 
 const LandingLayout = ({ children }) => {
   return (
     <>
-      <NavBar />
+      <LandingNavBar />
       {/* Push content below navbar */}
-      <main className="pt-16">
-        {children}
-      </main>
+      <main className="pt-16">{children}</main>
     </>
   );
 };

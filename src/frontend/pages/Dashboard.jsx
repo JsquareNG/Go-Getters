@@ -1,13 +1,16 @@
 import { useState } from "react";
-import { KPICard } from "../components/ui/KPICard";
-import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card";
 import {
+  KPICard,
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "../components/ui/select";
+} from "@/components/ui";
 import { mockKPIData } from "../data/mockData";
 import {
   LineChart,
@@ -41,30 +44,33 @@ const Dashboard = () => {
   } = mockKPIData;
 
   // Chart data
-  const onboardingTrendData = averageOnboardingDuration.trend.map((value, index) => ({
-    name: `Week ${index + 1}`,
-    value,
-  }));
+  const onboardingTrendData = averageOnboardingDuration.trend.map(
+    (value, index) => ({
+      name: `Week ${index + 1}`,
+      value,
+    }),
+  );
 
   const stpByProductData = stpRate.byProduct;
   const funnelData = dropOffRate.funnel;
 
-  const falsePositiveTrendData = falsePositiveRate.trend.map((value, index) => ({
-    name: `Week ${index + 1}`,
-    value,
-  }));
+  const falsePositiveTrendData = falsePositiveRate.trend.map(
+    (value, index) => ({
+      name: `Week ${index + 1}`,
+      value,
+    }),
+  );
 
   const improvementPercentage = Math.round(
     ((averageOnboardingDuration.previous - averageOnboardingDuration.current) /
       averageOnboardingDuration.previous) *
-      100
+      100,
   );
 
   const errorReduction = documentErrorRate.previous - documentErrorRate.current;
 
   return (
     <div className="min-h-screen bg-background">
-
       <main className="container mx-auto px-6 py-12">
         {/* Page Header */}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-8">
@@ -157,7 +163,10 @@ const Dashboard = () => {
               <div className="h-[300px]">
                 <ResponsiveContainer width="100%" height="100%">
                   <LineChart data={onboardingTrendData}>
-                    <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
+                    <CartesianGrid
+                      strokeDasharray="3 3"
+                      className="stroke-border"
+                    />
                     <XAxis dataKey="name" className="text-xs" />
                     <YAxis className="text-xs" />
                     <Tooltip
@@ -200,9 +209,21 @@ const Dashboard = () => {
               <div className="h-[300px]">
                 <ResponsiveContainer width="100%" height="100%">
                   <BarChart data={stpByProductData} layout="vertical">
-                    <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
-                    <XAxis type="number" domain={[0, 100]} className="text-xs" />
-                    <YAxis dataKey="name" type="category" width={120} className="text-xs" />
+                    <CartesianGrid
+                      strokeDasharray="3 3"
+                      className="stroke-border"
+                    />
+                    <XAxis
+                      type="number"
+                      domain={[0, 100]}
+                      className="text-xs"
+                    />
+                    <YAxis
+                      dataKey="name"
+                      type="category"
+                      width={120}
+                      className="text-xs"
+                    />
                     <Tooltip
                       contentStyle={{
                         backgroundColor: "hsl(var(--card))",
@@ -219,8 +240,8 @@ const Dashboard = () => {
                             entry.value >= 70
                               ? "hsl(var(--status-success))"
                               : entry.value >= 50
-                              ? "hsl(var(--status-warning))"
-                              : "hsl(var(--status-error))"
+                                ? "hsl(var(--status-warning))"
+                                : "hsl(var(--status-error))"
                           }
                         />
                       ))}
@@ -257,7 +278,8 @@ const Dashboard = () => {
             <CardContent>
               <div className="space-y-3">
                 {funnelData.map((stage) => {
-                  const widthPercentage = (stage.count / funnelData[0].count) * 100;
+                  const widthPercentage =
+                    (stage.count / funnelData[0].count) * 100;
                   return (
                     <div key={stage.stage} className="space-y-1">
                       <div className="flex justify-between text-sm">
@@ -303,7 +325,10 @@ const Dashboard = () => {
               <div className="h-[280px]">
                 <ResponsiveContainer width="100%" height="100%">
                   <LineChart data={falsePositiveTrendData}>
-                    <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
+                    <CartesianGrid
+                      strokeDasharray="3 3"
+                      className="stroke-border"
+                    />
                     <XAxis dataKey="name" className="text-xs" />
                     <YAxis className="text-xs" domain={[0, 50]} />
                     <Tooltip
@@ -312,14 +337,20 @@ const Dashboard = () => {
                         border: "1px solid hsl(var(--border))",
                         borderRadius: "8px",
                       }}
-                      formatter={(value) => [`${value}%`, "False Positive Rate"]}
+                      formatter={(value) => [
+                        `${value}%`,
+                        "False Positive Rate",
+                      ]}
                     />
                     <Line
                       type="monotone"
                       dataKey="value"
                       stroke="hsl(var(--status-warning))"
                       strokeWidth={3}
-                      dot={{ fill: "hsl(var(--status-warning))", strokeWidth: 2 }}
+                      dot={{
+                        fill: "hsl(var(--status-warning))",
+                        strokeWidth: 2,
+                      }}
                     />
                   </LineChart>
                 </ResponsiveContainer>
@@ -327,7 +358,8 @@ const Dashboard = () => {
 
               <div className="mt-4 p-4 bg-status-success/10 border border-status-success/20 rounded-lg">
                 <p className="text-sm text-status-success font-medium">
-                  Rule efficiency improved: False positives reduced from 38% to 24%
+                  Rule efficiency improved: False positives reduced from 38% to
+                  24%
                 </p>
               </div>
             </CardContent>
@@ -337,12 +369,16 @@ const Dashboard = () => {
         {/* Before/After Comparison */}
         <Card>
           <CardHeader>
-            <CardTitle>Performance Comparison: Before vs After Improvements</CardTitle>
+            <CardTitle>
+              Performance Comparison: Before vs After Improvements
+            </CardTitle>
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
               <div className="text-center p-4 bg-secondary rounded-lg">
-                <p className="text-sm text-muted-foreground mb-2">Onboarding Duration</p>
+                <p className="text-sm text-muted-foreground mb-2">
+                  Onboarding Duration
+                </p>
                 <div className="flex items-center justify-center gap-4">
                   <div>
                     <p className="text-2xl font-bold text-muted-foreground line-through">
@@ -361,7 +397,9 @@ const Dashboard = () => {
               </div>
 
               <div className="text-center p-4 bg-secondary rounded-lg">
-                <p className="text-sm text-muted-foreground mb-2">Document Error Rate</p>
+                <p className="text-sm text-muted-foreground mb-2">
+                  Document Error Rate
+                </p>
                 <div className="flex items-center justify-center gap-4">
                   <div>
                     <p className="text-2xl font-bold text-muted-foreground line-through">
@@ -399,7 +437,9 @@ const Dashboard = () => {
               </div>
 
               <div className="text-center p-4 bg-secondary rounded-lg">
-                <p className="text-sm text-muted-foreground mb-2">False Positive Rate</p>
+                <p className="text-sm text-muted-foreground mb-2">
+                  False Positive Rate
+                </p>
                 <div className="flex items-center justify-center gap-4">
                   <div>
                     <p className="text-2xl font-bold text-muted-foreground line-through">
