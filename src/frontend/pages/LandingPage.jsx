@@ -1,9 +1,11 @@
 import { useState, useMemo, useEffect } from "react";
 import { Plus, Loader2, AlertCircle } from "lucide-react";
-import { Button } from "../components/ui/button";
-import { ApplicationCard } from "../components/ui/ApplicationCard";
-import { ApplicationStats } from "../components/ui/ApplicationStats";
-import { EmptyState } from "../components/ui/EmptyState";
+import {
+  Button,
+  ApplicationCard,
+  ApplicationStats,
+  EmptyState,
+} from "@/components/ui";
 import { useNavigate } from "react-router-dom";
 import { getApplicationsByUserId } from "../api/applicationApi";
 

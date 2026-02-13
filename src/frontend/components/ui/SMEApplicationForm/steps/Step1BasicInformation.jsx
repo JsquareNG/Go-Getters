@@ -26,7 +26,7 @@ const Step1BasicInformation = ({
   //   label: type.label,
   //   value: type.id,
   // }));
-  console.log(data)
+  console.log(data);
 
   return (
     <div>
@@ -46,7 +46,8 @@ const Step1BasicInformation = ({
         required
       />
 
-      <FormFieldGroup
+      {/* ALREADY CONFIGURED FOR INDIVIDUAL COUNTRIES - ACRA UEN ETC */}
+      {/* <FormFieldGroup
         fieldName="registrationNumber"
         label="Business Registration Number"
         placeholder="Enter registration number"
@@ -55,7 +56,7 @@ const Step1BasicInformation = ({
         error={errors.registrationNumber}
         touched={touched.registrationNumber}
         required
-      />
+      /> */}
 
       {/* Country Selection - Required for conditional fields */}
       {/* <FormFieldGroup
@@ -120,6 +121,66 @@ const Step1BasicInformation = ({
             />
           ),
         )}
+
+      {/* INCORPORATION DATE */}
+      <FormFieldGroup
+        fieldName="incorporationDate"
+        label="Incorporation Date"
+        placeholder="Select date"
+        value={data.incorporationDate}
+        onChange={onFieldChange}
+        error={errors.incorporationDate}
+        touched={touched.incorporationDate}
+        type="date"
+        required
+      />
+
+      {/* INCORPORATION DATE */}
+      <FormFieldGroup
+        fieldName="incorporationDate"
+        label="Incorporation Date"
+        placeholder="Select date"
+        value={data.incorporationDate}
+        onChange={onFieldChange}
+        error={errors.incorporationDate}
+        touched={touched.incorporationDate}
+        type="date"
+        required
+      />
+
+      {/* STATUS OF COMPANY */}
+      <FormFieldGroup
+        fieldName="status"
+        label="Status of Company"
+        placeholder="Select status"
+        value={data.status}
+        onChange={onFieldChange}
+        error={errors.status}
+        touched={touched.status}
+        type="select"
+        options={[
+          { value: "Active", label: "Active" },
+          { value: "Inactive", label: "Inactive" },
+          { value: "Dissolved", label: "Dissolved" },
+          { value: "Liquidated", label: "Liquidated" },
+          { value: "InReceivership", label: "In Receivership" },
+          { value: "StruckOff", label: "Struck Off" },
+        ]}
+        required
+      />
+
+      {/* REGISTERED OFFICE ADDRESS */}
+      <FormFieldGroup
+        fieldName="registeredOfficeAddress"
+        label="Registered Office Address"
+        placeholder="Enter registered office address"
+        value={data.registeredOfficeAddress}
+        onChange={onFieldChange}
+        error={errors.registeredOfficeAddress}
+        touched={touched.registeredOfficeAddress}
+        type="textarea"
+        required
+      />
 
       {/* Contact Information */}
       <FormFieldGroup

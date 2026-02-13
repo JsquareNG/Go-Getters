@@ -1,6 +1,6 @@
 import React from "react";
-import AccountsGrid from "../components/ui/AccountsGrid";
-import TransactionsTable from "../components/ui/TransactionsTable";
+import { AccountsGrid, TransactionsTable } from "@/components/ui/features";
+// import TransactionsTable from "../components/ui/features/TransactionsTable";
 
 const AccountsPage = () => {
   return (

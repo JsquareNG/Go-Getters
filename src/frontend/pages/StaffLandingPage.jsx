@@ -1,17 +1,10 @@
 import { useState, useMemo, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Loader2, FileSearch, AlertCircle, Search } from "lucide-react";
-
-import { ApplicationReviewCard } from "../components/ui/ApplicationReviewCard";
-import { StaffStats } from "../components/ui/StaffStats";
 import { getApplicationByReviewer } from "../api/applicationApi";
-
-// same as LandingPage
-import { StatusFilter } from "../components/ui/StatusFilter";
-import { Input } from "../components/ui/input";
-
 import { useSelector } from "react-redux";
 import { selectUser } from "../store/authSlice";
+import { StatusFilter, Input, ApplicationReviewCard, StaffStats} from "@/components/ui";
 
 const riskPriority = {
   critical: 0,

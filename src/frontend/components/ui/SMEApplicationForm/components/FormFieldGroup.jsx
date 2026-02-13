@@ -1,6 +1,6 @@
 import React from "react";
-import { Input } from "../../../ui/input";
-import { Label } from "../../../ui/label";
+import { Input } from "../../primitives/Input";
+import { Label } from "../../primitives/Label";
 import { AlertCircle } from "lucide-react";
 
 /**

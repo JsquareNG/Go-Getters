@@ -13,12 +13,66 @@ import {
   Mail,
   Phone
 } from "lucide-react";
-import { Button } from "../components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card";
-import { StatusBadge } from "../components/ui/StatusBadge";
 import { toast } from "sonner";
-import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "../components/ui/accordion";
-import { getApplicationByAppId } from "./../api/applicationApi";
+import {
+  Button,
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  StatusBadge,
+  Separator,
+  Accordion, AccordionContent, AccordionItem, AccordionTrigger
+} from "@/components/ui";
+import { getApplicationByAppId } from "./../api/applicationApi"; // Import the API function
+
+const stepsByStatus = {
+  "Not started": [
+    { label: "Company Information", completed: false, current: true },
+    { label: "Business Documentation", completed: false, current: false },
+    { label: "Authorized Signatories", completed: false, current: false },
+    { label: "Review & Submit", completed: false, current: false },
+  ],
+  Draft: [
+    { label: "Company Information", completed: true, current: false },
+    { label: "Business Documentation", completed: true, current: false },
+    { label: "Authorized Signatories", completed: false, current: true },
+    { label: "Review & Submit", completed: false, current: false },
+  ],
+  Submitted: [
+    { label: "Company Information", completed: true, current: false },
+    { label: "Business Documentation", completed: true, current: false },
+    { label: "Authorized Signatories", completed: true, current: false },
+    { label: "Review & Submit", completed: true, current: false },
+    { label: "Bank Review", completed: false, current: true },
+  ],
+  "Under Review": [
+    { label: "Company Information", completed: true, current: false },
+    { label: "Business Documentation", completed: true, current: false },
+    { label: "Authorized Signatories", completed: true, current: false },
+    { label: "Review & Submit", completed: true, current: false },
+    { label: "Bank Review", completed: false, current: true },
+  ],
+  "Requires Action": [
+    { label: "Company Information", completed: true, current: false },
+    { label: "Business Documentation", completed: true, current: false },
+    { label: "Authorized Signatories", completed: true, current: false },
+    { label: "Review & Submit", completed: true, current: false },
+    {
+      label: "Additional Information Required",
+      completed: false,
+      current: true,
+    },
+  ],
+  Approved: [
+    { label: "Company Information", completed: true, current: false },
+    { label: "Business Documentation", completed: true, current: false },
+    { label: "Authorized Signatories", completed: true, current: false },
+    { label: "Review & Submit", completed: true, current: false },
+    { label: "Bank Review", completed: true, current: false },
+    { label: "Account Activated", completed: true, current: false },
+  ],
+};
 
 export default function ApplicationDetail() {
   const { id } = useParams();
@@ -94,7 +148,9 @@ export default function ApplicationDetail() {
   if (error || !application) {
     return (
       <div className="flex min-h-screen flex-col items-center justify-center gap-4">
-        <p className="text-red-500 font-medium">{error || "Application not found."}</p>
+        <p className="text-red-500 font-medium">
+          {error || "Application not found."}
+        </p>
         <Button onClick={() => navigate("/landingpage")}>Back to List</Button>
       </div>
     );
@@ -137,7 +193,9 @@ export default function ApplicationDetail() {
 
           {isEditable && (
             <Button className="shrink-0">
-              {currentStatus === "Not started" ? "Start Application" : "Continue Application"}
+              {currentStatus === "Not started"
+                ? "Start Application"
+                : "Continue Application"}
             </Button>
           )}
         </div>
