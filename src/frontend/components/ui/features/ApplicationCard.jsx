@@ -9,19 +9,16 @@ import {
   Undo2,
   Trash2,
 } from "lucide-react";
-import { Button, Card, CardContent, StatusBadge } from "../primitives";
+import { Button, Card, CardContent,  StatusBadge } from "../primitives";
+import {DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger} from "../features"
 import { cn } from "@/lib/utils";
 import { useNavigate } from "react-router-dom";
 import { useEffect, useState } from "react";
 
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "./dropdown-menu";
-
-import { withdrawApplication, deleteApplication } from "../../api/applicationApi";
+import { withdrawApplication, deleteApplication } from "@/api/applicationApi";
 
 function getActionText(status) {
   switch (status) {
