@@ -1,8 +1,8 @@
-from backend.database import Base
 from sqlalchemy import Column, String, CheckConstraint, event, DDL, text, DateTime, func, Boolean
 from sqlalchemy.orm import relationship
 from sqlalchemy.dialects.postgresql import JSONB
-
+from backend.database import Base
+# from database import Base
 
 class ApplicationForm(Base):
     __tablename__ = "application_form"
