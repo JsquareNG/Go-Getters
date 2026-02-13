@@ -16,13 +16,13 @@ export const COUNTRIES = {
         validation: (value) => /^\d{8}[A-Z]$/.test(value),
         error: "Invalid GST format (8 digits + 1 letter)",
       },
-      businessRegistrationNumber: {
-        label: "Business Registration Number",
-        required: true,
-        placeholder: "e.g., 123456789L",
-        validation: (value) => /^\d{8}[A-Z]$/.test(value),
-        error: "Invalid BRN format",
-      },
+      // businessRegistrationNumber: {
+      //   label: "Business Registration Number",
+      //   required: true,
+      //   placeholder: "e.g., 123456789L",
+      //   validation: (value) => /^\d{8}[A-Z]$/.test(value),
+      //   error: "Invalid BRN format",
+      // },
       acraUEN: {
         label: "ACRA UEN",
         required: true,

@@ -12,6 +12,7 @@ const FileUploadField = ({
   onChange,
   error,
   touched,
+  uploadProgress, // optional 0-100
   required = true,
   acceptTypes = "application/pdf,image/jpeg,image/png",
   maxSize = 5242880, // 5MB in bytes
@@ -73,7 +74,7 @@ const FileUploadField = ({
           onChange={handleFileChange}
           accept={acceptTypes}
           className="hidden"
-          disabled={false}
+          disabled={uploadProgress >= 0 && uploadProgress < 100}
         />
 
         <label htmlFor={fieldName} className="cursor-pointer">
@@ -85,6 +86,20 @@ const FileUploadField = ({
                 {formatFileSize(file.size)}
               </p>
               <p className="text-xs text-gray-400 mt-2">Click to change</p>
+
+              {typeof uploadProgress === "number" && (
+                <div className="mt-3">
+                  <div className="w-full bg-gray-200 rounded h-2 overflow-hidden">
+                    <div
+                      className="h-2 bg-green-500"
+                      style={{ width: `${Math.min(uploadProgress, 100)}%` }}
+                    />
+                  </div>
+                  <p className="text-xs text-gray-500 mt-1">
+                    {uploadProgress}%
+                  </p>
+                </div>
+              )}
             </div>
           ) : (
             <div>

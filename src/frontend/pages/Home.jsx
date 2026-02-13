@@ -1,8 +1,6 @@
 import React, { useState } from "react";
-import { Button } from "../components/ui/button";
 import { Shield, Zap, Globe } from "lucide-react";
-import LoginForm from "../components/ui/LoginForm";
-import RegisterForm from "../components/ui/RegisterForm";
+import { RegisterForm, LoginForm } from "@/components/ui";
 
 const Home = () => {
   const [mode, setMode] = useState("login"); // 'login' or 'register'
