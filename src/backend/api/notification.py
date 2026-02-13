@@ -114,7 +114,7 @@ Your application to open a business account for "{app.business_name}" was unsucc
 Application ID: {app.application_id}
 
 Reason:
-{app.reason}
+{app.form_data["reason"]}
 
 View details here:
 {WEBSITE_URL}/applications/{app.application_id}
@@ -194,7 +194,7 @@ Your application for "{app.business_name}" requires further action.
 Application ID: {app.application_id}
 
 Staff Notes:
-{app.reason}
+{app.form_data["reason"]}
 
 Please update your application here:
 {WEBSITE_URL}/applications/{app.application_id}

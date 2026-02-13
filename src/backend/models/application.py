@@ -1,8 +1,9 @@
-from backend.database import Base
 from sqlalchemy import Column, String, CheckConstraint, event, DDL, text, DateTime, func, Boolean
 from sqlalchemy.orm import relationship
 from sqlalchemy.dialects.postgresql import JSONB
-
+from sqlalchemy.ext.mutable import MutableDict
+from backend.database import Base
+# from database import Base
 
 class ApplicationForm(Base):
     __tablename__ = "application_form"
@@ -28,7 +29,8 @@ class ApplicationForm(Base):
     business_type = Column(String(255), nullable=False)
     previous_status = Column(String(50), nullable=True)
     current_status = Column(String(50), nullable=False)
-    form_data = Column(JSONB, nullable=False, server_default=text("'{}'::jsonb"))
+    # form_data = Column(JSONB, nullable=False, server_default=text("'{}'::jsonb"))
+    form_data = Column(MutableDict.as_mutable(JSONB), default=dict)
     user_id = Column(String(8), nullable=False)
     reviewer_id = Column(String(8), nullable=True)
     # reason = Column(String(500), nullable=True)

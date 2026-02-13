@@ -14,6 +14,7 @@ from backend.models.user import User
 from backend.api.notification import *
 from backend.api.resend import send_email
 from backend.database import get_db
+from backend.models.reviewJobs import ReviewJobs
 
 router = APIRouter(prefix="/applications", tags=["applications"])
 
@@ -176,15 +177,17 @@ def first_submit_application(
         form_data=form_data,
     )
 
-    # allowed = {c.name for c in ApplicationForm.__table__.columns}
-    # payload = {k: v for k, v in data.items() if k in allowed}
-
-    # payload["previous_status"] = None
-    # payload["current_status"] = "Under Review"
-
-    # new_app = ApplicationForm(**payload)
-
     db.add(new_app)
+    db.flush()
+
+    review_job = ReviewJobs(
+        application_id=new_app.application_id,
+        status="QUEUED"
+    )
+
+    db.add(review_job)
+
+
     db.commit()
     db.refresh(new_app)
 
@@ -580,7 +583,7 @@ def approve_application(
     return {
         "application_id": app.application_id,
         "status": app.current_status,
-        "reason": app.reason,
+        "reason": app.form_data["reason"],
         "reviewer_id": app.reviewer_id,
         "emails_queued": emails_queued,
         "email_notes": email_notes,
@@ -655,7 +658,7 @@ def reject_application(
     return {
         "application_id": app.application_id,
         "status": app.current_status,
-        "reason": app.reason,
+        "reason": app.form_data["reason"],
         "reviewer_id": app.reviewer_id,
         "emails_queued": emails_queued,
         "email_notes": email_notes,
@@ -731,7 +734,7 @@ def require_action(
     return {
         "application_id": app.application_id,
         "status": app.current_status,
-        "reason": app.reason,
+        "reason": app.form_data["reason"],
         "reviewer_id": app.reviewer_id,
         "emails_queued": emails_queued,
         "email_notes": email_notes,

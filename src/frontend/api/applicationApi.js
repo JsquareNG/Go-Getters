@@ -21,12 +21,31 @@ export const getApplicationByReviewer = async (reviewerId) => {
   return res.data;
 };
 
-export const approveApplication = async (applicationId) => {
-  const res = await axiosClient.put(`/applications/approve/${applicationId}`);
+export const approveApplication = async (applicationId, reason) => {
+  const res = await axiosClient.put(`/applications/approve/${applicationId}`, {
+    reason: String(reason ?? "").trim(),
+  });
   return res.data;
 };
 
-export const rejectApplication = async (applicationId) => {
-  const res = await axiosClient.put(`/applications/reject/${applicationId}`);
+export const rejectApplication = async (applicationId, reason) => {
+  const res = await axiosClient.put(`/applications/reject/${applicationId}`, {
+    reason: String(reason ?? "").trim(),
+  });
+  return res.data;
+};
+
+export const withdrawApplication = async (applicationId) => {
+  const res = await axiosClient.put(`/applications/withdraw/${applicationId}`);
+  return res.data;
+};
+
+export const escalateApplication = async (applicationId) => {
+  const res = await axiosClient.put(`/applications/escalate/${applicationId}`);
+  return res.data;
+};
+
+export const deleteApplication = async (applicationId) => {
+  const res = await axiosClient.put(`/applications/delete/${applicationId}`);
   return res.data;
 };
