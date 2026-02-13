@@ -51,7 +51,15 @@ export default function StaffLandingPage() {
         setError(null);
 
         const data = await getApplicationByReviewer(employeeId);
-        setApplications(Array.isArray(data) ? data : data ? [data] : []);
+        const list = Array.isArray(data) ? data : data ? [data] : [];
+
+        // ✅ remove finalised applications from staff queue
+        const reviewable = list.filter((app) => {
+          const status = app.current_status ?? app.status;
+          return status !== "Approved" && status !== "Rejected";
+        });
+
+        setApplications(reviewable);
       } catch (e) {
         setError("Failed to load assigned applications. Please try again.");
         setApplications([]);
