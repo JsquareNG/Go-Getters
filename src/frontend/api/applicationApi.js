@@ -46,6 +46,6 @@ export const escalateApplication = async (applicationId) => {
 };
 
 export const deleteApplication = async (applicationId) => {
-  const res = await axiosClient.put(`/applications/delete/${applicationId}`);
+  const res = await axiosClient.delete(`/applications/delete/${applicationId}`);
   return res.data;
 };

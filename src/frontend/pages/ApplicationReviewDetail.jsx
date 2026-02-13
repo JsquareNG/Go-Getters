@@ -247,14 +247,6 @@ export default function ApplicationReviewDetail() {
               </div>
             </div>
           </div>
-
-          {isEditable && (
-            <Button className="shrink-0">
-              {currentStatus === "Not started"
-                ? "Start Application"
-                : "Continue Application"}
-            </Button>
-          )}
         </div>
 
         {/* MAIN 2-COLUMN LAYOUT */}
