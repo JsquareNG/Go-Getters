@@ -54,6 +54,5 @@ class ReviewJobs(Base):
         onupdate=text("(now() AT TIME ZONE 'Asia/Singapore')"),
     )
 
-    application = relationship("ApplicationForm", backref="review_job")
-
+    application = relationship("ApplicationForm", back_populates="review_jobs")
 

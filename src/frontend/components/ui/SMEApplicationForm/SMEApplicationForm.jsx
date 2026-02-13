@@ -15,6 +15,9 @@ import { useNavigate } from "react-router-dom";
 import { useSelector } from "react-redux";
 import { selectUser } from "@/store/authSlice";
 import { submitApplicationApi } from "@/api/applicationApi";
+import { uploadDocument as uploadDocumentApi } from "@/api/documentApi";
+import { getCountryConfig } from "./config/countriesConfig";
+import { getBusinessTypeConfig } from "./config/businessTypesConfig";
 
 /**
  * SMEApplicationForm - Main Component
@@ -44,7 +47,7 @@ const SMEApplicationForm = ({ onSubmitSuccess }) => {
     setCountrySpecificField,
     setBusinessTypeField,
     setDocument,
-    uploadDocument,
+    // uploadDocument,
     setError,
     nextStep,
     prevStep,
@@ -64,6 +67,34 @@ const SMEApplicationForm = ({ onSubmitSuccess }) => {
   ];
 
   // Handle document upload with error management
+  // const handleDocumentChange = async (documentType, file, error = "") => {
+  //   if (error) {
+  //     setError(documentType, error);
+  //     setDocument(documentType, null);
+  //     return;
+  //   }
+
+  //   // Optimistically set file so UI shows filename immediately
+  //   setDocument(documentType, file);
+
+  //   // Upload in background and capture progress
+  //   try {
+  //     await uploadDocument(documentType, file, {
+  //       onProgress: (pct) => {
+  //         // Could show local progress UI or toast if desired
+  //       },
+  //     });
+  //   } catch (err) {
+  //     // uploadDocument already sets an error in the hook; reflect via toast
+  //     toast({
+  //       title: "Upload Failed",
+  //       description: `Failed to upload ${documentType}. Please try again.`,
+  //       variant: "destructive",
+  //     });
+  //     // clear the file in state
+  //     setDocument(documentType, null);
+  //   }
+  // };
   const handleDocumentChange = async (documentType, file, error = "") => {
     if (error) {
       setError(documentType, error);
@@ -71,26 +102,9 @@ const SMEApplicationForm = ({ onSubmitSuccess }) => {
       return;
     }
 
-    // Optimistically set file so UI shows filename immediately
+    // Just store locally. No API call.
+    setError(documentType, "");
     setDocument(documentType, file);
-
-    // Upload in background and capture progress
-    try {
-      await uploadDocument(documentType, file, {
-        onProgress: (pct) => {
-          // Could show local progress UI or toast if desired
-        },
-      });
-    } catch (err) {
-      // uploadDocument already sets an error in the hook; reflect via toast
-      toast({
-        title: "Upload Failed",
-        description: `Failed to upload ${documentType}. Please try again.`,
-        variant: "destructive",
-      });
-      // clear the file in state
-      setDocument(documentType, null);
-    }
   };
 
   // Proceed to next step (validation commented out for mock)
@@ -131,6 +145,12 @@ const SMEApplicationForm = ({ onSubmitSuccess }) => {
     } finally {
       setIsSubmitting(false);
     }
+  };
+
+  const getRequiredDocKeys = (data) => {
+    const countryDocs = getCountryConfig(data.country)?.documents || {};
+    const bizDocs = getBusinessTypeConfig(data.businessType)?.documents || {};
+    return Object.keys({ ...countryDocs, ...bizDocs });
   };
 
   // Handle form submission
@@ -205,6 +225,37 @@ const SMEApplicationForm = ({ onSubmitSuccess }) => {
       });
       console.log("Submission response:", response);
 
+      const applicationId =
+        response?.application_id || response?.data?.application_id;
+
+      if (!applicationId) {
+        throw new Error("No application_id returned from submitApplicationApi");
+      }
+
+      const requiredDocKeys = getRequiredDocKeys(state.data);
+
+      // Validate missing docs before uploading
+      for (const docKey of requiredDocKeys) {
+        const f = state.data.documents?.[docKey];
+        if (!f) {
+          throw new Error(`Missing required document: ${docKey}`);
+        }
+      }
+
+      // Upload sequentially (simpler + less flaky)
+      for (const docKey of requiredDocKeys) {
+        const file = state.data.documents[docKey];
+
+        await uploadDocumentApi({
+          applicationId,
+          documentType: docKey,
+          file,
+          onProgress: (pct) => {
+            // optional: if your hook supports progress updates, call it here
+            // setDocumentsProgress(docKey, pct)
+          },
+        });
+      }
       // const response = await fetch(apiEndpoint, {
       //   method: "POST",
       //   body: formData,
@@ -314,6 +365,7 @@ const SMEApplicationForm = ({ onSubmitSuccess }) => {
             {/* Step 3: Compliance & Documentation */}
             {state.currentStep === 3 && (
               <Step3ComplianceDocumentation
+                data={state.data}
                 documents={state.data.documents}
                 errors={state.errors}
                 touched={state.touched}
