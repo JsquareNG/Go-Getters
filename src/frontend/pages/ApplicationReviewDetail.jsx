@@ -16,21 +16,24 @@ import {
   CheckCircle2,
   XCircle,
 } from "lucide-react";
-import { Button } from "../components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card";
-import { StatusBadge } from "../components/ui/StatusBadge";
-import { toast } from "sonner";
 import {
   Accordion,
   AccordionContent,
   AccordionItem,
   AccordionTrigger,
-} from "../components/ui/accordion";
+  Button,
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  StatusBadge,
+} from "@/components/ui";
+import { toast } from "sonner";
 import {
   getApplicationByAppId,
   approveApplication,
   rejectApplication,
-} from "./../api/applicationApi";
+} from "@/api/applicationApi";
 
 export default function ApplicationReviewDetail() {
   const { id } = useParams();
@@ -64,12 +67,14 @@ export default function ApplicationReviewDetail() {
   // ✅ Only show review actions for reviewable statuses.
   // If you ONLY want it on "Under Manual Review", change this to:
   // const canReview = currentStatus === "Under Manual Review";
-  const canReview = ["Under Review", "Under Manual Review", "Requires Action"].includes(
-    currentStatus
-  );
+  const canReview = [
+    "Under Review",
+    "Under Manual Review",
+    "Requires Action",
+  ].includes(currentStatus);
 
   const isEditable = ["Not started", "Draft", "Requires Action"].includes(
-    currentStatus
+    currentStatus,
   );
 
   const formattedDate = application?.last_edited
@@ -97,7 +102,8 @@ export default function ApplicationReviewDetail() {
   const handleApprove = async () => {
     if (!id) return;
 
-    const reason = window.prompt("Reason for approving this application?") || "";
+    const reason =
+      window.prompt("Reason for approving this application?") || "";
     if (!reason.trim()) {
       toast.error("Reason required", {
         description: "Please enter a reason to approve.",
@@ -147,7 +153,8 @@ export default function ApplicationReviewDetail() {
   const handleReject = async () => {
     if (!id) return;
 
-    const reason = window.prompt("Reason for rejecting this application?") || "";
+    const reason =
+      window.prompt("Reason for rejecting this application?") || "";
     if (!reason.trim()) {
       toast.error("Reason required", {
         description: "Please enter a reason to reject.",
@@ -281,7 +288,9 @@ export default function ApplicationReviewDetail() {
                   </div>
 
                   <div>
-                    <p className="text-sm text-muted-foreground">Business Name</p>
+                    <p className="text-sm text-muted-foreground">
+                      Business Name
+                    </p>
                     <p className="font-medium text-foreground">
                       {application.business_name || "-"}
                     </p>
@@ -297,7 +306,9 @@ export default function ApplicationReviewDetail() {
                   </div>
 
                   <div>
-                    <p className="text-sm text-muted-foreground">Business Type</p>
+                    <p className="text-sm text-muted-foreground">
+                      Business Type
+                    </p>
                     <p className="font-medium text-foreground">
                       {application.business_type || "-"}
                     </p>
