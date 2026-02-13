@@ -4,11 +4,11 @@ from sqlalchemy import engine_from_config
 from sqlalchemy import pool
 import os
 from dotenv import load_dotenv
-from database import Base
-from models.application import ApplicationForm  # import so table is registered
-from models.documents import Document
-from models.user import User
-from models.reviewJobs import ReviewJobs
+from backend.database import Base
+from backend.models.application import ApplicationForm  # import so table is registered
+from backend.models.documents import Document
+from backend.models.user import User
+from backend.models.reviewJobs import ReviewJobs
 
 from alembic import context
 

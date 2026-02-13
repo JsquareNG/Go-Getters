@@ -583,7 +583,7 @@ def approve_application(
     return {
         "application_id": app.application_id,
         "status": app.current_status,
-        "reason": app.reason,
+        "reason": app.form_data["reason"],
         "reviewer_id": app.reviewer_id,
         "emails_queued": emails_queued,
         "email_notes": email_notes,
@@ -658,7 +658,7 @@ def reject_application(
     return {
         "application_id": app.application_id,
         "status": app.current_status,
-        "reason": app.reason,
+        "reason": app.form_data["reason"],
         "reviewer_id": app.reviewer_id,
         "emails_queued": emails_queued,
         "email_notes": email_notes,
@@ -734,7 +734,7 @@ def require_action(
     return {
         "application_id": app.application_id,
         "status": app.current_status,
-        "reason": app.reason,
+        "reason": app.form_data["reason"],
         "reviewer_id": app.reviewer_id,
         "emails_queued": emails_queued,
         "email_notes": email_notes,
