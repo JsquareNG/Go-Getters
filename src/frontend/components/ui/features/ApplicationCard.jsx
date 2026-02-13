@@ -9,14 +9,16 @@ import {
   Undo2,
   Trash2,
 } from "lucide-react";
-import { Button, Card, CardContent,  StatusBadge } from "../primitives";
-import {DropdownMenu,
+import { Button, Card, CardContent, StatusBadge } from "../primitives";
+import {
+  DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuTrigger} from "../features"
+  DropdownMenuTrigger,
+} from "../features";
 import { cn } from "@/lib/utils";
 import { useNavigate } from "react-router-dom";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import { withdrawApplication, deleteApplication } from "@/api/applicationApi";
 
@@ -38,11 +40,28 @@ function getActionText(status) {
   }
 }
 
+// ✅ robust normalizer for comparisons
+const normKey = (v) => {
+  if (v == null) return null;
+  const s = String(v)
+    .trim()
+    .replace(/_/g, " ")
+    .replace(/\s+/g, " ")
+    .toLowerCase();
+  return s.length ? s : null;
+};
+
+// ✅ for displaying in UI
+const normDisplay = (v) => (v == null ? "" : String(v).trim());
+
 const ApplicationCard = ({ application }) => {
   const navigate = useNavigate();
 
-  // Local state so UI updates instantly
   const [status, setStatus] = useState(application.current_status);
+  const [prevStatus, setPrevStatus] = useState(
+    application.previous_status ?? null
+  );
+
   const [isWithdrawing, setIsWithdrawing] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [isHidden, setIsHidden] = useState(false);
@@ -52,19 +71,27 @@ const ApplicationCard = ({ application }) => {
   const country = application.business_country || "N/A";
   const lastUpdated = application.last_edited;
 
-  const isActionable = ["Draft", "Requires Action"].includes(status);
-  const isUrgent = status === "Requires Action";
-  const showHamburger = status === "Draft" || status === "Requires Action";
+  const sKey = normKey(status);
+  const pKey = normKey(prevStatus);
+  const sDisplay = normDisplay(status);
 
-  // ✅ Debug: see if local status stays in sync when parent props change
-  useEffect(() => {
-    console.log("[PROP] application.current_status changed:", application.current_status);
-  }, [application.current_status]);
+  const menuAction = useMemo(() => {
+    if (sKey === "draft" && pKey == null) return "delete";
+    if (sKey === "draft" && pKey === "requires action") return "withdraw";
+    if (sKey === "requires action" && pKey === "under manual review")
+      return "withdraw";
+    return null;
+  }, [sKey, pKey]);
 
-  // ✅ Debug: see isHidden toggling
+  const showHamburger = menuAction !== null;
+
+  const isUrgent = sKey === "requires action";
+  const isActionable = sKey === "draft" || sKey === "requires action";
+
   useEffect(() => {
-    console.log("[STATE] isHidden:", isHidden);
-  }, [isHidden]);
+    setStatus(application.current_status);
+    setPrevStatus(application.previous_status ?? null);
+  }, [application.current_status, application.previous_status]);
 
   const handleClick = () => {
     navigate(`/landingpage/${appId}`);
@@ -79,63 +106,43 @@ const ApplicationCard = ({ application }) => {
     });
   };
 
-  // ✅ safer stop (works for Radix onSelect too)
+  // ✅ Use this ONLY when you really need to prevent default
   const safeStop = (e) => {
     if (e?.preventDefault) e.preventDefault();
     if (e?.stopPropagation) e.stopPropagation();
   };
 
-  // Draft -> Withdraw
-  const handleWithdraw = async (e) => {
-    console.log("[UI] Withdraw clicked", { appId, status });
-    safeStop(e);
+  // ✅ Use this for Dropdown trigger (DON'T preventDefault or Radix may not open)
+  const stopOnly = (e) => {
+    if (e?.stopPropagation) e.stopPropagation();
+  };
 
+  const handleWithdraw = async (e) => {
+    safeStop(e);
     try {
       setIsWithdrawing(true);
-      console.log("[API] calling withdrawApplication", appId);
-
-      const res = await withdrawApplication(appId);
-
-      console.log("[API] withdrawApplication success:", res);
-
-      // Update UI
+      await withdrawApplication(appId);
       setStatus("Withdrawn");
+      setPrevStatus(status);
     } catch (err) {
-      console.error("[API] withdrawApplication failed");
-      console.error("status:", err?.response?.status);
-      console.error("data:", err?.response?.data);
-      console.error("message:", err?.message);
-      console.error("full:", err);
+      console.error("[API] withdrawApplication failed", err?.response?.data || err);
     } finally {
       setIsWithdrawing(false);
     }
   };
 
-  // Requires Action -> Delete
   const handleDelete = async (e) => {
-    console.log("[UI] Delete clicked", { appId, status });
     safeStop(e);
 
     const ok = window.confirm("Delete this application? This cannot be undone.");
-    console.log("[UI] confirm result:", ok);
     if (!ok) return;
 
     try {
       setIsDeleting(true);
-      console.log("[API] calling deleteApplication", appId);
-
-      const res = await deleteApplication(appId);
-
-      console.log("[API] deleteApplication success:", res);
-
-      // Hide card
+      await deleteApplication(appId);
       setIsHidden(true);
     } catch (err) {
-      console.error("[API] deleteApplication failed");
-      console.error("status:", err?.response?.status);
-      console.error("data:", err?.response?.data);
-      console.error("message:", err?.message);
-      console.error("full:", err);
+      console.error("[API] deleteApplication failed", err?.response?.data || err);
     } finally {
       setIsDeleting(false);
     }
@@ -147,13 +154,12 @@ const ApplicationCard = ({ application }) => {
     <Card
       className={cn(
         "group cursor-pointer transition-all duration-200 hover:shadow-card-hover",
-        isUrgent && "ring-1 ring-rose-500/20",
+        isUrgent && "ring-1 ring-rose-500/20"
       )}
       onClick={handleClick}
     >
       <CardContent className="p-5">
         <div className="flex items-start justify-between gap-4">
-          {/* Left Content */}
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-3 mb-3">
               <div className="p-2 rounded-lg bg-secondary group-hover:bg-primary/10 transition-colors">
@@ -172,7 +178,7 @@ const ApplicationCard = ({ application }) => {
             </div>
 
             <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
-              <StatusBadge status={status} />
+              <StatusBadge status={sDisplay} />
 
               <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
                 <Clock className="h-3.5 w-3.5" />
@@ -192,7 +198,6 @@ const ApplicationCard = ({ application }) => {
             )}
           </div>
 
-          {/* Right Action */}
           <div className="flex flex-col items-end justify-between h-full self-stretch gap-2">
             <div className="flex items-center gap-2">
               <Button
@@ -208,7 +213,7 @@ const ApplicationCard = ({ application }) => {
                   handleClick();
                 }}
               >
-                {getActionText(status)}
+                {getActionText(sDisplay)}
                 {isActionable ? (
                   <ArrowRight className="h-4 w-4" />
                 ) : (
@@ -223,7 +228,8 @@ const ApplicationCard = ({ application }) => {
                       variant="ghost"
                       size="icon"
                       className="h-9 w-9"
-                      onClick={safeStop}
+                      onPointerDown={stopOnly} // ✅ allow Radix to open
+                      onClick={stopOnly}       // ✅ prevent card navigation
                       disabled={isWithdrawing || isDeleting}
                       aria-label="More actions"
                     >
@@ -232,8 +238,7 @@ const ApplicationCard = ({ application }) => {
                   </DropdownMenuTrigger>
 
                   <DropdownMenuContent align="end" className="bg-card">
-                    {/* ✅ Use onSelect for Radix dropdown items */}
-                    {status === "Draft" && (
+                    {menuAction === "withdraw" && (
                       <DropdownMenuItem
                         className="gap-2 cursor-pointer"
                         onSelect={handleWithdraw}
@@ -244,7 +249,7 @@ const ApplicationCard = ({ application }) => {
                       </DropdownMenuItem>
                     )}
 
-                    {status === "Requires Action" && (
+                    {menuAction === "delete" && (
                       <DropdownMenuItem
                         className="gap-2 text-destructive focus:text-destructive cursor-pointer"
                         onSelect={handleDelete}
@@ -264,4 +269,5 @@ const ApplicationCard = ({ application }) => {
     </Card>
   );
 };
+
 export { ApplicationCard };

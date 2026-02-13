@@ -1,3 +1,4 @@
+// ApplicationReviewDetail.jsx
 import React, { useState, useEffect, useMemo } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import {
@@ -33,6 +34,7 @@ import {
   getApplicationByAppId,
   approveApplication,
   rejectApplication,
+  escalateApplication,
 } from "@/api/applicationApi";
 
 export default function ApplicationReviewDetail() {
@@ -64,18 +66,8 @@ export default function ApplicationReviewDetail() {
 
   const currentStatus = application?.current_status || "Not started";
 
-  // ✅ Only show review actions for reviewable statuses.
-  // If you ONLY want it on "Under Manual Review", change this to:
-  // const canReview = currentStatus === "Under Manual Review";
-  const canReview = [
-    "Under Review",
-    "Under Manual Review",
-    "Requires Action",
-  ].includes(currentStatus);
-
-  const isEditable = ["Not started", "Draft", "Requires Action"].includes(
-    currentStatus,
-  );
+  // ✅ Staff only reviews when application is in staff review statuses
+  const canReview = ["Under Review", "Under Manual Review"].includes(currentStatus);
 
   const formattedDate = application?.last_edited
     ? new Date(application.last_edited).toLocaleDateString("en-US", {
@@ -93,10 +85,51 @@ export default function ApplicationReviewDetail() {
   // ✅ reason might be stored as application.reason OR inside form_data.reason
   const actionReason = application?.reason ?? application?.form_data?.reason;
 
-  const handleRequestDocuments = () => {
-    toast.success("Document request sent to applicant", {
-      description: "An email has been sent requesting the missing documents.",
-    });
+  /**
+   * ✅ ESCALATE (Request Documents)
+   * - Prompts for reason
+   * - Calls escalateApplication(appId, reason)
+   * - Redirect back to staff landing page
+   * - Staff landing page filters out Requires Action so it disappears
+   */
+  const handleRequestDocuments = async () => {
+    if (!id) return;
+
+    const reason =
+      window.prompt("Reason / documents required from applicant?") || "";
+    if (!reason.trim()) {
+      toast.error("Reason required", {
+        description: "Please enter a reason to request documents.",
+      });
+      return;
+    }
+
+    try {
+      setIsUpdatingStatus(true);
+
+      const appIdToUse = application?.application_id || id;
+      await escalateApplication(appIdToUse, reason.trim());
+
+      toast.success("Escalated to applicant", {
+        description:
+          "Status set to Requires Action and applicant has been notified.",
+      });
+
+      // ✅ go back; it will be removed from staff queue
+      navigate("/staff-landingpage");
+    } catch (err) {
+      console.error("Escalate failed:", err);
+      console.log("Escalate err.response?.data:", err?.response?.data);
+
+      toast.error("Request Documents failed", {
+        description:
+          err?.response?.data?.detail ||
+          err?.message ||
+          "Could not escalate application.",
+      });
+    } finally {
+      setIsUpdatingStatus(false);
+    }
   };
 
   const handleApprove = async () => {
@@ -115,24 +148,11 @@ export default function ApplicationReviewDetail() {
       setIsUpdatingStatus(true);
 
       const appIdToUse = application?.application_id || id;
-      const updated = await approveApplication(appIdToUse, reason.trim());
+      await approveApplication(appIdToUse, reason.trim());
 
       toast.success("Application Approved", {
         description: `${application?.business_name} has been approved.`,
       });
-
-      setApplication((prev) => ({
-        ...prev,
-        ...(updated && typeof updated === "object" ? updated : {}),
-        current_status: "Approved",
-        reason: reason.trim(),
-        form_data: {
-          ...(prev?.form_data && typeof prev.form_data === "object"
-            ? prev.form_data
-            : {}),
-          reason: reason.trim(),
-        },
-      }));
 
       navigate("/staff-landingpage");
     } catch (err) {
@@ -166,24 +186,11 @@ export default function ApplicationReviewDetail() {
       setIsUpdatingStatus(true);
 
       const appIdToUse = application?.application_id || id;
-      const updated = await rejectApplication(appIdToUse, reason.trim());
+      await rejectApplication(appIdToUse, reason.trim());
 
       toast.success("Application Rejected", {
         description: `${application?.business_name} has been rejected.`,
       });
-
-      setApplication((prev) => ({
-        ...prev,
-        ...(updated && typeof updated === "object" ? updated : {}),
-        current_status: "Rejected",
-        reason: reason.trim(),
-        form_data: {
-          ...(prev?.form_data && typeof prev.form_data === "object"
-            ? prev.form_data
-            : {}),
-          reason: reason.trim(),
-        },
-      }));
 
       navigate("/staff-landingpage");
     } catch (err) {
@@ -215,7 +222,7 @@ export default function ApplicationReviewDetail() {
         <p className="text-red-500 font-medium">
           {error || "Application not found."}
         </p>
-        <Button onClick={() => navigate("/landingpage")}>Back to List</Button>
+        <Button onClick={() => navigate("/staff-landingpage")}>Back to List</Button>
       </div>
     );
   }
@@ -280,9 +287,7 @@ export default function ApplicationReviewDetail() {
                   </div>
 
                   <div>
-                    <p className="text-sm text-muted-foreground">
-                      Business Name
-                    </p>
+                    <p className="text-sm text-muted-foreground">Business Name</p>
                     <p className="font-medium text-foreground">
                       {application.business_name || "-"}
                     </p>
@@ -298,9 +303,7 @@ export default function ApplicationReviewDetail() {
                   </div>
 
                   <div>
-                    <p className="text-sm text-muted-foreground">
-                      Business Type
-                    </p>
+                    <p className="text-sm text-muted-foreground">Business Type</p>
                     <p className="font-medium text-foreground">
                       {application.business_type || "-"}
                     </p>
@@ -314,9 +317,7 @@ export default function ApplicationReviewDetail() {
                   </div>
 
                   <div>
-                    <p className="text-sm text-muted-foreground">
-                      Employee Count
-                    </p>
+                    <p className="text-sm text-muted-foreground">Employee Count</p>
                     <p className="font-medium text-foreground">
                       {application.employeeCount || "-"}
                     </p>
@@ -434,52 +435,7 @@ export default function ApplicationReviewDetail() {
               </CardContent>
             </Card>
 
-            {/* Account Requirements */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2 text-lg">
-                  <FileText className="h-5 w-5 text-muted-foreground" />
-                  Account Requirements
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <p className="text-sm text-muted-foreground">
-                      Initial Deposit
-                    </p>
-                    <p className="font-medium text-foreground">
-                      {application.initialDeposit || "-"}
-                    </p>
-                  </div>
-
-                  <div>
-                    <p className="text-sm text-muted-foreground">
-                      Expected Monthly Volume
-                    </p>
-                    <p className="font-medium text-foreground">
-                      {application.expectedMonthlyVolume || "-"}
-                    </p>
-                  </div>
-
-                  <div>
-                    <p className="text-sm text-muted-foreground">
-                      Currencies Required
-                    </p>
-                    {/* add badges here when you have currencies array */}
-                  </div>
-
-                  <div>
-                    <p className="text-sm text-muted-foreground">
-                      Services Requested
-                    </p>
-                    {/* add badges here when you have services array */}
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Requires Action feedback */}
+            {/* Requires Action feedback (still visible if staff opens old link) */}
             {currentStatus === "Requires Action" && actionReason && (
               <Card className="border-rose-500/30 bg-rose-500/5">
                 <CardHeader className="pb-3">
@@ -491,8 +447,8 @@ export default function ApplicationReviewDetail() {
                 <CardContent>
                   <p className="text-foreground mb-4">{actionReason}</p>
                   <div className="flex flex-wrap gap-3">
-                    <Button className="gap-2">
-                      <Upload className="h-4 w-4" /> Upload Documents
+                    <Button className="gap-2" disabled>
+                      <Upload className="h-4 w-4" /> Awaiting Applicant Upload
                     </Button>
                   </div>
                 </CardContent>
@@ -502,7 +458,7 @@ export default function ApplicationReviewDetail() {
 
           {/* RIGHT */}
           <div className="space-y-6">
-            {/* ✅ Hide Review Actions if application is already Approved/Rejected/etc */}
+            {/* ✅ Review Actions ONLY when staff can review */}
             {canReview && (
               <Card>
                 <CardHeader>
@@ -516,7 +472,7 @@ export default function ApplicationReviewDetail() {
                     disabled={isUpdatingStatus}
                   >
                     <FileQuestion className="h-4 w-4" />
-                    Request Documents
+                    {isUpdatingStatus ? "Requesting..." : "Request Documents"}
                   </Button>
 
                   <Button
@@ -564,7 +520,7 @@ export default function ApplicationReviewDetail() {
               </CardContent>
             </Card>
 
-            {/* KEEP YOUR COMMENTED OUT BLOCK COMMENTED OUT (as requested) */}
+            {/* KEEP YOUR COMMENTED OUT BLOCK COMMENTED OUT */}
             {/* <div className="space-y-6">
               ...
             </div> */}
