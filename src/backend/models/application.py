@@ -15,6 +15,13 @@ class ApplicationForm(Base):
         passive_deletes=True
     )
 
+    review_jobs = relationship(
+        "ReviewJobs",
+        back_populates="application",
+        cascade="all, delete-orphan",
+        passive_deletes=True,   # recommended when using ondelete=CASCADE
+    )
+
     # 8-digit application id, auto-generated in DB
     application_id = Column(
         String(8),

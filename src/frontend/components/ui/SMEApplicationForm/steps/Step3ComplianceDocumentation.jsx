@@ -1,17 +1,31 @@
-import React from "react";
+import React, { useMemo } from "react";
 import FileUploadField from "../components/FileUploadField";
+import { getCountryConfig } from "../config/countriesConfig";
+import { getBusinessTypeConfig } from "../config/businessTypesConfig";
+
 
 /**
  * Step3ComplianceDocumentation component
  * Handles document uploads for KYC compliance
  */
 const Step3ComplianceDocumentation = ({
+  data,
   documents,
   errors,
   touched,
   onDocumentChange,
   documentsProgress = {},
 }) => {
+  console.log("Step3 errors:", errors);
+
+  const requiredDocuments = useMemo(() => {
+    const countryDocs = getCountryConfig(data.country)?.documents || {};
+    const bizDocs = getBusinessTypeConfig(data.businessType)?.documents || {};
+
+    // Merge both. If keys collide, businessType doc overrides country doc.
+    return { ...countryDocs, ...bizDocs };
+  }, [data.country, data.businessType]);
+
   const handleFileChange = (fieldName, file, error = "") => {
     onDocumentChange(fieldName, file, error);
   };
@@ -28,16 +42,36 @@ const Step3ComplianceDocumentation = ({
           <strong>Required Documents:</strong>
         </p>
         <ul className="text-sm text-amber-800 list-disc list-inside space-y-1">
-          <li>Know Your Customer (KYC) document - Government-issued ID</li>
+          {/* <li>Know Your Customer (KYC) document - Government-issued ID</li>
           <li>Business License or Certificate of Incorporation</li>
           <li>
             Proof of Address - Utility bill or official letter (not older than 3
             months)
-          </li>
+          </li> */}
+          {Object.entries(requiredDocuments).map(([key, doc]) => (
+            <li key={key}>{doc.label}</li>
+          ))}
         </ul>
       </div>
 
-      {/* KYC Document Upload */}
+       {/* Dynamic Upload Fields */}
+      {Object.entries(requiredDocuments).map(([fieldName, doc]) => (
+        <FileUploadField
+          key={fieldName}
+          fieldName={fieldName}
+          label={doc.label}
+          file={documents?.[fieldName] || null}
+          onChange={handleFileChange}
+          error={errors?.[fieldName]}
+          touched={touched?.[fieldName]}
+          required
+          acceptTypes="application/pdf,image/jpeg,image/png"
+          maxSize={5242880}
+          uploadProgress={documentsProgress?.[fieldName]}
+        />
+      ))}
+
+      {/* KYC Document Upload
       <FileUploadField
         fieldName="kycDocument"
         label="KYC Document (Government-Issued ID)"
@@ -50,10 +84,10 @@ const Step3ComplianceDocumentation = ({
         maxSize={5242880}
         helpText="Accepted: PDF, JPG, PNG (Max 5MB). Upload a clear copy of your passport, national ID, or driver's license."
         uploadProgress={documentsProgress.kycDocument}
-      />
+      /> */}
 
       {/* Business License Upload */}
-      <FileUploadField
+      {/* <FileUploadField
         fieldName="businessLicense"
         label="Business License or Certificate of Incorporation"
         file={documents.businessLicense}
@@ -65,10 +99,10 @@ const Step3ComplianceDocumentation = ({
         maxSize={5242880}
         helpText="Accepted: PDF, JPG, PNG (Max 5MB). Upload your business registration certificate or certificate of incorporation."
         uploadProgress={documentsProgress.businessLicense}
-      />
+      /> */}
 
       {/* Proof of Address Upload */}
-      <FileUploadField
+      {/* <FileUploadField
         fieldName="proofOfAddress"
         label="Proof of Address"
         file={documents.proofOfAddress}
@@ -80,7 +114,7 @@ const Step3ComplianceDocumentation = ({
         maxSize={5242880}
         helpText="Accepted: PDF, JPG, PNG (Max 5MB). Upload a recent utility bill, lease agreement, or official letter not older than 3 months."
         uploadProgress={documentsProgress.proofOfAddress}
-      />
+      /> */}
 
       {/* Compliance Note */}
       <div className="mt-8 p-4 bg-blue-50 border border-blue-200 rounded-lg">
