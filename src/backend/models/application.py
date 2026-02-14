@@ -22,6 +22,13 @@ class ApplicationForm(Base):
         passive_deletes=True,   # recommended when using ondelete=CASCADE
     )
 
+    bell_notifications = relationship(
+        "BellNotification",
+        back_populates="application",
+        cascade="all, delete-orphan",
+        passive_deletes=True,   # recommended when using ondelete=CASCADE
+    )
+
     # 8-digit application id, auto-generated in DB
     application_id = Column(
         String(8),
@@ -55,7 +62,6 @@ class ApplicationForm(Base):
     )
     created_at = Column(DateTime(timezone=False), server_default=text("(now() AT TIME ZONE 'Asia/Singapore')"), nullable=False)
 
-    
 
     __table_args__ = (
         CheckConstraint("char_length(application_id) = 8", name="chk_application_id_len"),

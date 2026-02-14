@@ -9,7 +9,7 @@ from backend.models.application import ApplicationForm  # import so table is reg
 from backend.models.documents import Document
 from backend.models.user import User
 from backend.models.reviewJobs import ReviewJobs
-
+from backend.models.bellNotifications import BellNotification
 from alembic import context
 
 load_dotenv() 

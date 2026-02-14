@@ -15,6 +15,7 @@ from backend.api.notification import *
 from backend.api.resend import send_email
 from backend.database import get_db
 from backend.models.reviewJobs import ReviewJobs
+from backend.models.bellNotifications import BellNotification
 
 router = APIRouter(prefix="/applications", tags=["applications"])
 
@@ -26,12 +27,22 @@ EXCLUDED_STATUSES = ("Withdrawn", "Approved", "Rejected")  # not "active"
 def to_dict(self):
     return {c.name: getattr(self, c.name) for c in self.__table__.columns}
 
-# def get_db():
-#     db = SessionLocal()
-#     try:
-#         yield db
-#     finally:
-#         db.close()
+
+def add_bell(
+    db: Session,
+    appId: str,
+    recipient_id: str,
+    message: str,
+    from_status: str | None,
+    to_status: str | None,
+):
+    db.add(BellNotification(
+        application_id=appId,
+        recipient_id=recipient_id,
+        message=message,
+        from_status=from_status,
+        to_status=to_status,
+    ))
 
 @router.get("/")
 def get_all_applications(db: Session = Depends(get_db)):
@@ -106,6 +117,16 @@ def save_application(data: dict = Body(...), db: Session = Depends(get_db)):
     )
 
     db.add(new_app)
+    db.flush()  # ✅ generates new_app.application_id from server_default
+
+    db.add(BellNotification(
+        application_id=new_app.application_id,
+        recipient_id=new_app.user_id,
+        from_status=new_app.previous_status,
+        to_status=new_app.current_status,
+        message=f"You have successfuly saved your application as a draft."
+    ))
+
     db.commit()
     db.refresh(new_app)
 
@@ -145,6 +166,14 @@ def second_save(application_id: str, data: dict = Body(...), db: Session = Depen
         app.previous_status = app.current_status
         app.current_status = "Draft"
 
+    db.add(BellNotification(
+        application_id=app.application_id,
+        recipient_id=app.user_id,
+        from_status=app.previous_status,
+        to_status=app.current_status,
+        message=f"You have successfuly saved your application as a draft."
+    ))
+    
     db.commit()
     db.refresh(app)
 
@@ -187,6 +216,14 @@ def first_submit_application(
 
     db.add(review_job)
 
+    add_bell(
+        db=db,
+        appId=new_app.application_id,
+        recipient_id=new_app.user_id,
+        message="Your application has been submitted successfully and is currently under review.",
+        from_status=None,
+        to_status="Under Review",
+    )
 
     db.commit()
     db.refresh(new_app)
@@ -283,6 +320,15 @@ def second_submit(
         app.previous_status = app.current_status
         app.current_status = "Under Review"
 
+        add_bell(
+            db=db,
+            appId=app.application_id,
+            recipient_id=app.user_id,
+            message="Your application has been submitted successfully and is currently under review.",
+            from_status=app.previous_status,
+            to_status=app.current_status,
+        )
+
         if user_email:
             subject, body = build_application_submitted_email(app, user_firstName)
             background_tasks.add_task(safe_send, user_email, subject, body)
@@ -290,10 +336,31 @@ def second_submit(
         else:
             email_notes.append("Missing user email; user email not queued.")
 
+        
+
     elif curr == "Requires Action" and prev == "Under Manual Review":
         app.previous_status = app.current_status
         app.current_status = "Under Manual Review"
         app.is_open_staff = False
+
+        add_bell(
+            db=db,
+            appId=app.application_id,
+            recipient_id=app.user_id,
+            message="We received your additional documents. Your application is back under manual review.",
+            from_status=app.previous_status,
+            to_status=app.current_status,
+        )
+
+        if app.reviewer_id:
+            add_bell(
+                db=db,
+                appId=app.application_id,
+                recipient_id=app.reviewer_id,
+                message="Applicant has uploaded additional documents. Please review the application again.",
+                from_status=app.previous_status,
+                to_status=app.current_status,
+            )
 
         # user email
         if user_email:
@@ -315,6 +382,25 @@ def second_submit(
         app.previous_status = app.current_status
         app.current_status = "Under Manual Review"
         app.is_open_staff = False
+
+        add_bell(
+            db=db,
+            appId=app.application_id,
+            recipient_id=app.user_id,
+            message="We received your additional documents. Your application is back under manual review.",
+            from_status=app.previous_status,
+            to_status=app.current_status,
+        )
+
+        if app.reviewer_id:
+            add_bell(
+                db=db,
+                appId=app.application_id,
+                recipient_id=app.reviewer_id,
+                message="Applicant has uploaded additional documents. Please review the application again.",
+                from_status=app.previous_status,
+                to_status=app.current_status,
+            )
 
         # user email
         if user_email:
@@ -437,6 +523,26 @@ def need_manual_review(
 
         # transaction commits automatically on exiting with db.begin()
 
+        db.add(BellNotification(
+            application_id=app.application_id,
+            recipient_id=app.user_id,
+            from_status=app.previous_status,
+            to_status=app.current_status,
+            message="Your application is currently under manual review by our bank staff."
+        ))
+
+        if app.reviewer_id:
+            db.add(BellNotification(
+                application_id=app.application_id,
+                recipient_id=app.reviewer_id,
+                from_status=app.previous_status,
+                to_status=app.current_status,
+                message="You have an active application due for manual review."
+            ))
+        
+        db.flush()
+    
+
     # after commit, fetch staff + user (no locks needed)
     staff = db.query(User).filter(User.user_id == app.reviewer_id).first() if app.reviewer_id else None
     user = db.query(User).filter(User.user_id == app.user_id).first() if app.user_id else None
@@ -454,6 +560,7 @@ def need_manual_review(
         user_subject, user_body = build_user_manual_review_email(app, user.first_name)
         background_tasks.add_task(safe_send_email, user.email, user_subject, user_body)
         emails_queued["user"] = True
+        
     else:
         email_notes.append("User email not found; user email not queued.")
 
@@ -544,6 +651,14 @@ def approve_application(
     app.form_data["reason"] = reason
     app.is_open_user = False
 
+    db.add(BellNotification(
+        application_id=app.application_id,
+        recipient_id=app.user_id,
+        from_status=app.previous_status,
+        to_status="Approved",
+        message="Your application has been approved."
+    ))
+
     # Persist first
     db.commit()
     db.refresh(app)
@@ -569,6 +684,8 @@ def approve_application(
             send_email(to_email, subject, body)
         except Exception as e:
             print(f"❌ Email failed to {to_email}: {e}")
+
+    
 
     emails_queued = False
     email_notes = []
@@ -618,6 +735,14 @@ def reject_application(
     app.current_status = "Rejected"
     app.form_data["reason"] = reason
     app.is_open_user = False
+
+    db.add(BellNotification(
+        application_id=app.application_id,
+        recipient_id=app.user_id,
+        from_status=app.previous_status,
+        to_status="Rejected",
+        message="Your application has been rejected."
+    ))
 
     # Persist first
     db.commit()
@@ -695,6 +820,15 @@ def require_action(
     app.current_status = "Requires Action"
     app.form_data["reason"] = reason
     app.is_open_user = False
+
+    db.add(BellNotification(
+        application_id=app.application_id,
+        recipient_id=app.user_id,
+        from_status=app.previous_status,
+        to_status=app.current_status ,
+        message=f"This application requires additional documents from you. Please upload them."
+    ))
+    
 
     # Persist first
     db.commit()
@@ -779,6 +913,37 @@ def withdraw_application(
         applicant_email = applicant.email
         applicant_firstName = getattr(applicant, "first_name", None)
 
+    reviewer_email = None
+    reviewer_firstName = None
+
+    reviewer = None
+
+    if getattr(app, "user_id", None):
+        reviewer = db.query(User).filter(User.user_id == app.reviewer_id).first()
+
+    if reviewer and getattr(reviewer, "email", None):
+        reviewer_email = reviewer.email
+        reviewer_firstName = getattr(reviewer, "first_name", None)
+
+    db.add(BellNotification(
+        application_id=app.application_id,
+        recipient_id=app.user_id,
+        from_status=app.previous_status,
+        to_status=app.current_status,
+        message=f"You have successfuly withdrawn your application."
+    ))
+
+    if reviewer:
+        db.add(BellNotification(
+            application_id=app.application_id,
+            recipient_id=app.reviewer_id,
+            from_status=app.previous_status,
+            to_status=app.current_status,
+            message=f"SME User has withdrawn their application for {app.business_name}."
+        ))
+
+    db.commit()
+
     def safe_send_email(to_email: str, subject: str, body: str):
         try:
             send_email(to_email, subject, body)
@@ -787,13 +952,13 @@ def withdraw_application(
 
     emails_queued = {"user": False}
     email_notes = []
-
+    
     if applicant_email:
         # If you have a dedicated template, use it:
         # subject, body = build_withdrawn_email(app, applicant_firstName)
 
         # If you DON'T have one, quick fallback:
-        subject = "Your application has been withdrawn"
+        subject = "Your application has been withdrawn successfully"
         body = (
             f"Hi {applicant_firstName or ''},\n\n"
             f"Your application (ID: {app.application_id}) has been marked as Withdrawn.\n"
@@ -805,6 +970,13 @@ def withdraw_application(
         emails_queued["user"] = True
     else:
         email_notes.append("Applicant email not found; withdrawal email not queued.")
+
+    if reviewer_email:
+        subject, body = build_withdrawn_email(app, reviewer_firstName)
+        background_tasks.add_task(safe_send_email, reviewer_email, subject, body)
+        emails_queued = True
+    else:
+        email_notes.append("User email not found; action-required email not queued.")
 
     return {
         "application_id": app.application_id,
@@ -979,7 +1151,7 @@ def send_draft_reminders(db: Session = Depends(get_db),
         raise HTTPException(status_code=401, detail="Unauthorized")
     
     rows = db.execute(text("""
-        SELECT application_id, user_id, current_status
+        SELECT application_id, user_id, current_status, previous_status
         FROM public.application_form
         WHERE current_status IN ('Draft', 'Requires Action')
           AND has_sent = false
@@ -994,10 +1166,14 @@ def send_draft_reminders(db: Session = Depends(get_db),
     failures = []
     sent_app_ids = []
 
+    bell_rows = []
+
+
     for r in rows:
         application_id = r.application_id
         user_id = r.user_id
         status = r.current_status
+        prev_status = r.previous_status
 
         user = db.query(User).filter(User.user_id == user_id).first()
         if not user or not user.email:
@@ -1013,6 +1189,7 @@ def send_draft_reminders(db: Session = Depends(get_db),
                 "Please log in to complete and submit it when you’re ready.\n\n"
                 "Thanks!"
             )
+            bell_msg = f"Reminder: Your draft application {application_id} hasn’t been updated in the past 2 days."
         else:
             subject = "Action required: Please update your application"
             body = (
@@ -1023,14 +1200,27 @@ def send_draft_reminders(db: Session = Depends(get_db),
                 "so we can continue processing it.\n\n"
                 "Thanks!"
             )
+            bell_msg = f"Reminder: Application {application_id} requires action and hasn’t been updated in the past 2 days."
 
         try:
             send_email(user.email, subject, body)
             sent += 1
             sent_app_ids.append(application_id)
+            
+            bell_rows.append(BellNotification(
+                application_id=application_id,
+                recipient_id=user_id,
+                from_status=prev_status,
+                to_status=status,
+                message=bell_msg,
+            ))
+
         except Exception as e:
             failed += 1
             failures.append({"application_id": application_id, "error": str(e)})
+    
+    if bell_rows:
+        db.add_all(bell_rows)
 
     # Mark reminders as sent (only for ones that succeeded)
     if sent_app_ids:
