@@ -5,9 +5,11 @@ from backend.database import Base, engine
 from backend.models.application import ApplicationForm  # import so table is registered
 from backend.models.documents import Document
 from backend.models.user import User
+from backend.models.bellNotifications import BellNotification
 from backend.api.user import router as user_router
 from backend.api.application import router as application_router
 from backend.api.document import router as application_document
+from backend.api.bellNotification import router as application_bellNotifications
 
 app = FastAPI()
 
@@ -38,7 +40,9 @@ app.add_middleware(
 # register routes
 app.include_router(application_router)
 app.include_router(application_document)
-app.include_router(user_router)      
+app.include_router(user_router)  
+app.include_router(application_bellNotifications)      
+
 
 #add cors middleware
 app.add_middleware(
