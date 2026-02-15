@@ -12,7 +12,6 @@ from backend.api.document import router as application_document
 from backend.api.bellNotification import router as application_bellNotifications
 
 from backend.api.document_ai import router as docai_router
-from backend.api.nric_api import router as nric_router
 from backend.api.id_verification import router as idv_router
 
 import os
@@ -72,5 +71,4 @@ app.add_middleware(
 )
 
 app.include_router(docai_router)
-app.include_router(nric_router)
 app.include_router(idv_router)
