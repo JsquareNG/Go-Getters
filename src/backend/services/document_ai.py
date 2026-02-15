@@ -152,25 +152,6 @@ def _extract_kv_pairs_by_page(doc) -> List[Dict[str, str]]:
     return pages_kv
 
 
-def _fallback_extract_address(full_text: str, label: str) -> Optional[str]:
-    if not full_text:
-        return None
-
-    text = full_text.replace("\r\n", "\n").replace("\r", "\n")
-
-    pattern = rf"{re.escape(label)}\s*:\s*(.*?)(?=\n[A-Z][A-Za-z ]+\s*:|$)"
-    match = re.search(pattern, text, re.DOTALL)
-
-    if not match:
-        return None
-
-    address = match.group(1).strip()
-    address = re.sub(r"\n+", ", ", address)
-    return address
-
-
-
-
 def extract_acra_data(pdf_bytes: bytes, selected_entity_type: str) -> Dict:
     project_id = os.getenv("GCP_PROJECT_ID")
     location = os.getenv("GCP_LOCATION")
