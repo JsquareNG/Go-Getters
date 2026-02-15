@@ -1,8 +1,9 @@
 
 import os
 import re
-from typing import Dict, Optional
+from typing import Dict, Optional, List
 from google.cloud import documentai
+
 
 def _norm(text: str) -> str:
     return re.sub(r"\s+", " ", (text or "").strip().upper())
@@ -113,24 +114,42 @@ def _extract_text(doc, text_anchor):
         result.append(doc.text[start:end])
     return "".join(result).strip()
 
+def _clean_value(text: str) -> str:
+    if not text:
+        return ""
 
-def _extract_kv_pairs(doc) -> Dict[str, str]:
-    kv = {}
+    # Replace all newline types with space
+    text = text.replace("\r\n", " ").replace("\n", " ").replace("\r", " ")
+
+    # Remove leading colon if present
+    text = re.sub(r"^:\s*", "", text)
+
+    # Collapse multiple spaces
+    text = re.sub(r"\s+", " ", text)
+
+    return text.strip()
+
+def _extract_kv_pairs_by_page(doc) -> List[Dict[str, str]]:
+    pages_kv: List[Dict[str, str]] = []
+
     for page in doc.pages:
+        kv: Dict[str, str] = {}
+
         for field in page.form_fields:
             key = _extract_text(doc, field.field_name.text_anchor)
             value = _extract_text(doc, field.field_value.text_anchor)
-            if key:
-                cleaned_value = (value or "").strip()
 
-                # Remove leading colon(s) and whitespace/newlines
-                cleaned_value = re.sub(r"^:\s*", "", cleaned_value)
+            if not key:
+                continue
 
-                # Also remove accidental leading newline after colon
-                cleaned_value = cleaned_value.lstrip()
+            normalized_key = _normalize_key(key)
+            cleaned_value = _clean_value(value)
 
-                kv[_normalize_key(key)] = cleaned_value
-    return kv
+            kv[normalized_key] = cleaned_value
+
+        pages_kv.append(kv)
+
+    return pages_kv
 
 
 def _fallback_extract_address(full_text: str, label: str) -> Optional[str]:
@@ -148,6 +167,8 @@ def _fallback_extract_address(full_text: str, label: str) -> Optional[str]:
     address = match.group(1).strip()
     address = re.sub(r"\n+", ", ", address)
     return address
+
+
 
 
 def extract_acra_data(pdf_bytes: bytes, selected_entity_type: str) -> Dict:
@@ -169,10 +190,11 @@ def extract_acra_data(pdf_bytes: bytes, selected_entity_type: str) -> Dict:
     result = client.process_document(request=request)
     document = result.document
 
-    kv = _extract_kv_pairs(document)
+    pages_kv = _extract_kv_pairs_by_page(document)
+    kv_page_1 = pages_kv[0] if pages_kv else {}
+
     selected = (selected_entity_type or "").strip().upper()
 
-    # allow a few friendly inputs just in case
     ALLOWED = {
         "SOLE PROPRIETORSHIP": "SOLE_PROPRIETORSHIP",
         "SOLE PROPRIETOR": "SOLE_PROPRIETORSHIP",
@@ -185,79 +207,20 @@ def extract_acra_data(pdf_bytes: bytes, selected_entity_type: str) -> Dict:
         "PUBLIC LIMITED": "PUBLIC_LIMITED",
         "PUBLIC_LIMITED": "PUBLIC_LIMITED",
     }
-
     selected_norm = ALLOWED.get(selected, selected)
 
-    # First validate using KV structure (more reliable than text)
-    if not validate_selected_entity_type(selected_norm, kv):
+    # ✅ Validate against page 1 structure (since you care about page 1)
+    if not validate_selected_entity_type(selected_norm, kv_page_1):
         raise ValueError(
             f"Entity type mismatch or unsupported document format. "
-            f"You selected '{selected_norm}', but extracted keys were: "
-            f"{list(kv.keys())[:20]}"
+            f"You selected '{selected_norm}', but extracted page-1 keys were: "
+            f"{list(kv_page_1.keys())[:30]}"
         )
-
-
-    def find(keys):
-        for k in keys:
-            val = kv.get(_normalize_key(k))
-            if val:
-                return val
-        return None
-
-
-    LABELS = {
-    "SOLE_PROPRIETORSHIP": {
-        "name": ["name of business", "business name", "name of entity", "name"],
-        "date": ["date of registration", "registration date", "incorporation date"],
-        "status": ["status of business", "status"],
-        "address": ["principal place of business", "registered office address", "address"],
-    },
-    "PARTNERSHIP": {
-        "name": ["name of business", "name of partnership", "partnership name", "name of entity", "name"],
-        "date": ["date of registration", "registration date"],
-        "status": ["status of business", "status of partnership", "status"],
-        "address": ["principal place of business", "address"],
-    },
-    "PRIVATE_LIMITED": {
-        "name": ["name of company", "company name", "name"],
-        "date": ["incorporation date", "date of incorporation"],
-        "status": ["status of company", "company status", "status"],
-        "address": ["registered office address", "registered address", "address"],
-    },
-    "PUBLIC_LIMITED": {
-        "name": ["name of company", "company name", "name"],
-        "date": ["incorporation date", "date of incorporation"],
-        "status": ["status of company", "company status", "status"],
-        "address": ["registered office address", "registered address", "address"],
-    },
-    "LLP": {
-        "name": ["name of llp", "limited liability partnership name", "name of entity", "name"],
-        "date": ["date of registration", "registration date"],
-        "status": ["status of llp", "status"],
-        "address": ["registered office address", "address"],
-    },
-    "LP": {
-        "name": ["name of lp", "name of limited partnership", "limited partnership name", "name of entity", "name"],
-        "date": ["date of registration", "registration date"],
-        "status": ["status of lp", "status of limited partnership", "status"],
-        "address": ["principal place of business", "address"],
-    },
-}
-
-    labels = LABELS[selected_norm]  # after validation
-    registered_address = find(labels["address"])
-
-    if not registered_address:
-        for label in labels["address"]:
-            registered_address = _fallback_extract_address(document.text, label)
-            if registered_address:
-                break
 
     return {
         "entity_type": selected_norm,
-        "entity_name": find(labels["name"]),
-        "uen": find(["uen", "unique entity number", "entity number"]),
-        "incorporation_or_registration_date": find(labels["date"]),
-        "status": find(labels["status"]),
-        "address": registered_address,
+        "kv_page_1": kv_page_1,   # ✅ everything detected on first page
+        # optional extras if you want:
+        # "kv_all_pages": pages_kv,
+        # "raw_text": document.text,  # careful: huge
     }
