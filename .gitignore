@@ -3,3 +3,12 @@
 *.env
 node_modules/
 
+**/node_modules/
+
+# Vite cache/build artifacts
+**/.vite/
+**/dist/
+**/build/
+
+# env files & keys
+gcp-key.json
