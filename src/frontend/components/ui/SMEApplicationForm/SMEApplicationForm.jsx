@@ -14,7 +14,10 @@ import { useNavigate } from "react-router-dom";
 
 import { useSelector } from "react-redux";
 import { selectUser } from "@/store/authSlice";
-import { submitApplicationApi } from "@/api/applicationApi";
+import {
+  submitApplicationApi,
+  saveApplicationDraftApi,
+} from "@/api/applicationApi";
 
 /**
  * SMEApplicationForm - Main Component
@@ -116,11 +119,32 @@ const SMEApplicationForm = ({ onSubmitSuccess }) => {
   // Handle save draft
   const handleSaveDraft = async () => {
     setIsSubmitting(true);
-    try {
-      toast({
-        title: "Draft Saved",
-        description: "Your application draft has been saved successfully.",
-      });
+
+  try {
+    const payload = {
+      business_country: state.data.country,
+      business_name: state.data.companyName,
+      business_type: state.data.businessType,
+      user_id: user.user_id,
+
+      // 🔥 IMPORTANT: backend expects this
+      form_data: {
+        ...state.data,
+      },
+
+      email: user.email,
+      firstName: user.firstName,
+    };
+
+    const response = await saveApplicationDraftApi(payload);
+
+    toast({
+      title: "Draft Saved",
+      description: "Your application draft has been saved successfully.",
+    });
+
+    navigate("/landingpage");
+    
     } catch (error) {
       console.error("Draft save error:", error);
       toast({

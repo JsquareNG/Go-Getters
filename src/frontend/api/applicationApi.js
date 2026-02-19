@@ -11,6 +11,11 @@ export const getApplicationByAppId = async (id) => {
   return res.data;
 };
 
+export const saveApplicationDraftApi = async (payload) => {
+  const res = await axiosClient.post("/applications/firstSave", payload);
+  return res.data;
+};
+
 export const submitApplicationApi = async (payload) => {
   const res = await axiosClient.post("/applications/firstSubmit", payload);
   return res.data;
