@@ -33,18 +33,12 @@ export const COUNTRIES = {
     },
     documents: {
       proofOfAddress: {
-        key: "proof_of_address",
-        label: "Proof of Business Address",
-        required: true,
-        accept: [".pdf", ".jpg", ".png"],
-        maxSizeMB: 10,
+        value: "proof_of_address",
+        label: "Proof of Business Address"
       },
       bankStatement3m: {
-        key: "bank_statement_3m",
-        label: "Bank Statement (Last 3 months)",
-        required: true,
-        accept: [".pdf"],
-        maxSizeMB: 20,
+        value: "bank_statement_3m",
+        label: "Bank Statement (Last 3 months)"
       },
     }
   },
@@ -78,18 +72,12 @@ export const COUNTRIES = {
     },
     documents: {
       proofOfAddress: {
-        key: "proof_of_address",
+        value: "proof_of_address",
         label: "Proof of Business Address",
-        required: true,
-        accept: [".pdf", ".jpg", ".png"],
-        maxSizeMB: 10,
       },
       nibCertificate: {
-        key: "nib_certificate",
+        value: "nib_certificate",
         label: "NIB Certificate",
-        required: true,
-        accept: [".pdf", ".jpg", ".png"],
-        maxSizeMB: 10,
       },
     },
   },

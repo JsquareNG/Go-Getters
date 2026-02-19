@@ -1,10 +1,16 @@
+// StaffLandingPage.jsx
 import { useState, useMemo, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Loader2, FileSearch, AlertCircle, Search } from "lucide-react";
 import { getApplicationByReviewer } from "../api/applicationApi";
 import { useSelector } from "react-redux";
 import { selectUser } from "../store/authSlice";
-import { StatusFilter, Input, ApplicationReviewCard, StaffStats} from "@/components/ui";
+import {
+  StatusFilter,
+  Input,
+  ApplicationReviewCard,
+  StaffStats,
+} from "@/components/ui";
 
 const riskPriority = {
   critical: 0,
@@ -32,6 +38,13 @@ export default function StaffLandingPage() {
   // Search
   const [searchQuery, setSearchQuery] = useState("");
 
+  const handleReview = (id) => {
+    navigate(`/staff-landingpage/${id}`);
+  };
+
+  const getStatus = (a) => a.current_status ?? a.status;
+  const getRisk = (a) => a.risk_level ?? a.riskLevel;
+
   useEffect(() => {
     const fetchAssignedApps = async () => {
       if (!employeeId) {
@@ -46,10 +59,10 @@ export default function StaffLandingPage() {
         const data = await getApplicationByReviewer(employeeId);
         const list = Array.isArray(data) ? data : data ? [data] : [];
 
-        // ✅ remove finalised applications from staff queue
+        // ✅ Staff ONLY sees applications they must review (NOT Requires Action)
         const reviewable = list.filter((app) => {
-          const status = app.current_status ?? app.status;
-          return status !== "Approved" && status !== "Rejected";
+          const status = getStatus(app);
+          return status === "Under Review" || status === "Under Manual Review";
         });
 
         setApplications(reviewable);
@@ -64,21 +77,12 @@ export default function StaffLandingPage() {
     fetchAssignedApps();
   }, [employeeId]);
 
-  const handleReview = (id) => {
-    navigate(`/staff-landingpage/${id}`);
-  };
-
-  const getStatus = (a) => a.current_status ?? a.status;
-  const getRisk = (a) => a.risk_level ?? a.riskLevel;
-
-  // counts for StatusFilter (only your staff filters)
+  // counts for StatusFilter (staff-only)
   const statusCounts = useMemo(() => {
     const counts = {
       All: applications.length,
       "Under Manual Review": 0,
-      "Awaiting Resubmission": 0, // maps to "Requires Action"
-      Approved: 0,
-      Critical: 0, // risk-based
+      Critical: 0,
     };
 
     applications.forEach((a) => {
@@ -86,8 +90,6 @@ export default function StaffLandingPage() {
       const risk = getRisk(a);
 
       if (status === "Under Manual Review") counts["Under Manual Review"]++;
-      if (status === "Requires Action") counts["Awaiting Resubmission"]++;
-      if (status === "Approved") counts["Approved"]++;
       if (risk === "critical") counts["Critical"]++;
     });
 
@@ -116,12 +118,7 @@ export default function StaffLandingPage() {
         if (selectedStatus === "All") matchesCapsule = true;
         else if (selectedStatus === "Under Manual Review")
           matchesCapsule = status === "Under Manual Review";
-        else if (selectedStatus === "Awaiting Resubmission")
-          matchesCapsule = status === "Requires Action";
-        else if (selectedStatus === "Approved")
-          matchesCapsule = status === "Approved";
-        else if (selectedStatus === "Critical")
-          matchesCapsule = risk === "critical";
+        else if (selectedStatus === "Critical") matchesCapsule = risk === "critical";
 
         return matchesSearch && matchesCapsule;
       })
@@ -132,7 +129,7 @@ export default function StaffLandingPage() {
       });
   }, [applications, searchQuery, selectedStatus]);
 
-  // Stats for StaffStats
+  // Stats for StaffStats (staff-only)
   const stats = useMemo(() => {
     const pendingStatuses = ["Under Manual Review", "Under Review"];
 
@@ -144,11 +141,10 @@ export default function StaffLandingPage() {
       (a) => pendingStatuses.includes(getStatus(a)) && getRisk(a) === "critical"
     ).length;
 
-    const awaitingResubmission = applications.filter(
-      (a) => getStatus(a) === "Requires Action"
-    ).length;
+    // Requires Action no longer appears in staff queue
+    const awaitingResubmission = 0;
 
-    const approved = applications.filter((a) => getStatus(a) === "Approved").length;
+    const approved = 0;
 
     return { totalPending, critical, awaitingResubmission, approved };
   }, [applications]);

@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 from sqlalchemy import func
+import mimetypes
 import os
 
 from backend.database import SessionLocal
@@ -32,9 +33,9 @@ REQUIRED_TYPES = {"bank_statement", "business_registration", "directors_info"}
 # -----------------------------
 # Storage path builders
 # -----------------------------
-def required_storage_path(application_id: str, document_type: str) -> str:
-    # 1 file per required type (overwrite if re-upload)
-    return f"applications/{application_id}/{document_type}.pdf"
+def required_storage_path(application_id: str, document_type: str, mime_type: str) -> str:
+    ext = mimetypes.guess_extension(mime_type) or ".bin"
+    return f"applications/{application_id}/{document_type}{ext}"
 
 def supporting_storage_path(application_id: str, index: int) -> str:
     # supporting_1, supporting_2, ...
@@ -69,54 +70,53 @@ class ConfirmPersistUploadIn(BaseModel):
 # -----------------------------
 @router.post("/init-persist-upload")
 def init_persist_upload(payload: InitPersistUploadIn, db: Session = Depends(get_db)):
-    if payload.mime_type != "application/pdf":
-        raise HTTPException(400, "Only PDF supported")
 
-    is_required = payload.document_type in REQUIRED_TYPES
+    # is_required = payload.document_type in REQUIRED_TYPES
 
-    if is_required:
-        # Required doc: upsert 1 row per (application_id, document_type) + fixed path
-        path = required_storage_path(payload.application_id, payload.document_type)
+    # if is_required:
+    # Required doc: upsert 1 row per (application_id, document_type) + fixed path
+    path = required_storage_path(payload.application_id, payload.document_type,
+            payload.mime_type)
 
-        doc = (
-            db.query(Document)
-            .filter(
-                Document.application_id == payload.application_id,
-                Document.document_type == payload.document_type,
-            )
-            .first()
+    doc = (
+        db.query(Document)
+        .filter(
+            Document.application_id == payload.application_id,
+            Document.document_type == payload.document_type,
         )
+        .first()
+    )
 
-        if doc:
-            doc.storage_path = path
-            doc.original_filename = payload.filename
-            doc.mime_type = payload.mime_type
-            doc.status = "uploading"
-        else:
-            doc = Document(
-                application_id=payload.application_id,
-                document_type=payload.document_type,
-                storage_path=path,
-                original_filename=payload.filename,
-                mime_type=payload.mime_type,
-                status="uploading",
-            )
-            db.add(doc)
-
+    if doc:
+        doc.storage_path = path
+        doc.original_filename = payload.filename
+        doc.mime_type = payload.mime_type
+        doc.status = "uploading"
     else:
-        # Supporting doc: ALWAYS new row + supporting_N naming
-        index = next_supporting_index(db, payload.application_id)
-        path = supporting_storage_path(payload.application_id, index)
-
         doc = Document(
             application_id=payload.application_id,
-            document_type="supporting",
+            document_type=payload.document_type,
             storage_path=path,
             original_filename=payload.filename,
             mime_type=payload.mime_type,
             status="uploading",
         )
         db.add(doc)
+
+    # else:
+    #     # Supporting doc: ALWAYS new row + supporting_N naming
+    #     index = next_supporting_index(db, payload.application_id)
+    #     path = supporting_storage_path(payload.application_id, index)
+
+    #     doc = Document(
+    #         application_id=payload.application_id,
+    #         document_type="supporting",
+    #         storage_path=path,
+    #         original_filename=payload.filename,
+    #         mime_type=payload.mime_type,
+    #         status="uploading",
+    #     )
+    #     db.add(doc)
 
     db.commit()
     db.refresh(doc)
@@ -184,85 +184,8 @@ def get_download_url(application_id: str, document_type: str, db: Session = Depe
 
     return {"signed_download": signed}
 
-# get url for any document
-# @router.get("/download-url/{document_id}")
-# def get_download_url_by_id(document_id: str, db: Session = Depends(get_db)):
-#     doc = (
-#         db.query(Document)
-#         .filter(
-#             Document.document_id == document_id,
-#             Document.status == "uploaded",
-#         )
-#         .first()
-#     )
-#     if not doc:
-#         raise HTTPException(404, "No uploaded document found")
-
-#     path = doc.storage_path
-
-#     # ✅ 1) verify object exists in bucket (using admin)
-#     bucket_admin = supabase_admin.storage.from_(BUCKET)
-
-#     folder = "/".join(path.split("/")[:-1])
-#     filename = path.split("/")[-1]
-
-#     try:
-#         items = bucket_admin.list(path=folder)
-#     except TypeError:
-#         items = bucket_admin.list(folder)
-
-#     exists = any((x.get("name") == filename) for x in (items or []))
-#     if not exists:
-#         raise HTTPException(
-#             404,
-#             f"File exists in DB but NOT in storage. bucket={BUCKET} path={path}"
-#         )
-
-#     # ✅ 2) create signed URL (use anon client)
-#     signed = supabase.storage.from_(BUCKET).create_signed_url(path, 300)
-
-#     # ✅ normalize output to a single url string
-#     url = None
-#     if isinstance(signed, dict):
-#         url = signed.get("signedURL") or signed.get("signedUrl") or signed.get("url")
-#     elif isinstance(signed, str):
-#         url = signed
-
-#     if not url:
-#         raise HTTPException(500, f"Unexpected signed url response: {signed}")
-
-#     return {"url": url, "bucket": BUCKET, "path": path}
-
-@router.get("/download-url/{document_id}")
-def get_download_url_by_id(document_id: str, db: Session = Depends(get_db)):
-    doc = (
-        db.query(Document)
-        .filter(Document.document_id == document_id, Document.status == "uploaded")
-        .first()
-    )
-    if not doc:
-        raise HTTPException(404, "No uploaded document found")
-
-    path = doc.storage_path
-
-    signed = supabase_admin.storage.from_(BUCKET).create_signed_url(path, 300)
-
-    url = None
-    if isinstance(signed, dict):
-        url = signed.get("signedURL") or signed.get("signedUrl") or signed.get("url")
-    elif isinstance(signed, str):
-        url = signed
-
-    if not url:
-        raise HTTPException(500, f"Unexpected signed url response: {signed}")
-
-    return {"url": url}
-
-
 @router.post("/replace-upload/{document_id}")
 def replace_upload(document_id: str, file: UploadFile = File(...), db: Session = Depends(get_db)):
-    if file.content_type != "application/pdf":
-        raise HTTPException(400, "Only PDF supported")
 
     doc = db.query(Document).filter(Document.document_id == document_id).first()
     if not doc:
@@ -276,36 +199,52 @@ def replace_upload(document_id: str, file: UploadFile = File(...), db: Session =
 
     bucket = supabase_admin.storage.from_(BUCKET)
 
+    ct = file.content_type or "application/octet-stream"
+    guessed_ext = mimetypes.guess_extension(ct) or ""
+    if guessed_ext:
+        base, _old_ext = os.path.splitext(doc.storage_path)
+        new_path = base + guessed_ext
+    else:
+        new_path = doc.storage_path
+
+
     # 1) Delete old file first (ignore if it doesn't exist)
     try:
-        bucket.remove([path])
+        bucket.remove([doc.storage_path])
     except Exception:
         # Some SDK versions raise if missing; safe to ignore for replace
         pass
+
+    if new_path != doc.storage_path:
+        try:
+            bucket.remove([new_path])
+        except Exception:
+            pass
 
     # 2) Upload new file (no upsert)
     try:
         # Newer versions accept kwargs
         bucket.upload(
-            path=path,
+            path=new_path,
             file=content,
-            file_options={"content-type": "application/pdf"},
+            file_options={"content-type": ct},
         )
     except TypeError:
         # Older versions accept positional args
         bucket.upload(
-            path,
+            new_path,
             content,
-            {"content-type": "application/pdf"},
+            {"content-type": ct},
         )
 
     # 3) Update DB after storage success
+    doc.storage_path = new_path
     doc.original_filename = file.filename
-    doc.mime_type = "application/pdf"
+    doc.mime_type = ct
     doc.status = "uploaded"
     db.commit()
 
-    return {"ok": True, "document_id": document_id}
+    return {"ok": True, "document_id": document_id, "storage_path": new_path, "mime_type": ct}
 
 @router.get("/download-url/{document_id}")
 def get_download_url_by_id(document_id: str, db: Session = Depends(get_db)):

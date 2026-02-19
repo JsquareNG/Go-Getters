@@ -7,15 +7,16 @@ from backend.auth.jwt import create_access_token
 
 from backend.database import SessionLocal
 from backend.models.user import User  # Adjust path if needed
+from backend.database import get_db
 
 router = APIRouter(prefix="/users", tags=["users"])
 
-def get_db():
-    db = SessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()
+# def get_db():
+#     db = SessionLocal()
+#     try:
+#         yield db
+#     finally:
+#         db.close()
 
 def hash_password(password: str) -> str:
     return bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
