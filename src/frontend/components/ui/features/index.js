@@ -33,3 +33,4 @@ export { EmptyState } from "./EmptyState";
 export { RiskBadge } from "./RiskBadge";
 export { StatusFilter } from "./StatusFilter";
 export { StaffStats } from "./StaffStats";
+export { Popover, PopoverContent, PopoverTrigger } from "./Popover"
