@@ -112,6 +112,7 @@ def save_application(data: dict = Body(...), db: Session = Depends(get_db)):
         business_type=data['business_type'],
         user_id=data["user_id"],
         form_data=form_data,
+        last_saved_step=data['last_saved_step'],
         previous_status=None,      
         current_status="Draft"
     )
@@ -155,7 +156,6 @@ def second_save(application_id: str, data: dict = Body(...), db: Session = Depen
     curr = app.current_status
     prev = app.previous_status
 
-    app.is_open_user = False
     if app.has_sent:
         app.has_sent = False
 
@@ -285,8 +285,6 @@ def second_submit(
     prev = app.previous_status
     prev_blank = (prev is None) or (prev == "")
 
-    app.is_open_user = False
-
     user_email = data.get("email")
     user_firstName = data.get("firstName")
 
@@ -341,7 +339,6 @@ def second_submit(
     elif curr == "Requires Action" and prev == "Under Manual Review":
         app.previous_status = app.current_status
         app.current_status = "Under Manual Review"
-        app.is_open_staff = False
 
         add_bell(
             db=db,
@@ -381,7 +378,6 @@ def second_submit(
     elif curr == "Draft" and prev == "Requires Action":
         app.previous_status = app.current_status
         app.current_status = "Under Manual Review"
-        app.is_open_staff = False
 
         add_bell(
             db=db,
@@ -518,8 +514,6 @@ def need_manual_review(
 
         app.previous_status = "Under Review"
         app.current_status = "Under Manual Review"
-        app.is_open_user = False
-        app.is_open_staff = True  # (recommended) since it's now a staff task
 
         # transaction commits automatically on exiting with db.begin()
 
@@ -649,7 +643,6 @@ def approve_application(
     app.previous_status = app.current_status
     app.current_status = "Approved"
     app.form_data["reason"] = reason
-    app.is_open_user = False
 
     db.add(BellNotification(
         application_id=app.application_id,
@@ -734,7 +727,6 @@ def reject_application(
     app.previous_status = app.current_status
     app.current_status = "Rejected"
     app.form_data["reason"] = reason
-    app.is_open_user = False
 
     db.add(BellNotification(
         application_id=app.application_id,
@@ -819,7 +811,6 @@ def require_action(
     app.previous_status = app.current_status
     app.current_status = "Requires Action"
     app.form_data["reason"] = reason
-    app.is_open_user = False
 
     db.add(BellNotification(
         application_id=app.application_id,
@@ -894,8 +885,6 @@ def withdraw_application(
     # Status update
     app.previous_status = app.current_status
     app.current_status = "Withdrawn"
-    app.is_open_user = False
-    app.is_open_staff = False
 
     # Persist first
     db.commit()
@@ -986,162 +975,162 @@ def withdraw_application(
         "email_notes": email_notes,
     }
 
-def staff_message(app: ApplicationForm) -> str:
-    # Staff only cares about statuses relevant to review
-    if app.current_status == "Under Manual Review":
-        if app.previous_status == "Requires Action":
-            return "Applicant uploaded additional documents. Please review the application again."
-        return "You have an active application due for manual review."
+# def staff_message(app: ApplicationForm) -> str:
+#     # Staff only cares about statuses relevant to review
+#     if app.current_status == "Under Manual Review":
+#         if app.previous_status == "Requires Action":
+#             return "Applicant uploaded additional documents. Please review the application again."
+#         return "You have an active application due for manual review."
     
-    if app.current_status == "Withdrawn":
-        return "This application has been withdrawn by the user."
+#     if app.current_status == "Withdrawn":
+#         return "This application has been withdrawn by the user."
 
-@router.get("/notifications/staff/{staff_id}")
-def get_staff_notifications(staff_id: str, db: Session = Depends(get_db)):
-    allowed_statuses = ["Under Manual Review", "Withdrawn"]
-    apps = (
-        db.query(ApplicationForm)
-        .filter(
-            ApplicationForm.reviewer_id == staff_id,
-            ApplicationForm.current_status.in_(allowed_statuses)
-        )
-        .order_by(desc(ApplicationForm.last_edited))
-        .all()
-    )
+# @router.get("/notifications/staff/{staff_id}")
+# def get_staff_notifications(staff_id: str, db: Session = Depends(get_db)):
+#     allowed_statuses = ["Under Manual Review", "Withdrawn"]
+#     apps = (
+#         db.query(ApplicationForm)
+#         .filter(
+#             ApplicationForm.reviewer_id == staff_id,
+#             ApplicationForm.current_status.in_(allowed_statuses)
+#         )
+#         .order_by(desc(ApplicationForm.last_edited))
+#         .all()
+#     )
 
-    unopened = [a for a in apps if not a.is_open_staff]
+#     unopened = [a for a in apps if not a.is_open_staff]
 
-    notifications = [
-        {
-            "application_id": a.application_id,
-            "message": staff_message(a),
-        }
-        for a in unopened
-    ]
+#     notifications = [
+#         {
+#             "application_id": a.application_id,
+#             "message": staff_message(a),
+#         }
+#         for a in unopened
+#     ]
 
-    return {
-        "total": len(notifications),
-        "notifications": notifications
-    }
+#     return {
+#         "total": len(notifications),
+#         "notifications": notifications
+#     }
 
-def user_message(app: ApplicationForm) -> str:
-    # Draft stale
-    if app.current_status == "Draft":
+# def user_message(app: ApplicationForm) -> str:
+#     # Draft stale
+#     if app.current_status == "Draft":
 
-        today = datetime.now().date()                 # relies on machine timezone being SGT
-        last_date = app.last_edited.date()
-        if app.previous_status == "Requires Action":
-            if today >= (last_date + timedelta(days=3)):  # Jan 31 -> Feb 3
-                return "Your application has not been edited for more than 48 hours."
-            else:
-                return "Your application has been saved."
-        else:   
-            if today >= (last_date + timedelta(days=3)):  # Jan 31 -> Feb 3
-                return "Your draft application has not been edited for more than 48 hours."
-            else:
-                return "Your draft application has been saved."
+#         today = datetime.now().date()                 # relies on machine timezone being SGT
+#         last_date = app.last_edited.date()
+#         if app.previous_status == "Requires Action":
+#             if today >= (last_date + timedelta(days=3)):  # Jan 31 -> Feb 3
+#                 return "Your application has not been edited for more than 48 hours."
+#             else:
+#                 return "Your application has been saved."
+#         else:   
+#             if today >= (last_date + timedelta(days=3)):  # Jan 31 -> Feb 3
+#                 return "Your draft application has not been edited for more than 48 hours."
+#             else:
+#                 return "Your draft application has been saved."
 
-    if app.current_status == "Under Review":
-        return "Your application has been submitted successfully and is currently under review."
+#     if app.current_status == "Under Review":
+#         return "Your application has been submitted successfully and is currently under review."
 
-    if app.current_status == "Under Manual Review":
-        # Could be from Requires Action -> Under Manual Review (docs uploaded) OR Under Review -> Under Manual Review
-        return "Your application is currently under manual review by our bank staff."
+#     if app.current_status == "Under Manual Review":
+#         # Could be from Requires Action -> Under Manual Review (docs uploaded) OR Under Review -> Under Manual Review
+#         return "Your application is currently under manual review by our bank staff."
 
-    if app.current_status == "Requires Action":
-        return "This application requires additional documents. Please upload the requested documents."
+#     if app.current_status == "Requires Action":
+#         return "This application requires additional documents. Please upload the requested documents."
 
-    if app.current_status == "Approved":
-        return "Your application has been approved."
+#     if app.current_status == "Approved":
+#         return "Your application has been approved."
 
-    if app.current_status == "Rejected":
-        return "Your application has been rejected."
+#     if app.current_status == "Rejected":
+#         return "Your application has been rejected."
 
-    if app.current_status == "Withdrawn":
-        return "Your application has been withdrawn successfully."
+#     if app.current_status == "Withdrawn":
+#         return "Your application has been withdrawn successfully."
 
-@router.get("/notifications/user/{user_id}")
-def get_user_notifications(user_id: str, db: Session = Depends(get_db)):
-    apps = (
-        db.query(ApplicationForm)
-        .filter(ApplicationForm.user_id == user_id)
-        .order_by(desc(ApplicationForm.last_edited))
-        .all()
-    )
+# @router.get("/notifications/user/{user_id}")
+# def get_user_notifications(user_id: str, db: Session = Depends(get_db)):
+#     apps = (
+#         db.query(ApplicationForm)
+#         .filter(ApplicationForm.user_id == user_id)
+#         .order_by(desc(ApplicationForm.last_edited))
+#         .all()
+#     )
 
-    # Panel shows only "unopened" items (optional - you can show all if you want)
-    unopened = [a for a in apps if not a.is_open_user]
-    notifications = [
-        {
-            "application_id": a.application_id,
-            "message": user_message(a)
-        }
-        for a in unopened
-    ]
+#     # Panel shows only "unopened" items (optional - you can show all if you want)
+#     unopened = [a for a in apps if not a.is_open_user]
+#     notifications = [
+#         {
+#             "application_id": a.application_id,
+#             "message": user_message(a)
+#         }
+#         for a in unopened
+#     ]
 
-    return {
-        "total": len(notifications),
-        "notifications": notifications
-    }
+#     return {
+#         "total": len(notifications),
+#         "notifications": notifications
+#     }
 
-@router.put("/markUserNotificationsOpen/{user_id}")
-def mark_user_notifications_open(user_id: str, db: Session = Depends(get_db)):
-    db.query(ApplicationForm)\
-      .filter(
-          ApplicationForm.user_id == user_id,
-          ApplicationForm.is_open_user == False
-      )\
-      .update(
-          {"is_open_user": True},
-          synchronize_session=False
-      )
-    db.commit()
-    return {"message": "ok"}
+# @router.put("/markUserNotificationsOpen/{user_id}")
+# def mark_user_notifications_open(user_id: str, db: Session = Depends(get_db)):
+#     db.query(ApplicationForm)\
+#       .filter(
+#           ApplicationForm.user_id == user_id,
+#           ApplicationForm.is_open_user == False
+#       )\
+#       .update(
+#           {"is_open_user": True},
+#           synchronize_session=False
+#       )
+#     db.commit()
+#     return {"message": "ok"}
 
-@router.put("/markStaffNotificationsOpen/{staff_id}")
-def mark_staff_notifications_open(staff_id: str, db: Session = Depends(get_db)
-):
-    db.query(ApplicationForm)\
-      .filter(
-          ApplicationForm.reviewer_id == staff_id,
-          ApplicationForm.is_open_staff == False
-      )\
-      .update(
-          {"is_open_staff": True},
-          synchronize_session=False
-      )
-    db.commit()
-    return {"message": "ok"}
+# @router.put("/markStaffNotificationsOpen/{staff_id}")
+# def mark_staff_notifications_open(staff_id: str, db: Session = Depends(get_db)
+# ):
+#     db.query(ApplicationForm)\
+#       .filter(
+#           ApplicationForm.reviewer_id == staff_id,
+#           ApplicationForm.is_open_staff == False
+#       )\
+#       .update(
+#           {"is_open_staff": True},
+#           synchronize_session=False
+#       )
+#     db.commit()
+#     return {"message": "ok"}
 
-@router.put("/markOneStaffApplication/{staff_id}/{application_id}")
-def mark_staff_one_open(staff_id: str, application_id: str, db: Session = Depends(get_db)):
-    updated = db.query(ApplicationForm)\
-      .filter(
-          ApplicationForm.application_id == application_id,
-          ApplicationForm.reviewer_id == staff_id
-      )\
-      .update({"is_open_staff": True}, synchronize_session=False)
+# @router.put("/markOneStaffApplication/{staff_id}/{application_id}")
+# def mark_staff_one_open(staff_id: str, application_id: str, db: Session = Depends(get_db)):
+#     updated = db.query(ApplicationForm)\
+#       .filter(
+#           ApplicationForm.application_id == application_id,
+#           ApplicationForm.reviewer_id == staff_id
+#       )\
+#       .update({"is_open_staff": True}, synchronize_session=False)
 
-    if updated == 0:
-        return {"message": "no-op"}  # or raise 404
+#     if updated == 0:
+#         return {"message": "no-op"}  # or raise 404
 
-    db.commit()
-    return {"message": "ok"}
+#     db.commit()
+#     return {"message": "ok"}
 
-@router.put("/markOneUserApplication/{user_id}/open/{application_id}")
-def mark_staff_one_open(user_id: str, application_id: str, db: Session = Depends(get_db)):
-    updated = db.query(ApplicationForm)\
-      .filter(
-          ApplicationForm.application_id == application_id,
-          ApplicationForm.user_id == user_id
-      )\
-      .update({"is_open_user": True}, synchronize_session=False)
+# @router.put("/markOneUserApplication/{user_id}/open/{application_id}")
+# def mark_staff_one_open(user_id: str, application_id: str, db: Session = Depends(get_db)):
+#     updated = db.query(ApplicationForm)\
+#       .filter(
+#           ApplicationForm.application_id == application_id,
+#           ApplicationForm.user_id == user_id
+#       )\
+#       .update({"is_open_user": True}, synchronize_session=False)
 
-    if updated == 0:
-        return {"message": "no-op"}  # or raise 404
+#     if updated == 0:
+#         return {"message": "no-op"}  # or raise 404
 
-    db.commit()
-    return {"message": "ok"}
+#     db.commit()
+#     return {"message": "ok"}
 
 @router.post("/send-draft-reminders")
 def send_draft_reminders(db: Session = Depends(get_db),
