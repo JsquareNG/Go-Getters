@@ -2,6 +2,8 @@ from enum import Enum
 from pydantic import BaseModel,Field
 from datetime import datetime,timezone
 from typing import Optional
+from dataclasses import dataclass
+from typing import List
 
 class UserRole(str, Enum):
     SME = "SME"
@@ -34,3 +36,22 @@ class Application(BaseModel):
     reason: Optional[str] = None
     last_updated: Optional[datetime] = None
 
+#below is for KYC and KYB
+@dataclass
+class Individual:
+    name: str
+    nationality: str
+    ownership_pct: float
+    is_pep: bool
+    has_adverse_media: bool
+
+
+@dataclass
+class Company:
+    name: str
+    country: str
+    industry: str
+    ownership_layers: int
+    uses_trust_or_nominee: bool
+    expected_monthly_volume: float
+    individuals: List[Individual]
