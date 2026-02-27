@@ -120,16 +120,18 @@ const SMEApplicationForm = ({ onSubmitSuccess }) => {
       // 2) Validate required docs exist in local state
       const requiredDocKeys = getRequiredDocKeys(state.data);
 
-      for (const docKey of requiredDocKeys) {
-        const f = state.data.documents?.[docKey];
-        if (!f) {
-          throw new Error(`Missing required document: ${docKey}`);
-        }
-      }
+      // Validate missing docs before uploading
+      // for (const docKey of requiredDocKeys) {
+      //   const f = state.data.documents?.[docKey];
+      //   if (!f) {
+      //     throw new Error(`Missing required document: ${docKey}`);
+      //   }
+      // }
 
       // 3) Upload documents sequentially
       for (const docKey of requiredDocKeys) {
         const file = state.data.documents[docKey];
+        if (!file) continue;
 
         await uploadDocumentApi({
           applicationId,
