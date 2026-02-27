@@ -14,6 +14,8 @@ from backend.api.bellNotification import router as application_bellNotifications
 from backend.api.reviewJobs import router as review_jobs
 
 from backend.api.document_ai import router as docai_router
+from backend.api.id_verification import router as idv_router
+
 import os
 from pathlib import Path
 from dotenv import load_dotenv
@@ -64,3 +66,4 @@ app.include_router(review_jobs)
 
 
 app.include_router(docai_router)
+app.include_router(idv_router)

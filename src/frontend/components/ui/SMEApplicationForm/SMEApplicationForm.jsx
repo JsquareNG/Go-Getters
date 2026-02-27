@@ -21,18 +21,6 @@ import { getBusinessTypeConfig } from "./config/businessTypesConfig";
 
 /**
  * SMEApplicationForm - Main Component
- *
- * A highly dynamic multi-step form for SMEs to apply for cross-border payments.
- * Features:
- * - Dynamic country-specific fields
- * - Dynamic business-type-specific fields
- * - Conditional field rendering and validation
- * - Form data persistence across steps
- * - Comprehensive file uploads with validation
- * - Beautiful UI with progress tracking
- *
- * Usage:
- * <SMEApplicationForm onSubmitSuccess={handleSuccess} />
  */
 const SMEApplicationForm = ({ onSubmitSuccess }) => {
   const { toast } = useToast();
@@ -47,13 +35,12 @@ const SMEApplicationForm = ({ onSubmitSuccess }) => {
     setCountrySpecificField,
     setBusinessTypeField,
     setDocument,
-    // uploadDocument,
     setError,
     nextStep,
     prevStep,
     goToStep,
-    reset,
-    validateCurrentStep,
+    // reset,
+    // validateCurrentStep,
     countrySpecificFieldsConfig,
     businessTypeSpecificFieldsConfig,
   } = useSMEApplicationForm();
@@ -66,35 +53,7 @@ const SMEApplicationForm = ({ onSubmitSuccess }) => {
     "Review & Submit",
   ];
 
-  // Handle document upload with error management
-  // const handleDocumentChange = async (documentType, file, error = "") => {
-  //   if (error) {
-  //     setError(documentType, error);
-  //     setDocument(documentType, null);
-  //     return;
-  //   }
-
-  //   // Optimistically set file so UI shows filename immediately
-  //   setDocument(documentType, file);
-
-  //   // Upload in background and capture progress
-  //   try {
-  //     await uploadDocument(documentType, file, {
-  //       onProgress: (pct) => {
-  //         // Could show local progress UI or toast if desired
-  //       },
-  //     });
-  //   } catch (err) {
-  //     // uploadDocument already sets an error in the hook; reflect via toast
-  //     toast({
-  //       title: "Upload Failed",
-  //       description: `Failed to upload ${documentType}. Please try again.`,
-  //       variant: "destructive",
-  //     });
-  //     // clear the file in state
-  //     setDocument(documentType, null);
-  //   }
-  // };
+  // Store docs locally in state (no upload call here)
   const handleDocumentChange = async (documentType, file, error = "") => {
     if (error) {
       setError(documentType, error);
@@ -102,32 +61,16 @@ const SMEApplicationForm = ({ onSubmitSuccess }) => {
       return;
     }
 
-    // Just store locally. No API call.
     setError(documentType, "");
     setDocument(documentType, file);
   };
 
-  // Proceed to next step (validation commented out for mock)
+  // Next step (mock mode: skip validation)
   const handleNextStep = () => {
-    // TODO: Uncomment validation when ready for production
-    // if (validateCurrentStep()) {
-    //   nextStep();
-    //   // Scroll to top
-    //   window.scrollTo({ top: 0, behavior: "smooth" });
-    // } else {
-    //   toast({
-    //     title: "Validation Error",
-    //     description: "Please fix the errors above before proceeding.",
-    //     variant: "destructive",
-    //   });
-    // }
-
-    // Mock mode: skip validation
     nextStep();
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
-  // Handle save draft
   const handleSaveDraft = async () => {
     setIsSubmitting(true);
     try {
@@ -153,68 +96,11 @@ const SMEApplicationForm = ({ onSubmitSuccess }) => {
     return Object.keys({ ...countryDocs, ...bizDocs });
   };
 
-  // Handle form submission
   const handleSubmit = async () => {
-    // TODO: Uncomment validation when ready for production
-    // if (!validateCurrentStep()) {
-    //   toast({
-    //     title: "Validation Error",
-    //     description: "Please review all information before submitting.",
-    //     variant: "destructive",
-    //   });
-    //   return;
-    // }
-
     setIsSubmitting(true);
 
     try {
-      // Prepare form data for submission
-      const formData = new FormData();
-
-      // Add basic fields
-      formData.append("companyName", state.data.companyName);
-      formData.append("registrationNumber", state.data.registrationNumber);
-      formData.append("country", state.data.country);
-      formData.append("businessType", state.data.businessType);
-      formData.append("email", state.data.email);
-      formData.append("phone", state.data.phone);
-
-      // Add country-specific fields
-      Object.entries(state.data.countrySpecificFields).forEach(
-        ([key, value]) => {
-          formData.append(`countrySpecificFields[${key}]`, value);
-        },
-      );
-
-      // Add business-type-specific fields
-      Object.entries(state.data.businessTypeSpecificFields).forEach(
-        ([key, value]) => {
-          formData.append(`businessTypeSpecificFields[${key}]`, value);
-        },
-      );
-
-      // Add financial details
-      formData.append("bankAccountNumber", state.data.bankAccountNumber);
-      formData.append("swift", state.data.swift);
-      formData.append("currency", state.data.currency);
-      formData.append("annualRevenue", state.data.annualRevenue);
-      formData.append("taxId", state.data.taxId);
-
-      // Add documents
-      if (state.data.documents.kycDocument) {
-        formData.append("kycDocument", state.data.documents.kycDocument);
-      }
-      if (state.data.documents.businessLicense) {
-        formData.append(
-          "businessLicense",
-          state.data.documents.businessLicense,
-        );
-      }
-      if (state.data.documents.proofOfAddress) {
-        formData.append("proofOfAddress", state.data.documents.proofOfAddress);
-      }
-
-      // Submit to API
+      // 1) Create application
       const response = await submitApplicationApi({
         business_country: state.data.country,
         business_name: state.data.companyName,
@@ -223,7 +109,6 @@ const SMEApplicationForm = ({ onSubmitSuccess }) => {
         email: user.email,
         firstName: user.firstName,
       });
-      console.log("Submission response:", response);
 
       const applicationId =
         response?.application_id || response?.data?.application_id;
@@ -232,6 +117,7 @@ const SMEApplicationForm = ({ onSubmitSuccess }) => {
         throw new Error("No application_id returned from submitApplicationApi");
       }
 
+      // 2) Validate required docs exist in local state
       const requiredDocKeys = getRequiredDocKeys(state.data);
 
       // Validate missing docs before uploading
@@ -242,7 +128,7 @@ const SMEApplicationForm = ({ onSubmitSuccess }) => {
       //   }
       // }
 
-      // Upload sequentially (simpler + less flaky)
+      // 3) Upload documents sequentially
       for (const docKey of requiredDocKeys) {
         const file = state.data.documents[docKey];
         if (!file) continue;
@@ -252,21 +138,10 @@ const SMEApplicationForm = ({ onSubmitSuccess }) => {
           documentType: docKey,
           file,
           onProgress: (pct) => {
-            // optional: if your hook supports progress updates, call it here
-            // setDocumentsProgress(docKey, pct)
+            // optional: wire progress into state if your hook supports it
           },
         });
       }
-      // const response = await fetch(apiEndpoint, {
-      //   method: "POST",
-      //   body: formData,
-      // });
-
-      // if (!response.ok) {
-      //   throw new Error("Failed to submit application");
-      // }
-
-      // const result = await response.json();
 
       toast({
         title: "Success!",
@@ -276,12 +151,7 @@ const SMEApplicationForm = ({ onSubmitSuccess }) => {
 
       navigate("/landingpage");
 
-      // Reset form
-      // reset();
-
-      // Call success callback
       if (onSubmitSuccess) {
-        // onSubmitSuccess(result);
         onSubmitSuccess(response);
       }
     } catch (error) {
@@ -289,7 +159,7 @@ const SMEApplicationForm = ({ onSubmitSuccess }) => {
       toast({
         title: "Submission Error",
         description:
-          error.message ||
+          error?.message ||
           "Failed to submit your application. Please try again.",
         variant: "destructive",
       });
@@ -328,12 +198,6 @@ const SMEApplicationForm = ({ onSubmitSuccess }) => {
                 errors={state.errors}
                 touched={state.touched}
                 onFieldChange={setField}
-                // onCountrySpecificFieldChange={setCountrySpecificField}
-                // onBusinessTypeFieldChange={setBusinessTypeField}
-                // countrySpecificFieldsConfig={countrySpecificFieldsConfig}
-                // businessTypeSpecificFieldsConfig={
-                //   businessTypeSpecificFieldsConfig
-                // }
               />
             )}
 
@@ -377,22 +241,6 @@ const SMEApplicationForm = ({ onSubmitSuccess }) => {
 
             {/* Step 4: Review & Submit */}
             {state.currentStep === 4 && (
-              // <Step4ReviewSubmit
-              //   data={state.data}
-              //   onEdit={(step) => {
-              //     // Set current step and scroll to top
-              //     if (step === 1) {
-              //       state.currentStep = 1;
-              //     } else if (step === 2) {
-              //       state.currentStep = 2;
-              //     } else if (step === 3) {
-              //       state.currentStep = 3;
-              //     }
-              //     // Navigate directly - use prevStep or nextStep as needed
-              //     window.scrollTo({ top: 0, behavior: "smooth" });
-              //   }}
-              //   isSubmitting={isSubmitting}
-              // />
               <Step4ReviewSubmit
                 data={state.data}
                 onEdit={(step) => {
@@ -466,7 +314,7 @@ const SMEApplicationForm = ({ onSubmitSuccess }) => {
           <p>
             Need help?{" "}
             <a
-              href="gogetters.support@example.com"
+              href="mailto:gogetters.support@example.com"
               className="text-red-500 hover:underline"
             >
               Contact Support
