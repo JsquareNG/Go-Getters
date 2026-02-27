@@ -16,6 +16,9 @@ from backend.api.resend import send_email
 from backend.database import get_db
 from backend.models.reviewJobs import ReviewJobs
 from backend.models.bellNotifications import BellNotification
+from backend.risk.review_service import run_review_job
+from backend.services.application_transitions import approve_application_service, need_manual_review_service
+
 
 router = APIRouter(prefix="/applications", tags=["applications"])
 
@@ -112,6 +115,7 @@ def save_application(data: dict = Body(...), db: Session = Depends(get_db)):
         business_type=data['business_type'],
         user_id=data["user_id"],
         form_data=form_data,
+        last_saved_step=data['last_saved_step'],
         previous_status=None,      
         current_status="Draft"
     )
@@ -155,7 +159,6 @@ def second_save(application_id: str, data: dict = Body(...), db: Session = Depen
     curr = app.current_status
     prev = app.previous_status
 
-    app.is_open_user = False
     if app.has_sent:
         app.has_sent = False
 
@@ -225,8 +228,14 @@ def first_submit_application(
         to_status="Under Review",
     )
 
+    print("[firstSubmit] created app", new_app.application_id)
+
     db.commit()
     db.refresh(new_app)
+
+    print("[firstSubmit] before add_task", new_app.application_id)
+    background_tasks.add_task(run_review_job, new_app.application_id)
+    print("[firstSubmit] after add_task", new_app.application_id)
 
     user_email = data.get("email")
     user_firstName = data.get("firstName")
@@ -285,8 +294,6 @@ def second_submit(
     prev = app.previous_status
     prev_blank = (prev is None) or (prev == "")
 
-    app.is_open_user = False
-
     user_email = data.get("email")
     user_firstName = data.get("firstName")
 
@@ -341,7 +348,6 @@ def second_submit(
     elif curr == "Requires Action" and prev == "Under Manual Review":
         app.previous_status = app.current_status
         app.current_status = "Under Manual Review"
-        app.is_open_staff = False
 
         add_bell(
             db=db,
@@ -381,7 +387,6 @@ def second_submit(
     elif curr == "Draft" and prev == "Requires Action":
         app.previous_status = app.current_status
         app.current_status = "Under Manual Review"
-        app.is_open_staff = False
 
         add_bell(
             db=db,
@@ -485,91 +490,96 @@ def need_manual_review(
     data: dict = Body(default={}),
     db: Session = Depends(get_db),
 ):
-    # start a transaction block
-    with db.begin():
-        # lock the application row so only one request can assign it
-        app = (
-            db.query(ApplicationForm)
-            .filter(ApplicationForm.application_id == application_id)
-            .with_for_update()
-            .first()
-        )
+    app, emails_queued, email_notes = need_manual_review_service(
+        db=db,
+        background_tasks=background_tasks,
+        application_id=application_id,
+        send_email_now=False,
+    )
+    
+    # # start a transaction block
+    # with db.begin():
+    #     # lock the application row so only one request can assign it
+    #     app = (
+    #         db.query(ApplicationForm)
+    #         .filter(ApplicationForm.application_id == application_id)
+    #         .with_for_update()
+    #         .first()
+    #     )
 
-        if not app:
-            raise HTTPException(status_code=404, detail="Application not found")
+    #     if not app:
+    #         raise HTTPException(status_code=404, detail="Application not found")
 
-        # Only allow transition from Under Review -> Under Manual Review
-        if app.current_status != "Under Review":
-            return {
-                "application_id": app.application_id,
-                "status": app.current_status,
-                "reviewer_id": app.reviewer_id,
-                "emails_queued": {"user": False, "staff": False},
-                "note": f"No status change; current_status is '{app.current_status}'",
-            }
+    #     # Only allow transition from Under Review -> Under Manual Review
+    #     if app.current_status != "Under Review":
+    #         return {
+    #             "application_id": app.application_id,
+    #             "status": app.current_status,
+    #             "reviewer_id": app.reviewer_id,
+    #             "emails_queued": {"user": False, "staff": False},
+    #             "note": f"No status change; current_status is '{app.current_status}'",
+    #         }
 
-        # assign reviewer if empty
-        if not app.reviewer_id:
-            chosen_staff_id = pick_least_loaded_staff_id(db)
-            if not chosen_staff_id:
-                raise HTTPException(status_code=409, detail="No STAFF available to assign")
+    #     # assign reviewer if empty
+    #     if not app.reviewer_id:
+    #         chosen_staff_id = pick_least_loaded_staff_id(db)
+    #         if not chosen_staff_id:
+    #             raise HTTPException(status_code=409, detail="No STAFF available to assign")
 
-            app.reviewer_id = chosen_staff_id
+    #         app.reviewer_id = chosen_staff_id
 
-        app.previous_status = "Under Review"
-        app.current_status = "Under Manual Review"
-        app.is_open_user = False
-        app.is_open_staff = True  # (recommended) since it's now a staff task
+    #     app.previous_status = "Under Review"
+    #     app.current_status = "Under Manual Review"
 
-        # transaction commits automatically on exiting with db.begin()
+    #     # transaction commits automatically on exiting with db.begin()
 
-        db.add(BellNotification(
-            application_id=app.application_id,
-            recipient_id=app.user_id,
-            from_status=app.previous_status,
-            to_status=app.current_status,
-            message="Your application is currently under manual review by our bank staff."
-        ))
+    #     db.add(BellNotification(
+    #         application_id=app.application_id,
+    #         recipient_id=app.user_id,
+    #         from_status=app.previous_status,
+    #         to_status=app.current_status,
+    #         message="Your application is currently under manual review by our bank staff."
+    #     ))
 
-        if app.reviewer_id:
-            db.add(BellNotification(
-                application_id=app.application_id,
-                recipient_id=app.reviewer_id,
-                from_status=app.previous_status,
-                to_status=app.current_status,
-                message="You have an active application due for manual review."
-            ))
+    #     if app.reviewer_id:
+    #         db.add(BellNotification(
+    #             application_id=app.application_id,
+    #             recipient_id=app.reviewer_id,
+    #             from_status=app.previous_status,
+    #             to_status=app.current_status,
+    #             message="You have an active application due for manual review."
+    #         ))
         
-        db.flush()
+    #     db.flush()
     
 
-    # after commit, fetch staff + user (no locks needed)
-    staff = db.query(User).filter(User.user_id == app.reviewer_id).first() if app.reviewer_id else None
-    user = db.query(User).filter(User.user_id == app.user_id).first() if app.user_id else None
+    # # after commit, fetch staff + user (no locks needed)
+    # staff = db.query(User).filter(User.user_id == app.reviewer_id).first() if app.reviewer_id else None
+    # user = db.query(User).filter(User.user_id == app.user_id).first() if app.user_id else None
 
-    def safe_send_email(to_email: str, subject: str, body: str):
-        try:
-            send_email(to_email, subject, body)
-        except Exception as e:
-            print(f"❌ Email failed to {to_email}: {e}")
+    # def safe_send_email(to_email: str, subject: str, body: str):
+    #     try:
+    #         send_email(to_email, subject, body)
+    #     except Exception as e:
+    #         print(f"❌ Email failed to {to_email}: {e}")
 
-    emails_queued = {"user": False, "staff": False}
-    email_notes = []
+    # emails_queued = {"user": False, "staff": False}
+    # email_notes = []
 
-    if user and user.email:
-        user_subject, user_body = build_user_manual_review_email(app, user.first_name)
-        background_tasks.add_task(safe_send_email, user.email, user_subject, user_body)
-        emails_queued["user"] = True
+    # if user and user.email:
+    #     user_subject, user_body = build_user_manual_review_email(app, user.first_name)
+    #     background_tasks.add_task(safe_send_email, user.email, user_subject, user_body)
+    #     emails_queued["user"] = True
         
-    else:
-        email_notes.append("User email not found; user email not queued.")
+    # else:
+    #     email_notes.append("User email not found; user email not queued.")
 
-    if staff and staff.email:
-        staff_subject, staff_body = build_staff_manual_review_email(app, staff.first_name)
-        background_tasks.add_task(safe_send_email, staff.email, staff_subject, staff_body)
-        emails_queued["staff"] = True
-    else:
-        email_notes.append("Reviewer/staff email not found; staff email not queued.")
+    # if staff and staff.email:
+    #     staff_subject, staff_body = build_staff_manual_review_email(app, staff.first_name)
+    #     background_tasks.add_task(safe_send_email, staff.email, staff_subject, staff_body)
+    #     emails_queued["staff"] = True
+    # else:
+    #     email_notes.append("Reviewer/staff email not found; staff email not queued.")
 
     return {
         "application_id": app.application_id,
@@ -619,6 +629,92 @@ def delete_application(application_id: str, db: Session = Depends(get_db)):
     }
 
 # Reviewer approving the application
+# @router.put("/approve/{application_id}")
+# def approve_application(
+#     application_id: str,
+#     background_tasks: BackgroundTasks,
+#     data: dict = Body(default={}),
+#     db: Session = Depends(get_db),
+# ):
+#     app = (
+#         db.query(ApplicationForm)
+#         .filter(ApplicationForm.application_id == application_id)
+#         .first()
+#     )
+
+#     if not app:
+#         raise HTTPException(status_code=404, detail="Application not found")
+
+#     reason = data.get("reason")
+
+#     # Only require reason if approving from Under Manual Review
+#     if app.current_status == "Under Manual Review":
+#         if reason is None or str(reason).strip() == "":
+#             raise HTTPException(
+#                 status_code=400,
+#                 detail="reason is required when approving from Under Manual Review",
+#             )
+
+#     # Status update
+#     app.previous_status = app.current_status
+#     app.current_status = "Approved"
+#     app.form_data["reason"] = reason
+
+#     db.add(BellNotification(
+#         application_id=app.application_id,
+#         recipient_id=app.user_id,
+#         from_status=app.previous_status,
+#         to_status="Approved",
+#         message="Your application has been approved."
+#     ))
+
+#     # Persist first
+#     db.commit()
+#     db.refresh(app)
+
+#     # Resolve user contact details (prefer DB)
+#     user_email = None
+#     user_firstName = None
+
+#     user = None
+#     if getattr(app, "user_id", None):
+#         user = db.query(User).filter(User.user_id == app.user_id).first()
+
+#     if user and getattr(user, "email", None):
+#         user_email = user.email
+#         user_firstName = getattr(user, "first_name", None)
+#     else:
+#         # fallback to request payload if you still send it from frontend
+#         user_email = data.get("email")
+#         user_firstName = data.get("firstName")
+
+#     def safe_send_email(to_email: str, subject: str, body: str):
+#         try:
+#             send_email(to_email, subject, body)
+#         except Exception as e:
+#             print(f"❌ Email failed to {to_email}: {e}")
+
+    
+
+#     emails_queued = False
+#     email_notes = []
+
+#     if user_email:
+#         subject, body = build_approved_email(app, user_firstName)
+#         background_tasks.add_task(safe_send_email, user_email, subject, body)
+#         emails_queued = True
+#     else:
+#         email_notes.append("User email not found; approval email not queued.")
+
+#     return {
+#         "application_id": app.application_id,
+#         "status": app.current_status,
+#         "reason": app.form_data["reason"],
+#         "reviewer_id": app.reviewer_id,
+#         "emails_queued": emails_queued,
+#         "email_notes": email_notes,
+#     }
+
 @router.put("/approve/{application_id}")
 def approve_application(
     application_id: str,
@@ -626,86 +722,26 @@ def approve_application(
     data: dict = Body(default={}),
     db: Session = Depends(get_db),
 ):
-    app = (
-        db.query(ApplicationForm)
-        .filter(ApplicationForm.application_id == application_id)
-        .first()
-    )
-
-    if not app:
-        raise HTTPException(status_code=404, detail="Application not found")
-
     reason = data.get("reason")
 
-    # Only require reason if approving from Under Manual Review
-    if app.current_status == "Under Manual Review":
-        if reason is None or str(reason).strip() == "":
-            raise HTTPException(
-                status_code=400,
-                detail="reason is required when approving from Under Manual Review",
-            )
-
-    # Status update
-    app.previous_status = app.current_status
-    app.current_status = "Approved"
-    app.form_data["reason"] = reason
-    app.is_open_user = False
-
-    db.add(BellNotification(
-        application_id=app.application_id,
-        recipient_id=app.user_id,
-        from_status=app.previous_status,
-        to_status="Approved",
-        message="Your application has been approved."
-    ))
-
-    # Persist first
-    db.commit()
-    db.refresh(app)
-
-    # Resolve user contact details (prefer DB)
-    user_email = None
-    user_firstName = None
-
-    user = None
-    if getattr(app, "user_id", None):
-        user = db.query(User).filter(User.user_id == app.user_id).first()
-
-    if user and getattr(user, "email", None):
-        user_email = user.email
-        user_firstName = getattr(user, "first_name", None)
-    else:
-        # fallback to request payload if you still send it from frontend
-        user_email = data.get("email")
-        user_firstName = data.get("firstName")
-
-    def safe_send_email(to_email: str, subject: str, body: str):
-        try:
-            send_email(to_email, subject, body)
-        except Exception as e:
-            print(f"❌ Email failed to {to_email}: {e}")
-
-    
-
-    emails_queued = False
-    email_notes = []
-
-    if user_email:
-        subject, body = build_approved_email(app, user_firstName)
-        background_tasks.add_task(safe_send_email, user_email, subject, body)
-        emails_queued = True
-    else:
-        email_notes.append("User email not found; approval email not queued.")
+    app, emails_queued, email_notes = approve_application_service(
+        db=db,
+        background_tasks=background_tasks,
+        application_id=application_id,
+        reason=reason,
+        email=data.get("email"),
+        firstName=data.get("firstName"),
+        send_email_now=False,
+    )
 
     return {
         "application_id": app.application_id,
         "status": app.current_status,
-        "reason": app.form_data["reason"],
+        "reason": (app.form_data or {}).get("reason"),
         "reviewer_id": app.reviewer_id,
         "emails_queued": emails_queued,
         "email_notes": email_notes,
     }
-
 
 # Reviewer rejecting the application
 @router.put("/reject/{application_id}")
@@ -734,7 +770,6 @@ def reject_application(
     app.previous_status = app.current_status
     app.current_status = "Rejected"
     app.form_data["reason"] = reason
-    app.is_open_user = False
 
     db.add(BellNotification(
         application_id=app.application_id,
@@ -819,7 +854,6 @@ def require_action(
     app.previous_status = app.current_status
     app.current_status = "Requires Action"
     app.form_data["reason"] = reason
-    app.is_open_user = False
 
     db.add(BellNotification(
         application_id=app.application_id,
@@ -894,8 +928,6 @@ def withdraw_application(
     # Status update
     app.previous_status = app.current_status
     app.current_status = "Withdrawn"
-    app.is_open_user = False
-    app.is_open_staff = False
 
     # Persist first
     db.commit()
@@ -986,162 +1018,162 @@ def withdraw_application(
         "email_notes": email_notes,
     }
 
-def staff_message(app: ApplicationForm) -> str:
-    # Staff only cares about statuses relevant to review
-    if app.current_status == "Under Manual Review":
-        if app.previous_status == "Requires Action":
-            return "Applicant uploaded additional documents. Please review the application again."
-        return "You have an active application due for manual review."
+# def staff_message(app: ApplicationForm) -> str:
+#     # Staff only cares about statuses relevant to review
+#     if app.current_status == "Under Manual Review":
+#         if app.previous_status == "Requires Action":
+#             return "Applicant uploaded additional documents. Please review the application again."
+#         return "You have an active application due for manual review."
     
-    if app.current_status == "Withdrawn":
-        return "This application has been withdrawn by the user."
+#     if app.current_status == "Withdrawn":
+#         return "This application has been withdrawn by the user."
 
-@router.get("/notifications/staff/{staff_id}")
-def get_staff_notifications(staff_id: str, db: Session = Depends(get_db)):
-    allowed_statuses = ["Under Manual Review", "Withdrawn"]
-    apps = (
-        db.query(ApplicationForm)
-        .filter(
-            ApplicationForm.reviewer_id == staff_id,
-            ApplicationForm.current_status.in_(allowed_statuses)
-        )
-        .order_by(desc(ApplicationForm.last_edited))
-        .all()
-    )
+# @router.get("/notifications/staff/{staff_id}")
+# def get_staff_notifications(staff_id: str, db: Session = Depends(get_db)):
+#     allowed_statuses = ["Under Manual Review", "Withdrawn"]
+#     apps = (
+#         db.query(ApplicationForm)
+#         .filter(
+#             ApplicationForm.reviewer_id == staff_id,
+#             ApplicationForm.current_status.in_(allowed_statuses)
+#         )
+#         .order_by(desc(ApplicationForm.last_edited))
+#         .all()
+#     )
 
-    unopened = [a for a in apps if not a.is_open_staff]
+#     unopened = [a for a in apps if not a.is_open_staff]
 
-    notifications = [
-        {
-            "application_id": a.application_id,
-            "message": staff_message(a),
-        }
-        for a in unopened
-    ]
+#     notifications = [
+#         {
+#             "application_id": a.application_id,
+#             "message": staff_message(a),
+#         }
+#         for a in unopened
+#     ]
 
-    return {
-        "total": len(notifications),
-        "notifications": notifications
-    }
+#     return {
+#         "total": len(notifications),
+#         "notifications": notifications
+#     }
 
-def user_message(app: ApplicationForm) -> str:
-    # Draft stale
-    if app.current_status == "Draft":
+# def user_message(app: ApplicationForm) -> str:
+#     # Draft stale
+#     if app.current_status == "Draft":
 
-        today = datetime.now().date()                 # relies on machine timezone being SGT
-        last_date = app.last_edited.date()
-        if app.previous_status == "Requires Action":
-            if today >= (last_date + timedelta(days=3)):  # Jan 31 -> Feb 3
-                return "Your application has not been edited for more than 48 hours."
-            else:
-                return "Your application has been saved."
-        else:   
-            if today >= (last_date + timedelta(days=3)):  # Jan 31 -> Feb 3
-                return "Your draft application has not been edited for more than 48 hours."
-            else:
-                return "Your draft application has been saved."
+#         today = datetime.now().date()                 # relies on machine timezone being SGT
+#         last_date = app.last_edited.date()
+#         if app.previous_status == "Requires Action":
+#             if today >= (last_date + timedelta(days=3)):  # Jan 31 -> Feb 3
+#                 return "Your application has not been edited for more than 48 hours."
+#             else:
+#                 return "Your application has been saved."
+#         else:   
+#             if today >= (last_date + timedelta(days=3)):  # Jan 31 -> Feb 3
+#                 return "Your draft application has not been edited for more than 48 hours."
+#             else:
+#                 return "Your draft application has been saved."
 
-    if app.current_status == "Under Review":
-        return "Your application has been submitted successfully and is currently under review."
+#     if app.current_status == "Under Review":
+#         return "Your application has been submitted successfully and is currently under review."
 
-    if app.current_status == "Under Manual Review":
-        # Could be from Requires Action -> Under Manual Review (docs uploaded) OR Under Review -> Under Manual Review
-        return "Your application is currently under manual review by our bank staff."
+#     if app.current_status == "Under Manual Review":
+#         # Could be from Requires Action -> Under Manual Review (docs uploaded) OR Under Review -> Under Manual Review
+#         return "Your application is currently under manual review by our bank staff."
 
-    if app.current_status == "Requires Action":
-        return "This application requires additional documents. Please upload the requested documents."
+#     if app.current_status == "Requires Action":
+#         return "This application requires additional documents. Please upload the requested documents."
 
-    if app.current_status == "Approved":
-        return "Your application has been approved."
+#     if app.current_status == "Approved":
+#         return "Your application has been approved."
 
-    if app.current_status == "Rejected":
-        return "Your application has been rejected."
+#     if app.current_status == "Rejected":
+#         return "Your application has been rejected."
 
-    if app.current_status == "Withdrawn":
-        return "Your application has been withdrawn successfully."
+#     if app.current_status == "Withdrawn":
+#         return "Your application has been withdrawn successfully."
 
-@router.get("/notifications/user/{user_id}")
-def get_user_notifications(user_id: str, db: Session = Depends(get_db)):
-    apps = (
-        db.query(ApplicationForm)
-        .filter(ApplicationForm.user_id == user_id)
-        .order_by(desc(ApplicationForm.last_edited))
-        .all()
-    )
+# @router.get("/notifications/user/{user_id}")
+# def get_user_notifications(user_id: str, db: Session = Depends(get_db)):
+#     apps = (
+#         db.query(ApplicationForm)
+#         .filter(ApplicationForm.user_id == user_id)
+#         .order_by(desc(ApplicationForm.last_edited))
+#         .all()
+#     )
 
-    # Panel shows only "unopened" items (optional - you can show all if you want)
-    unopened = [a for a in apps if not a.is_open_user]
-    notifications = [
-        {
-            "application_id": a.application_id,
-            "message": user_message(a)
-        }
-        for a in unopened
-    ]
+#     # Panel shows only "unopened" items (optional - you can show all if you want)
+#     unopened = [a for a in apps if not a.is_open_user]
+#     notifications = [
+#         {
+#             "application_id": a.application_id,
+#             "message": user_message(a)
+#         }
+#         for a in unopened
+#     ]
 
-    return {
-        "total": len(notifications),
-        "notifications": notifications
-    }
+#     return {
+#         "total": len(notifications),
+#         "notifications": notifications
+#     }
 
-@router.put("/markUserNotificationsOpen/{user_id}")
-def mark_user_notifications_open(user_id: str, db: Session = Depends(get_db)):
-    db.query(ApplicationForm)\
-      .filter(
-          ApplicationForm.user_id == user_id,
-          ApplicationForm.is_open_user == False
-      )\
-      .update(
-          {"is_open_user": True},
-          synchronize_session=False
-      )
-    db.commit()
-    return {"message": "ok"}
+# @router.put("/markUserNotificationsOpen/{user_id}")
+# def mark_user_notifications_open(user_id: str, db: Session = Depends(get_db)):
+#     db.query(ApplicationForm)\
+#       .filter(
+#           ApplicationForm.user_id == user_id,
+#           ApplicationForm.is_open_user == False
+#       )\
+#       .update(
+#           {"is_open_user": True},
+#           synchronize_session=False
+#       )
+#     db.commit()
+#     return {"message": "ok"}
 
-@router.put("/markStaffNotificationsOpen/{staff_id}")
-def mark_staff_notifications_open(staff_id: str, db: Session = Depends(get_db)
-):
-    db.query(ApplicationForm)\
-      .filter(
-          ApplicationForm.reviewer_id == staff_id,
-          ApplicationForm.is_open_staff == False
-      )\
-      .update(
-          {"is_open_staff": True},
-          synchronize_session=False
-      )
-    db.commit()
-    return {"message": "ok"}
+# @router.put("/markStaffNotificationsOpen/{staff_id}")
+# def mark_staff_notifications_open(staff_id: str, db: Session = Depends(get_db)
+# ):
+#     db.query(ApplicationForm)\
+#       .filter(
+#           ApplicationForm.reviewer_id == staff_id,
+#           ApplicationForm.is_open_staff == False
+#       )\
+#       .update(
+#           {"is_open_staff": True},
+#           synchronize_session=False
+#       )
+#     db.commit()
+#     return {"message": "ok"}
 
-@router.put("/markOneStaffApplication/{staff_id}/{application_id}")
-def mark_staff_one_open(staff_id: str, application_id: str, db: Session = Depends(get_db)):
-    updated = db.query(ApplicationForm)\
-      .filter(
-          ApplicationForm.application_id == application_id,
-          ApplicationForm.reviewer_id == staff_id
-      )\
-      .update({"is_open_staff": True}, synchronize_session=False)
+# @router.put("/markOneStaffApplication/{staff_id}/{application_id}")
+# def mark_staff_one_open(staff_id: str, application_id: str, db: Session = Depends(get_db)):
+#     updated = db.query(ApplicationForm)\
+#       .filter(
+#           ApplicationForm.application_id == application_id,
+#           ApplicationForm.reviewer_id == staff_id
+#       )\
+#       .update({"is_open_staff": True}, synchronize_session=False)
 
-    if updated == 0:
-        return {"message": "no-op"}  # or raise 404
+#     if updated == 0:
+#         return {"message": "no-op"}  # or raise 404
 
-    db.commit()
-    return {"message": "ok"}
+#     db.commit()
+#     return {"message": "ok"}
 
-@router.put("/markOneUserApplication/{user_id}/open/{application_id}")
-def mark_staff_one_open(user_id: str, application_id: str, db: Session = Depends(get_db)):
-    updated = db.query(ApplicationForm)\
-      .filter(
-          ApplicationForm.application_id == application_id,
-          ApplicationForm.user_id == user_id
-      )\
-      .update({"is_open_user": True}, synchronize_session=False)
+# @router.put("/markOneUserApplication/{user_id}/open/{application_id}")
+# def mark_staff_one_open(user_id: str, application_id: str, db: Session = Depends(get_db)):
+#     updated = db.query(ApplicationForm)\
+#       .filter(
+#           ApplicationForm.application_id == application_id,
+#           ApplicationForm.user_id == user_id
+#       )\
+#       .update({"is_open_user": True}, synchronize_session=False)
 
-    if updated == 0:
-        return {"message": "no-op"}  # or raise 404
+#     if updated == 0:
+#         return {"message": "no-op"}  # or raise 404
 
-    db.commit()
-    return {"message": "ok"}
+#     db.commit()
+#     return {"message": "ok"}
 
 @router.post("/send-draft-reminders")
 def send_draft_reminders(db: Session = Depends(get_db),

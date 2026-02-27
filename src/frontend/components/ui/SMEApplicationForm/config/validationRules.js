@@ -88,9 +88,9 @@ export const validateFile = (file, options = {}) => {
     allowedTypes = ["application/pdf", "image/jpeg", "image/png"],
   } = options;
 
-  if (!file) {
-    return { isValid: false, error: "File is required" };
-  }
+  // if (!file) {
+  //   return { isValid: false, error: "File is required" };
+  // }
 
   if (file.size > maxSize) {
     return {
