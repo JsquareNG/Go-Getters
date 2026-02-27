@@ -11,7 +11,8 @@ import {
   User,
   MapPin,
   Mail,
-  Phone
+  Phone,
+  Download,
 } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -21,10 +22,13 @@ import {
   CardHeader,
   CardTitle,
   StatusBadge,
-  Separator,
-  Accordion, AccordionContent, AccordionItem, AccordionTrigger
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
 } from "@/components/ui";
-import { getApplicationByAppId } from "./../api/applicationApi"; // Import the API function
+import { getApplicationByAppId } from "./../api/applicationApi";
+import { allDocuments, downloadDocuments } from "./../api/documentApi";
 
 const stepsByStatus = {
   "Not started": [
@@ -75,13 +79,18 @@ const stepsByStatus = {
 };
 
 export default function ApplicationDetail() {
-  const { id } = useParams();
+  const { id } = useParams(); // application_id
   const navigate = useNavigate();
 
   const [application, setApplication] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
 
+  const [documents, setDocuments] = useState([]);
+  const [docsLoading, setDocsLoading] = useState(false);
+  const [docsError, setDocsError] = useState(null);
+
+  // --- Fetch application ---
   useEffect(() => {
     const fetchApplication = async () => {
       try {
@@ -100,8 +109,27 @@ export default function ApplicationDetail() {
     if (id) fetchApplication();
   }, [id]);
 
+  // --- Fetch documents for this application ---
+  useEffect(() => {
+    const fetchDocuments = async () => {
+      try {
+        setDocsLoading(true);
+        setDocsError(null);
+
+        const docs = await allDocuments(id); // should return docs for this application
+        setDocuments(Array.isArray(docs) ? docs : []);
+      } catch (err) {
+        console.error("Error fetching documents:", err);
+        setDocsError("Could not retrieve documents.");
+      } finally {
+        setDocsLoading(false);
+      }
+    };
+
+    if (id) fetchDocuments();
+  }, [id]);
+
   const currentStatus = application?.current_status || "Not started";
-  const isEditable = ["Not started", "Draft", "Requires Action"].includes(currentStatus);
 
   const formattedDate = application?.last_edited
     ? new Date(application.last_edited).toLocaleDateString("en-US", {
@@ -111,31 +139,48 @@ export default function ApplicationDetail() {
       })
     : "-";
 
-  // ✅ directors array comes from form_data.directors (dynamic length)
   const directors = useMemo(() => {
     const arr = application?.form_data?.directors;
     return Array.isArray(arr) ? arr : [];
   }, [application]);
 
-  // const handleRequestDocuments = () => {
-  //   toast.success("Document request sent to applicant", {
-  //     description: "An email has been sent requesting the missing documents.",
-  //   });
-  // };
+  /**
+   * ✅ Download handler (works with your backend)
+   * Backend: GET /documents/download-url/{document_id}
+   * Returns: { url: "https://..." }
+   *
+   * IMPORTANT:
+   * Your backend queries Document.document_id, so we must pass doc.document_id (NOT doc.id).
+   *
+   * Also opens a blank tab immediately to avoid popup blockers.
+   */
+  const handleDownload = async (doc) => {
+    const newTab = window.open("", "_blank"); // open immediately on click to avoid popup blocking
 
-  // const handleApprove = () => {
-  //   toast.success("Application Approved", {
-  //     description: `${application?.business_name} has been approved.`,
-  //   });
-  //   navigate("/staff");
-  // };
+    try {
+      const documentId = doc?.document_id; // ✅ matches backend
+      if (!documentId) {
+        if (newTab) newTab.close();
+        toast.error("Missing document_id");
+        console.log("Doc object missing document_id:", doc);
+        return;
+      }
 
-  // const handleReject = () => {
-  //   toast.error("Application Rejected", {
-  //     description: `${application?.business_name}'s application has been rejected.`,
-  //   });
-  //   navigate("/staff");
-  // };
+      const res = await downloadDocuments(documentId);
+      const signedUrl = res?.url; // ✅ backend returns { url }
+
+      if (!signedUrl) throw new Error("No url returned from download endpoint");
+
+      if (newTab) newTab.location.href = signedUrl;
+      else window.open(signedUrl, "_blank", "noopener,noreferrer");
+    } catch (e) {
+      if (newTab) newTab.close();
+      console.error("Download error:", e?.response?.status, e?.response?.data || e);
+      toast.error("Could not open document", {
+        description: e?.response?.data?.detail || e?.message || "Unknown error",
+      });
+    }
+  };
 
   if (isLoading) {
     return (
@@ -207,7 +252,9 @@ export default function ApplicationDetail() {
               <CardContent>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
-                    <p className="text-sm text-muted-foreground">Registration Number</p>
+                    <p className="text-sm text-muted-foreground">
+                      Registration Number
+                    </p>
                     <p className="font-medium text-foreground">
                       {application.business_registration_number || "-"}
                     </p>
@@ -215,37 +262,56 @@ export default function ApplicationDetail() {
 
                   <div>
                     <p className="text-sm text-muted-foreground">Business Name</p>
-                    <p className="font-medium text-foreground">{application.business_name || "-"}</p>
+                    <p className="font-medium text-foreground">
+                      {application.business_name || "-"}
+                    </p>
                   </div>
 
                   <div>
-                    <p className="text-sm text-muted-foreground">Incorporation Date</p>
-                    <p className="font-medium text-foreground">{application.incorporationDate || "-"}</p>
+                    <p className="text-sm text-muted-foreground">
+                      Incorporation Date
+                    </p>
+                    <p className="font-medium text-foreground">
+                      {application.incorporationDate || "-"}
+                    </p>
                   </div>
 
                   <div>
                     <p className="text-sm text-muted-foreground">Business Type</p>
-                    <p className="font-medium text-foreground">{application.business_type || "-"}</p>
+                    <p className="font-medium text-foreground">
+                      {application.business_type || "-"}
+                    </p>
                   </div>
 
                   <div>
                     <p className="text-sm text-muted-foreground">Industry</p>
-                    <p className="font-medium text-foreground">{application.industry || "-"}</p>
+                    <p className="font-medium text-foreground">
+                      {application.industry || "-"}
+                    </p>
                   </div>
 
                   <div>
-                    <p className="text-sm text-muted-foreground">Employee Count</p>
-                    <p className="font-medium text-foreground">{application.employeeCount || "-"}</p>
+                    <p className="text-sm text-muted-foreground">
+                      Employee Count
+                    </p>
+                    <p className="font-medium text-foreground">
+                      {application.employeeCount || "-"}
+                    </p>
                   </div>
 
                   <div>
-                    <p className="text-sm text-muted-foreground">Annual Revenue</p>
-                    <p className="font-medium text-foreground">{application.annualRevenue || "-"}</p>
+                    <p className="text-sm text-muted-foreground">
+                      Annual Revenue
+                    </p>
+                    <p className="font-medium text-foreground">
+                      {application.annualRevenue || "-"}
+                    </p>
                   </div>
                 </div>
               </CardContent>
             </Card>
 
+            {/* Directors */}
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2 text-lg">
@@ -322,7 +388,7 @@ export default function ApplicationDetail() {
               </CardContent>
             </Card>
 
-{/* Registered Address */}
+            {/* Registered Address */}
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2 text-lg">
@@ -335,9 +401,13 @@ export default function ApplicationDetail() {
                   Street: {application.street || "-"}
                 </p>
                 <p className="text-muted-foreground">
-                  City and Postal Code: {application.city || "-"}, {application.postalCode || "-"}
+                  City and Postal Code: {application.city || "-"},{" "}
+                  {application.postalCode || "-"}
                 </p>
-                Country: <p className="text-muted-foreground">{application.business_country || "-"}</p>
+                Country:{" "}
+                <p className="text-muted-foreground">
+                  {application.business_country || "-"}
+                </p>
               </CardContent>
             </Card>
 
@@ -352,24 +422,34 @@ export default function ApplicationDetail() {
               <CardContent>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
-                    <p className="text-sm text-muted-foreground">Initial Deposit</p>
-                    <p className="font-medium text-foreground">{application.initialDeposit || "-"}</p>
+                    <p className="text-sm text-muted-foreground">
+                      Initial Deposit
+                    </p>
+                    <p className="font-medium text-foreground">
+                      {application.initialDeposit || "-"}
+                    </p>
                   </div>
 
                   <div>
-                    <p className="text-sm text-muted-foreground">Expected Monthly Volume</p>
+                    <p className="text-sm text-muted-foreground">
+                      Expected Monthly Volume
+                    </p>
                     <p className="font-medium text-foreground">
                       {application.expectedMonthlyVolume || "-"}
                     </p>
                   </div>
 
                   <div>
-                    <p className="text-sm text-muted-foreground">Currencies Required</p>
+                    <p className="text-sm text-muted-foreground">
+                      Currencies Required
+                    </p>
                     {/* add badges here when you have currencies array */}
                   </div>
 
                   <div>
-                    <p className="text-sm text-muted-foreground">Services Requested</p>
+                    <p className="text-sm text-muted-foreground">
+                      Services Requested
+                    </p>
                     {/* add badges here when you have services array */}
                   </div>
                 </div>
@@ -399,39 +479,6 @@ export default function ApplicationDetail() {
 
           {/* RIGHT */}
           <div className="space-y-6">
-            {/* <Card>
-              <CardHeader>
-                <CardTitle className="text-lg">Review Actions</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                <Button
-                  variant="outline"
-                  className="w-full gap-2 bg-amber-500 text-white"
-                  onClick={handleRequestDocuments}
-                >
-                  <FileQuestion className="h-4 w-4" />
-                  Request Documents
-                </Button>
-
-                <Button
-                  className="w-full gap-2 bg-green-500 text-white"
-                  onClick={handleApprove}
-                >
-                  <CheckCircle2 className="h-4 w-4" />
-                  Approve Application
-                </Button>
-
-                <Button
-                  variant="outline"
-                  className="w-full gap-2 bg-red-500 text-white"
-                  onClick={handleReject}
-                >
-                  <XCircle className="h-4 w-4" />
-                  Reject Application
-                </Button>
-              </CardContent>
-            </Card> */}
-
             {/* Documents */}
             <Card>
               <CardHeader>
@@ -440,6 +487,60 @@ export default function ApplicationDetail() {
                   Documents
                 </CardTitle>
               </CardHeader>
+
+              <CardContent className="space-y-3">
+                {docsLoading ? (
+                  <p className="text-sm text-muted-foreground">
+                    Loading documents...
+                  </p>
+                ) : docsError ? (
+                  <p className="text-sm text-red-500">{docsError}</p>
+                ) : documents.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">
+                    No documents uploaded yet.
+                  </p>
+                ) : (
+                  <div className="space-y-2">
+                    {documents.map((doc) => (
+                      <div
+                        key={
+                          doc.document_id ||
+                          doc.id ||
+                          `${doc.document_type}-${doc.created_at}`
+                        }
+                        className="relative flex items-center justify-between rounded-lg border border-border p-3"
+                      >
+                        <div className="min-w-0">
+                          <p className="truncate font-medium text-foreground">
+                            {doc.document_type || "Document"}
+                          </p>
+                          <p className="text-xs text-muted-foreground">
+                            {doc.created_at
+                              ? `Uploaded: ${new Date(doc.created_at).toLocaleDateString()}`
+                              : ""}
+                          </p>
+                        </div>
+
+                        {/* ✅ Click-safe download button */}
+                        <Button
+                          variant="ghost"
+                          className="relative z-50 h-8 w-8 p-0 pointer-events-auto"
+                          type="button"
+                          title="Download"
+                          onClick={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            handleDownload(doc);
+                          }}
+                          aria-label="Download"
+                        >
+                          <Download className="h-4 w-4 pointer-events-none" />
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
             </Card>
 
             {/* Review Timeline */}
@@ -458,7 +559,9 @@ export default function ApplicationDetail() {
                       <div className="flex-1 w-px bg-gray-500" />
                     </div>
                     <div className="pb-4">
-                      <p className="text-sm font-medium text-foreground">To Get Started</p>
+                      <p className="text-sm font-medium text-foreground">
+                        To Get Started
+                      </p>
                     </div>
                   </div>
 
@@ -468,7 +571,9 @@ export default function ApplicationDetail() {
                       <div className="flex-1 w-px bg-gray-500" />
                     </div>
                     <div className="pb-4">
-                      <p className="text-sm font-medium text-foreground">Basic Information</p>
+                      <p className="text-sm font-medium text-foreground">
+                        Basic Information
+                      </p>
                     </div>
                   </div>
 
@@ -478,7 +583,9 @@ export default function ApplicationDetail() {
                       <div className="flex-1 w-px bg-gray-500" />
                     </div>
                     <div>
-                      <p className="text-sm font-medium text-foreground">Financial Details</p>
+                      <p className="text-sm font-medium text-foreground">
+                        Financial Details
+                      </p>
                     </div>
                   </div>
 
@@ -488,7 +595,9 @@ export default function ApplicationDetail() {
                       <div className="flex-1 w-px bg-gray-500" />
                     </div>
                     <div>
-                      <p className="text-sm font-medium text-foreground">Compliance</p>
+                      <p className="text-sm font-medium text-foreground">
+                        Compliance
+                      </p>
                     </div>
                   </div>
 
@@ -498,17 +607,14 @@ export default function ApplicationDetail() {
                       <div className="flex-1 w-px bg-gray-500" />
                     </div>
                     <div>
-                      <p className="text-sm font-medium text-foreground">Manual Review</p>
+                      <p className="text-sm font-medium text-foreground">
+                        Manual Review
+                      </p>
                     </div>
                   </div>
                 </div>
               </CardContent>
             </Card>
-
-            {/* KEEP YOUR COMMENTED OUT BLOCK COMMENTED OUT (as requested) */}
-            {/* <div className="space-y-6">
-              ...
-            </div> */}
           </div>
         </div>
       </main>
