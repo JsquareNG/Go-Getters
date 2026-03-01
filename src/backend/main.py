@@ -6,12 +6,16 @@ from backend.models.application import ApplicationForm  # import so table is reg
 from backend.models.documents import Document
 from backend.models.user import User
 from backend.models.bellNotifications import BellNotification
+from backend.models.reviewJobs import ReviewJobs
 from backend.api.user import router as user_router
 from backend.api.application import router as application_router
 from backend.api.document import router as application_document
 from backend.api.bellNotification import router as application_bellNotifications
+from backend.api.reviewJobs import router as review_jobs
 
 from backend.api.document_ai import router as docai_router
+from backend.api.id_verification import router as idv_router
+
 import os
 from pathlib import Path
 from dotenv import load_dotenv
@@ -59,4 +63,9 @@ app.include_router(application_router)
 app.include_router(application_document)
 app.include_router(user_router)  
 app.include_router(application_bellNotifications)      
+app.include_router(review_jobs)
+
+
+
 app.include_router(docai_router)
+app.include_router(idv_router)

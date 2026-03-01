@@ -1,4 +1,4 @@
-from sqlalchemy import Column, String, CheckConstraint, event, DDL, text, DateTime, func, Boolean
+from sqlalchemy import Column, String, CheckConstraint, event, DDL, text, DateTime, func, Boolean, Integer
 from sqlalchemy.orm import relationship
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.ext.mutable import MutableDict
@@ -47,6 +47,7 @@ class ApplicationForm(Base):
     form_data = Column(MutableDict.as_mutable(JSONB), default=dict)
     user_id = Column(String(8), nullable=False)
     reviewer_id = Column(String(8), nullable=True)
+    last_saved_step = Column(Integer, nullable=True)
     # reason = Column(String(500), nullable=True)
     is_open_user = Column(Boolean,nullable=False, server_default=text("false"))
     is_open_staff = Column(Boolean,nullable=False, server_default=text("false"))

@@ -142,14 +142,17 @@ export const BUSINESS_TYPES = {
     documents:{
       certificateOfIncorporation: {
         value: "certificate_of_incorporation",
+        required: false,
         label: "Certificate of Incorporation"
       },
       businessProfile: {
         value: "business_profile",
+        required: false,
         label: "Company Profile (e.g., ACRA BizFile / equivalent)"
       },
       annualReport: {
         value: "latest_annual_report",
+        required: false,
         label: "Latest Annual Report"
       },
     }

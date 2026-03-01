@@ -1,7 +1,5 @@
 import axiosClient from "./axiosClient";
 
-
-
 export const loginUser = async (email, password) => {
   const res = await axiosClient.post("/users/login", {
     email,

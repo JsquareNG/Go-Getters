@@ -34,10 +34,12 @@ export const COUNTRIES = {
     documents: {
       proofOfAddress: {
         value: "proof_of_address",
-        label: "Proof of Business Address"
+        label: "Proof of Business Address",
+        required: false,
       },
       bankStatement3m: {
         value: "bank_statement_3m",
+        required: false,
         label: "Bank Statement (Last 3 months)"
       },
     }

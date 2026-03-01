@@ -56,3 +56,8 @@ export const deleteApplication = async (applicationId) => {
   const res = await axiosClient.delete(`/applications/delete/${applicationId}`);
   return res.data;
 };
+
+export const getReviewJob = async (applicationId) => {
+  const res = await axiosClient.get(`/reviewJobs/getReviewJob/${applicationId}`);
+  return res.data;
+};
