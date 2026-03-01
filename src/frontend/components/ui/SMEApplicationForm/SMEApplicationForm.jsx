@@ -84,7 +84,7 @@ const SMEApplicationForm = ({ onSubmitSuccess }) => {
       business_type: state.data.businessType,
       user_id: user.user_id,
 
-      // 🔥 IMPORTANT: backend expects this
+      // IMPORTANT: backend expects this
       form_data: {
         ...state.data,
       },

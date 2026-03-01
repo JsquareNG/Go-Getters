@@ -6,16 +6,16 @@ The **SMEApplicationForm** is a highly dynamic, multi-step React component desig
 
 ## Features
 
-- ✅ **4-Step Form Process**: Basic Info → Financial → Compliance → Review
-- ✅ **Dynamic Country-Specific Fields**: Automatically shows fields based on selected country
-- ✅ **Dynamic Business-Type-Specific Fields**: Automatically shows fields based on business type
-- ✅ **Intelligent Validation**: Rules adapt based on selections
-- ✅ **File Upload with Validation**: Support for PDF and image formats with size limits
-- ✅ **Form State Persistence**: Data retained when navigating between steps
-- ✅ **Progress Tracking**: Visual stepper showing current step
-- ✅ **Comprehensive Review**: Full review of entered data before submission
-- ✅ **Toast Notifications**: User feedback on actions and errors
-- ✅ **Responsive Design**: Works on mobile and desktop
+- **4-Step Form Process**: Basic Info → Financial → Compliance → Review
+- **Dynamic Country-Specific Fields**: Automatically shows fields based on selected country
+- **Dynamic Business-Type-Specific Fields**: Automatically shows fields based on business type
+- **Intelligent Validation**: Rules adapt based on selections
+- **File Upload with Validation**: Support for PDF and image formats with size limits
+- **Form State Persistence**: Data retained when navigating between steps
+- **Progress Tracking**: Visual stepper showing current step
+- **Comprehensive Review**: Full review of entered data before submission
+- **Toast Notifications**: User feedback on actions and errors
+- **Responsive Design**: Works on mobile and desktop
 
 ## Installation
 

@@ -20,8 +20,6 @@ const initialState = {
     // Step 1: Basic Information
     companyName: "",
     registrationNumber: "",
-    // country: "",
-    // businessType: "",
     email: "",
     phone: "",
 

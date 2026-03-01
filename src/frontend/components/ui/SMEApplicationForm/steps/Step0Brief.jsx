@@ -11,11 +11,7 @@ const Step0Brief = ({
   data,
   errors,
   touched,
-  onFieldChange,
-//   onCountrySpecificFieldChange,
-//   onBusinessTypeFieldChange,
-//   countrySpecificFieldsConfig,
-//   businessTypeSpecificFieldsConfig,
+  onFieldChange
 }) => {
   const countryOptions = Object.values(COUNTRIES).map((country) => ({
     label: country.name,
@@ -46,25 +42,6 @@ const Step0Brief = ({
         required
       />
 
-      {/* Dynamic Country-Specific Fields */}
-      {/* {data.country &&
-        Object.entries(countrySpecificFieldsConfig).map(
-          ([fieldName, fieldConfig]) => (
-            <FormFieldGroup
-              key={fieldName}
-              fieldName={fieldName}
-              label={fieldConfig.label}
-              placeholder={fieldConfig.placeholder}
-              value={data.countrySpecificFields[fieldName] || ""}
-              onChange={onCountrySpecificFieldChange}
-              error={errors[fieldName]}
-              touched={touched[fieldName]}
-              required={fieldConfig.required}
-              helpText={`Format: ${fieldConfig.placeholder}`}
-            />
-          ),
-        )} */}
-
       {/* Business Type Selection - Required for conditional fields */}
       <FormFieldGroup
         fieldName="businessType"
@@ -77,25 +54,6 @@ const Step0Brief = ({
         options={businessTypeOptions}
         required
       />
-
-      {/* Dynamic Business-Type-Specific Fields */}
-      {/* {data.businessType &&
-        Object.entries(businessTypeSpecificFieldsConfig).map(
-          ([fieldName, fieldConfig]) => (
-            <FormFieldGroup
-              key={fieldName}
-              fieldName={fieldName}
-              label={fieldConfig.label}
-              placeholder={fieldConfig.placeholder}
-              value={data.businessTypeSpecificFields[fieldName] || ""}
-              onChange={onBusinessTypeFieldChange}
-              error={errors[fieldName]}
-              touched={touched[fieldName]}
-              required={fieldConfig.required}
-              type={fieldName.includes("Details") ? "textarea" : "text"}
-            />
-          ),
-        )} */}
     </div>
   );
 };

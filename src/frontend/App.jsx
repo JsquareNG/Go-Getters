@@ -79,8 +79,9 @@ export default function App() {
           }
         />
 
+        {/* SME application form - allow nested step routes under this path */}
         <Route
-          path="/applications/form"
+          path="/applications/form/*"
           element={
             <RequireRole role="SME">
               <LandingLayout>
