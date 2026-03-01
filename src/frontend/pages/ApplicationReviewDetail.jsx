@@ -16,6 +16,7 @@ import {
   FileQuestion,
   CheckCircle2,
   XCircle,
+  Download,
 } from "lucide-react";
 import {
   Accordion,
@@ -37,6 +38,7 @@ import {
   escalateApplication,
   getReviewJob,
 } from "@/api/applicationApi";
+import { allDocuments, downloadDocuments } from "./../api/documentApi";
 
 export default function ApplicationReviewDetail() {
   const { id } = useParams();
@@ -48,13 +50,18 @@ export default function ApplicationReviewDetail() {
   const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
   const [error, setError] = useState(null);
 
+  // ✅ documents state (NEW)
+  const [documents, setDocuments] = useState([]);
+  const [docsLoading, setDocsLoading] = useState(false);
+  const [docsError, setDocsError] = useState(null);
+
   useEffect(() => {
     const fetchApplication = async () => {
       try {
         setIsLoading(true);
         const data = await getApplicationByAppId(id);
         const rulesData = await getReviewJob(id)
-        
+
         setApplication(data);
         setRules(rulesData);
         console.log(rulesData)
@@ -70,10 +77,32 @@ export default function ApplicationReviewDetail() {
     if (id) fetchApplication();
   }, [id]);
 
+  // ✅ fetch documents for this application id (NEW)
+  useEffect(() => {
+    const fetchDocuments = async () => {
+      try {
+        setDocsLoading(true);
+        setDocsError(null);
+
+        const docs = await allDocuments(id); // should return docs for this application
+        setDocuments(Array.isArray(docs) ? docs : []);
+      } catch (err) {
+        console.error("Error fetching documents:", err);
+        setDocsError("Could not retrieve documents.");
+      } finally {
+        setDocsLoading(false);
+      }
+    };
+
+    if (id) fetchDocuments();
+  }, [id]);
+
   const currentStatus = application?.current_status || "Not started";
 
   // ✅ Staff only reviews when application is in staff review statuses
-  const canReview = ["Under Review", "Under Manual Review"].includes(currentStatus);
+  const canReview = ["Under Review", "Under Manual Review"].includes(
+    currentStatus,
+  );
 
   const formattedDate = application?.last_edited
     ? new Date(application.last_edited).toLocaleDateString("en-US", {
@@ -90,6 +119,41 @@ export default function ApplicationReviewDetail() {
 
   // ✅ reason might be stored as application.reason OR inside form_data.reason
   const actionReason = application?.reason ?? application?.form_data?.reason;
+
+  // ✅ open PDF by signed URL (NEW)
+  const handleOpenDocument = async (doc) => {
+    // open a blank tab immediately to avoid popup blockers
+    const newTab = window.open("", "_blank");
+
+    try {
+      const documentId = doc?.document_id; // ✅ backend expects Document.document_id
+      if (!documentId) {
+        if (newTab) newTab.close();
+        toast.error("Missing document_id");
+        console.log("Doc missing document_id:", doc);
+        return;
+      }
+
+      const res = await downloadDocuments(documentId);
+      const signedUrl = res?.url; // backend returns { url }
+
+      if (!signedUrl) throw new Error("No url returned from download endpoint");
+
+      if (newTab) newTab.location.href = signedUrl;
+      else window.open(signedUrl, "_blank", "noopener,noreferrer");
+    } catch (err) {
+      if (newTab) newTab.close();
+      console.error(
+        "Open document error:",
+        err?.response?.status,
+        err?.response?.data || err,
+      );
+      toast.error("Could not open document", {
+        description:
+          err?.response?.data?.detail || err?.message || "Unknown error",
+      });
+    }
+  };
 
   /**
    * ✅ ESCALATE (Request Documents)
@@ -228,7 +292,9 @@ export default function ApplicationReviewDetail() {
         <p className="text-red-500 font-medium">
           {error || "Application not found."}
         </p>
-        <Button onClick={() => navigate("/staff-landingpage")}>Back to List</Button>
+        <Button onClick={() => navigate("/staff-landingpage")}>
+          Back to List
+        </Button>
       </div>
     );
   }
@@ -266,11 +332,10 @@ export default function ApplicationReviewDetail() {
                 </span>
               </div>
             </div>
-            
           </div>
-          
         </div>
 
+        {/* rules */}
         <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between mb-2">
           {rules.rules_triggered.length > 0 && (() => {
             const overallGrade = rules?.risk_grade?.toUpperCase();
@@ -385,7 +450,6 @@ export default function ApplicationReviewDetail() {
             );
           })()}
         </div>
-        
 
         {/* MAIN 2-COLUMN LAYOUT */}
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
@@ -629,6 +693,61 @@ export default function ApplicationReviewDetail() {
                   Documents
                 </CardTitle>
               </CardHeader>
+
+              {/* ✅ NEW: documents list + open button */}
+              <CardContent className="space-y-3">
+                {docsLoading ? (
+                  <p className="text-sm text-muted-foreground">
+                    Loading documents...
+                  </p>
+                ) : docsError ? (
+                  <p className="text-sm text-red-500">{docsError}</p>
+                ) : documents.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">
+                    No documents uploaded yet.
+                  </p>
+                ) : (
+                  <div className="space-y-2">
+                    {documents.map((doc) => (
+                      <div
+                        key={
+                          doc.document_id ||
+                          doc.id ||
+                          `${doc.document_type}-${doc.created_at}`
+                        }
+                        className="relative flex items-center justify-between rounded-lg border border-border p-3"
+                      >
+                        <div className="min-w-0">
+                          <p className="truncate font-medium text-foreground">
+                            {doc.document_type || "Document"}
+                          </p>
+                          <p className="text-xs text-muted-foreground">
+                            {doc.created_at
+                              ? `Uploaded: ${new Date(doc.created_at).toLocaleDateString()}`
+                              : ""}
+                          </p>
+                        </div>
+
+                        {/* Click-safe icon button */}
+                        <Button
+                          variant="ghost"
+                          className="relative z-50 h-8 w-8 p-0 pointer-events-auto"
+                          type="button"
+                          title="Open"
+                          onClick={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            handleOpenDocument(doc);
+                          }}
+                          aria-label="Open document"
+                        >
+                          <Download className="h-4 w-4 pointer-events-none" />
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
             </Card>
 
             {/* Review Timeline */}
@@ -643,11 +762,6 @@ export default function ApplicationReviewDetail() {
                 <div className="space-y-4">{/* (unchanged timeline) */}</div>
               </CardContent>
             </Card>
-
-            {/* KEEP YOUR COMMENTED OUT BLOCK COMMENTED OUT */}
-            {/* <div className="space-y-6">
-              ...
-            </div> */}
           </div>
         </div>
       </main>
