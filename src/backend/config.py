@@ -9,9 +9,9 @@ HIGH_RISK_JURISDICTIONS = {
 
 HIGH_RISK_INDUSTRIES = {
     "Crypto",
-    "Remittance",
-    "Gambling"
+    "Investment",
+    "Real Estate"
 }
-
+#incorporation date > 10 years
 SIMPLIFIED_CDD_THRESHOLD = 30
 STANDARD_CDD_THRESHOLD = 60
