@@ -37,13 +37,14 @@ class Application(BaseModel):
     last_updated: Optional[datetime] = None
 
 #below is for KYC and KYB
+
 @dataclass
 class Individual:
     name: str
     nationality: str
     ownership_pct: float
     is_pep: bool
-    has_adverse_media: bool
+    sanctions_match: bool
 
 
 @dataclass

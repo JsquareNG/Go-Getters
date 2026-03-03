@@ -10,7 +10,7 @@ def test_high_risk_sme():
         nationality="CountryX",
         ownership_pct=60,
         is_pep=False,
-        has_adverse_media=False
+        sanctions_match=False
     )
 
     director = Individual(
@@ -18,7 +18,7 @@ def test_high_risk_sme():
         nationality="Singapore",
         ownership_pct=10,
         is_pep=False,
-        has_adverse_media=False
+        sanctions_match=False
     )
 
     company = Company(
@@ -34,22 +34,22 @@ def test_high_risk_sme():
     submit_application(company)
 
 
-def test_low_risk_sme():
+def test_sanctions_hit():
     owner = Individual(
-        name="Ah Beng",
-        nationality="Singapore",
+        name="Mr X",
+        nationality="CountryY",
         ownership_pct=100,
         is_pep=False,
-        has_adverse_media=False
+        sanctions_match=True
     )
 
     company = Company(
-        name="Happy Kopitiam Pte Ltd",
+        name="Shadow Trading Pte Ltd",
         country="Singapore",
-        industry="F&B",
+        industry="Trading",
         ownership_layers=1,
         uses_trust_or_nominee=False,
-        expected_monthly_volume=50_000,
+        expected_monthly_volume=200_000,
         individuals=[owner]
     )
 
@@ -60,5 +60,5 @@ if __name__ == "__main__":
     print("\n=== TEST 1: High-Risk SME ===")
     test_high_risk_sme()
 
-    print("\n=== TEST 2: Low-Risk SME ===")
-    test_low_risk_sme()
+    print("\n=== TEST 2: Sanctions Match ===")
+    test_sanctions_hit()

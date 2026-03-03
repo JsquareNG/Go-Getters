@@ -1,34 +1,48 @@
+# rule_engine.py
 
 from models import Company
-from kyb_rules import score_company_risk
-from kyc_rules import score_individual_risk
+from kyb_rules import evaluate_company
+from kyc_rules import evaluate_individual
 from config import SIMPLIFIED_CDD_THRESHOLD, STANDARD_CDD_THRESHOLD
 
 
-def determine_due_diligence(company: Company) -> dict:
-    total_risk = score_company_risk(company)
+def determine_due_diligence(company: Company):
+    total_score = 0
+    triggered_checks = []
 
-    # Immediate EDD triggers
+    # KYB evaluation
+    kyb_score, kyb_triggers = evaluate_company(company)
+    total_score += kyb_score
+    triggered_checks.extend(kyb_triggers)
+
+    # KYC evaluation
     for person in company.individuals:
-        if person.is_pep or person.has_adverse_media:
+        # Sanctions = immediate EDD
+        if person.sanctions_match:
+            triggered_checks.append({
+                "code": "IMMEDIATE_EDD_SANCTIONS",
+                "description": f"Sanctions match detected for {person.name}"
+            })
             return {
-                "risk_score": total_risk,
+                "risk_score": total_score,
                 "decision": "Enhanced Due Diligence (EDD)",
-                "reason": "PEP or adverse media detected"
+                "triggered_checks": triggered_checks
             }
 
-        total_risk += score_individual_risk(person)
+        kyc_score, kyc_triggers = evaluate_individual(person)
+        total_score += kyc_score
+        triggered_checks.extend(kyc_triggers)
 
     # Risk-based decision
-    if total_risk < SIMPLIFIED_CDD_THRESHOLD:
+    if total_score < SIMPLIFIED_CDD_THRESHOLD:
         decision = "Simplified CDD"
-    elif total_risk <= STANDARD_CDD_THRESHOLD:
+    elif total_score <= STANDARD_CDD_THRESHOLD:
         decision = "Standard CDD"
     else:
         decision = "Enhanced Due Diligence (EDD)"
 
     return {
-        "risk_score": total_risk,
+        "risk_score": total_score,
         "decision": decision,
-        "reason": "Risk-based assessment"
+        "triggered_checks": triggered_checks
     }

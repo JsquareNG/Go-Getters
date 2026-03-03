@@ -1,17 +1,31 @@
+# kyc_rules.py
+
 from models import Individual
 from config import HIGH_RISK_JURISDICTIONS
 
-def score_individual_risk(person: Individual) -> int:
+
+def evaluate_individual(person: Individual):
     score = 0
+    triggers = []
 
     if person.nationality in HIGH_RISK_JURISDICTIONS:
         score += 20
+        triggers.append({
+            "code": "KYC_JURISDICTION_RISK",
+            "description": f"{person.name} is from a high-risk jurisdiction"
+        })
 
     if person.is_pep:
         score += 40
+        triggers.append({
+            "code": "KYC_PEP",
+            "description": f"{person.name} is identified as a Politically Exposed Person"
+        })
 
-    if person.has_adverse_media:
-        score += 30
+    if person.sanctions_match:
+        triggers.append({
+            "code": "KYC_SANCTIONS_MATCH",
+            "description": f"{person.name} matched a sanctions list"
+        })
 
-    return score
-
+    return score, triggers
