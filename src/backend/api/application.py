@@ -288,25 +288,9 @@ def close_open_action_request_and_update_answers(db: Session, application_id: st
     # ---------------------------
     # DOCUMENTS: only if requested
     # ---------------------------
-    if doc_items:
-        uploaded_doc_item_ids = set(data.get("document_item_ids") or [])
-        if not uploaded_doc_item_ids:
-            raise HTTPException(status_code=400, detail="document_item_ids is required because documents were requested.")
-
-        for it in doc_items:
-            if it.item_id in uploaded_doc_item_ids:
-                it.fulfilled = True
-                it.fulfilled_at = now
-
-        missing_docs = [it.item_id for it in doc_items if not it.fulfilled]
-        if missing_docs:
-            raise HTTPException(
-                status_code=400,
-                detail={
-                    "message": "Not all requested documents are fulfilled.",
-                    "missing_document_item_ids": missing_docs,
-                },
-            )
+    for it in doc_items:
+        it.fulfilled = True
+        it.fulfilled_at = now
 
     # ---------------------------
     # QUESTIONS: only if requested
