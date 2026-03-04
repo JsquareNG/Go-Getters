@@ -182,7 +182,7 @@ const SMEApplicationForm = ({ onSubmitSuccess }) => {
     // If trying to move past Step 0, validate it first
     if (clampedStep === 0 && !stepCompletion[0]) {
       toast({
-        title: "Complete Step 0",
+        title: "Complete Step 1",
         description: "Please select your country and business type before proceeding.",
         variant: "destructive",
       });

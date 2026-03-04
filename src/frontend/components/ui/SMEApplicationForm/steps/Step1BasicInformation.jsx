@@ -3,7 +3,7 @@ import FormFieldGroup from "../components/FormFieldGroup";
 import SINGAPORE_CONFIG from "../config/singaporeConfig";
 import { COUNTRIES } from "../config/countriesConfig";
 
-// TODO: move this to API later
+// TODO: separate this logic later
 const ACRA_WITH_TABLES_ENDPOINT =
   "http://127.0.0.1:8000/document-ai/extract-acra-with-tables";
 
@@ -21,6 +21,9 @@ const Step1BasicInformation = ({
   const [acraUploading, setAcraUploading] = useState(false);
   const [acraError, setAcraError] = useState("");
   const [acraSuccessMsg, setAcraSuccessMsg] = useState("");
+
+  // const nricRef = useRef(null);
+  // const [nricError, setNricError] = useState("");
 
   // ---- helpers ----
   const callChange = (fn, name, value) => {
@@ -215,6 +218,28 @@ const Step1BasicInformation = ({
     }
   };
 
+  // ---- NRIC HANDLERS ----
+
+  // const handleChooseNric = () => nricRef.current?.click();
+
+  // const handleNricChange = (e) => {
+  //   setNricError("");
+  //   const file = e.target.files?.[0];
+  //   if (!file) return;
+
+  //   const allowedTypes = ["image/jpeg", "image/png", "application/pdf"];
+
+  //   if (!allowedTypes.includes(file.type)) {
+  //     setNricError("Only JPG, PNG or PDF files are allowed.");
+  //     return;
+  //   }
+
+  //   // store file in root form state
+  //   fireField("nricDocument", file);
+
+  //   e.target.value = "";
+  // };
+
   // ---- DYNAMIC FIELD CONFIG MAPPING ----
   const { countrySpecificFieldsConfig, businessTypeSpecificFieldsConfig } =
     useMemo(() => {
@@ -226,17 +251,17 @@ const Step1BasicInformation = ({
       const businessFields = {};
 
       // start with generic country fields (GST, acraUEN, etc.)
-      // if (data?.country) {
-      //   const ccfg = COUNTRIES[data.country]?.fields || {};
-      //   Object.entries(ccfg).forEach(([key, val]) => {
-      //     countryFields[key] = {
-      //       type: val.type || "text",
-      //       label: val.label,
-      //       placeholder: val.placeholder || "",
-      //       required: val.required || false,
-      //     };
-      //   });
-      // }
+      if (data?.country) {
+        const ccfg = COUNTRIES[data.country]?.fields || {};
+        Object.entries(ccfg).forEach(([key, val]) => {
+          countryFields[key] = {
+            type: val.type || "text",
+            label: val.label,
+            placeholder: val.placeholder || "",
+            required: val.required || false,
+          };
+        });
+      }
 
       // overlay the Singapore entity's own step2 fields
       if (step2.fields) {
@@ -347,6 +372,47 @@ const Step1BasicInformation = ({
           />
         ),
       )}
+
+      {/* NRIC Upload (Singapore Only) */}
+      {/* {data?.country === "SG" && (
+        <div className="mb-6 rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <p className="text-sm font-semibold text-gray-900">
+                Upload NRIC Document
+              </p>
+              <p className="text-xs text-gray-500">
+                Upload front image or PDF copy of NRIC (JPG, PNG, PDF).
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={handleChooseNric}
+              className="rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-semibold hover:bg-gray-50"
+              disabled={disabled}
+            >
+              Upload NRIC
+            </button>
+            <input
+              ref={nricRef}
+              type="file"
+              accept="image/jpeg,image/png,application/pdf"
+              className="hidden"
+              onChange={handleNricChange}
+            />
+          </div>
+
+          <div className="mt-3 text-xs">
+            {data?.nricDocument?.name && (
+              <p className="text-gray-600">
+                Selected:{" "}
+                <span className="font-medium">{data.nricDocument.name}</span>
+              </p>
+            )}
+            {nricError && <p className="mt-1 text-red-600">{nricError}</p>}
+          </div>
+        </div>
+      )} */}
 
       {/* Business-Type-Specific Fields */}
       {Object.entries(businessTypeSpecificFieldsConfig).map(
