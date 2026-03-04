@@ -76,23 +76,24 @@ const SMEApplicationForm = ({ onSubmitSuccess }) => {
           key === "documentsMeta" ||
           key === "countrySpecificFields" ||
           key === "businessTypeSpecificFields"
-        ) return;
+        )
+          return;
         setField(key, val);
       });
 
       if (currentApp.formData.countrySpecificFields) {
         Object.entries(currentApp.formData.countrySpecificFields).forEach(
-          ([k, v]) => setCountrySpecificField(k, v)
+          ([k, v]) => setCountrySpecificField(k, v),
         );
       }
       if (currentApp.formData.businessTypeSpecificFields) {
         Object.entries(currentApp.formData.businessTypeSpecificFields).forEach(
-          ([k, v]) => setBusinessTypeField(k, v)
+          ([k, v]) => setBusinessTypeField(k, v),
         );
       }
       if (currentApp.formData.documents) {
         Object.entries(currentApp.formData.documents).forEach(([k, v]) =>
-          setDocument(k, v)
+          setDocument(k, v),
         );
       }
     }
@@ -139,7 +140,11 @@ const SMEApplicationForm = ({ onSubmitSuccess }) => {
       for (const [key, field] of Object.entries(step.fields || {})) {
         if (field.required) {
           const value = state.data[key];
-          if (value === undefined || value === null || (typeof value === "string" && value.trim() === "")) {
+          if (
+            value === undefined ||
+            value === null ||
+            (typeof value === "string" && value.trim() === "")
+          ) {
             return false;
           }
         }
@@ -156,7 +161,11 @@ const SMEApplicationForm = ({ onSubmitSuccess }) => {
             for (const [fieldKey, field] of Object.entries(section.fields)) {
               if (field.required) {
                 const val = entry[fieldKey];
-                if (val === undefined || val === null || (typeof val === "string" && val.trim() === "")) {
+                if (
+                  val === undefined ||
+                  val === null ||
+                  (typeof val === "string" && val.trim() === "")
+                ) {
                   return false;
                 }
               }
@@ -216,6 +225,156 @@ const SMEApplicationForm = ({ onSubmitSuccess }) => {
     setDocument(documentType, file);
   };
 
+  //--- HELPER FUNCTION---
+  const buildDynamicPayload = (stateData, countryCode = "SG", businessType) => {
+    // Get the country config
+    const countryConfig = SINGAPORE_CONFIG.country;
+    if (!countryConfig || !businessType) return { form_data: stateData };
+
+    const entityConfig = SINGAPORE_CONFIG.entities[businessType];
+    if (!entityConfig) return { form_data: stateData };
+
+    const payloadFormData = {};
+
+    // Loop through steps relevant to payload (Steps 0-3)
+    entityConfig.steps?.forEach((step, stepIndex) => {
+      if (stepIndex > 2) return; // only Steps 0-3
+
+      // ---- Top-level fields ----
+      Object.keys(step.fields || {}).forEach((fieldKey) => {
+        if (!(fieldKey in stateData)) return;
+
+        const value = stateData[fieldKey];
+        if (value !== undefined && value !== "" && value !== null) {
+          payloadFormData[fieldKey] = value;
+        }
+
+        // Handle conditional fields
+        const field = step.fields[fieldKey];
+        if (field?.conditionalFields && field.options) {
+          const selectedOption = value;
+          const conditionalFields = field.conditionalFields[selectedOption];
+          if (conditionalFields) {
+            Object.keys(conditionalFields).forEach((cKey) => {
+              const cVal = stateData[cKey];
+              if (cVal !== undefined && cVal !== "" && cVal !== null) {
+                payloadFormData[cKey] = cVal;
+              }
+            });
+          }
+        }
+      });
+
+      // ---- Repeatable sections ----
+      if (step.repeatableSections) {
+        Object.keys(step.repeatableSections).forEach((sectionKey) => {
+          const sectionEntries = stateData[sectionKey] || [];
+          payloadFormData[sectionKey] = sectionEntries
+            .map((entry) => {
+              const filteredEntry = {};
+              Object.keys(entry).forEach((k) => {
+                if (
+                  entry[k] !== undefined &&
+                  entry[k] !== "" &&
+                  entry[k] !== null
+                ) {
+                  filteredEntry[k] = entry[k];
+                }
+              });
+              return Object.keys(filteredEntry).length ? filteredEntry : null;
+            })
+            .filter(Boolean); // remove empty
+        });
+      }
+
+      // ---- Documents ----
+      if (step.documents?.length) {
+        payloadFormData.documents = payloadFormData.documents || {};
+        step.documents.forEach((docKey) => {
+          const docValue = stateData.documents?.[docKey];
+          if (docValue) payloadFormData.documents[docKey] = docValue;
+        });
+      }
+    });
+
+    // Include country info in payload
+    return {
+      country: countryCode,
+      businessType,
+      form_data: payloadFormData,
+    };
+  };
+
+  const handleSaveDraft = async () => {
+    try {
+      const payload = buildDynamicPayload(
+        state.data,
+        "SG",
+        state.data.businessType,
+      );
+
+      const finalPayload = {
+        user_id: user.id,
+        email: user.email,
+        firstName: user.firstName,
+        ...payload,
+        application_id: appId !== "new" ? appId : undefined,
+      };
+
+      const res = await saveApplicationDraftApi(finalPayload);
+      dispatch(
+        saveDraftAction({
+          appId: res.application_id || appId,
+          data: state.data,
+        }),
+      );
+      toast({
+        title: "Draft Saved",
+        description: "Your draft has been saved successfully.",
+      });
+    } catch (err) {
+      toast({
+        title: "Save Failed",
+        description: err?.message || "Failed to save draft.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleSubmitApplication = async () => {
+    setIsSubmitting(true);
+    try {
+      const payload = buildDynamicPayload(
+        state.data,
+        "SG",
+        state.data.businessType,
+      );
+
+      const finalPayload = {
+        user_id: user.id,
+        email: user.email,
+        firstName: user.firstName,
+        ...payload,
+        application_id: appId !== "new" ? appId : undefined,
+      };
+
+      await submitApplicationApi(finalPayload);
+      dispatch(markAsSubmitted({ appId, data: state.data }));
+      toast({
+        title: "Application Submitted",
+        description: "Your application has been submitted.",
+      });
+    } catch (err) {
+      toast({
+        title: "Submission Failed",
+        description: err?.message || "Failed to submit application.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
   // ------------------- NEXT BUTTON DISABLE ------------------- //
   const isNextDisabled = clampedStep === 3 && !arePreviousStepsComplete();
   // ----------------------------------------------------------- //
@@ -225,35 +384,68 @@ const SMEApplicationForm = ({ onSubmitSuccess }) => {
 
     switch (clampedStep) {
       case 0:
-        return <Step0Brief data={state.data} errors={state.errors} touched={state.touched} onFieldChange={setField} {...commonProps} />;
+        return (
+          <Step0Brief
+            data={state.data}
+            errors={state.errors}
+            touched={state.touched}
+            onFieldChange={setField}
+            {...commonProps}
+          />
+        );
       case 1:
-        return <Step1BasicInformation
-          data={state.data} errors={state.errors} touched={state.touched} onFieldChange={setField}
-          onCountrySpecificFieldChange={setCountrySpecificField} onBusinessTypeFieldChange={setBusinessTypeField}
-          countrySpecificFieldsConfig={countrySpecificFieldsConfig}
-          businessTypeSpecificFieldsConfig={businessTypeSpecificFieldsConfig}
-          {...commonProps}
-        />;
+        return (
+          <Step1BasicInformation
+            data={state.data}
+            errors={state.errors}
+            touched={state.touched}
+            onFieldChange={setField}
+            onCountrySpecificFieldChange={setCountrySpecificField}
+            onBusinessTypeFieldChange={setBusinessTypeField}
+            countrySpecificFieldsConfig={countrySpecificFieldsConfig}
+            businessTypeSpecificFieldsConfig={businessTypeSpecificFieldsConfig}
+            {...commonProps}
+          />
+        );
       case 2:
-        return <Step2FinancialDetails data={state.data} errors={state.errors} touched={state.touched} onFieldChange={setField} {...commonProps} />;
+        return (
+          <Step2FinancialDetails
+            data={state.data}
+            errors={state.errors}
+            touched={state.touched}
+            onFieldChange={setField}
+            {...commonProps}
+          />
+        );
       case 3:
-        return <Step3ComplianceDocumentation
-          data={state.data} documents={state.data.documents} errors={state.errors} touched={state.touched}
-          onDocumentChange={handleDocumentChange} onFieldChange={setField} documentsProgress={state.data.documentsProgress}
-          {...commonProps}
-        />;
+        return (
+          <Step3ComplianceDocumentation
+            data={state.data}
+            documents={state.data.documents}
+            errors={state.errors}
+            touched={state.touched}
+            onDocumentChange={handleDocumentChange}
+            onFieldChange={setField}
+            documentsProgress={state.data.documentsProgress}
+            {...commonProps}
+          />
+        );
       case 4:
-        return <Step4ReviewSubmit
-          data={state.data}
-          onEdit={(step) => {
-            navigate(`/application/${mode}/${appId || "new"}/${step}`, { replace: false });
-            window.scrollTo({ top: 0, behavior: "smooth" });
-          }}
-          onSubmit={() => {}}
-          isSubmitting={isSubmitting}
-          stepCompletion={stepCompletion}
-          {...commonProps}
-        />;
+        return (
+          <Step4ReviewSubmit
+            data={state.data}
+            onEdit={(step) => {
+              navigate(`/application/${mode}/${appId || "new"}/${step}`, {
+                replace: false,
+              });
+              window.scrollTo({ top: 0, behavior: "smooth" });
+            }}
+            onSubmit={() => {}}
+            isSubmitting={isSubmitting}
+            stepCompletion={stepCompletion}
+            {...commonProps}
+          />
+        );
       default:
         return null;
     }
@@ -263,21 +455,28 @@ const SMEApplicationForm = ({ onSubmitSuccess }) => {
     <div className="h-[calc(100vh-4rem)] bg-gradient-to-br from-gray-50 to-gray-100 flex overflow-hidden">
       <div className="hidden md:flex flex-col w-100 flex-shrink-0 sticky top-0 h-screen overflow-y-auto bg-white border-r">
         <div className="p-8">
-          <h1 className="text-3xl font-bold text-gray-900">SME Cross-Border Payment Application</h1>
+          <h1 className="text-3xl font-bold text-gray-900">
+            SME Cross-Border Payment Application
+          </h1>
           <p className="text-gray-600 mt-2">
             {isViewOnly
               ? "View your submitted application"
               : "Complete this form to enable cross-border payment capabilities"}
           </p>
           <FormStepper
-            currentStep={clampedStep} totalSteps={5} stepLabels={STEP_LABELS} stepCompletion={stepCompletion}
-            isStepLocked={isStepLocked} onStepClick={(step) => {
+            currentStep={clampedStep}
+            totalSteps={5}
+            stepLabels={STEP_LABELS}
+            stepCompletion={stepCompletion}
+            isStepLocked={isStepLocked}
+            onStepClick={(step) => {
               if (isStepLocked(step)) {
                 toast({
                   title: "Step Locked",
-                  description: step === 4
-                    ? "Complete Steps 1-3 before accessing Review & Submit"
-                    : "Complete previous steps first",
+                  description:
+                    step === 4
+                      ? "Complete Steps 1-3 before accessing Review & Submit"
+                      : "Complete previous steps first",
                   variant: "destructive",
                 });
               } else {
@@ -292,30 +491,77 @@ const SMEApplicationForm = ({ onSubmitSuccess }) => {
       <div className="flex-1 flex flex-col overflow-hidden">
         <div className="md:hidden sticky top-0 z-20 bg-white border-b">
           <div className="py-8 px-4">
-            <h1 className="text-3xl font-bold text-gray-900">SME Cross-Border Payment Application</h1>
-            <p className="text-gray-600 mt-2">{isViewOnly ? "View your submitted application" : "Complete this form to enable cross-border payment capabilities"}</p>
-            <FormStepper currentStep={clampedStep} totalSteps={5} stepLabels={STEP_LABELS} stepCompletion={stepCompletion} isStepLocked={isStepLocked} disabled={isViewOnly} />
+            <h1 className="text-3xl font-bold text-gray-900">
+              SME Cross-Border Payment Application
+            </h1>
+            <p className="text-gray-600 mt-2">
+              {isViewOnly
+                ? "View your submitted application"
+                : "Complete this form to enable cross-border payment capabilities"}
+            </p>
+            <FormStepper
+              currentStep={clampedStep}
+              totalSteps={5}
+              stepLabels={STEP_LABELS}
+              stepCompletion={stepCompletion}
+              isStepLocked={isStepLocked}
+              disabled={isViewOnly}
+            />
           </div>
         </div>
 
         <div className="flex-1 overflow-y-auto justify-center items-center">
           <div className="max-w-5xl mx-auto py-8 px-4">
-            <ReadOnlyFormWrapper isReadOnly={isViewOnly} applicationStatus={currentApp?.status || "draft"}>
+            <ReadOnlyFormWrapper
+              isReadOnly={isViewOnly}
+              applicationStatus={currentApp?.status || "draft"}
+            >
               <Card className="bg-white shadow-lg">
                 <CardContent className="p-8">
                   {getStepComponent()}
                   {!isViewOnly && (
                     <div className="mt-8 flex items-center justify-between gap-4 pt-6 border-t">
-                      <Button onClick={handlePrevStep} disabled={clampedStep === 0 || isSubmitting} variant="outline">← Previous</Button>
+                      <Button
+                        onClick={handlePrevStep}
+                        disabled={clampedStep === 0 || isSubmitting}
+                        variant="outline"
+                      >
+                        ← Previous
+                      </Button>
                       <div className="flex gap-3">
                         {clampedStep < 4 && (
-                          <Button onClick={() => {}} disabled={isSubmitting} variant="outline" className="border-gray-400 text-gray-700 hover:bg-gray-100">Save Draft</Button>
+                          <Button
+                            onClick={handleSaveDraft}
+                            disabled={isSubmitting}
+                            variant="outline"
+                            className="border-gray-400 text-gray-700 hover:bg-gray-100"
+                          >
+                            Save Draft
+                          </Button>
                         )}
                         {clampedStep < 4 ? (
-                          <Button onClick={handleNextStep} disabled={isSubmitting || isNextDisabled} className="bg-red-500 hover:bg-red-600">Next →</Button>
+                          <Button
+                            onClick={handleNextStep}
+                            disabled={isSubmitting || isNextDisabled}
+                            className="bg-red-500 hover:bg-red-600"
+                          >
+                            Next →
+                          </Button>
                         ) : (
-                          <Button onClick={() => {}} disabled={isSubmitting} className="bg-green-500 hover:bg-green-600">
-                            {isSubmitting ? <> <Loader className="mr-2 h-4 w-4 animate-spin"/> Submitting...</> : "Submit Application"}
+                          <Button
+                            onClick={handleSubmitApplication}
+                            disabled={isSubmitting}
+                            className="bg-green-500 hover:bg-green-600"
+                          >
+                            {isSubmitting ? (
+                              <>
+                                {" "}
+                                <Loader className="mr-2 h-4 w-4 animate-spin" />{" "}
+                                Submitting...
+                              </>
+                            ) : (
+                              "Submit Application"
+                            )}
                           </Button>
                         )}
                       </div>

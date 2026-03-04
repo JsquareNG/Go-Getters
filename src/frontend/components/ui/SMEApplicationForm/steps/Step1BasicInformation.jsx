@@ -1,4 +1,4 @@
-import React, { useRef, useState, useMemo } from "react";
+import React, { useMemo, useRef, useState } from "react";
 import FormFieldGroup from "../components/FormFieldGroup";
 import SINGAPORE_CONFIG from "../config/singaporeConfig";
 
@@ -9,8 +9,7 @@ const Step1BasicInformation = ({
   data,
   errors = {},
   touched = {},
-  onCountrySpecificFieldChange,
-  onBusinessTypeFieldChange,
+  onFieldChange,
   disabled = false,
 }) => {
   const fileRef = useRef(null);
@@ -19,140 +18,199 @@ const Step1BasicInformation = ({
   const [acraError, setAcraError] = useState("");
   const [acraSuccessMsg, setAcraSuccessMsg] = useState("");
 
-  const fireField = (fn) => (fieldName, value) => {
-    if (!fn) return;
-    fn(fieldName, value);
+  // ---- helper to fire change ----
+  const fireField = (name, value) => {
+    if (!onFieldChange) return;
+    if (onFieldChange.length >= 2) {
+      onFieldChange(name, value);
+      return;
+    }
+    onFieldChange({ target: { name, value } });
   };
 
-  const fireCountryField = fireField(onCountrySpecificFieldChange);
-  const fireBusinessField = fireField(onBusinessTypeFieldChange);
+  // ---- dynamic config from singaporeConfig ----
+  const { basicFieldsConfig, repeatableSectionsConfig } = useMemo(() => {
+    const entity = SINGAPORE_CONFIG.entities[data?.businessType] || {};
+    const step2 = entity.steps?.find((s) => s.id === "step2") || {};
 
-  const setIfEmpty = (scope, key, setter, nextVal) => {
-    if (!nextVal) return;
-    const next = String(nextVal).trim();
-    if (!next) return;
+    const basicFields = {};
+    const repeatableSections = {};
 
-    let current = "";
-    if (scope === "country") current = data?.countrySpecificFields?.[key] ?? "";
-    if (scope === "business") current = data?.businessTypeSpecificFields?.[key] ?? "";
+    if (step2.fields) {
+      Object.entries(step2.fields).forEach(([key, val]) => {
+        basicFields[key] = { ...val };
+      });
+    }
 
-    if (!current || String(current).trim() === "") setter(key, next);
-  };
+    if (step2.repeatableSections) {
+      Object.entries(step2.repeatableSections).forEach(
+        ([sectionKey, section]) => {
+          repeatableSections[sectionKey] = {
+            label: section.label,
+            min: section.min,
+            max: section.max,
+            fields: { ...section.fields },
+          };
+        },
+      );
+    }
 
-  // --- ACRA helpers ---
-  const ddMmmYyyyToISO = (s) => {
-    if (!s) return "";
-    const m = String(s).trim().match(/^(\d{1,2})\s+([A-Z]{3})\s+(\d{4})$/i);
-    if (!m) return "";
-    const day = m[1].padStart(2, "0");
-    const mon = m[2].toUpperCase();
-    const year = m[3];
-    const months = {
-      JAN: "01", FEB: "02", MAR: "03", APR: "04", MAY: "05", JUN: "06",
-      JUL: "07", AUG: "08", SEP: "09", OCT: "10", NOV: "11", DEC: "12"
+    return {
+      basicFieldsConfig: basicFields,
+      repeatableSectionsConfig: repeatableSections,
     };
-    const mm = months[mon];
-    if (!mm) return "";
-    return `${year}-${mm}-${day}`;
-  };
+  }, [data?.businessType]);
 
-  const normalizeStatus = (s) => {
-    if (!s) return "";
-    const v = String(s).trim().toUpperCase();
-    if (v === "LIVE" || v === "ACTIVE") return "Active";
-    if (v === "INACTIVE") return "Inactive";
-    if (v === "DISSOLVED") return "Dissolved";
-    if (v === "LIQUIDATED") return "Liquidated";
-    if (v === "IN RECEIVERSHIP") return "InReceivership";
-    if (v === "STRUCK OFF") return "StruckOff";
-    return "";
-  };
-
+  // ---- ACRA Upload ----
   const handleChooseAcra = () => fileRef.current?.click();
+
   const handleAcraFileChange = (e) => {
     setAcraError("");
     setAcraSuccessMsg("");
     const file = e.target.files?.[0];
-    if (!file) return;
-    setAcraFile(file);
+    if (file) setAcraFile(file);
     e.target.value = "";
   };
 
   const handleAutofillAcra = async () => {
     setAcraError("");
     setAcraSuccessMsg("");
+
     if (data?.country !== "SG") return;
     if (!acraFile) return setAcraError("Please upload your ACRA PDF first.");
-    if (acraFile.type !== "application/pdf") return setAcraError("Only PDF is allowed.");
+    if (acraFile.type !== "application/pdf")
+      return setAcraError("Only PDF is allowed.");
 
     setAcraUploading(true);
+
     try {
       const formData = new FormData();
       formData.append("file", acraFile);
+
       const res = await fetch(ACRA_WITH_TABLES_ENDPOINT, {
         method: "POST",
         body: formData,
       });
-      if (!res.ok) throw new Error(`Autofill failed (${res.status})`);
-      const payload = await res.json();
-      const kv = payload?.data?.kv_page_1 || {};
-      const ownerName = payload?.data?.owner?.owner_name || "";
-      const ownerId = payload?.data?.owner?.identification_number || "";
 
-      // Country-specific fields
-      setIfEmpty("country", "businessName", fireCountryField, kv["name of business"] || kv["name of company"]);
-      setIfEmpty("country", "registeredAddress", fireCountryField, kv["principal place of business"]);
-      const isoDate = ddMmmYyyyToISO(kv["registration date"] || kv["commencement date"]);
-      if (isoDate) setIfEmpty("country", "registrationDate", fireCountryField, isoDate);
-      const mappedStatus = normalizeStatus(kv["status of business"] || kv["status of company"]);
-      if (mappedStatus) setIfEmpty("country", "businessStatus", fireCountryField, mappedStatus);
-      if (kv["uen"]) {
-        setIfEmpty("country", "uen", fireCountryField, kv["uen"]);
-      }
+      if (!res.ok) throw new Error("Autofill failed");
 
-      // Business-type-specific owner/individual
-      if (ownerName) setIfEmpty("business", "fullName", fireBusinessField, ownerName);
-      if (ownerId) setIfEmpty("business", "idNumber", fireBusinessField, ownerId);
+      const result = await res.json();
+
+      // ---- normalize keys to avoid casing issues ----
+      const rawKv = result?.data?.kv_page_1 || {};
+      const kv = {};
+      Object.keys(rawKv).forEach((k) => {
+        kv[k.toLowerCase().trim()] = rawKv[k];
+      });
+
+      const ownerName = result?.data?.owner?.owner_name || "";
+      const ownerId = result?.data?.owner?.identification_number || "";
+
+      // ---- helpers ----
+      const setIfEmpty = (key, value) => {
+        if (!(key in basicFieldsConfig)) return;
+        if (!value) return;
+
+        const next = String(value).trim();
+        if (!next) return;
+
+        const current = data?.[key] ?? "";
+        if (!current || String(current).trim() === "") {
+          fireField(key, next);
+        }
+      };
+
+      const ddMmmYyyyToISO = (s) => {
+        if (!s) return "";
+        const m = String(s)
+          .trim()
+          .match(/^(\d{1,2})\s+([A-Z]{3})\s+(\d{4})$/i);
+        if (!m) return "";
+
+        const months = {
+          JAN: "01",
+          FEB: "02",
+          MAR: "03",
+          APR: "04",
+          MAY: "05",
+          JUN: "06",
+          JUL: "07",
+          AUG: "08",
+          SEP: "09",
+          OCT: "10",
+          NOV: "11",
+          DEC: "12",
+        };
+
+        const day = m[1].padStart(2, "0");
+        const mm = months[m[2].toUpperCase()];
+        if (!mm) return "";
+        return `${m[3]}-${mm}-${day}`;
+      };
+
+      const normalizeStatus = (s) => {
+        if (!s) return "";
+        const v = String(s).trim().toUpperCase();
+
+        if (v === "LIVE" || v === "ACTIVE") return "Active";
+        if (v === "INACTIVE") return "Inactive";
+        if (v === "DISSOLVED") return "Dissolved";
+        if (v === "LIQUIDATED") return "Liquidated";
+        if (v === "IN RECEIVERSHIP") return "InReceivership";
+        if (v === "STRUCK OFF") return "StruckOff";
+        return "";
+      };
+
+      // ---- explicit ACRA → form mapping ----
+
+      setIfEmpty(
+        "businessName",
+        kv["name of business"] || kv["name of company"],
+      );
+
+      setIfEmpty("registeredAddress", kv["principal place of business"]);
+
+      const isoDate = ddMmmYyyyToISO(
+        kv["registration date"] || kv["commencement date"],
+      );
+      if (isoDate) setIfEmpty("registrationDate", isoDate);
+
+      const mappedStatus = normalizeStatus(
+        kv["status of business"] || kv["status of company"],
+      );
+      if (mappedStatus) setIfEmpty("businessStatus", mappedStatus);
+
+      setIfEmpty("uen", kv["uen"]);
+
+      // business type owner fields
+      if (ownerName) setIfEmpty("fullName", ownerName);
+      if (ownerId) setIfEmpty("idNumber", ownerId);
 
       setAcraSuccessMsg("Autofill completed. Please review before proceeding.");
     } catch (err) {
-      setAcraError(err?.message || "Failed to autofill from ACRA.");
+      setAcraError(err?.message || "Failed to autofill.");
     } finally {
       setAcraUploading(false);
     }
   };
 
-  // --- DYNAMIC FIELD CONFIG ---
-  const { countryFields, businessFields } = useMemo(() => {
-    const entity = SINGAPORE_CONFIG.entities[data?.businessType] || {};
-    const step2 = entity.steps?.find((s) => s.id === "step2") || {};
-
-    const countryFields = step2.fields || {};
-    const businessFields = {};
-
-    // flatten repeatable sections into business-specific fields
-    if (step2.repeatableSections) {
-      Object.values(step2.repeatableSections).forEach((section) => {
-        Object.entries(section.fields).forEach(([key, val]) => {
-          businessFields[key] = val;
-        });
-      });
-    }
-
-    return { countryFields, businessFields };
-  }, [data?.businessType]);
-
   return (
     <div>
-      <h2 className="text-2xl font-bold mb-6 text-gray-900">Basic Information</h2>
+      <h2 className="text-2xl font-bold mb-6 text-gray-900">
+        Basic Information
+      </h2>
 
-      {/* ACRA Upload */}
+      {/* ACRA Autofill */}
       {data?.country === "SG" && (
         <div className="mb-6 rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
             <div>
-              <p className="text-sm font-semibold text-gray-900">Autofill with ACRA business profile</p>
-              <p className="text-xs text-gray-500">Upload ACRA Business Profile (PDF), then click Autofill.</p>
+              <p className="text-sm font-semibold text-gray-900">
+                Autofill with ACRA business profile
+              </p>
+              <p className="text-xs text-gray-500">
+                Upload ACRA Business Profile (PDF), then click Autofill.
+              </p>
             </div>
             <div className="flex items-center gap-3">
               <button
@@ -163,6 +221,7 @@ const Step1BasicInformation = ({
               >
                 Upload PDF
               </button>
+
               <button
                 type="button"
                 onClick={handleAutofillAcra}
@@ -173,49 +232,81 @@ const Step1BasicInformation = ({
               >
                 {acraUploading ? "Autofilling..." : "Autofill"}
               </button>
-              <input ref={fileRef} type="file" accept="application/pdf" className="hidden" onChange={handleAcraFileChange} />
+
+              <input
+                ref={fileRef}
+                type="file"
+                accept="application/pdf"
+                className="hidden"
+                onChange={handleAcraFileChange}
+              />
             </div>
           </div>
+
           <div className="mt-3 text-xs">
-            {acraFile?.name && <p className="text-gray-600">Selected: <span className="font-medium">{acraFile.name}</span></p>}
+            {acraFile?.name && (
+              <p className="text-gray-600">
+                Selected: <span className="font-medium">{acraFile.name}</span>
+              </p>
+            )}
             {acraError && <p className="mt-1 text-red-600">{acraError}</p>}
-            {acraSuccessMsg && <p className="mt-1 text-green-600">{acraSuccessMsg}</p>}
+            {acraSuccessMsg && (
+              <p className="mt-1 text-green-600">{acraSuccessMsg}</p>
+            )}
           </div>
         </div>
       )}
 
-      {/* Country Fields */}
-      {Object.entries(countryFields).map(([key, cfg]) => (
+      {/* Top-Level Fields */}
+      {Object.entries(basicFieldsConfig).map(([fieldName, fieldConfig]) => (
         <FormFieldGroup
-          key={key}
-          fieldName={key}
-          label={cfg.label}
-          placeholder={cfg.placeholder || ""}
-          value={data.countrySpecificFields?.[key] || ""}
-          onChange={onCountrySpecificFieldChange}
-          error={errors.countrySpecificFields?.[key]}
-          touched={touched.countrySpecificFields?.[key]}
-          required={cfg.required}
-          type={cfg.type || "text"}
+          key={fieldName}
+          fieldName={fieldName}
+          label={fieldConfig.label}
+          placeholder={fieldConfig.placeholder || ""}
+          value={data[fieldName] || ""}
+          onChange={fireField}
+          error={errors[fieldName]}
+          touched={touched[fieldName]}
+          type={fieldConfig.type || "text"}
+          options={fieldConfig.options || []}
+          required={fieldConfig.required || false}
           disabled={disabled}
         />
       ))}
 
-      {/* Business Fields */}
-      {Object.entries(businessFields).map(([key, cfg]) => (
-        <FormFieldGroup
-          key={key}
-          fieldName={key}
-          label={cfg.label}
-          placeholder={cfg.placeholder || ""}
-          value={data.businessTypeSpecificFields?.[key] || ""}
-          onChange={onBusinessTypeFieldChange}
-          error={errors.businessTypeSpecificFields?.[key]}
-          touched={touched.businessTypeSpecificFields?.[key]}
-          required={cfg.required}
-          type={cfg.type || "text"}
-          disabled={disabled}
-        />
+      {/* Repeatable Sections */}
+      {Object.entries(repeatableSectionsConfig).map(([sectionKey, section]) => (
+        <div key={sectionKey} className="mt-6">
+          <h3 className="text-lg font-semibold mb-3 text-gray-900">
+            {section.label}
+          </h3>
+
+          {/* Currently renders one set; extendable to dynamic add/remove */}
+          {Object.entries(section.fields).map(([fieldName, fieldConfig]) => (
+            <FormFieldGroup
+              key={fieldName}
+              fieldName={fieldName}
+              label={fieldConfig.label}
+              placeholder={fieldConfig.placeholder || ""}
+              // value={data[sectionKey]?.[fieldName] || ""}
+              value={data[fieldName] || ""}
+              // onChange={(name, value) =>
+              //   fireField(`${sectionKey}.${name}`, value)
+              // }
+                        onChange={fireField}
+
+              error={errors[fieldName]}
+              // touched={touched[sectionKey]?.[fieldName]}
+                        touched={touched[fieldName]}
+
+              type={fieldConfig.type || "text"}
+              options={fieldConfig.options || []}
+              required={fieldConfig.required || false}
+              disabled={disabled}
+            />
+          ))}
+        </div>
       ))}
     </div>
   );
