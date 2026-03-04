@@ -40,10 +40,14 @@ export const withdrawApplication = async (applicationId) => {
   return res.data;
 };
 
-export const escalateApplication = async (applicationId, reason) => {
-  const res = await axiosClient.put(`/applications/escalate/${applicationId}`, {
-    reason: String(reason ?? "").trim()
-  });
+export const escalateApplication = async (applicationId, payload) => {
+  const body = {
+    reason: String(payload?.reason ?? "").trim(),
+    documents: Array.isArray(payload?.documents) ? payload.documents : [],
+    questions: Array.isArray(payload?.questions) ? payload.questions : [],
+  };
+
+  const res = await axiosClient.put(`/applications/escalate/${applicationId}`, body);
   return res.data;
 };
 
