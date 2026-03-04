@@ -11,7 +11,8 @@ const Step0Brief = ({
   data,
   errors,
   touched,
-  onFieldChange
+  onFieldChange,
+  disabled = false,
 }) => {
   const countryOptions = Object.values(COUNTRIES).map((country) => ({
     label: country.name,
@@ -40,6 +41,7 @@ const Step0Brief = ({
         type="select"
         options={countryOptions}
         required
+        disabled={disabled}
       />
 
       {/* Business Type Selection - Required for conditional fields */}
@@ -53,6 +55,7 @@ const Step0Brief = ({
         type="select"
         options={businessTypeOptions}
         required
+        disabled={disabled}
       />
     </div>
   );

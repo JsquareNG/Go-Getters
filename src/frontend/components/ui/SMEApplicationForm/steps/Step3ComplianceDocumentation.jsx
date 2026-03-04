@@ -3,7 +3,6 @@ import FileUploadField from "../components/FileUploadField";
 import { getCountryConfig } from "../config/countriesConfig";
 import { getBusinessTypeConfig } from "../config/businessTypesConfig";
 
-
 /**
  * Step3ComplianceDocumentation component
  * Handles document uploads for KYC compliance
@@ -15,6 +14,7 @@ const Step3ComplianceDocumentation = ({
   touched,
   onDocumentChange,
   documentsProgress = {},
+  disabled = false,
 }) => {
   console.log("Step3 errors:", errors);
 
@@ -54,7 +54,7 @@ const Step3ComplianceDocumentation = ({
         </ul>
       </div>
 
-       {/* Dynamic Upload Fields */}
+      {/* Dynamic Upload Fields */}
       {Object.entries(requiredDocuments).map(([fieldName, doc]) => (
         <FileUploadField
           key={fieldName}
@@ -68,6 +68,7 @@ const Step3ComplianceDocumentation = ({
           acceptTypes="application/pdf,image/jpeg,image/png"
           maxSize={5242880}
           uploadProgress={documentsProgress?.[fieldName]}
+          disabled={disabled}
         />
       ))}
 

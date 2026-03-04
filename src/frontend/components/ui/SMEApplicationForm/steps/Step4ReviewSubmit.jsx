@@ -7,7 +7,12 @@ import { CheckCircle2 } from "lucide-react";
  * Step4ReviewSubmit component
  * Displays all collected information for review before final submission
  */
-const Step4ReviewSubmit = ({ data, onEdit, isSubmitting = false }) => {
+const Step4ReviewSubmit = ({
+  data,
+  onEdit,
+  isSubmitting = false,
+  disabled = false,
+}) => {
   const countryName = COUNTRIES[data.country]?.name || "Not selected";
   const businessTypeName =
     Object.values(BUSINESS_TYPES).find((type) => type.id === data.businessType)
@@ -27,7 +32,8 @@ const Step4ReviewSubmit = ({ data, onEdit, isSubmitting = false }) => {
         </div>
         <button
           onClick={() => onEditClick(title)}
-          className="text-sm text-red-500 hover:text-red-700 font-medium"
+          disabled={disabled}
+          className="text-sm text-red-500 hover:text-red-700 font-medium disabled:text-gray-400 disabled:cursor-not-allowed"
         >
           Edit
         </button>

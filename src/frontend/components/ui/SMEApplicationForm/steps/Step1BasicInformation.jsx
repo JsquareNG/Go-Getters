@@ -13,6 +13,7 @@ const Step1BasicInformation = ({
   onBusinessTypeFieldChange,
   countrySpecificFieldsConfig,
   businessTypeSpecificFieldsConfig,
+  disabled = false,
 }) => {
   const fileRef = useRef(null);
 
@@ -159,33 +160,38 @@ const Step1BasicInformation = ({
         "root",
         "companyName",
         (v) => fireField("companyName", v),
-        kv["name of business"] || kv["name of company"]
+        kv["name of business"] || kv["name of company"],
       );
 
       setIfEmpty(
         "root",
         "registeredOfficeAddress",
         (v) => fireField("registeredOfficeAddress", v),
-        kv["principal place of business"]
+        kv["principal place of business"],
       );
 
       const isoDate = ddMmmYyyyToISO(
-        kv["registration date"] || kv["commencement date"]
+        kv["registration date"] || kv["commencement date"],
       );
       if (isoDate) {
         setIfEmpty(
           "root",
           "incorporationDate",
           (v) => fireField("incorporationDate", v),
-          isoDate
+          isoDate,
         );
       }
 
       const mappedStatus = normalizeStatus(
-        kv["status of business"] || kv["status of company"]
+        kv["status of business"] || kv["status of company"],
       );
       if (mappedStatus) {
-        setIfEmpty("root", "status", (v) => fireField("status", v), mappedStatus);
+        setIfEmpty(
+          "root",
+          "status",
+          (v) => fireField("status", v),
+          mappedStatus,
+        );
       }
 
       // ---- Country-specific (SG) ----
@@ -194,7 +200,7 @@ const Step1BasicInformation = ({
           "country",
           "acraUEN",
           (v) => fireCountryField("acraUEN", v),
-          kv["uen"]
+          kv["uen"],
         );
       }
 
@@ -208,7 +214,7 @@ const Step1BasicInformation = ({
           "business",
           "ownerName",
           (v) => fireBusinessField("ownerName", v),
-          ownerName
+          ownerName,
         );
       }
       if ("ownerIdNumber" in bizFields && ownerId) {
@@ -216,7 +222,7 @@ const Step1BasicInformation = ({
           "business",
           "ownerIdNumber",
           (v) => fireBusinessField("ownerIdNumber", v),
-          ownerId
+          ownerId,
         );
       }
 
@@ -236,8 +242,9 @@ const Step1BasicInformation = ({
         }
       }
 
-      setAcraSuccessMsg("Autofill completed. Please review the details before proceeding.");
-      
+      setAcraSuccessMsg(
+        "Autofill completed. Please review the details before proceeding.",
+      );
     } catch (err) {
       setAcraError(err?.message || "Failed to autofill from ACRA.");
     } finally {
@@ -319,6 +326,7 @@ const Step1BasicInformation = ({
         error={errors.companyName}
         touched={touched.companyName}
         required
+        disabled={disabled}
       />
 
       {/* Dynamic Country-Specific Fields */}
@@ -336,8 +344,9 @@ const Step1BasicInformation = ({
               touched={touched[fieldName]}
               required={fieldConfig.required}
               helpText={`Format: ${fieldConfig.placeholder}`}
+              disabled={disabled}
             />
-          )
+          ),
         )}
 
       {/* Dynamic Business-Type-Specific Fields */}
@@ -355,8 +364,9 @@ const Step1BasicInformation = ({
               touched={touched[fieldName]}
               required={fieldConfig.required}
               type={fieldName.includes("Details") ? "textarea" : "text"}
+              disabled={disabled}
             />
-          )
+          ),
         )}
 
       {/* INCORPORATION DATE */}
@@ -370,6 +380,7 @@ const Step1BasicInformation = ({
         touched={touched.incorporationDate}
         type="date"
         required
+        disabled={disabled}
       />
 
       {/* STATUS OF COMPANY */}
@@ -391,6 +402,7 @@ const Step1BasicInformation = ({
           { value: "StruckOff", label: "Struck Off" },
         ]}
         required
+        disabled={disabled}
       />
 
       {/* REGISTERED OFFICE ADDRESS */}
@@ -404,6 +416,7 @@ const Step1BasicInformation = ({
         touched={touched.registeredOfficeAddress}
         type="textarea"
         required
+        disabled={disabled}
       />
 
       {/* Contact Information */}
@@ -417,6 +430,7 @@ const Step1BasicInformation = ({
         touched={touched.email}
         type="email"
         required
+        disabled={disabled}
       />
 
       <FormFieldGroup
@@ -429,6 +443,7 @@ const Step1BasicInformation = ({
         touched={touched.phone}
         type="tel"
         required
+        disabled={disabled}
       />
     </div>
   );

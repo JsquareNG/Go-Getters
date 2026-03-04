@@ -11,8 +11,26 @@ export const getApplicationByAppId = async (id) => {
   return res.data;
 };
 
+/**
+ * Save application draft with full form data persistence
+ * Payload should include:
+ * - user_id: userId
+ * - email: user email
+ * - firstName: user first name
+ * - form_data: entire form state object including all fields, country-specific, business-specific, and documents
+ * - application_id: (optional) for updating existing draft
+ */
 export const saveApplicationDraftApi = async (payload) => {
-  const res = await axiosClient.post("/applications/firstSave", payload);
+  // Construct the request with full form data
+  const draftPayload = {
+    user_id: payload.user_id,
+    email: payload.email,
+    firstName: payload.firstName,
+    form_data: payload.form_data, // entire form state
+    ...(payload.application_id && { application_id: payload.application_id }),
+  };
+
+  const res = await axiosClient.post("/applications/firstSave", draftPayload);
   return res.data;
 };
 
@@ -47,7 +65,7 @@ export const withdrawApplication = async (applicationId) => {
 
 export const escalateApplication = async (applicationId, reason) => {
   const res = await axiosClient.put(`/applications/escalate/${applicationId}`, {
-    reason: String(reason ?? "").trim()
+    reason: String(reason ?? "").trim(),
   });
   return res.data;
 };
@@ -58,6 +76,8 @@ export const deleteApplication = async (applicationId) => {
 };
 
 export const getReviewJob = async (applicationId) => {
-  const res = await axiosClient.get(`/reviewJobs/getReviewJob/${applicationId}`);
+  const res = await axiosClient.get(
+    `/reviewJobs/getReviewJob/${applicationId}`,
+  );
   return res.data;
 };

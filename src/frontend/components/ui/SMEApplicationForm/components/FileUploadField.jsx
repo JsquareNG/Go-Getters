@@ -17,6 +17,7 @@ const FileUploadField = ({
   acceptTypes = "application/pdf,image/jpeg,image/png",
   maxSize = 5242880, // 5MB in bytes
   helpText = "Accepted formats: PDF, JPG, PNG. Max size: 5MB",
+  disabled = false,
 }) => {
   console.log("FileUploadField:", fieldName, { error, touched });
   const inputRef = useRef(null);
@@ -155,8 +156,10 @@ const FileUploadField = ({
     validateAndSend(droppedFile);
   };
 
-  const disabled =
-    typeof uploadProgress === "number" && uploadProgress >= 0 && uploadProgress < 100;
+  const isUploading =
+    typeof uploadProgress === "number" &&
+    uploadProgress >= 0 &&
+    uploadProgress < 100;
 
   return (
     <div className="mb-6">
@@ -172,12 +175,14 @@ const FileUploadField = ({
         }`}
       > */}
       <div
-        onClick={() => !disabled && inputRef.current?.click()}
+        onClick={() => !isUploading && !disabled && inputRef.current?.click()}
         onDragOver={handleDragOver}
         onDragLeave={handleDragLeave}
         onDrop={handleDrop}
         className={`border-2 border-dashed rounded-lg p-6 text-center transition-colors ${
-          disabled ? "opacity-60 cursor-not-allowed" : "cursor-pointer"
+          isUploading || disabled
+            ? "opacity-60 cursor-not-allowed"
+            : "cursor-pointer"
         } ${
           hasError
             ? "border-red-500 bg-red-50"
@@ -193,14 +198,14 @@ const FileUploadField = ({
           onChange={handleFileChange}
           accept={acceptTypes}
           className="hidden"
-          disabled={disabled}
+          disabled={isUploading || disabled}
         />
         <label
           htmlFor={fieldName}
           className="cursor-pointer"
           onClick={(e) => e.stopPropagation()}
         >
-        {/* <label htmlFor={fieldName} className="cursor-pointer"> */}
+          {/* <label htmlFor={fieldName} className="cursor-pointer"> */}
           {file ? (
             <div className="text-center">
               <CheckCircle className="h-8 w-8 text-green-500 mx-auto mb-2" />

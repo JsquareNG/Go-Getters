@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { Button } from "../primitives";
 import { Menu, X } from "lucide-react";
-import dbslogo from "@/assets/dbslogo.png";
+import gogetterslogo from "@/assets/gogetterslogo.png";
 
 const Header = () => {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
@@ -14,7 +14,7 @@ const Header = () => {
           <div className="flex items-center gap-2">
             <div className="flex items-center">
               <div className="w-auto h-8 bg-primary rounded flex items-center justify-center">
-                <img src={dbslogo} alt="DBS SME Logo" className="h-6 w-auto" />
+                <img src={gogetterslogo} alt="GoGetters SME Logo" className="h-30 w-auto" />
               </div>
             </div>
           </div>

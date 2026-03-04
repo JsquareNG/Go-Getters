@@ -108,7 +108,7 @@ export default function LandingPage() {
 
   const handleCreateNew = () => {
     if (blocksNewApplication) return;
-    navigate("/applications/form");
+    navigate("/application/edit/new/0");
   };
 
   if (isLoading) {

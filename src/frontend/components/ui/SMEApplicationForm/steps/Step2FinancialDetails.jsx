@@ -6,7 +6,13 @@ import { COUNTRIES } from "../config/countriesConfig";
  * Step2FinancialDetails component
  * Collects financial and bank account information
  */
-const Step2FinancialDetails = ({ data, errors, touched, onFieldChange }) => {
+const Step2FinancialDetails = ({
+  data,
+  errors,
+  touched,
+  onFieldChange,
+  disabled = false,
+}) => {
   // Get currency from selected country (pre-populate)
   const countryCurrency = data.country ? COUNTRIES[data.country]?.currency : "";
 
@@ -43,6 +49,7 @@ const Step2FinancialDetails = ({ data, errors, touched, onFieldChange }) => {
         touched={touched.bankAccountNumber}
         required
         helpText="Your business bank account for cross-border transfers"
+        disabled={disabled}
       />
 
       <FormFieldGroup
@@ -55,6 +62,7 @@ const Step2FinancialDetails = ({ data, errors, touched, onFieldChange }) => {
         touched={touched.swift}
         required
         helpText="Bank's SWIFT code for international transactions"
+        disabled={disabled}
       />
 
       <FormFieldGroup
@@ -67,6 +75,7 @@ const Step2FinancialDetails = ({ data, errors, touched, onFieldChange }) => {
         type="select"
         options={currencyOptions}
         required
+        disabled={disabled}
       />
 
       {/* Financial Information */}
@@ -86,6 +95,7 @@ const Step2FinancialDetails = ({ data, errors, touched, onFieldChange }) => {
           type="number"
           required
           helpText="Enter in your account currency"
+          disabled={disabled}
         />
 
         <FormFieldGroup
@@ -98,6 +108,7 @@ const Step2FinancialDetails = ({ data, errors, touched, onFieldChange }) => {
           touched={touched.taxId}
           required
           helpText="Used for tax compliance verification"
+          disabled={disabled}
         />
       </div>
     </div>

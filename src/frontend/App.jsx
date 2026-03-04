@@ -79,9 +79,20 @@ export default function App() {
           }
         />
 
-        {/* SME application form - allow nested step routes under this path */}
+        {/* SME application form - edit/view mode routing */}
         <Route
-          path="/applications/form/*"
+          path="/application/edit/:appId/:step"
+          element={
+            <RequireRole role="SME">
+              <LandingLayout>
+                <SMEApplicationForm />
+              </LandingLayout>
+            </RequireRole>
+          }
+        />
+
+        <Route
+          path="/application/view/:appId/:step"
           element={
             <RequireRole role="SME">
               <LandingLayout>

@@ -4,8 +4,14 @@ import { CheckCircle2, Circle } from "lucide-react";
 /**
  * FormStepper component
  * Displays progress indicator showing current step and completed steps
+ * stepCompletion: object like { 0: true, 1: false, 2: true, ... } indicating if each step is complete
  */
-const FormStepper = ({ currentStep, totalSteps, stepLabels = [] }) => {
+const FormStepper = ({
+  currentStep,
+  totalSteps,
+  stepLabels = [],
+  stepCompletion = {},
+}) => {
   const defaultLabels = Array.from(
     { length: totalSteps },
     (_, i) => `Step ${i + 1}`,
@@ -17,8 +23,8 @@ const FormStepper = ({ currentStep, totalSteps, stepLabels = [] }) => {
       <div className="flex items-center justify-between">
         {Array.from({ length: totalSteps }).map((_, index) => {
           const stepNumber = index + 1;
-          const isActive = stepNumber === currentStep;
-          const isCompleted = stepNumber < currentStep;
+          const isActive = stepNumber === currentStep + 1;
+          const isCompleted = stepCompletion[index] === true;
 
           return (
             <React.Fragment key={index}>
@@ -66,7 +72,7 @@ const FormStepper = ({ currentStep, totalSteps, stepLabels = [] }) => {
       <div className="mt-6 w-full bg-gray-200 rounded-full h-1">
         <div
           className="bg-red-500 h-1 rounded-full transition-all duration-300"
-          style={{ width: `${(currentStep / totalSteps) * 100}%` }}
+          style={{ width: `${((currentStep + 1) / totalSteps) * 100}%` }}
         />
       </div>
     </div>

@@ -129,7 +129,7 @@ export default function ApplicationDetail() {
     if (id) fetchDocuments();
   }, [id]);
 
-  const currentStatus = application?.current_status || "Not started";
+  const currentStatus = application?.current_status || "Not started"; //"Draft", "Submitted", "Under Review", "Requires Action", "Approved"
 
   const formattedDate = application?.last_edited
     ? new Date(application.last_edited).toLocaleDateString("en-US", {
@@ -145,7 +145,7 @@ export default function ApplicationDetail() {
   }, [application]);
 
   /**
-   * ✅ Download handler (works with your backend)
+   * Download handler (works with your backend)
    * Backend: GET /documents/download-url/{document_id}
    * Returns: { url: "https://..." }
    *
@@ -158,7 +158,7 @@ export default function ApplicationDetail() {
     const newTab = window.open("", "_blank"); // open immediately on click to avoid popup blocking
 
     try {
-      const documentId = doc?.document_id; // ✅ matches backend
+      const documentId = doc?.document_id; // matches backend
       if (!documentId) {
         if (newTab) newTab.close();
         toast.error("Missing document_id");
@@ -167,7 +167,7 @@ export default function ApplicationDetail() {
       }
 
       const res = await downloadDocuments(documentId);
-      const signedUrl = res?.url; // ✅ backend returns { url }
+      const signedUrl = res?.url; // backend returns { url }
 
       if (!signedUrl) throw new Error("No url returned from download endpoint");
 
@@ -175,7 +175,11 @@ export default function ApplicationDetail() {
       else window.open(signedUrl, "_blank", "noopener,noreferrer");
     } catch (e) {
       if (newTab) newTab.close();
-      console.error("Download error:", e?.response?.status, e?.response?.data || e);
+      console.error(
+        "Download error:",
+        e?.response?.status,
+        e?.response?.data || e,
+      );
       toast.error("Could not open document", {
         description: e?.response?.data?.detail || e?.message || "Unknown error",
       });
@@ -235,6 +239,19 @@ export default function ApplicationDetail() {
               </div>
             </div>
           </div>
+
+          {/* To continue with draft application */}
+          {currentStatus === "Draft" && (
+            <div className="flex items-center justify-end">
+              <Button
+                variant="outline"
+                onClick={() => navigate(`/applications/form/${id}/edit`)}
+                className="text-sm"
+              >
+                Open Draft
+              </Button>
+            </div>
+          )}
         </div>
 
         {/* MAIN 2-COLUMN LAYOUT */}
@@ -261,7 +278,9 @@ export default function ApplicationDetail() {
                   </div>
 
                   <div>
-                    <p className="text-sm text-muted-foreground">Business Name</p>
+                    <p className="text-sm text-muted-foreground">
+                      Business Name
+                    </p>
                     <p className="font-medium text-foreground">
                       {application.business_name || "-"}
                     </p>
@@ -277,7 +296,9 @@ export default function ApplicationDetail() {
                   </div>
 
                   <div>
-                    <p className="text-sm text-muted-foreground">Business Type</p>
+                    <p className="text-sm text-muted-foreground">
+                      Business Type
+                    </p>
                     <p className="font-medium text-foreground">
                       {application.business_type || "-"}
                     </p>
@@ -521,7 +542,7 @@ export default function ApplicationDetail() {
                           </p>
                         </div>
 
-                        {/* ✅ Click-safe download button */}
+                        {/* Click-safe download button */}
                         <Button
                           variant="ghost"
                           className="relative z-50 h-8 w-8 p-0 pointer-events-auto"
