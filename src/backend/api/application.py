@@ -567,6 +567,12 @@ def second_submit(
             to_status=app.current_status,
         )
 
+         # ✅ ADD THIS (same as firstSubmit)
+        print("[secondSubmit] before add_task", app.application_id)
+        background_tasks.add_task(run_review_job, app.application_id)
+        print("[secondSubmit] after add_task", app.application_id)
+
+
         if user_email:
             subject, body = build_application_submitted_email(app, user_firstName)
             background_tasks.add_task(safe_send, user_email, subject, body)

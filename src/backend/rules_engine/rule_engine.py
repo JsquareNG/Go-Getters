@@ -1,9 +1,9 @@
 # rule_engine.py
 
-from models import Company
-from kyb_rules import evaluate_company
-from kyc_rules import evaluate_individual
-from config import SIMPLIFIED_CDD_THRESHOLD, STANDARD_CDD_THRESHOLD
+from backend.rules_engine.models import Company
+from backend.rules_engine.kyb_rules import evaluate_company
+from backend.rules_engine.kyc_rules import evaluate_individual
+from backend.rules_engine.config import SIMPLIFIED_CDD_THRESHOLD, STANDARD_CDD_THRESHOLD
 
 
 def determine_due_diligence(company: Company):

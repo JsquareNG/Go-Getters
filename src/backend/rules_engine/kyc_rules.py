@@ -1,7 +1,7 @@
 # kyc_rules.py
 
-from models import Individual
-from config import HIGH_RISK_JURISDICTIONS
+from backend.rules_engine.models import Individual
+from backend.rules_engine.config import HIGH_RISK_JURISDICTIONS
 
 
 def evaluate_individual(person: Individual):

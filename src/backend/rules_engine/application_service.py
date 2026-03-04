@@ -1,7 +1,7 @@
 # application_service.py
 
-from models import Company
-from rule_engine import determine_due_diligence
+from backend.rules_engine.models import Company
+from backend.rules_engine.rule_engine import determine_due_diligence
 
 
 def submit_application(company: Company):
