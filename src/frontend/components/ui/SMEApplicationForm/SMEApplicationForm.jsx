@@ -416,6 +416,7 @@ const SMEApplicationForm = ({ onSubmitSuccess }) => {
             errors={state.errors}
             touched={state.touched}
             onDocumentChange={handleDocumentChange}
+            onFieldChange={setField}
             documentsProgress={state.data.documentsProgress}
             {...commonProps}
           />

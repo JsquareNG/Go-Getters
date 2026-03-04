@@ -1,10 +1,10 @@
-import React from "react";
+import React, { useMemo } from "react";
 import FormFieldGroup from "../components/FormFieldGroup";
-import { COUNTRIES } from "../config/countriesConfig";
+import SINGAPORE_CONFIG from "../config/singaporeConfig";
 
 /**
  * Step2FinancialDetails component
- * Collects financial and bank account information
+ * Dynamically renders financial fields based on Singapore config
  */
 const Step2FinancialDetails = ({
   data,
@@ -13,17 +13,47 @@ const Step2FinancialDetails = ({
   onFieldChange,
   disabled = false,
 }) => {
-  // Get currency from selected country (pre-populate)
-  const countryCurrency = data.country ? COUNTRIES[data.country]?.currency : "";
+  // ---- helper to call onFieldChange ----
+  const fireField = (name, value) => {
+    if (!onFieldChange) return;
+    if (onFieldChange.length >= 2) {
+      onFieldChange(name, value);
+      return;
+    }
+    onFieldChange({ target: { name, value } });
+  };
 
-  const currencyOptions = [
-    { label: "SGD - Singapore Dollar", value: "SGD" },
-    { label: "HKD - Hong Kong Dollar", value: "HKD" },
-    { label: "USD - US Dollar", value: "USD" },
-    { label: "MYR - Malaysian Ringgit", value: "MYR" },
-    { label: "EUR - Euro", value: "EUR" },
-    { label: "GBP - British Pound", value: "GBP" },
-  ];
+  // ---- dynamic field config ----
+  const { financialFieldsConfig, repeatableSectionsConfig } = useMemo(() => {
+    const entity = SINGAPORE_CONFIG.entities[data?.businessType] || {};
+    const step3 = entity.steps?.find((s) => s.id === "step3") || {};
+
+    const financialFields = {};
+    const repeatableSections = {};
+
+    // top-level fields
+    if (step3.fields) {
+      Object.entries(step3.fields).forEach(([key, val]) => {
+        financialFields[key] = {
+          ...val,
+        };
+      });
+    }
+
+    // repeatable-section fields (e.g., partnerFinancials)
+    if (step3.repeatableSections) {
+      Object.entries(step3.repeatableSections).forEach(([sectionKey, section]) => {
+        repeatableSections[sectionKey] = {
+          label: section.label,
+          min: section.min,
+          max: section.max,
+          fields: { ...section.fields },
+        };
+      });
+    }
+
+    return { financialFieldsConfig: financialFields, repeatableSectionsConfig: repeatableSections };
+  }, [data?.businessType]);
 
   return (
     <div>
@@ -31,86 +61,68 @@ const Step2FinancialDetails = ({
         Financial Details
       </h2>
 
-      {/* Bank Account Information */}
-      <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-        <p className="text-sm text-blue-800">
-          <strong>Important:</strong> Ensure all bank details are accurate.
-          We'll verify these with your bank.
-        </p>
-      </div>
+      {/* Top-Level Financial Fields */}
+      {Object.entries(financialFieldsConfig).map(([fieldName, fieldConfig]) => {
+        let type = fieldConfig.type;
+        if (type === "number") type = "number";
+        if (type === "textarea") type = "textarea";
+        if (type === "select") type = "select";
 
-      <FormFieldGroup
-        fieldName="bankAccountNumber"
-        label="Bank Account Number"
-        placeholder="e.g., 1234567890"
-        value={data.bankAccountNumber}
-        onChange={onFieldChange}
-        error={errors.bankAccountNumber}
-        touched={touched.bankAccountNumber}
-        required
-        helpText="Your business bank account for cross-border transfers"
-        disabled={disabled}
-      />
+        return (
+          <FormFieldGroup
+            key={fieldName}
+            fieldName={fieldName}
+            label={fieldConfig.label}
+            placeholder={fieldConfig.placeholder || ""}
+            value={data[fieldName] || ""}
+            onChange={fireField}
+            error={errors[fieldName]}
+            touched={touched[fieldName]}
+            type={type}
+            options={fieldConfig.options || []}
+            required={fieldConfig.required || false}
+            helpText={fieldConfig.helpText || ""}
+            disabled={disabled}
+          />
+        );
+      })}
 
-      <FormFieldGroup
-        fieldName="swift"
-        label="SWIFT / BIC Code"
-        placeholder="e.g., ICBKSGSG"
-        value={data.swift}
-        onChange={onFieldChange}
-        error={errors.swift}
-        touched={touched.swift}
-        required
-        helpText="Bank's SWIFT code for international transactions"
-        disabled={disabled}
-      />
+      {/* Repeatable Sections */}
+      {Object.entries(repeatableSectionsConfig).map(([sectionKey, section]) => (
+        <div key={sectionKey} className="mt-6">
+          <h3 className="text-lg font-semibold mb-3 text-gray-900">
+            {section.label}
+          </h3>
 
-      <FormFieldGroup
-        fieldName="currency"
-        label="Account Currency"
-        value={data.currency || countryCurrency}
-        onChange={onFieldChange}
-        error={errors.currency}
-        touched={touched.currency}
-        type="select"
-        options={currencyOptions}
-        required
-        disabled={disabled}
-      />
+          {/* For simplicity, we render only one set (min) of fields; could extend for dynamic adding */}
+          {Object.entries(section.fields).map(([fieldName, fieldConfig]) => {
+            let type = fieldConfig.type;
+            if (type === "number") type = "number";
+            if (type === "textarea") type = "textarea";
+            if (type === "select") type = "select";
 
-      {/* Financial Information */}
-      <div className="mt-8">
-        <h3 className="text-lg font-semibold mb-4 text-gray-900">
-          Company Financial Information
-        </h3>
-
-        <FormFieldGroup
-          fieldName="annualRevenue"
-          label="Annual Revenue"
-          placeholder="e.g., 500000.00"
-          value={data.annualRevenue}
-          onChange={onFieldChange}
-          error={errors.annualRevenue}
-          touched={touched.annualRevenue}
-          type="number"
-          required
-          helpText="Enter in your account currency"
-          disabled={disabled}
-        />
-
-        <FormFieldGroup
-          fieldName="taxId"
-          label="Tax Identification Number"
-          placeholder="Enter your tax ID"
-          value={data.taxId}
-          onChange={onFieldChange}
-          error={errors.taxId}
-          touched={touched.taxId}
-          required
-          helpText="Used for tax compliance verification"
-          disabled={disabled}
-        />
-      </div>
+            return (
+              <FormFieldGroup
+                key={fieldName}
+                fieldName={fieldName}
+                label={fieldConfig.label}
+                placeholder={fieldConfig.placeholder || ""}
+                value={data[sectionKey]?.[fieldName] || ""}
+                onChange={(name, value) =>
+                  fireField(`${sectionKey}.${name}`, value)
+                }
+                error={errors[fieldName]}
+                touched={touched[fieldName]}
+                type={type}
+                options={fieldConfig.options || []}
+                required={fieldConfig.required || false}
+                helpText={fieldConfig.helpText || ""}
+                disabled={disabled}
+              />
+            );
+          })}
+        </div>
+      ))}
     </div>
   );
 };

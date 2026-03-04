@@ -41,6 +41,11 @@ const initialState = {
     // Server metadata for uploaded documents
     documentsMeta: {},
 
+    // Nested object holding responses to compliance declarations (yes/no,
+    // checkbox/conditional fields, etc.).  Step3 component writes to this
+    // field via the generic setField handler.
+    complianceFields: {},
+
     // Dynamic country-specific fields
     countrySpecificFields: {},
 
