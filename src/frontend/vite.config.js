@@ -9,4 +9,13 @@ export default defineConfig({
       "@": path.resolve(__dirname),
     },
   },
+  server: {
+    proxy: {
+      '/bell': {
+        target: 'https://go-getters-onboarding.onrender.com',
+        changeOrigin: true,
+        secure: true,
+      },
+    },
+  },
 });

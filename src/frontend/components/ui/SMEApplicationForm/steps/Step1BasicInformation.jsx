@@ -1,6 +1,9 @@
-import React, { useRef, useState } from "react";
+import React, { useRef, useState, useMemo } from "react";
 import FormFieldGroup from "../components/FormFieldGroup";
+import SINGAPORE_CONFIG from "../config/singaporeConfig";
+import { COUNTRIES } from "../config/countriesConfig";
 
+// TODO: move this to API later
 const ACRA_WITH_TABLES_ENDPOINT =
   "http://127.0.0.1:8000/document-ai/extract-acra-with-tables";
 
@@ -11,28 +14,21 @@ const Step1BasicInformation = ({
   onFieldChange,
   onCountrySpecificFieldChange,
   onBusinessTypeFieldChange,
-  countrySpecificFieldsConfig,
-  businessTypeSpecificFieldsConfig,
   disabled = false,
 }) => {
   const fileRef = useRef(null);
-
   const [acraFile, setAcraFile] = useState(null);
   const [acraUploading, setAcraUploading] = useState(false);
   const [acraError, setAcraError] = useState("");
   const [acraSuccessMsg, setAcraSuccessMsg] = useState("");
 
-  // ---- helpers to support both setter styles (event vs (name,value)) ----
+  // ---- helpers ----
   const callChange = (fn, name, value) => {
     if (!fn) return;
-
-    // If the function expects 2 args, it's (fieldName, value)
     if (fn.length >= 2) {
       fn(name, value);
       return;
     }
-
-    // Otherwise treat as event handler
     fn({ target: { name, value } });
   };
 
@@ -60,6 +56,7 @@ const Step1BasicInformation = ({
     if (empty) setter(next);
   };
 
+  // ---- ACRA helpers ----
   const ddMmmYyyyToISO = (s) => {
     if (!s) return "";
     const m = String(s)
@@ -91,8 +88,7 @@ const Step1BasicInformation = ({
   const normalizeStatus = (s) => {
     if (!s) return "";
     const v = String(s).trim().toUpperCase();
-    if (v === "LIVE") return "Active";
-    if (v === "ACTIVE") return "Active";
+    if (v === "LIVE" || v === "ACTIVE") return "Active";
     if (v === "INACTIVE") return "Inactive";
     if (v === "DISSOLVED") return "Dissolved";
     if (v === "LIQUIDATED") return "Liquidated";
@@ -101,9 +97,7 @@ const Step1BasicInformation = ({
     return "";
   };
 
-  // ---- file select ----
   const handleChooseAcra = () => fileRef.current?.click();
-
   const handleAcraFileChange = (e) => {
     setAcraError("");
     setAcraSuccessMsg("");
@@ -113,89 +107,80 @@ const Step1BasicInformation = ({
     e.target.value = "";
   };
 
-  // ---- autofill ----
   const handleAutofillAcra = async () => {
     setAcraError("");
     setAcraSuccessMsg("");
+    if (data?.country !== "SG") return;
 
-    if (data?.country !== "SG") return; // SG-only
-
-    if (!acraFile) {
-      setAcraError("Please upload your ACRA business profile PDF first.");
-      return;
-    }
-
-    if (acraFile.type !== "application/pdf") {
-      setAcraError("Only PDF is allowed.");
-      return;
-    }
+    if (!acraFile) return setAcraError("Please upload your ACRA PDF first.");
+    if (acraFile.type !== "application/pdf")
+      return setAcraError("Only PDF is allowed.");
 
     setAcraUploading(true);
-
     try {
       const formData = new FormData();
       formData.append("file", acraFile);
-
       const res = await fetch(ACRA_WITH_TABLES_ENDPOINT, {
         method: "POST",
         body: formData,
       });
-
       if (!res.ok) {
         const errJson = await res.json().catch(() => null);
         throw new Error(errJson?.detail || `Autofill failed (${res.status})`);
       }
-
       const payload = await res.json();
-      const d = payload?.data ?? payload;
+      const kv = payload?.data?.kv_page_1 || {};
+      const ownerName = payload?.data?.owner?.owner_name || "";
+      const ownerId = payload?.data?.owner?.identification_number || "";
 
-      const kv = d?.kv_page_1 || {};
-      const entityType = d?.entity_type || "";
-
-      const ownerName = d?.owner?.owner_name || "";
-      const ownerId = d?.owner?.identification_number || "";
-
-      // ---- Root fields ----
+      // map values into the dynamically generated fields.  country-specific
+      // fields are used for both actual country data and the basic business
+      // fields defined in the Singapore config, therefore we treat them
+      // uniformly here.
       setIfEmpty(
-        "root",
-        "companyName",
-        (v) => fireField("companyName", v),
+        "country",
+        "businessName",
+        (v) => fireCountryField("businessName", v),
         kv["name of business"] || kv["name of company"],
       );
 
       setIfEmpty(
-        "root",
-        "registeredOfficeAddress",
-        (v) => fireField("registeredOfficeAddress", v),
+        "country",
+        "registeredAddress",
+        (v) => fireCountryField("registeredAddress", v),
         kv["principal place of business"],
       );
 
       const isoDate = ddMmmYyyyToISO(
         kv["registration date"] || kv["commencement date"],
       );
-      if (isoDate) {
+      if (isoDate)
         setIfEmpty(
-          "root",
-          "incorporationDate",
-          (v) => fireField("incorporationDate", v),
+          "country",
+          "registrationDate",
+          (v) => fireCountryField("registrationDate", v),
           isoDate,
         );
-      }
 
       const mappedStatus = normalizeStatus(
         kv["status of business"] || kv["status of company"],
       );
-      if (mappedStatus) {
+      if (mappedStatus)
         setIfEmpty(
-          "root",
-          "status",
-          (v) => fireField("status", v),
+          "country",
+          "businessStatus",
+          (v) => fireCountryField("businessStatus", v),
           mappedStatus,
         );
-      }
 
-      // ---- Country-specific (SG) ----
-      if (countrySpecificFieldsConfig?.acraUEN) {
+      if (kv["uen"]) {
+        setIfEmpty(
+          "country",
+          "uen",
+          (v) => fireCountryField("uen", v),
+          kv["uen"],
+        );
+        // populate acraUEN as well regardless of current value
         setIfEmpty(
           "country",
           "acraUEN",
@@ -204,47 +189,25 @@ const Step1BasicInformation = ({
         );
       }
 
-      // ---- Business-type-specific fields (dynamic) ----
-      // Only fill if those fields are present for the selected business type
-      const bizFields = businessTypeSpecificFieldsConfig || {};
-
-      // Sole Proprietorship
-      if ("ownerName" in bizFields && ownerName) {
+      // first owner details (flattened by current form design)
+      if (ownerName && data?.businessTypeSpecificFields?.fullName) {
         setIfEmpty(
           "business",
-          "ownerName",
-          (v) => fireBusinessField("ownerName", v),
+          "fullName",
+          (v) => fireBusinessField("fullName", v),
           ownerName,
         );
       }
-      if ("ownerIdNumber" in bizFields && ownerId) {
+      if (ownerId && data?.businessTypeSpecificFields?.idNumber) {
         setIfEmpty(
           "business",
-          "ownerIdNumber",
-          (v) => fireBusinessField("ownerIdNumber", v),
+          "idNumber",
+          (v) => fireBusinessField("idNumber", v),
           ownerId,
         );
       }
 
-      // Partnership: if you want to prefill partnerDetails with owner as first line (optional)
-      // Only if your form is currently a partnership and field exists.
-      if ("partnerDetails" in bizFields && (ownerName || ownerId)) {
-        const line = [ownerName, ownerId].filter(Boolean).join(", ");
-        if (line) {
-          // if empty, set; if not empty, append (avoid duplicates)
-          const current =
-            data?.businessTypeSpecificFields?.partnerDetails?.trim() || "";
-          if (!current) {
-            fireBusinessField("partnerDetails", line);
-          } else if (!current.includes(line)) {
-            fireBusinessField("partnerDetails", `${current}\n${line}`);
-          }
-        }
-      }
-
-      setAcraSuccessMsg(
-        "Autofill completed. Please review the details before proceeding.",
-      );
+      setAcraSuccessMsg("Autofill completed. Please review before proceeding.");
     } catch (err) {
       setAcraError(err?.message || "Failed to autofill from ACRA.");
     } finally {
@@ -252,13 +215,68 @@ const Step1BasicInformation = ({
     }
   };
 
+  // ---- DYNAMIC FIELD CONFIG MAPPING ----
+  const { countrySpecificFieldsConfig, businessTypeSpecificFieldsConfig } =
+    useMemo(() => {
+      // gather configuration for the current country and selected business type
+      const entity = SINGAPORE_CONFIG.entities[data?.businessType] || {};
+      const step2 = entity.steps?.find((s) => s.id === "step2") || {};
+
+      const countryFields = {};
+      const businessFields = {};
+
+      // start with generic country fields (GST, acraUEN, etc.)
+      // if (data?.country) {
+      //   const ccfg = COUNTRIES[data.country]?.fields || {};
+      //   Object.entries(ccfg).forEach(([key, val]) => {
+      //     countryFields[key] = {
+      //       type: val.type || "text",
+      //       label: val.label,
+      //       placeholder: val.placeholder || "",
+      //       required: val.required || false,
+      //     };
+      //   });
+      // }
+
+      // overlay the Singapore entity's own step2 fields
+      if (step2.fields) {
+        Object.entries(step2.fields).forEach(([key, val]) => {
+          countryFields[key] = {
+            type: val.type,
+            label: val.label,
+            placeholder: val.placeholder || "",
+            required: val.required || false,
+          };
+        });
+      }
+
+      // flatten any repeatable-section fields into business-specific list
+      if (step2.repeatableSections) {
+        Object.values(step2.repeatableSections).forEach((section) => {
+          Object.entries(section.fields).forEach(([key, val]) => {
+            businessFields[key] = {
+              type: val.type,
+              label: val.label,
+              placeholder: val.placeholder || "",
+              required: val.required || false,
+            };
+          });
+        });
+      }
+
+      return {
+        countrySpecificFieldsConfig: countryFields,
+        businessTypeSpecificFieldsConfig: businessFields,
+      };
+    }, [data?.businessType, data?.country]);
+
   return (
     <div>
       <h2 className="text-2xl font-bold mb-6 text-gray-900">
         Basic Information
       </h2>
 
-      {/* SG-only ACRA Autofill Block */}
+      {/* SG ACRA Autofill */}
       {data?.country === "SG" && (
         <div className="mb-6 rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
@@ -270,7 +288,6 @@ const Step1BasicInformation = ({
                 Upload ACRA Business Profile (PDF), then click Autofill.
               </p>
             </div>
-
             <div className="flex items-center gap-3">
               <button
                 type="button"
@@ -280,7 +297,6 @@ const Step1BasicInformation = ({
               >
                 Upload PDF
               </button>
-
               <button
                 type="button"
                 onClick={handleAutofillAcra}
@@ -291,7 +307,6 @@ const Step1BasicInformation = ({
               >
                 {acraUploading ? "Autofilling..." : "Autofill"}
               </button>
-
               <input
                 ref={fileRef}
                 type="file"
@@ -301,7 +316,6 @@ const Step1BasicInformation = ({
               />
             </div>
           </div>
-
           <div className="mt-3 text-xs">
             {acraFile?.name && (
               <p className="text-gray-600">
@@ -316,135 +330,42 @@ const Step1BasicInformation = ({
         </div>
       )}
 
-      {/* Standard Fields */}
-      <FormFieldGroup
-        fieldName="companyName"
-        label="Company Name"
-        placeholder="Enter company legal name"
-        value={data.companyName}
-        onChange={onFieldChange}
-        error={errors.companyName}
-        touched={touched.companyName}
-        required
-        disabled={disabled}
-      />
+      {/* Country-Specific Fields */}
+      {Object.entries(countrySpecificFieldsConfig).map(
+        ([fieldName, fieldConfig]) => (
+          <FormFieldGroup
+            key={fieldName}
+            fieldName={fieldName}
+            label={fieldConfig.label}
+            placeholder={fieldConfig.placeholder}
+            value={data.countrySpecificFields?.[fieldName] || ""}
+            onChange={onCountrySpecificFieldChange}
+            error={errors[fieldName]}
+            touched={touched[fieldName]}
+            required={fieldConfig.required}
+            disabled={disabled}
+          />
+        ),
+      )}
 
-      {/* Dynamic Country-Specific Fields */}
-      {data.country &&
-        Object.entries(countrySpecificFieldsConfig).map(
-          ([fieldName, fieldConfig]) => (
-            <FormFieldGroup
-              key={fieldName}
-              fieldName={fieldName}
-              label={fieldConfig.label}
-              placeholder={fieldConfig.placeholder}
-              value={data.countrySpecificFields?.[fieldName] || ""}
-              onChange={onCountrySpecificFieldChange}
-              error={errors[fieldName]}
-              touched={touched[fieldName]}
-              required={fieldConfig.required}
-              helpText={`Format: ${fieldConfig.placeholder}`}
-              disabled={disabled}
-            />
-          ),
-        )}
-
-      {/* Dynamic Business-Type-Specific Fields */}
-      {data.businessType &&
-        Object.entries(businessTypeSpecificFieldsConfig).map(
-          ([fieldName, fieldConfig]) => (
-            <FormFieldGroup
-              key={fieldName}
-              fieldName={fieldName}
-              label={fieldConfig.label}
-              placeholder={fieldConfig.placeholder}
-              value={data.businessTypeSpecificFields?.[fieldName] || ""}
-              onChange={onBusinessTypeFieldChange}
-              error={errors[fieldName]}
-              touched={touched[fieldName]}
-              required={fieldConfig.required}
-              type={fieldName.includes("Details") ? "textarea" : "text"}
-              disabled={disabled}
-            />
-          ),
-        )}
-
-      {/* INCORPORATION DATE */}
-      <FormFieldGroup
-        fieldName="incorporationDate"
-        label="Incorporation Date"
-        placeholder="Select date"
-        value={data.incorporationDate}
-        onChange={onFieldChange}
-        error={errors.incorporationDate}
-        touched={touched.incorporationDate}
-        type="date"
-        required
-        disabled={disabled}
-      />
-
-      {/* STATUS OF COMPANY */}
-      <FormFieldGroup
-        fieldName="status"
-        label="Status of Company"
-        placeholder="Select status"
-        value={data.status}
-        onChange={onFieldChange}
-        error={errors.status}
-        touched={touched.status}
-        type="select"
-        options={[
-          { value: "Active", label: "Active" },
-          { value: "Inactive", label: "Inactive" },
-          { value: "Dissolved", label: "Dissolved" },
-          { value: "Liquidated", label: "Liquidated" },
-          { value: "InReceivership", label: "In Receivership" },
-          { value: "StruckOff", label: "Struck Off" },
-        ]}
-        required
-        disabled={disabled}
-      />
-
-      {/* REGISTERED OFFICE ADDRESS */}
-      <FormFieldGroup
-        fieldName="registeredOfficeAddress"
-        label="Registered Office Address"
-        placeholder="Enter registered office address"
-        value={data.registeredOfficeAddress}
-        onChange={onFieldChange}
-        error={errors.registeredOfficeAddress}
-        touched={touched.registeredOfficeAddress}
-        type="textarea"
-        required
-        disabled={disabled}
-      />
-
-      {/* Contact Information */}
-      <FormFieldGroup
-        fieldName="email"
-        label="Email Address"
-        placeholder="company@example.com"
-        value={data.email}
-        onChange={onFieldChange}
-        error={errors.email}
-        touched={touched.email}
-        type="email"
-        required
-        disabled={disabled}
-      />
-
-      <FormFieldGroup
-        fieldName="phone"
-        label="Phone Number"
-        placeholder="+1 (555) 000-0000"
-        value={data.phone}
-        onChange={onFieldChange}
-        error={errors.phone}
-        touched={touched.phone}
-        type="tel"
-        required
-        disabled={disabled}
-      />
+      {/* Business-Type-Specific Fields */}
+      {Object.entries(businessTypeSpecificFieldsConfig).map(
+        ([fieldName, fieldConfig]) => (
+          <FormFieldGroup
+            key={fieldName}
+            fieldName={fieldName}
+            label={fieldConfig.label}
+            placeholder={fieldConfig.placeholder}
+            value={data.businessTypeSpecificFields?.[fieldName] || ""}
+            onChange={onBusinessTypeFieldChange}
+            error={errors[fieldName]}
+            touched={touched[fieldName]}
+            required={fieldConfig.required}
+            type={fieldName.includes("Details") ? "textarea" : "text"}
+            disabled={disabled}
+          />
+        ),
+      )}
     </div>
   );
 };

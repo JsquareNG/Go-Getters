@@ -1,7 +1,8 @@
 import React from "react";
 import FormFieldGroup from "../components/FormFieldGroup";
-import { COUNTRIES } from "../config/countriesConfig";
-import { BUSINESS_TYPES } from "../config/businessTypesConfig";
+// import { COUNTRIES } from "../config/countriesConfig";
+// import { BUSINESS_TYPES } from "../config/businessTypesConfig"
+import SINGAPORE_CONFIG from "../config/singaporeConfig";
 
 /**
  * Step0Brief component
@@ -14,15 +15,37 @@ const Step0Brief = ({
   onFieldChange,
   disabled = false,
 }) => {
-  const countryOptions = Object.values(COUNTRIES).map((country) => ({
-    label: country.name,
-    value: country.code,
-  }));
+  const countryOptions = [
+    {
+      label: SINGAPORE_CONFIG.country.name,
+      value: SINGAPORE_CONFIG.country.code,
+    },
+  ];
 
-  const businessTypeOptions = Object.values(BUSINESS_TYPES).map((type) => ({
-    label: type.label,
-    value: type.id,
-  }));
+  // the configuration object uses the key `entities` (not `entityTypes`),
+  // so make sure to read from the correct property.  If the country is
+  // Singapore we turn the map of entity definitions into an options array
+  // for the select control.  When the country changes we also clear any
+  // previously selected business type so that the user is forced to choose
+  // a new one.
+  const businessTypeOptions =
+    data.country === "SG" && SINGAPORE_CONFIG.entities
+      ? Object.entries(SINGAPORE_CONFIG.entities).map(([key, entity]) => ({
+          label: entity.label,
+          value: key,
+        }))
+      : [];
+
+  // if someone selects a country other than SG (future‑proofing) or changes
+  // the country after already having picked a business type, reset the
+  // businessType field so the select shows the fresh options.
+  // Note: the parent form hook `setField` will re-render this component when
+  // it updates, so this effect simply keeps the value in sync.
+  React.useEffect(() => {
+    if (data.country !== "SG" && data.businessType) {
+      onFieldChange("businessType", "");
+    }
+  }, [data.country, data.businessType, onFieldChange]);
 
   return (
     <div>
@@ -30,7 +53,7 @@ const Step0Brief = ({
         Before we get started, tell us about your business.
       </h2>
 
-      {/* Country Selection - Required for conditional fields */}
+      {/* Country Selection */}
       <FormFieldGroup
         fieldName="country"
         label="Country of Operation"
@@ -44,7 +67,7 @@ const Step0Brief = ({
         disabled={disabled}
       />
 
-      {/* Business Type Selection - Required for conditional fields */}
+      {/* Business Type Selection */}
       <FormFieldGroup
         fieldName="businessType"
         label="Business Type"
@@ -55,7 +78,7 @@ const Step0Brief = ({
         type="select"
         options={businessTypeOptions}
         required
-        disabled={disabled}
+        disabled={!data.country || disabled}
       />
     </div>
   );

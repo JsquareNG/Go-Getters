@@ -154,6 +154,17 @@ const SMEApplicationForm = ({ onSubmitSuccess }) => {
   // Validate each step based on filled fields
   const stepCompletion = useStepValidation(state.data, state.data.documents);
 
+  // Persist form data to Redux whenever state changes
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      dispatch({
+        type: "applicationForm/updateFormData",
+        payload: state.data,
+      });
+    }, 500); // Debounce to avoid too many updates
+    return () => clearTimeout(timer);
+  }, [state.data, dispatch]);
+
   // Store docs locally in state (no upload call here)
   const handleDocumentChange = async (documentType, file, error = "") => {
     if (error) {
@@ -166,8 +177,18 @@ const SMEApplicationForm = ({ onSubmitSuccess }) => {
     setDocument(documentType, file);
   };
 
-  // Next step (mock mode: skip validation)
+  // Next step with Step 0 validation
   const handleNextStep = () => {
+    // If trying to move past Step 0, validate it first
+    if (clampedStep === 0 && !stepCompletion[0]) {
+      toast({
+        title: "Complete Step 0",
+        description: "Please select your country and business type before proceeding.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     const next = Math.min(4, clampedStep + 1);
     navigate(`/application/${mode}/${appId || "new"}/${next}`);
   };
@@ -175,6 +196,14 @@ const SMEApplicationForm = ({ onSubmitSuccess }) => {
   const handlePrevStep = () => {
     const prev = Math.max(0, clampedStep - 1);
     navigate(`/application/${mode}/${appId || "new"}/${prev}`);
+  };
+
+  // Check if a step is locked (can't navigate to it)
+  const isStepLocked = (stepNum) => {
+    // Step 0 is always accessible
+    if (stepNum === 0) return false;
+    // All other steps require Step 0 to be complete
+    return !stepCompletion[0];
   };
 
   const handleSaveDraft = async () => {
@@ -435,6 +464,7 @@ const SMEApplicationForm = ({ onSubmitSuccess }) => {
             totalSteps={5}
             stepLabels={STEP_LABELS}
             stepCompletion={stepCompletion}
+            isStepLocked={isStepLocked}
             disabled={isViewOnly}
           />
         </div>
@@ -462,6 +492,7 @@ const SMEApplicationForm = ({ onSubmitSuccess }) => {
               totalSteps={5}
               stepLabels={STEP_LABELS}
               stepCompletion={stepCompletion}
+              isStepLocked={isStepLocked}
               disabled={isViewOnly}
             />
           </div>
