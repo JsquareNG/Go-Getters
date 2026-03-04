@@ -183,8 +183,38 @@ Onboarding Team
 
     return subject, body
 
-def build_action_required_email(app: ApplicationForm, firstName: str):
+def build_action_required_email(
+    app: ApplicationForm,
+    firstName: str,
+    reason: str,
+    requested_docs: list,
+    requested_qns: list,
+):
     subject = "Action Required: Application Update Needed"
+
+    # Format requested documents
+    docs_text = ""
+    for d in requested_docs:
+        name = d.get("document_name", "").strip()
+        desc = d.get("document_desc", "").strip()
+
+        if name and desc:
+            docs_text += f"- {name}: {desc}\n"
+        elif name:
+            docs_text += f"- {name}\n"
+
+    if not docs_text:
+        docs_text = "None\n"
+
+    # Format requested questions
+    qns_text = ""
+    for q in requested_qns:
+        qt = q.get("question_text", "").strip()
+        if qt:
+            qns_text += f"- {qt}\n"
+
+    if not qns_text:
+        qns_text = "None\n"
 
     body = f"""
 Dear {firstName},
@@ -193,8 +223,14 @@ Your application for "{app.business_name}" requires further action.
 
 Application ID: {app.application_id}
 
-Staff Notes:
-{app.form_data["reason"]}
+Reason:
+{reason}
+
+Requested Documents:
+{docs_text}
+
+Requested Clarifications:
+{qns_text}
 
 Please update your application here:
 {WEBSITE_URL}/applications/{app.application_id}
