@@ -306,9 +306,12 @@ const SMEApplicationForm = ({ onSubmitSuccess }) => {
   });
 
   return {
-    business_country: countryCode,
-    business_name: stateData.business_name || "",
-    business_type: businessType,
+          business_country: state.data.country || "SG",
+          business_name: state.data.business_name || "",
+          business_type: state.data.businessType || "",
+    // business_country: stateData.country || countryCode,
+    // business_name: stateData.business_name || "",
+    // business_type: stateData.businessType || businessType,
     last_saved_step: stateData.last_saved_step ?? 0,
     previous_status: stateData.previous_status ?? null,
     current_status: stateData.current_status ?? "Draft",

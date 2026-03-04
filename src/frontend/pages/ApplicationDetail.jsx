@@ -245,7 +245,7 @@ export default function ApplicationDetail() {
             <div className="flex items-center justify-end">
               <Button
                 variant="outline"
-                onClick={() => navigate(`/applications/form/${id}/edit`)}
+                onClick={() => navigate(`/application/edit/${id}/0`)}
                 className="text-sm"
               >
                 Open Draft

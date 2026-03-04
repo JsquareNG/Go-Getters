@@ -45,9 +45,9 @@ export const getApplicationByAppId = async (id) => {
 //         user_id=data["user_id"],
 //         form_data=form_data,
 //         last_saved_step=data['last_saved_step'],
-//         previous_status=None,      
+//         previous_status=None,
 //         current_status="Draft"
-//   */ 
+//   */
 
 //   // Determine endpoint: firstSave if new, secondSave if updating
 //   const endpoint = payload.application_id
@@ -64,19 +64,16 @@ export const getApplicationByAppId = async (id) => {
  */
 export const saveApplicationDraftApi = async (payload) => {
   // Extract form-level fields for backend mapping
-  const {
-    user_id,
-    email,
-    firstName,
-    application_id,
-    form_data,
-  } = payload;
+  const { user_id, email, firstName, application_id, form_data } = payload;
 
   // Build draft payload for API
   const draftPayload = {
     user_id,
     email,
     firstName,
+    // business_country: state.data.country || "SG", // match Step0Brief
+    // business_name: state.data.business_name || "", // match Step0Brief
+    // business_type: state.data.businessType || "", // match Step0Brief
     business_country: form_data.business_country || "", // fallback empty string
     business_name: form_data.business_name || "",
     business_type: form_data.business_type || "",
@@ -87,13 +84,21 @@ export const saveApplicationDraftApi = async (payload) => {
     ...(application_id && { application_id }), // include only if defined
   };
 
-  // Determine endpoint: firstSave if new, secondSave if updating
-  const endpoint = application_id
-    ? `/applications/secondSave/${application_id}`
-    : "/applications/firstSave";
+  console.log(
+    "Saving application draft payload:",
+    JSON.stringify(draftPayload, null, 2),
+  );
 
   try {
-    const res = await axiosClient.post(endpoint, draftPayload);
+    const res = application_id
+      ? await axiosClient.put(
+          `/applications/secondSave/${application_id}`,
+          draftPayload,
+        )
+      : await axiosClient.post("/applications/firstSave", draftPayload);
+
+    console.log("API response:", res.data); // log backend response
+
     return res.data;
   } catch (err) {
     console.error("Failed to save draft:", err);

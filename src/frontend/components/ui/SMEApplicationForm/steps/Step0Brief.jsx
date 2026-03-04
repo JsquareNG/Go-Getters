@@ -41,6 +41,16 @@ const Step0Brief = ({
     }
   }, [currentCountry, currentBusinessType, onFieldChange]);
 
+    // --- NEW: populate fields if draft exists ---
+  useEffect(() => {
+    if (data.country && data.country !== currentCountry) {
+      onFieldChange?.("country", data.country);
+    }
+    if (data.businessType && data.businessType !== currentBusinessType) {
+      onFieldChange?.("businessType", data.businessType);
+    }
+  }, [data, currentCountry, currentBusinessType, onFieldChange]);
+
   return (
     <div>
       <h2 className="text-2xl font-bold mb-6 text-gray-900">
