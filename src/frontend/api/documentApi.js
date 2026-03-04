@@ -115,6 +115,15 @@ export async function uploadDocument({ applicationId, documentType, file, onProg
   }
 }
 
+export const allDocuments = async (applicationId) => {
+  const res = await axiosClient.get(`/documents/by-application/${applicationId}`);
+  return res.data;
+};
+
+export const downloadDocuments = async (documentId) => {
+  const res = await axiosClient.get(`/documents/download-url/${documentId}`);
+  return res.data;
+};
 
 // import axiosClient from "./axiosClient";
 

@@ -38,7 +38,14 @@ export default function LandingPage() {
         const apps = Array.isArray(data) ? data : data ? [data] : [];
         setApplications(apps);
       } catch (err) {
-        setError("Failed to load applications. Please try again.");
+        // ✅ CHANGE: Treat 404 (no applications) as empty state, not an error
+        const status = err?.response?.status;
+        if (status === 404) {
+          setApplications([]);
+          setError(null);
+        } else {
+          setError("Failed to load applications. Please try again.");
+        }
       } finally {
         setIsLoading(false);
       }
@@ -161,17 +168,20 @@ export default function LandingPage() {
           <ApplicationStats {...stats} />
         </div>
 
-        {/* ✅ NEW: If no applications yet, show CTA below stats */}
-        {hasNoApplications && (
-          <div className="mb-8 rounded-xl border bg-card p-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <div>
-              <p className="text-base font-medium text-foreground">
-                You do not have an application yet.
-              </p>
-              <p className="text-sm text-muted-foreground">
-                Click below to create one now.
-              </p>
-            </div>
+        {/* APPLICATIONS LIST */}
+        {/* ✅ CHANGE: If there are no applications, show CTA instead of red error banner */}
+        {error ? (
+          <div className="p-4 bg-red-50 text-red-600 rounded-lg flex items-center gap-2">
+            <AlertCircle className="h-5 w-5" /> {error}
+          </div>
+        ) : applications.length === 0 ? (
+          <div className="rounded-xl border bg-card p-10 flex flex-col items-center text-center gap-3">
+            <p className="text-lg font-semibold text-foreground">
+              You don’t have any applications yet.
+            </p>
+            <p className="text-sm text-muted-foreground">
+              Create a new application to get started.
+            </p>
 
             <Button
               disabled={blocksNewApplication}
@@ -181,13 +191,6 @@ export default function LandingPage() {
               <Plus className="h-4 w-4" />
               New Application
             </Button>
-          </div>
-        )}
-
-        {/* APPLICATIONS LIST */}
-        {error ? (
-          <div className="p-4 bg-red-50 text-red-600 rounded-lg flex items-center gap-2">
-            <AlertCircle className="h-5 w-5" /> {error}
           </div>
         ) : filteredApplications.length > 0 ? (
           <div className="grid gap-4">
