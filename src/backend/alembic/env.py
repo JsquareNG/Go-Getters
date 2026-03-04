@@ -10,6 +10,7 @@ from backend.models.documents import Document
 from backend.models.user import User
 from backend.models.reviewJobs import ReviewJobs
 from backend.models.bellNotifications import BellNotification
+from backend.models.action_requests import ActionRequestItem, ActionRequest
 from alembic import context
 
 load_dotenv() 
