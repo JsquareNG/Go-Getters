@@ -1,8 +1,9 @@
 
 import os
 import re
-from typing import Dict, Optional, List
+from typing import Dict, Optional, List, Any, Tuple
 from google.cloud import documentai
+
 
 
 def _norm(text: str) -> str:
@@ -66,41 +67,52 @@ def validate_selected_entity_type(selected_norm: str, kv: Dict[str, str]) -> boo
     return False
 
 def detect_entity_type(document_text: str, kv: Dict[str, str]) -> Optional[str]:
-    # 0) Try KV-based detection first (most reliable)
     kv_detected = detect_entity_type_from_kv(kv)
+
+    # LLP / LP already reliable
     if kv_detected == "LLP":
         return "LLP"
     if kv_detected == "LP":
         return "LP"
 
-    # 1) If KV says COMPANY or BUSINESS, use Company Type if available
-    company_type = None
-    for key_candidate in ["company type", "entity type", "business type"]:
-        company_type = kv.get(_normalize_key(key_candidate))
-        if company_type:
-            company_type = _norm(company_type)
-            break
-
-    if not company_type:
-        company_type = _get_company_type_from_text(document_text)
-
-    if company_type:
-        ct = company_type.replace("-", " ")
+    # 🔥 NEW: check constitution of business first (for sole prop / partnership)
+    constitution = kv.get("constitution of business")
+    if constitution:
+        ct = _norm(constitution).replace("-", " ")
 
         if "SOLE" in ct and "PROPRIETOR" in ct:
             return "SOLE_PROPRIETORSHIP"
-        if "PARTNERSHIP" in ct and "LIMITED" not in ct and "LIABILITY" not in ct:
+        if "PARTNERSHIP" in ct and "LIMITED" not in ct:
             return "PARTNERSHIP"
+
+    # Check company type field
+    for key_candidate in ["company type", "entity type", "business type"]:
+        company_type = kv.get(_normalize_key(key_candidate))
+        if company_type:
+            ct = _norm(company_type).replace("-", " ")
+
+            if "PRIVATE" in ct:
+                return "PRIVATE_LIMITED"
+            if "PUBLIC" in ct:
+                return "PUBLIC_LIMITED"
+            if "SOLE" in ct and "PROPRIETOR" in ct:
+                return "SOLE_PROPRIETORSHIP"
+            if "PARTNERSHIP" in ct:
+                return "PARTNERSHIP"
+
+    # Fallback: try regex on full text
+    text_type = _get_company_type_from_text(document_text)
+    if text_type:
+        ct = text_type.replace("-", " ")
+
         if "PRIVATE" in ct:
             return "PRIVATE_LIMITED"
         if "PUBLIC" in ct:
             return "PUBLIC_LIMITED"
-
-    # 2) If KV said BUSINESS but no company type found, you can choose:
-    # - either return None (force user to select correctly)
-    # - or default BUSINESS to SOLE_PROPRIETORSHIP (not recommended)
-    if kv_detected == "BUSINESS":
-        return None
+        if "SOLE" in ct:
+            return "SOLE_PROPRIETORSHIP"
+        if "PARTNERSHIP" in ct:
+            return "PARTNERSHIP"
 
     return None
 
@@ -113,6 +125,7 @@ def _extract_text(doc, text_anchor):
         end = int(seg.end_index or 0)
         result.append(doc.text[start:end])
     return "".join(result).strip()
+
 
 def _clean_value(text: str) -> str:
     if not text:
@@ -128,6 +141,133 @@ def _clean_value(text: str) -> str:
     text = re.sub(r"\s+", " ", text)
 
     return text.strip()
+
+
+
+def _cell_text(doc, cell) -> str:
+    # cell.layout.text_anchor exists in DocumentAI tables
+    return _clean_value(_extract_text(doc, cell.layout.text_anchor))
+
+def _table_to_grid(doc, table) -> List[List[str]]:
+    """
+    Returns a simple 2D grid of strings:
+    - header rows first (if present)
+    - then body rows
+    """
+    grid: List[List[str]] = []
+
+    # Header rows
+    for row in getattr(table, "header_rows", []) or []:
+        grid.append([_cell_text(doc, c) for c in row.cells])
+
+    # Body rows
+    for row in getattr(table, "body_rows", []) or []:
+        grid.append([_cell_text(doc, c) for c in row.cells])
+
+    return grid
+
+def _extract_tables_by_page(doc) -> List[List[Dict[str, Any]]]:
+    """
+    Returns tables grouped by page:
+    [
+      [ {table_index: 0, grid: [[...], ...]}, ...],   # page 1 tables
+      [ {table_index: 0, grid: ...}, ...],            # page 2 tables
+      ...
+    ]
+    """
+    pages_tables: List[List[Dict[str, Any]]] = []
+
+    for page in doc.pages:
+        page_tables: List[Dict[str, Any]] = []
+        for i, table in enumerate(getattr(page, "tables", []) or []):
+            page_tables.append({
+                "table_index": i,
+                "grid": _table_to_grid(doc, table),
+            })
+        pages_tables.append(page_tables)
+
+    return pages_tables
+
+def _norm_cell(s: str) -> str:
+    return re.sub(r"\s+", " ", (s or "").strip().upper())
+
+def _find_table_by_headers(page_tables, required_headers):
+    req = [_norm_cell(h) for h in required_headers]
+
+    for t in page_tables:
+        grid = t["grid"]
+        if not grid:
+            continue
+
+        # combine up to first 2 rows into one header string list
+        max_cols = max(len(r) for r in grid)
+        padded = [r + [""] * (max_cols - len(r)) for r in grid]
+        header_rows = padded[:2] if len(padded) >= 2 else padded[:1]
+
+        combined = []
+        for c in range(max_cols):
+            parts = [header_rows[r][c] for r in range(len(header_rows))]
+            combined.append(_norm_cell(" ".join([p for p in parts if p])))
+
+        if all(any(r in h for h in combined) for r in req):
+            return t
+
+    return None
+
+
+NRIC_RE = re.compile(r"\b[STFG]\d{7}[A-Z]\b", re.IGNORECASE)
+
+def _extract_owner_from_table_grid(grid):
+    if not grid or len(grid) < 2:
+        return None
+
+    max_cols = max(len(r) for r in grid)
+    padded = [r + [""] * (max_cols - len(r)) for r in grid]
+
+    # build combined headers from first 2 rows
+    header_rows_to_use = 2 if len(padded) >= 2 else 1
+    combined_headers = []
+    for c in range(max_cols):
+        parts = [padded[i][c] for i in range(header_rows_to_use)]
+        combined_headers.append(" ".join([p for p in parts if p]).strip().upper())
+
+    def col(keywords):
+        for idx, h in enumerate(combined_headers):
+            if any(k in h for k in keywords):
+                return idx
+        return None
+
+    name_col = col(["NAME"]) or 0
+    id_col = col(["IDENTIFICATION", "NRIC", "FIN"]) or 1
+    pos_col = col(["POSITION"])  # might be None
+
+    # collect candidate rows (rows containing NRIC)
+    candidates = []
+    for r in padded[1:]:
+        if NRIC_RE.search(" ".join(r)):
+            candidates.append(r)
+
+    if not candidates:
+        return None
+
+    # prefer row where position is OWNER
+    chosen = None
+    if pos_col is not None:
+        for r in candidates:
+            if pos_col < len(r) and "OWNER" in (r[pos_col] or "").upper():
+                chosen = r
+                break
+    if chosen is None:
+        chosen = candidates[0]
+
+    owner_name = chosen[name_col].strip() if name_col < len(chosen) else ""
+    ident = chosen[id_col].strip() if id_col < len(chosen) else ""
+
+    m = NRIC_RE.search(ident) or NRIC_RE.search(" ".join(chosen))
+    if m:
+        ident = m.group(0).upper()
+
+    return {"owner_name": owner_name, "identification_number": ident}
 
 def _extract_kv_pairs_by_page(doc) -> List[Dict[str, str]]:
     pages_kv: List[Dict[str, str]] = []
@@ -150,25 +290,6 @@ def _extract_kv_pairs_by_page(doc) -> List[Dict[str, str]]:
         pages_kv.append(kv)
 
     return pages_kv
-
-
-def _fallback_extract_address(full_text: str, label: str) -> Optional[str]:
-    if not full_text:
-        return None
-
-    text = full_text.replace("\r\n", "\n").replace("\r", "\n")
-
-    pattern = rf"{re.escape(label)}\s*:\s*(.*?)(?=\n[A-Z][A-Za-z ]+\s*:|$)"
-    match = re.search(pattern, text, re.DOTALL)
-
-    if not match:
-        return None
-
-    address = match.group(1).strip()
-    address = re.sub(r"\n+", ", ", address)
-    return address
-
-
 
 
 def extract_acra_data(pdf_bytes: bytes, selected_entity_type: str) -> Dict:
@@ -219,8 +340,104 @@ def extract_acra_data(pdf_bytes: bytes, selected_entity_type: str) -> Dict:
 
     return {
         "entity_type": selected_norm,
-        "kv_page_1": kv_page_1,   # ✅ everything detected on first page
+        "kv_page_1": kv_page_1,  
         # optional extras if you want:
         # "kv_all_pages": pages_kv,
         # "raw_text": document.text,  # careful: huge
+    }
+
+def extract_acra_data_auto(pdf_bytes: bytes) -> Dict:
+    project_id = os.getenv("GCP_PROJECT_ID")
+    location = os.getenv("GCP_LOCATION")
+    processor_id = os.getenv("DOC_AI_PROCESSOR_ID")
+
+    client = documentai.DocumentProcessorServiceClient()
+    name = client.processor_path(project_id, location, processor_id)
+
+    request = documentai.ProcessRequest(
+        name=name,
+        raw_document=documentai.RawDocument(
+            content=pdf_bytes,
+            mime_type="application/pdf"
+        ),
+    )
+
+    result = client.process_document(request=request)
+    document = result.document
+
+    pages_kv = _extract_kv_pairs_by_page(document)
+    kv_page_1 = pages_kv[0] if pages_kv else {}
+
+    detected = detect_entity_type(document.text, kv_page_1)
+
+    if not detected:
+        raise ValueError(
+            "Unable to auto-detect entity type from the document. "
+            "Please use /extract-acra with an explicit entity_type."
+        )
+
+    if not validate_selected_entity_type(detected, kv_page_1):
+        raise ValueError(
+            f"Auto-detected entity type '{detected}' but validation failed. "
+            f"Extracted page-1 keys were: {list(kv_page_1.keys())[:30]}"
+        )
+
+    return {
+        "entity_type": detected,
+        "kv_page_1": kv_page_1,
+        # optional extras:
+        # "kv_all_pages": pages_kv,
+        # "raw_text": document.text,
+    }
+
+def extract_acra_data_with_tables(pdf_bytes: bytes) -> Dict:
+    project_id = os.getenv("GCP_PROJECT_ID")
+    location = os.getenv("GCP_LOCATION")
+    processor_id = os.getenv("DOC_AI_PROCESSOR_ID")
+
+    client = documentai.DocumentProcessorServiceClient()
+    name = client.processor_path(project_id, location, processor_id)
+
+    request = documentai.ProcessRequest(
+        name=name,
+        raw_document=documentai.RawDocument(content=pdf_bytes, mime_type="application/pdf"),
+    )
+
+    result = client.process_document(request=request)
+    document = result.document
+
+    pages_kv = _extract_kv_pairs_by_page(document)
+    kv_page_1 = pages_kv[0] if pages_kv else {}
+
+    # ✅ Auto-detect entity type (reuse your existing function)
+    detected = detect_entity_type(document.text, kv_page_1)
+    if not detected:
+        raise ValueError("Unable to auto-detect entity type from the document.")
+
+    # ✅ Validate detected type against page 1 structure
+    if not validate_selected_entity_type(detected, kv_page_1):
+        raise ValueError(
+            f"Auto-detected entity type '{detected}' but validation failed. "
+            f"Extracted page-1 keys were: {list(kv_page_1.keys())[:30]}"
+        )
+
+    tables_by_page = _extract_tables_by_page(document)
+
+    owner_info = None
+    if len(tables_by_page) >= 2:
+        page2_tables = tables_by_page[1]
+
+        # ✅ force the table that includes Position (your table_index 1 case)
+        t = _find_table_by_headers(
+            page2_tables,
+            required_headers=["Name", "Identification", "Position"]
+        )
+        if t:
+            owner_info = _extract_owner_from_table_grid(t["grid"])
+
+    return {
+        "entity_type": detected,
+        "kv_page_1": kv_page_1,
+        "tables_by_page": tables_by_page,
+        "owner": owner_info,
     }
