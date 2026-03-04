@@ -1,20 +1,23 @@
 import React from "react";
-import { CheckCircle2, Circle } from "lucide-react";
+import { CheckCircle2 } from "lucide-react";
 
 /**
  * FormStepper component
  * Displays progress indicator showing current step and completed steps
  * stepCompletion: object like { 0: true, 1: false, 2: true, ... } indicating if each step is complete
+ * isStepLocked: function(stepIndex) => boolean
  */
 const FormStepper = ({
   currentStep,
   totalSteps,
   stepLabels = [],
   stepCompletion = {},
+  isStepLocked = () => false,
+  onStepClick = () => {},
 }) => {
   const defaultLabels = Array.from(
     { length: totalSteps },
-    (_, i) => `Step ${i + 1}`,
+    (_, i) => `Step ${i + 1}`
   );
   const labels = stepLabels.length > 0 ? stepLabels : defaultLabels;
 
@@ -23,32 +26,34 @@ const FormStepper = ({
       <div className="flex items-center justify-between">
         {Array.from({ length: totalSteps }).map((_, index) => {
           const stepNumber = index + 1;
-          const isActive = stepNumber === currentStep + 1;
+          const isActive = index === currentStep;
           const isCompleted = stepCompletion[index] === true;
+          const locked = isStepLocked(index);
 
           return (
             <React.Fragment key={index}>
               {/* Step Circle */}
-              <div className="flex flex-col items-center">
+              <div
+                className="flex flex-col items-center cursor-pointer"
+                onClick={() => !locked && onStepClick(index)}
+              >
                 <div
                   className={`w-10 h-10 rounded-full flex items-center justify-center font-medium transition-colors ${
-                    isCompleted
+                    locked
+                      ? "bg-gray-300 text-gray-400 cursor-not-allowed"
+                      : isCompleted
                       ? "bg-green-500 text-white"
                       : isActive
-                        ? "bg-red-500 text-white"
-                        : "bg-gray-200 text-gray-600"
+                      ? "bg-red-500 text-white"
+                      : "bg-gray-200 text-gray-600"
                   }`}
                 >
-                  {isCompleted ? (
-                    <CheckCircle2 className="h-6 w-6" />
-                  ) : (
-                    stepNumber
-                  )}
+                  {isCompleted ? <CheckCircle2 className="h-6 w-6" /> : stepNumber}
                 </div>
                 <p
                   className={`mt-2 text-xs font-medium text-center max-w-[80px] ${
                     isActive || isCompleted ? "text-gray-900" : "text-gray-600"
-                  }`}
+                  } ${locked ? "text-gray-400" : ""}`}
                 >
                   {labels[index]}
                 </p>

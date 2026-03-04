@@ -77,7 +77,7 @@ function getComplianceDeclarations() {
 }
 
 ///////////////////////////////
-// 🔹 SINGAPORE CONFIG
+// SINGAPORE CONFIG
 ///////////////////////////////
 
 const SINGAPORE_CONFIG = {

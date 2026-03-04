@@ -1,27 +1,42 @@
-import React from "react";
-import { COUNTRIES } from "../config/countriesConfig";
-import { BUSINESS_TYPES } from "../config/businessTypesConfig";
-import { CheckCircle2 } from "lucide-react";
+import React, { useMemo } from "react";
+import { CheckCircle2, AlertCircle } from "lucide-react";
+import { Button } from "../../primitives/Button";
+import SINGAPORE_CONFIG from "../config/singaporeConfig";
 
 /**
  * Step4ReviewSubmit component
- * Displays all collected information for review before final submission
+ * Displays review of application and handles conditional submission/draft saving
+ * - If all fields complete: shows "Submit" button (calls onSubmit)
+ * - If fields incomplete: shows "Save Draft" button (calls onSaveDraft)
  */
 const Step4ReviewSubmit = ({
   data,
   onEdit,
-  isSubmitting = false,
+  onSubmit,
+  // onSaveDraft,
+  stepCompletion = {},
   disabled = false,
 }) => {
-  const countryName = COUNTRIES[data.country]?.name || "Not selected";
-  const businessTypeName =
-    Object.values(BUSINESS_TYPES).find((type) => type.id === data.businessType)
-      ?.label || "Not selected";
+  const entityConfig = useMemo(() => {
+    return SINGAPORE_CONFIG.entities[data?.businessType] || {};
+  }, [data?.businessType]);
 
-  const formatDocumentName = (file) => {
-    if (!file) return "Not uploaded";
-    return `${file.name} (${(file.size / 1024).toFixed(2)} KB)`;
-  };
+  const step2Config = useMemo(() => {
+    return entityConfig.steps?.find((s) => s.id === "step2") || {};
+  }, [entityConfig]);
+
+  const step3Config = useMemo(() => {
+    return entityConfig.steps?.find((s) => s.id === "step3") || {};
+  }, [entityConfig]);
+
+  const step4Config = useMemo(() => {
+    return entityConfig.steps?.find((s) => s.id === "step4") || {};
+  }, [entityConfig]);
+
+  const formatDocumentName = (file) =>
+    file
+      ? `${file.name} (${(file.size / 1024).toFixed(2)} KB)`
+      : "Not uploaded";
 
   const ReviewSection = ({ title, fields, onEditClick }) => (
     <div className="mb-8 border rounded-lg p-6 bg-gray-50">
@@ -38,7 +53,6 @@ const Step4ReviewSubmit = ({
           Edit
         </button>
       </div>
-
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {fields.map((field, idx) => (
           <div
@@ -48,83 +62,99 @@ const Step4ReviewSubmit = ({
             <p className="text-xs font-medium text-gray-500 uppercase mb-1">
               {field.label}
             </p>
-            <p className="text-sm text-gray-900 break-words">{field.value}</p>
+            <p className="text-sm text-gray-900 break-words">
+              {field.value || "Not provided"}
+            </p>
           </div>
         ))}
       </div>
     </div>
   );
 
-  // Build review data dynamically
-  const basicInfoFields = [
-    { label: "Company Name", value: data.companyName },
-    { label: "Registration Number", value: data.registrationNumber },
-    { label: "Country", value: countryName },
-    { label: "Business Type", value: businessTypeName },
-    { label: "Email", value: data.email },
-    { label: "Phone", value: data.phone },
-  ];
+  // ---- Build review fields dynamically ----
+  const getFieldsFromStep = (stepConfig, sectionData) => {
+    const fields = [];
 
-  // Add dynamic country-specific fields to review
-  if (data.country && COUNTRIES[data.country]?.fields) {
-    Object.entries(COUNTRIES[data.country].fields).forEach(
-      ([fieldName, fieldConfig]) => {
-        const value = data.countrySpecificFields[fieldName];
-        if (value) {
-          basicInfoFields.push({
-            label: fieldConfig.label,
-            value: value,
+    if (!stepConfig) return fields;
+
+    // Normal fields
+    Object.entries(stepConfig.fields || {}).forEach(([key, cfg]) => {
+      let value = sectionData?.[key] ?? "";
+      // For conditional checkboxes, show conditional sub-fields
+      if (
+        cfg.type === "checkbox" &&
+        cfg.conditionalFields &&
+        sectionData?.[key]
+      ) {
+        const selectedOption = sectionData[key];
+        const subFields = cfg.conditionalFields[selectedOption];
+        if (subFields) {
+          Object.entries(subFields).forEach(([subKey, subCfg]) => {
+            fields.push({
+              label: subCfg.label,
+              value: sectionData?.[subKey] ?? "",
+            });
           });
         }
-      },
-    );
-  }
+      }
+      fields.push({ label: cfg.label, value });
+    });
 
-  // Add dynamic business-type-specific fields to review
-  if (data.businessType) {
-    const businessTypeConfig = Object.values(BUSINESS_TYPES).find(
-      (type) => type.id === data.businessType,
-    );
-    if (businessTypeConfig?.fields) {
-      Object.entries(businessTypeConfig.fields).forEach(
-        ([fieldName, fieldConfig]) => {
-          const value = data.businessTypeSpecificFields[fieldName];
-          if (value) {
-            basicInfoFields.push({
-              label: fieldConfig.label,
-              value: value,
+    // Repeatable sections
+    if (stepConfig.repeatableSections) {
+      Object.entries(stepConfig.repeatableSections).forEach(
+        ([sectionKey, sectionCfg]) => {
+          const items = sectionData?.[sectionKey] || [];
+          items.forEach((item, idx) => {
+            Object.entries(sectionCfg.fields).forEach(([key, cfg]) => {
+              fields.push({
+                label: `${sectionCfg.label} ${idx + 1} - ${cfg.label}`,
+                value: item[key] || "",
+              });
             });
-          }
+          });
         },
       );
     }
-  }
 
-  const financialFields = [
-    { label: "Bank Account Number", value: data.bankAccountNumber },
-    { label: "SWIFT / BIC Code", value: data.swift },
-    { label: "Account Currency", value: data.currency },
-    {
-      label: "Annual Revenue",
-      value: `${data.currency} ${parseFloat(data.annualRevenue).toLocaleString()}`,
-    },
-    { label: "Tax ID", value: data.taxId },
-  ];
+    // Documents
+    (stepConfig.documents || []).forEach((doc) => {
+      const key = doc.toLowerCase().replace(/[^\w]+/g, "_");
+      fields.push({
+        label: doc,
+        value: formatDocumentName(sectionData?.documents?.[key]?.file),
+      });
+    });
 
-  const complianceFields = [
-    {
-      label: "KYC Document",
-      value: formatDocumentName(data.documents.kycDocument),
-    },
-    {
-      label: "Business License",
-      value: formatDocumentName(data.documents.businessLicense),
-    },
-    {
-      label: "Proof of Address",
-      value: formatDocumentName(data.documents.proofOfAddress),
-    },
-  ];
+    return fields;
+  };
+
+  const basicFields = useMemo(
+    () => getFieldsFromStep(step2Config, data.basicFields),
+    [step2Config, data],
+  );
+  const financialFields = useMemo(
+    () => getFieldsFromStep(step3Config, data.financialFields),
+    [step3Config, data],
+  );
+  const complianceFields = useMemo(
+    () => getFieldsFromStep(step4Config, data.complianceFields),
+    [step4Config, data],
+  );
+
+  // Determine if all required steps are complete
+  // Steps 0-3 must all be valid for submission
+  const allStepsComplete =
+    stepCompletion[0] &&
+    stepCompletion[1] &&
+    stepCompletion[2] &&
+    stepCompletion[3];
+
+  const buttonLabel = allStepsComplete ? "Submit Application" : "Save Draft";
+  const buttonVariant = allStepsComplete ? "default" : "outline";
+  // const handleButtonClick = allStepsComplete ? onSubmit : onSaveDraft;
+    const handleButtonClick = onSubmit;
+
 
   return (
     <div>
@@ -132,59 +162,60 @@ const Step4ReviewSubmit = ({
         Review Your Application
       </h2>
       <p className="text-gray-600 mb-8">
-        Please review all information below. Click "Edit" to make changes before
-        submitting.
+        Please review all information below. Click "Edit" to make changes if
+        needed.
       </p>
 
-      {/* Basic Information Review */}
       <ReviewSection
         title="Basic Information"
-        fields={basicInfoFields}
+        fields={basicFields}
         onEditClick={() => onEdit(1)}
       />
-
-      {/* Financial Details Review */}
       <ReviewSection
         title="Financial Details"
         fields={financialFields}
         onEditClick={() => onEdit(2)}
       />
-
-      {/* Compliance & Documentation Review */}
       <ReviewSection
         title="Compliance & Documentation"
         fields={complianceFields}
         onEditClick={() => onEdit(3)}
       />
 
-      {/* Submission Confirmation */}
-      <div className="mt-8 p-6 bg-green-50 border border-green-200 rounded-lg">
-        <p className="text-sm text-green-800 mb-2">
-          <strong>✓ Ready to Submit</strong>
-        </p>
-        <p className="text-sm text-green-800">
-          All required information has been provided. Click "Submit Application"
-          below to complete your registration.
-        </p>
-      </div>
-
-      {/* Disclaimer */}
-      <div className="mt-6 p-4 bg-gray-100 border border-gray-300 rounded-lg">
-        <p className="text-xs text-gray-700">
-          <strong>Disclaimer:</strong> By submitting this application, you
-          confirm that all information provided is accurate and complete to the
-          best of your knowledge. Any false information may result in
-          application rejection and potential legal consequences.
-        </p>
-      </div>
-
-      {isSubmitting && (
-        <div className="mt-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-          <p className="text-sm text-blue-800">
-            Processing your application...
+      {/* Status Banner */}
+      <div
+        className={`mb-8 p-4 rounded-lg border flex items-start gap-3 ${
+          allStepsComplete
+            ? "bg-green-50 border-green-200"
+            : "bg-amber-50 border-amber-200"
+        }`}
+      >
+        <AlertCircle
+          className={`h-5 w-5 mt-0.5 flex-shrink-0 ${
+            allStepsComplete ? "text-green-600" : "text-amber-600"
+          }`}
+        />
+        <div>
+          <p
+            className={`font-semibold ${
+              allStepsComplete ? "text-green-900" : "text-amber-900"
+            }`}
+          >
+            {allStepsComplete
+              ? "Application Complete"
+              : "Application Incomplete"}
+          </p>
+          <p
+            className={`text-sm ${
+              allStepsComplete ? "text-green-700" : "text-amber-700"
+            }`}
+          >
+            {allStepsComplete
+              ? "All fields are filled. Click Submit to send your application."
+              : "Some required fields are missing. Click Save Draft to save your progress."}
           </p>
         </div>
-      )}
+      </div>
     </div>
   );
 };

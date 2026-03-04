@@ -42,7 +42,6 @@ const Step3ComplianceDocumentation = ({
     onDocumentChange(fieldName, file, error);
   };
 
-
   //TODO: this validation logic is getting complex, consider moving to a separate hook or utility file
   const fireField = (name, value) => {
     if (!onFieldChange) return;
@@ -121,7 +120,7 @@ const Step3ComplianceDocumentation = ({
               {/* Render conditional fields if any */}
               {renderConditionalFields(
                 fieldKey,
-                data?.complianceFields?.[fieldKey]
+                data?.complianceFields?.[fieldKey],
               )}
             </div>
           );
@@ -137,14 +136,18 @@ const Step3ComplianceDocumentation = ({
           // render nested fields (e.g., taxResidency.country, taxResidency.tin)
           return (
             <div key={fieldKey} className="mb-6">
-              <p className="font-semibold text-gray-900 mb-4">{fieldKey.replace(/([A-Z])/g, " $1").trim()}</p>
+              <p className="font-semibold text-gray-900 mb-4">
+                {fieldKey.replace(/([A-Z])/g, " $1").trim()}
+              </p>
               {Object.entries(fieldCfg).map(([subKey, subCfg]) => (
                 <FormFieldGroup
                   key={`${fieldKey}_${subKey}`}
                   fieldName={`${fieldKey}.${subKey}`}
                   label={subCfg.label}
                   value={data?.complianceFields?.[fieldKey]?.[subKey] || ""}
-                  onChange={(name, value) => fireField(`${fieldKey}.${subKey}`, value)}
+                  onChange={(name, value) =>
+                    fireField(`${fieldKey}.${subKey}`, value)
+                  }
                   error={errors?.[fieldKey]?.[subKey]}
                   touched={touched?.[fieldKey]?.[subKey]}
                   required={subCfg.required}
