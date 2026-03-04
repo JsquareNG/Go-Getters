@@ -8,8 +8,8 @@ import SINGAPORE_CONFIG from "../config/singaporeConfig";
  */
 const Step2FinancialDetails = ({
   data,
-  errors,
-  touched,
+  errors = {},
+  touched = {},
   onFieldChange,
   disabled = false,
 }) => {
@@ -34,25 +34,28 @@ const Step2FinancialDetails = ({
     // top-level fields
     if (step3.fields) {
       Object.entries(step3.fields).forEach(([key, val]) => {
-        financialFields[key] = {
-          ...val,
-        };
+        financialFields[key] = { ...val };
       });
     }
 
     // repeatable-section fields (e.g., partnerFinancials)
     if (step3.repeatableSections) {
-      Object.entries(step3.repeatableSections).forEach(([sectionKey, section]) => {
-        repeatableSections[sectionKey] = {
-          label: section.label,
-          min: section.min,
-          max: section.max,
-          fields: { ...section.fields },
-        };
-      });
+      Object.entries(step3.repeatableSections).forEach(
+        ([sectionKey, section]) => {
+          repeatableSections[sectionKey] = {
+            label: section.label,
+            min: section.min,
+            max: section.max,
+            fields: { ...section.fields },
+          };
+        },
+      );
     }
 
-    return { financialFieldsConfig: financialFields, repeatableSectionsConfig: repeatableSections };
+    return {
+      financialFieldsConfig: financialFields,
+      repeatableSectionsConfig: repeatableSections,
+    };
   }, [data?.businessType]);
 
   return (
@@ -63,10 +66,7 @@ const Step2FinancialDetails = ({
 
       {/* Top-Level Financial Fields */}
       {Object.entries(financialFieldsConfig).map(([fieldName, fieldConfig]) => {
-        let type = fieldConfig.type;
-        if (type === "number") type = "number";
-        if (type === "textarea") type = "textarea";
-        if (type === "select") type = "select";
+        let type = fieldConfig.type || "text";
 
         return (
           <FormFieldGroup
@@ -94,12 +94,9 @@ const Step2FinancialDetails = ({
             {section.label}
           </h3>
 
-          {/* For simplicity, we render only one set (min) of fields; could extend for dynamic adding */}
+          {/* For simplicity, render only one set (min) of fields; extendable later */}
           {Object.entries(section.fields).map(([fieldName, fieldConfig]) => {
-            let type = fieldConfig.type;
-            if (type === "number") type = "number";
-            if (type === "textarea") type = "textarea";
-            if (type === "select") type = "select";
+            let type = fieldConfig.type || "text";
 
             return (
               <FormFieldGroup
@@ -111,8 +108,9 @@ const Step2FinancialDetails = ({
                 onChange={(name, value) =>
                   fireField(`${sectionKey}.${name}`, value)
                 }
-                error={errors[fieldName]}
-                touched={touched[fieldName]}
+                // Fixed error/touched access for nested repeatable fields
+                error={errors[sectionKey]?.[fieldName]}
+                touched={touched[sectionKey]?.[fieldName]}
                 type={type}
                 options={fieldConfig.options || []}
                 required={fieldConfig.required || false}
