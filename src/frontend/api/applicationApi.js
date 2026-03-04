@@ -84,3 +84,13 @@ export const getReviewJob = async (applicationId) => {
   const res = await axiosClient.get(`/reviewJobs/getReviewJob/${applicationId}`);
   return res.data;
 };
+
+export const getMissingItems = async (applicationId) => {
+  const res = await axiosClient.get(`/applications/getRequired/${applicationId}`);
+  return res.data;
+};
+
+export const secondSubmit = async (applicationId, payload) => {
+  const res = await axiosClient.put(`/applications/secondSubmit/${applicationId}`, payload);
+  return res.data;
+};
