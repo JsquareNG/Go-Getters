@@ -16,6 +16,7 @@ import {
   FileQuestion,
   CheckCircle2,
   XCircle,
+  Download,
 } from "lucide-react";
 import {
   Accordion,
@@ -35,8 +36,12 @@ import {
   approveApplication,
   rejectApplication,
   escalateApplication,
-  getReviewJob,
+  // getReviewJob,
 } from "@/api/applicationApi";
+import { allDocuments, downloadDocuments } from "./../api/documentApi";
+
+// ✅ NEW: import dialog (adjust path if needed)
+import RequestDocumentsDialog from "../components/ui/features/RequestDocumentsDialog";
 
 export default function ApplicationReviewDetail() {
   const { id } = useParams();
@@ -48,16 +53,24 @@ export default function ApplicationReviewDetail() {
   const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
   const [error, setError] = useState(null);
 
+  // ✅ documents state (NEW)
+  const [documents, setDocuments] = useState([]);
+  const [docsLoading, setDocsLoading] = useState(false);
+  const [docsError, setDocsError] = useState(null);
+
+  // ✅ NEW: dialog open state
+  const [requestDocsOpen, setRequestDocsOpen] = useState(false);
+
   useEffect(() => {
     const fetchApplication = async () => {
       try {
         setIsLoading(true);
         const data = await getApplicationByAppId(id);
-        const rulesData = await getReviewJob(id)
-        
+        // const rulesData = await getReviewJob(id)
+
         setApplication(data);
-        setRules(rulesData);
-        console.log(rulesData)
+        // setRules(rulesData);
+        // console.log(rulesData)
         setError(null);
       } catch (err) {
         console.error("Error fetching application:", err);
@@ -68,6 +81,26 @@ export default function ApplicationReviewDetail() {
     };
 
     if (id) fetchApplication();
+  }, [id]);
+
+  // ✅ fetch documents for this application id (NEW)
+  useEffect(() => {
+    const fetchDocuments = async () => {
+      try {
+        setDocsLoading(true);
+        setDocsError(null);
+
+        const docs = await allDocuments(id); // should return docs for this application
+        setDocuments(Array.isArray(docs) ? docs : []);
+      } catch (err) {
+        console.error("Error fetching documents:", err);
+        setDocsError("Could not retrieve documents.");
+      } finally {
+        setDocsLoading(false);
+      }
+    };
+
+    if (id) fetchDocuments();
   }, [id]);
 
   const currentStatus = application?.current_status || "Not started";
@@ -91,47 +124,69 @@ export default function ApplicationReviewDetail() {
   // ✅ reason might be stored as application.reason OR inside form_data.reason
   const actionReason = application?.reason ?? application?.form_data?.reason;
 
-  /**
-   * ✅ ESCALATE (Request Documents)
-   * - Prompts for reason
-   * - Calls escalateApplication(appId, reason)
-   * - Redirect back to staff landing page
-   * - Staff landing page filters out Requires Action so it disappears
-   */
-  const handleRequestDocuments = async () => {
-    if (!id) return;
+  // ✅ (FIX) prevent ReferenceError in sticky bar (keep placeholder)
+  const missingDocuments = useMemo(() => {
+    return [];
+  }, [rules, documents, application]);
 
-    const reason =
-      window.prompt("Reason / documents required from applicant?") || "";
-    if (!reason.trim()) {
-      toast.error("Reason required", {
-        description: "Please enter a reason to request documents.",
+  // ✅ open PDF by signed URL (NEW)
+  const handleOpenDocument = async (doc) => {
+    const newTab = window.open("", "_blank");
+
+    try {
+      const documentId = doc?.document_id;
+      if (!documentId) {
+        if (newTab) newTab.close();
+        toast.error("Missing document_id");
+        console.log("Doc missing document_id:", doc);
+        return;
+      }
+
+      const res = await downloadDocuments(documentId);
+      const signedUrl = res?.url;
+
+      if (!signedUrl) throw new Error("No url returned from download endpoint");
+
+      if (newTab) newTab.location.href = signedUrl;
+      else window.open(signedUrl, "_blank", "noopener,noreferrer");
+    } catch (err) {
+      if (newTab) newTab.close();
+      console.error("Open document error:", err?.response?.status, err?.response?.data || err);
+      toast.error("Could not open document", {
+        description: err?.response?.data?.detail || err?.message || "Unknown error",
       });
-      return;
     }
+  };
+
+  // ✅ UPDATED: open dialog instead of prompt
+    const handleRequestDocuments = () => {
+      setRequestDocsOpen(true);
+    };
+
+    // ✅ NEW: dialog submit -> call your existing escalate API properly
+    const handleSubmitRequestDocs = async ({ reason, documents, questions }) => {
+    if (!id) return;
 
     try {
       setIsUpdatingStatus(true);
 
       const appIdToUse = application?.application_id || id;
-      await escalateApplication(appIdToUse, reason.trim());
 
-      toast.success("Escalated to applicant", {
-        description:
-          "Status set to Requires Action and applicant has been notified.",
+      await escalateApplication(appIdToUse, {
+        reason,
+        documents,
+        questions,
       });
 
-      // ✅ go back; it will be removed from staff queue
+      toast.success("Escalated to applicant", {
+        description: "Status set to Requires Action and applicant has been notified.",
+      });
+
       navigate("/staff-landingpage");
     } catch (err) {
       console.error("Escalate failed:", err);
-      console.log("Escalate err.response?.data:", err?.response?.data);
-
       toast.error("Request Documents failed", {
-        description:
-          err?.response?.data?.detail ||
-          err?.message ||
-          "Could not escalate application.",
+        description: err?.response?.data?.detail || err?.message || "Could not escalate application.",
       });
     } finally {
       setIsUpdatingStatus(false);
@@ -141,8 +196,7 @@ export default function ApplicationReviewDetail() {
   const handleApprove = async () => {
     if (!id) return;
 
-    const reason =
-      window.prompt("Reason for approving this application?") || "";
+    const reason = window.prompt("Reason for approving this application?") || "";
     if (!reason.trim()) {
       toast.error("Reason required", {
         description: "Please enter a reason to approve.",
@@ -167,10 +221,18 @@ export default function ApplicationReviewDetail() {
 
       toast.error("Approve failed", {
         description:
-          err?.response?.data?.detail ||
-          err?.message ||
-          "Could not approve application.",
-      });
+          err?.response?.data?.detail || err?.message || "Could not approve application.",
+      });{missingDocuments.length > 0 && (
+                  <div className="mt-4 flex items-start gap-2 rounded-lg bg-warning/10 p-3">
+                    <AlertTriangle className="h-4 w-4 text-warning mt-0.5" />
+                    <div>
+                      <p className="text-sm font-medium text-warning">Missing Documents</p>
+                      <p className="text-xs text-muted-foreground">
+                        {missingDocuments.length} document(s) still required before approval
+                      </p>
+                    </div>
+                  </div>
+                )}
     } finally {
       setIsUpdatingStatus(false);
     }
@@ -179,8 +241,7 @@ export default function ApplicationReviewDetail() {
   const handleReject = async () => {
     if (!id) return;
 
-    const reason =
-      window.prompt("Reason for rejecting this application?") || "";
+    const reason = window.prompt("Reason for rejecting this application?") || "";
     if (!reason.trim()) {
       toast.error("Reason required", {
         description: "Please enter a reason to reject.",
@@ -205,9 +266,7 @@ export default function ApplicationReviewDetail() {
 
       toast.error("Reject failed", {
         description:
-          err?.response?.data?.detail ||
-          err?.message ||
-          "Could not reject application.",
+          err?.response?.data?.detail || err?.message || "Could not reject application.",
       });
     } finally {
       setIsUpdatingStatus(false);
@@ -225,16 +284,16 @@ export default function ApplicationReviewDetail() {
   if (error || !application) {
     return (
       <div className="flex min-h-screen flex-col items-center justify-center gap-4">
-        <p className="text-red-500 font-medium">
-          {error || "Application not found."}
-        </p>
+        <p className="text-red-500 font-medium">{error || "Application not found."}</p>
         <Button onClick={() => navigate("/staff-landingpage")}>Back to List</Button>
       </div>
     );
   }
 
+  const appDisplayId = application?.application_id || application?.id || id || "-";
+
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-background pb-24">
       <main className="container mx-auto px-6 py-8 animate-fade-in">
         <Button
           variant="ghost"
@@ -266,11 +325,10 @@ export default function ApplicationReviewDetail() {
                 </span>
               </div>
             </div>
-            
           </div>
-          
         </div>
 
+        {/* rules */}
         <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between mb-2">
           {rules.rules_triggered.length > 0 && (() => {
             const overallGrade = rules?.risk_grade?.toUpperCase();
@@ -376,16 +434,15 @@ export default function ApplicationReviewDetail() {
                               </div>
                             </div>
                           </div>
-                        );
-                      })}
+                              );
+                            })}
+                          </div>
+                        </div>
+                      </div>
                     </div>
-                  </div>
-                </div>
+                  );
+                })()}
               </div>
-            );
-          })()}
-        </div>
-        
 
         {/* MAIN 2-COLUMN LAYOUT */}
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
@@ -402,9 +459,7 @@ export default function ApplicationReviewDetail() {
               <CardContent>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
-                    <p className="text-sm text-muted-foreground">
-                      Registration Number
-                    </p>
+                    <p className="text-sm text-muted-foreground">Registration Number</p>
                     <p className="font-medium text-foreground">
                       {application.business_registration_number || "-"}
                     </p>
@@ -412,15 +467,11 @@ export default function ApplicationReviewDetail() {
 
                   <div>
                     <p className="text-sm text-muted-foreground">Business Name</p>
-                    <p className="font-medium text-foreground">
-                      {application.business_name || "-"}
-                    </p>
+                    <p className="font-medium text-foreground">{application.business_name || "-"}</p>
                   </div>
 
                   <div>
-                    <p className="text-sm text-muted-foreground">
-                      Incorporation Date
-                    </p>
+                    <p className="text-sm text-muted-foreground">Incorporation Date</p>
                     <p className="font-medium text-foreground">
                       {application.incorporationDate || "-"}
                     </p>
@@ -435,25 +486,17 @@ export default function ApplicationReviewDetail() {
 
                   <div>
                     <p className="text-sm text-muted-foreground">Industry</p>
-                    <p className="font-medium text-foreground">
-                      {application.industry || "-"}
-                    </p>
+                    <p className="font-medium text-foreground">{application.industry || "-"}</p>
                   </div>
 
                   <div>
                     <p className="text-sm text-muted-foreground">Employee Count</p>
-                    <p className="font-medium text-foreground">
-                      {application.employeeCount || "-"}
-                    </p>
+                    <p className="font-medium text-foreground">{application.employeeCount || "-"}</p>
                   </div>
 
                   <div>
-                    <p className="text-sm text-muted-foreground">
-                      Annual Revenue
-                    </p>
-                    <p className="font-medium text-foreground">
-                      {application.annualRevenue || "-"}
-                    </p>
+                    <p className="text-sm text-muted-foreground">Annual Revenue</p>
+                    <p className="font-medium text-foreground">{application.annualRevenue || "-"}</p>
                   </div>
                 </div>
               </CardContent>
@@ -469,24 +512,13 @@ export default function ApplicationReviewDetail() {
               </CardHeader>
               <CardContent>
                 {directors.length === 0 ? (
-                  <p className="text-sm text-muted-foreground">
-                    No directors provided.
-                  </p>
+                  <p className="text-sm text-muted-foreground">No directors provided.</p>
                 ) : (
-                  <Accordion
-                    type="single"
-                    collapsible
-                    defaultValue="director-0"
-                    className="w-full"
-                  >
+                  <Accordion type="single" collapsible defaultValue="director-0" className="w-full">
                     {directors.map((d, idx) => {
                       const itemValue = `director-${idx}`;
                       return (
-                        <AccordionItem
-                          key={itemValue}
-                          value={itemValue}
-                          className="border-border"
-                        >
+                        <AccordionItem key={itemValue} value={itemValue} className="border-border">
                           <AccordionTrigger className="hover:no-underline py-3">
                             <div className="flex items-center gap-3 text-left">
                               <div className="flex h-8 w-8 items-center justify-center rounded-full bg-muted">
@@ -496,9 +528,7 @@ export default function ApplicationReviewDetail() {
                                 <p className="font-medium text-foreground">
                                   {d?.fullName || `Director ${idx + 1}`}
                                 </p>
-                                <p className="text-xs text-muted-foreground">
-                                  {d?.idNumber || "-"}
-                                </p>
+                                <p className="text-xs text-muted-foreground">{d?.idNumber || "-"}</p>
                               </div>
                             </div>
                           </AccordionTrigger>
@@ -507,23 +537,15 @@ export default function ApplicationReviewDetail() {
                               <div className="flex items-center gap-2">
                                 <Mail className="h-4 w-4 text-muted-foreground" />
                                 <div>
-                                  <p className="text-sm text-muted-foreground">
-                                    Email
-                                  </p>
-                                  <p className="font-medium text-foreground">
-                                    {d?.email || "-"}
-                                  </p>
+                                  <p className="text-sm text-muted-foreground">Email</p>
+                                  <p className="font-medium text-foreground">{d?.email || "-"}</p>
                                 </div>
                               </div>
                               <div className="flex items-center gap-2">
                                 <Phone className="h-4 w-4 text-muted-foreground" />
                                 <div>
-                                  <p className="text-sm text-muted-foreground">
-                                    Phone
-                                  </p>
-                                  <p className="font-medium text-foreground">
-                                    {d?.phone || "-"}
-                                  </p>
+                                  <p className="text-sm text-muted-foreground">Phone</p>
+                                  <p className="font-medium text-foreground">{d?.phone || "-"}</p>
                                 </div>
                               </div>
                             </div>
@@ -545,21 +567,16 @@ export default function ApplicationReviewDetail() {
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <p className="font-medium text-foreground">
-                  Street: {application.street || "-"}
-                </p>
+                <p className="font-medium text-foreground">Street: {application.street || "-"}</p>
                 <p className="text-muted-foreground">
-                  City and Postal Code: {application.city || "-"},{" "}
-                  {application.postalCode || "-"}
+                  City and Postal Code: {application.city || "-"}, {application.postalCode || "-"}
                 </p>
                 Country:{" "}
-                <p className="text-muted-foreground">
-                  {application.business_country || "-"}
-                </p>
+                <p className="text-muted-foreground">{application.business_country || "-"}</p>
               </CardContent>
             </Card>
 
-            {/* Requires Action feedback (still visible if staff opens old link) */}
+            {/* Requires Action feedback */}
             {currentStatus === "Requires Action" && actionReason && (
               <Card className="border-rose-500/30 bg-rose-500/5">
                 <CardHeader className="pb-3">
@@ -582,45 +599,6 @@ export default function ApplicationReviewDetail() {
 
           {/* RIGHT */}
           <div className="space-y-6">
-            {/* ✅ Review Actions ONLY when staff can review */}
-            {canReview && (
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-lg">Review Actions</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-3">
-                  <Button
-                    variant="outline"
-                    className="w-full gap-2 bg-amber-500 text-white"
-                    onClick={handleRequestDocuments}
-                    disabled={isUpdatingStatus}
-                  >
-                    <FileQuestion className="h-4 w-4" />
-                    {isUpdatingStatus ? "Requesting..." : "Request Documents"}
-                  </Button>
-
-                  <Button
-                    className="w-full gap-2 bg-green-500 text-white"
-                    onClick={handleApprove}
-                    disabled={isUpdatingStatus}
-                  >
-                    <CheckCircle2 className="h-4 w-4" />
-                    {isUpdatingStatus ? "Approving..." : "Approve Application"}
-                  </Button>
-
-                  <Button
-                    variant="outline"
-                    className="w-full gap-2 bg-red-500 text-white"
-                    onClick={handleReject}
-                    disabled={isUpdatingStatus}
-                  >
-                    <XCircle className="h-4 w-4" />
-                    {isUpdatingStatus ? "Rejecting..." : "Reject Application"}
-                  </Button>
-                </CardContent>
-              </Card>
-            )}
-
             {/* Documents */}
             <Card>
               <CardHeader>
@@ -629,28 +607,116 @@ export default function ApplicationReviewDetail() {
                   Documents
                 </CardTitle>
               </CardHeader>
-            </Card>
 
-            {/* Review Timeline */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2 text-lg">
-                  <Clock className="h-5 w-5 text-muted-foreground" />
-                  Review Timeline
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">{/* (unchanged timeline) */}</div>
+              <CardContent className="space-y-3">
+                {docsLoading ? (
+                  <p className="text-sm text-muted-foreground">Loading documents...</p>
+                ) : docsError ? (
+                  <p className="text-sm text-red-500">{docsError}</p>
+                ) : documents.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">No documents uploaded yet.</p>
+                ) : (
+                  <div className="space-y-2">
+                    {documents.map((doc) => (
+                      <div
+                        key={doc.document_id || doc.id || `${doc.document_type}-${doc.created_at}`}
+                        className="relative flex items-center justify-between rounded-lg border border-border p-3"
+                      >
+                        <div className="min-w-0">
+                          <p className="truncate font-medium text-foreground">
+                            {doc.document_type || "Document"}
+                          </p>
+                          <p className="text-xs text-muted-foreground">
+                            {doc.created_at
+                              ? `Uploaded: ${new Date(doc.created_at).toLocaleDateString()}`
+                              : ""}
+                          </p>
+                        </div>
+
+                        <Button
+                          variant="ghost"
+                          className="relative z-50 h-8 w-8 p-0 pointer-events-auto"
+                          type="button"
+                          title="Open"
+                          onClick={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            handleOpenDocument(doc);
+                          }}
+                          aria-label="Open document"
+                        >
+                          <Download className="h-4 w-4 pointer-events-none" />
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </CardContent>
             </Card>
-
-            {/* KEEP YOUR COMMENTED OUT BLOCK COMMENTED OUT */}
-            {/* <div className="space-y-6">
-              ...
-            </div> */}
           </div>
         </div>
       </main>
+
+      {/* ✅ Dialog mounted here so sticky button can open it */}
+      <RequestDocumentsDialog
+        open={requestDocsOpen}
+        onOpenChange={setRequestDocsOpen}
+        businessName={application?.business_name || application?.businessName || "-"}
+        missingCount={missingDocuments.length}
+        onSubmit={handleSubmitRequestDocs}
+        isSubmitting={isUpdatingStatus}
+      />
+
+      {/* ✅ Sticky Bottom Action Bar = single source of truth for review actions */}
+      {canReview && (
+        <div className="fixed bottom-0 left-0 right-0 z-50 border-t border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80">
+          <div className="container mx-auto px-6 py-3">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              {/* Left text */}
+              <div className="min-w-0">
+                <p className="text-sm text-muted-foreground">
+                  Reviewing{" "}
+                  <span className="font-medium text-foreground truncate inline-block max-w-full align-bottom">
+                    {appDisplayId}
+                  </span>
+                </p>
+              </div>
+
+              {/* Right buttons */}
+              <div className="flex flex-wrap items-center justify-start sm:justify-end gap-2">
+                <Button
+                  variant="outline"
+                  className="gap-2 bg-amber-500 text-white"
+                  onClick={handleRequestDocuments}
+                  disabled={isUpdatingStatus}
+                >
+                  <FileQuestion className="h-4 w-4" />
+                  {isUpdatingStatus ? "Requesting..." : "Request Documents"}
+                </Button>
+
+                <Button
+                  variant="outline"
+                  className="gap-2 bg-red-500 text-white"
+                  onClick={handleReject}
+                  disabled={isUpdatingStatus}
+                >
+                  <XCircle className="h-4 w-4" />
+                  {isUpdatingStatus ? "Rejecting..." : "Reject Application"}
+                </Button>
+
+                <Button
+                  className="gap-2 bg-green-500 text-white"
+                  onClick={handleApprove}
+                  disabled={isUpdatingStatus}
+                >
+                  <CheckCircle2 className="h-4 w-4" />
+                  {isUpdatingStatus ? "Approving..." : "Approve Application"}
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

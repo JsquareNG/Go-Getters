@@ -338,7 +338,7 @@ const LandingNavBar = () => {
 
                 <PopoverContent
                   align="end"
-                  className="w-80 max-w-[calc(100vw-1.5rem)] p-0"
+                  className="w-80 max-w-[calc(100vw-1.5rem)] p-0 overflow-hidden"
                 >
                   <div className="flex items-center justify-between border-b border-border px-4 py-3">
                     <h4 className="text-sm font-semibold text-foreground">
@@ -410,7 +410,7 @@ const LandingNavBar = () => {
                                     <p className="text-sm font-semibold text-foreground">
                                       {n.title}
                                     </p>
-                                    <p className="text-xs text-muted-foreground truncate">
+                                    <p className="text-xs text-muted-foreground whitespace-normal break-words">
                                       {n.message}
                                     </p>
                                     <p className="text-xs text-muted-foreground mt-0.5">
@@ -439,7 +439,7 @@ const LandingNavBar = () => {
                                   <p className="text-sm font-medium text-foreground opacity-70">
                                     {n.title}
                                   </p>
-                                  <p className="text-xs text-muted-foreground truncate">
+                                  <p className="text-xs text-muted-foreground whitespace-normal break-words">
                                     {n.message}
                                   </p>
                                   <p className="text-xs text-muted-foreground mt-0.5">
