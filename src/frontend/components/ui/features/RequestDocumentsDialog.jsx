@@ -28,8 +28,8 @@ const RequestDocumentsDialog = ({
   onOpenChange,
   businessName,
   missingCount,
-  onSubmit, // ✅ NEW
-  isSubmitting = false, // ✅ optional (nice for disabling button)
+  onSubmit,
+  isSubmitting = false,
 }) => {
   const [reason, setReason] = useState("");
   const [additionalDocs, setAdditionalDocs] = useState([{ name: "", description: "" }]);
@@ -66,35 +66,34 @@ const RequestDocumentsDialog = ({
       return;
     }
 
-    // ✅ Map UI -> backend keys
     const documentsPayload = additionalDocs
       .map((d) => ({
         document_name: String(d?.name ?? "").trim(),
         document_desc: String(d?.description ?? "").trim(),
       }))
-      .filter((d) => d.document_name || d.document_desc); // keep non-empty rows
+      .filter((d) => d.document_name || d.document_desc);
 
     const questionsPayload = questions
-      .map((q) => ({ question_text: String(q ?? "").trim() }))
+      .map((q) => ({ question_text: String(q ?? "").trim(), answer_text: null }))
       .filter((q) => q.question_text);
 
+    if (documentsPayload.length === 0 && questionsPayload.length === 0) {
+      toast.error("Please add at least 1 document or 1 question.");
+      return;
+    }
+
     try {
-      // if parent didn't pass onSubmit, still behave
       if (typeof onSubmit === "function") {
         await onSubmit({
           reason: trimmedReason,
-          documents: documentsPayload,
-          questions: questionsPayload,
+          documents: documentsPayload, // ✅ backend expects this
+          questions: questionsPayload, // ✅ backend expects this
         });
       }
 
-      // parent will usually toast+navigate; but keep a fallback toast
-      // (won't double-toast if parent already does; you can remove if you prefer)
-      // toast.success("Document request sent to applicant");
       resetForm();
       onOpenChange(false);
     } catch (err) {
-      // parent likely handles toast; but fallback
       toast.error("Request failed", {
         description: err?.message || "Could not send request.",
       });
@@ -105,7 +104,6 @@ const RequestDocumentsDialog = ({
     <Dialog
       open={open}
       onOpenChange={(nextOpen) => {
-        // optional: reset when closing
         if (!nextOpen) resetForm();
         onOpenChange(nextOpen);
       }}
@@ -131,15 +129,13 @@ const RequestDocumentsDialog = ({
         </DialogHeader>
 
         <div className="space-y-6 py-2">
-          {/* Section 1: Reason */}
+          {/* Reason */}
           <div className="space-y-3">
             <div className="flex items-center gap-2">
               <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-warning/10">
                 <AlertTriangle className="h-4 w-4 text-warning" />
               </div>
-              <Label className="text-sm font-semibold text-foreground">
-                Reason for Request
-              </Label>
+              <Label className="text-sm font-semibold text-foreground">Reason for Request</Label>
             </div>
 
             <Textarea
@@ -152,7 +148,7 @@ const RequestDocumentsDialog = ({
 
           <Separator />
 
-          {/* Section 2: Additional Documents */}
+          {/* Documents */}
           <div className="space-y-3">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
@@ -164,13 +160,7 @@ const RequestDocumentsDialog = ({
                 </Label>
               </div>
 
-              <Button
-                variant="outline"
-                size="sm"
-                className="gap-1.5 text-xs"
-                onClick={addDocument}
-                type="button"
-              >
+              <Button variant="outline" size="sm" className="gap-1.5 text-xs" onClick={addDocument} type="button">
                 <Plus className="h-3.5 w-3.5" />
                 Add
               </Button>
@@ -216,7 +206,7 @@ const RequestDocumentsDialog = ({
 
           <Separator />
 
-          {/* Section 3: Questions */}
+          {/* Questions */}
           <div className="space-y-3">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
@@ -228,13 +218,7 @@ const RequestDocumentsDialog = ({
                 </Label>
               </div>
 
-              <Button
-                variant="outline"
-                size="sm"
-                className="gap-1.5 text-xs"
-                onClick={addQuestion}
-                type="button"
-              >
+              <Button variant="outline" size="sm" className="gap-1.5 text-xs" onClick={addQuestion} type="button">
                 <Plus className="h-3.5 w-3.5" />
                 Add
               </Button>
@@ -272,12 +256,7 @@ const RequestDocumentsDialog = ({
         </div>
 
         <DialogFooter className="gap-2 sm:gap-0">
-          <Button
-            variant="outline"
-            onClick={() => onOpenChange(false)}
-            type="button"
-            disabled={isSubmitting}
-          >
+          <Button variant="outline" onClick={() => onOpenChange(false)} type="button" disabled={isSubmitting}>
             Cancel
           </Button>
           <Button className="gap-2" onClick={handleSubmit} type="button" disabled={isSubmitting}>

@@ -159,12 +159,12 @@ export default function ApplicationReviewDetail() {
   };
 
   // ✅ UPDATED: open dialog instead of prompt
-  const handleRequestDocuments = () => {
-    setRequestDocsOpen(true);
-  };
+    const handleRequestDocuments = () => {
+      setRequestDocsOpen(true);
+    };
 
-  // ✅ NEW: dialog submit -> call your existing escalate API properly
-  const handleSubmitRequestDocs = async ({ reason, documents, questions }) => {
+    // ✅ NEW: dialog submit -> call your existing escalate API properly
+    const handleSubmitRequestDocs = async ({ reason, documents, questions }) => {
     if (!id) return;
 
     try {
@@ -172,7 +172,6 @@ export default function ApplicationReviewDetail() {
 
       const appIdToUse = application?.application_id || id;
 
-      // expects: { reason, documents: [{document_name, document_desc}], questions: [{question_text}] }
       await escalateApplication(appIdToUse, {
         reason,
         documents,
@@ -186,11 +185,8 @@ export default function ApplicationReviewDetail() {
       navigate("/staff-landingpage");
     } catch (err) {
       console.error("Escalate failed:", err);
-      console.log("Escalate err.response?.data:", err?.response?.data);
-
       toast.error("Request Documents failed", {
-        description:
-          err?.response?.data?.detail || err?.message || "Could not escalate application.",
+        description: err?.response?.data?.detail || err?.message || "Could not escalate application.",
       });
     } finally {
       setIsUpdatingStatus(false);
@@ -323,120 +319,6 @@ export default function ApplicationReviewDetail() {
         </div>
 
         {/* rules */}
-        <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between mb-2">
-          {rules.rules_triggered.length > 0 && (() => {
-            const overallGrade = rules?.risk_grade?.toUpperCase();
-
-            const overallStyles = {
-              HIGH: "bg-red-100 text-red-800 border border-red-200",
-              MEDIUM: "bg-amber-100 text-amber-800 border border-amber-200",
-              LOW: "bg-emerald-100 text-emerald-800 border border-emerald-200",
-            };
-
-            const overallBadgeStyle =
-              overallStyles[overallGrade] ||
-              "bg-slate-100 text-slate-700 border border-slate-200";
-
-            return (
-              <div className="mb-8 rounded-xl border border-amber-200 bg-amber-50 p-4">
-                <div className="flex items-start gap-3">
-                  {/* Icon */}
-                  <div className="mt-0.5 flex h-8 w-8 items-center justify-center rounded-full bg-amber-200">
-                    <AlertCircle className="h-4 w-4 text-slate-700" />
-                  </div>
-
-                  <div className="flex-1">
-                    {/* Header Row */}
-                    <div className="flex flex-wrap items-center justify-between gap-2">
-                      <p className="font-semibold text-slate-900">
-                        Risk Assessment ({rules.rules_triggered.length} rule
-                        {rules.rules_triggered.length > 1 ? "s" : ""})
-                      </p>
-
-                      <div className="flex items-center gap-2">
-                        {/* Risk Score */}
-                        {typeof rules?.risk_score === "number" && (
-                          <span className="rounded-full bg-white px-2 py-0.5 text-xs font-medium border border-slate-200 text-slate-700">
-                            Score: {rules.risk_score}
-                          </span>
-                        )}
-
-                        {/* Overall Grade Badge */}
-                        {overallGrade && (
-                          <span
-                            className={`rounded-full px-2 py-0.5 text-xs font-semibold ${overallBadgeStyle}`}
-                          >
-                            {overallGrade}
-                          </span>
-                        )}
-                      </div>
-                    </div>
-
-                    {/* Rules List */}
-                    <div className="mt-3 space-y-2">
-                      {rules.rules_triggered.map((r, idx) => {
-                        const severity = r?.severity?.toUpperCase();
-
-                        const severityStyles = {
-                          HIGH: "bg-red-100 text-red-800 border border-red-200",
-                          MEDIUM:
-                            "bg-amber-100 text-amber-800 border border-amber-200",
-                          LOW: "bg-emerald-100 text-emerald-800 border border-emerald-200",
-                        };
-
-                        const severityBadgeStyle =
-                          severityStyles[severity] ||
-                          "bg-slate-100 text-slate-700 border border-slate-200";
-
-                        return (
-                          <div
-                            key={r?.rule_id ?? idx}
-                            className="rounded-lg border border-slate-200 bg-white p-3"
-                          >
-                            <div className="flex flex-wrap items-start justify-between gap-2">
-                              <div>
-                                <p className="font-medium text-slate-900">
-                                  {r?.name || "Triggered Rule"}
-                                  {r?.rule_id && (
-                                    <span className="ml-2 text-xs text-slate-500">
-                                      ({r.rule_id})
-                                    </span>
-                                  )}
-                                </p>
-
-                                {r?.reason && (
-                                  <p className="mt-0.5 text-sm text-slate-600">
-                                    {r.reason}
-                                  </p>
-                                )}
-                              </div>
-
-                              <div className="flex items-center gap-2">
-                                {severity && (
-                                  <span
-                                    className={`rounded-full px-2 py-0.5 text-xs font-semibold ${severityBadgeStyle}`}
-                                  >
-                                    {severity}
-                                  </span>
-                                )}
-
-                                {typeof r?.points === "number" && (
-                                  <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-700 border border-slate-200">
-                                    +{r.points} pts
-                                  </span>
-                                )}
-                              </div>
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-                </div>
-              </div>
-            );
-          })()}
-        </div>
 
         {/* MAIN 2-COLUMN LAYOUT */}
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
@@ -593,8 +475,6 @@ export default function ApplicationReviewDetail() {
 
           {/* RIGHT */}
           <div className="space-y-6">
-            {/* ✅ REMOVED: Review Actions card (actions are now in sticky bar) */}
-
             {/* Documents */}
             <Card>
               <CardHeader>
@@ -666,7 +546,7 @@ export default function ApplicationReviewDetail() {
         </div>
       </main>
 
-      {/* ✅ NEW: Dialog mounted here so sticky button can open it */}
+      {/* ✅ Dialog mounted here so sticky button can open it */}
       <RequestDocumentsDialog
         open={requestDocsOpen}
         onOpenChange={setRequestDocsOpen}
@@ -678,54 +558,54 @@ export default function ApplicationReviewDetail() {
 
       {/* ✅ Sticky Bottom Action Bar = single source of truth for review actions */}
       {canReview && (
-      <div className="fixed bottom-0 left-0 right-0 z-50 border-t border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80">
-        <div className="container mx-auto px-6 py-3">
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            {/* Left text */}
-            <div className="min-w-0">
-              <p className="text-sm text-muted-foreground">
-                Reviewing{" "}
-                <span className="font-medium text-foreground truncate inline-block max-w-full align-bottom">
-                  {appDisplayId}
-                </span>
-              </p>
-            </div>
+        <div className="fixed bottom-0 left-0 right-0 z-50 border-t border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80">
+          <div className="container mx-auto px-6 py-3">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              {/* Left text */}
+              <div className="min-w-0">
+                <p className="text-sm text-muted-foreground">
+                  Reviewing{" "}
+                  <span className="font-medium text-foreground truncate inline-block max-w-full align-bottom">
+                    {appDisplayId}
+                  </span>
+                </p>
+              </div>
 
-            {/* Right buttons */}
-            <div className="flex flex-wrap items-center justify-start sm:justify-end gap-2">
-              <Button
-                variant="outline"
-                className="gap-2 bg-amber-500 text-white"
-                onClick={handleRequestDocuments}
-                disabled={isUpdatingStatus}
-              >
-                <FileQuestion className="h-4 w-4" />
-                {isUpdatingStatus ? "Requesting..." : "Request Documents"}
-              </Button>
+              {/* Right buttons */}
+              <div className="flex flex-wrap items-center justify-start sm:justify-end gap-2">
+                <Button
+                  variant="outline"
+                  className="gap-2 bg-amber-500 text-white"
+                  onClick={handleRequestDocuments}
+                  disabled={isUpdatingStatus}
+                >
+                  <FileQuestion className="h-4 w-4" />
+                  {isUpdatingStatus ? "Requesting..." : "Request Documents"}
+                </Button>
 
-              <Button
-                variant="outline"
-                className="gap-2 bg-red-500 text-white"
-                onClick={handleReject}
-                disabled={isUpdatingStatus}
-              >
-                <XCircle className="h-4 w-4" />
-                {isUpdatingStatus ? "Rejecting..." : "Reject Application"}
-              </Button>
+                <Button
+                  variant="outline"
+                  className="gap-2 bg-red-500 text-white"
+                  onClick={handleReject}
+                  disabled={isUpdatingStatus}
+                >
+                  <XCircle className="h-4 w-4" />
+                  {isUpdatingStatus ? "Rejecting..." : "Reject Application"}
+                </Button>
 
-              <Button
-                className="gap-2 bg-green-500 text-white"
-                onClick={handleApprove}
-                disabled={isUpdatingStatus}
-              >
-                <CheckCircle2 className="h-4 w-4" />
-                {isUpdatingStatus ? "Approving..." : "Approve Application"}
-              </Button>
+                <Button
+                  className="gap-2 bg-green-500 text-white"
+                  onClick={handleApprove}
+                  disabled={isUpdatingStatus}
+                >
+                  <CheckCircle2 className="h-4 w-4" />
+                  {isUpdatingStatus ? "Approving..." : "Approve Application"}
+                </Button>
+              </div>
             </div>
           </div>
         </div>
-      </div>
-    )}
+      )}
     </div>
   );
 }
