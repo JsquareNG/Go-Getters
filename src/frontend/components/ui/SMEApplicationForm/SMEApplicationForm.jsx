@@ -227,153 +227,278 @@ const SMEApplicationForm = ({ onSubmitSuccess }) => {
 
   //--- HELPER FUNCTION---
   const buildDynamicPayload = (stateData, countryCode = "SG", businessType) => {
-    // Get the country config
-    const countryConfig = SINGAPORE_CONFIG.country;
-    if (!countryConfig || !businessType) return { form_data: stateData };
+  if (!businessType) return { form_data: stateData };
 
-    const entityConfig = SINGAPORE_CONFIG.entities[businessType];
-    if (!entityConfig) return { form_data: stateData };
+  const entityConfig = SINGAPORE_CONFIG.entities[businessType];
+  if (!entityConfig) return { form_data: stateData };
 
-    const payloadFormData = {};
+  const payloadFormData = {};
 
-    // Loop through steps relevant to payload (Steps 0-3)
-    entityConfig.steps?.forEach((step, stepIndex) => {
-      if (stepIndex > 2) return; // only Steps 0-3
+  // Only include fields that have values for Steps 0-3
+  entityConfig.steps?.forEach((step, stepIndex) => {
+    if (stepIndex > 3) return;
 
-      // ---- Top-level fields ----
-      Object.keys(step.fields || {}).forEach((fieldKey) => {
-        if (!(fieldKey in stateData)) return;
-
-        const value = stateData[fieldKey];
-        if (value !== undefined && value !== "" && value !== null) {
-          payloadFormData[fieldKey] = value;
-        }
-
-        // Handle conditional fields
-        const field = step.fields[fieldKey];
-        if (field?.conditionalFields && field.options) {
-          const selectedOption = value;
-          const conditionalFields = field.conditionalFields[selectedOption];
-          if (conditionalFields) {
-            Object.keys(conditionalFields).forEach((cKey) => {
-              const cVal = stateData[cKey];
-              if (cVal !== undefined && cVal !== "" && cVal !== null) {
-                payloadFormData[cKey] = cVal;
-              }
-            });
-          }
-        }
-      });
-
-      // ---- Repeatable sections ----
-      if (step.repeatableSections) {
-        Object.keys(step.repeatableSections).forEach((sectionKey) => {
-          const sectionEntries = stateData[sectionKey] || [];
-          payloadFormData[sectionKey] = sectionEntries
-            .map((entry) => {
-              const filteredEntry = {};
-              Object.keys(entry).forEach((k) => {
-                if (
-                  entry[k] !== undefined &&
-                  entry[k] !== "" &&
-                  entry[k] !== null
-                ) {
-                  filteredEntry[k] = entry[k];
-                }
-              });
-              return Object.keys(filteredEntry).length ? filteredEntry : null;
-            })
-            .filter(Boolean); // remove empty
-        });
+    // --- Standard fields ---
+    Object.keys(step.fields || {}).forEach((fieldKey) => {
+      const value = stateData[fieldKey];
+      if (value !== undefined && value !== "" && value !== null) {
+        payloadFormData[fieldKey] = value;
       }
 
-      // ---- Documents ----
-      if (step.documents?.length) {
-        payloadFormData.documents = payloadFormData.documents || {};
-        step.documents.forEach((docKey) => {
-          const docValue = stateData.documents?.[docKey];
-          if (docValue) payloadFormData.documents[docKey] = docValue;
-        });
+      // --- Conditional fields ---
+      const field = step.fields[fieldKey];
+      if (field?.conditionalFields && field.options) {
+        const selectedOption = value;
+        const conditionalFields = field.conditionalFields[selectedOption];
+        if (conditionalFields) {
+          Object.keys(conditionalFields).forEach((cKey) => {
+            const cVal = stateData[cKey];
+            if (cVal !== undefined && cVal !== "" && cVal !== null) {
+              payloadFormData[cKey] = cVal;
+            }
+          });
+        }
       }
     });
 
-    // Include country info in payload
-    return {
-      country: countryCode,
-      businessType,
-      form_data: payloadFormData,
-    };
+    // --- Repeatable sections ---
+    if (step.repeatableSections) {
+      Object.keys(step.repeatableSections).forEach((sectionKey) => {
+        const entries = stateData[sectionKey] || [];
+        const filteredEntries = entries
+          .map((entry) => {
+            const filtered = {};
+            Object.keys(entry).forEach((k) => {
+              const val = entry[k];
+              if (val !== undefined && val !== "" && val !== null) {
+                filtered[k] = val;
+              }
+            });
+            return Object.keys(filtered).length ? filtered : null;
+          })
+          .filter(Boolean);
+        if (filteredEntries.length) payloadFormData[sectionKey] = filteredEntries;
+      });
+    }
+
+    // --- Documents ---
+    if (step.documents?.length) {
+      payloadFormData.documents = payloadFormData.documents || {};
+      step.documents.forEach((docKey) => {
+        const doc = stateData.documents?.[docKey];
+        if (doc?.file) payloadFormData.documents[docKey] = doc;
+      });
+    }
+
+    // --- Country-specific fields ---
+    if (stateData.countrySpecificFields) {
+      payloadFormData.countrySpecificFields = {
+        ...stateData.countrySpecificFields,
+      };
+    }
+
+    // --- Business-type fields ---
+    if (stateData.businessTypeSpecificFields) {
+      payloadFormData.businessTypeSpecificFields = {
+        ...stateData.businessTypeSpecificFields,
+      };
+    }
+  });
+
+  return {
+    business_country: countryCode,
+    business_name: stateData.business_name || "",
+    business_type: businessType,
+    last_saved_step: stateData.last_saved_step ?? 0,
+    previous_status: stateData.previous_status ?? null,
+    current_status: stateData.current_status ?? "Draft",
+    form_data: payloadFormData, // only populated fields
   };
+};
+
+//   const buildDynamicPayload = (stateData, countryCode = "SG", businessType) => {
+//   if (!businessType) return { form_data: stateData };
+
+//   const entityConfig = SINGAPORE_CONFIG.entities[businessType];
+//   if (!entityConfig) return { form_data: stateData };
+
+//   const payloadFormData = {};
+
+//   // Loop Steps 0-3 (required for draft)
+//   entityConfig.steps?.forEach((step, stepIndex) => {
+//     if (stepIndex > 3) return;
+
+//     // --- Top-level fields ---
+//     Object.keys(step.fields || {}).forEach((fieldKey) => {
+//       const value = stateData[fieldKey];
+//       if (value !== undefined && value !== "" && value !== null) {
+//         payloadFormData[fieldKey] = value;
+//       }
+
+//       // Conditional fields based on selected option
+//       const field = step.fields[fieldKey];
+//       if (field?.conditionalFields && field.options) {
+//         const selectedOption = value;
+//         const conditionalFields = field.conditionalFields[selectedOption];
+//         if (conditionalFields) {
+//           Object.keys(conditionalFields).forEach((cKey) => {
+//             const cVal = stateData[cKey];
+//             if (cVal !== undefined && cVal !== "" && cVal !== null) {
+//               payloadFormData[cKey] = cVal;
+//             }
+//           });
+//         }
+//       }
+//     });
+
+//     // --- Repeatable sections ---
+//     if (step.repeatableSections) {
+//       Object.keys(step.repeatableSections).forEach((sectionKey) => {
+//         const entries = stateData[sectionKey] || [];
+//         payloadFormData[sectionKey] = entries
+//           .map((entry) => {
+//             const filteredEntry = {};
+//             Object.keys(entry).forEach((k) => {
+//               const val = entry[k];
+//               if (val !== undefined && val !== "" && val !== null) {
+//                 filteredEntry[k] = val;
+//               }
+//             });
+//             return Object.keys(filteredEntry).length ? filteredEntry : null;
+//           })
+//           .filter(Boolean);
+//       });
+//     }
+
+//     // --- Documents ---
+//     if (step.documents?.length) {
+//       payloadFormData.documents = payloadFormData.documents || {};
+//       step.documents.forEach((docKey) => {
+//         const doc = stateData.documents?.[docKey];
+//         if (doc) payloadFormData.documents[docKey] = doc;
+//       });
+//     }
+
+//     // --- Country-specific fields ---
+//     if (stateData.countrySpecificFields) {
+//       payloadFormData.countrySpecificFields = {
+//         ...stateData.countrySpecificFields,
+//       };
+//     }
+
+//     // --- Business-type fields ---
+//     if (stateData.businessTypeSpecificFields) {
+//       payloadFormData.businessTypeSpecificFields = {
+//         ...stateData.businessTypeSpecificFields,
+//       };
+//     }
+//   });
+
+//   return {
+//     business_country: countryCode, //necessary for backend mapping
+//     businessType,  //necessary for backend mapping
+//     form_data: payloadFormData,
+//   };
+// };
 
   const handleSaveDraft = async () => {
-    try {
-      const payload = buildDynamicPayload(
-        state.data,
-        "SG",
-        state.data.businessType,
-      );
+  try {
+    const dynamicPayload = buildDynamicPayload(
+  state.data,
+  "SG",
+  state.data.businessType
+);
 
-      const finalPayload = {
-        user_id: user.id,
-        email: user.email,
-        firstName: user.firstName,
-        ...payload,
-        application_id: appId !== "new" ? appId : undefined,
-      };
+const finalPayload = {
+  user_id: user.user_id,
+  email: user.email,
+  firstName: user.firstName,
+  last_saved_step: clampedStep,
+  application_id: appId !== "new" ? appId : undefined,
+  ...dynamicPayload, // includes business_country, business_type, business_name, form_data
+};
 
-      const res = await saveApplicationDraftApi(finalPayload);
-      dispatch(
-        saveDraftAction({
-          appId: res.application_id || appId,
-          data: state.data,
-        }),
-      );
-      toast({
-        title: "Draft Saved",
-        description: "Your draft has been saved successfully.",
-      });
-    } catch (err) {
-      toast({
-        title: "Save Failed",
-        description: err?.message || "Failed to save draft.",
-        variant: "destructive",
-      });
-    }
-  };
+    // const finalPayload = {
+    //   user_id: user.id,
+    //   email: user.email,
+    //   firstName: user.firstName,
+    //   ...payload,
+    //   application_id: appId !== "new" ? appId : undefined, // undefined for first save
+    // };
+//     const finalPayload = {
+//   user_id: user.id,
+//   email: user.email,
+//   firstName: user.firstName,
+//   business_country: "SG",                    // backend expects this
+//   business_name: state.data.business_name,   // map from form state
+//   business_type: state.data.businessType,   // backend expects this
+//   last_saved_step: clampedStep,             // current step saved
+//   form_data: buildDynamicPayload(
+//     state.data,
+//     "SG",
+//     state.data.businessType
+//   ).form_data,                              // only form_data
+//   application_id: appId !== "new" ? appId : undefined,
+// };
+
+    const res = await saveApplicationDraftApi(finalPayload);
+
+    // Update Redux with returned appId (backend may return a new ID)
+    dispatch(
+      saveDraftAction({
+        appId: res.application_id || appId,
+        data: state.data,
+      })
+    );
+
+    toast({
+      title: "Draft Saved",
+      description: "Your draft has been saved successfully.",
+    });
+  } catch (err) {
+    toast({
+      title: "Save Failed",
+      description: err?.message || "Failed to save draft.",
+      variant: "destructive",
+    });
+  }
+};
 
   const handleSubmitApplication = async () => {
-    setIsSubmitting(true);
-    try {
-      const payload = buildDynamicPayload(
-        state.data,
-        "SG",
-        state.data.businessType,
-      );
+  setIsSubmitting(true);
+  try {
+    const payload = buildDynamicPayload(
+      state.data,
+      "SG",
+      state.data.businessType
+    );
 
-      const finalPayload = {
-        user_id: user.id,
-        email: user.email,
-        firstName: user.firstName,
-        ...payload,
-        application_id: appId !== "new" ? appId : undefined,
-      };
+    const finalPayload = {
+      user_id: user.id,
+      email: user.email,
+      firstName: user.firstName,
+      ...payload,
+      application_id: appId !== "new" ? appId : undefined,
+    };
 
-      await submitApplicationApi(finalPayload);
-      dispatch(markAsSubmitted({ appId, data: state.data }));
-      toast({
-        title: "Application Submitted",
-        description: "Your application has been submitted.",
-      });
-    } catch (err) {
-      toast({
-        title: "Submission Failed",
-        description: err?.message || "Failed to submit application.",
-        variant: "destructive",
-      });
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
+    await submitApplicationApi(finalPayload);
+
+    dispatch(markAsSubmitted({ appId, data: state.data }));
+
+    toast({
+      title: "Application Submitted",
+      description: "Your application has been submitted.",
+    });
+  } catch (err) {
+    toast({
+      title: "Submission Failed",
+      description: err?.message || "Failed to submit application.",
+      variant: "destructive",
+    });
+  } finally {
+    setIsSubmitting(false);
+  }
+};
 
   // ------------------- NEXT BUTTON DISABLE ------------------- //
   const isNextDisabled = clampedStep === 3 && !arePreviousStepsComplete();
