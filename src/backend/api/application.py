@@ -1565,3 +1565,62 @@ def get_required_requirements(application_id: str, db: Session = Depends(get_db)
         "required_documents": required_documents,
         "required_questions": required_questions,
     }
+
+@router.get("/getActionRequests/{application_id}")
+def get_action_requests(application_id: str, db: Session = Depends(get_db)):
+    action_requests = (
+        db.query(ActionRequest)
+        .filter(ActionRequest.application_id == application_id)
+        .order_by(desc(ActionRequest.created_at))
+        .all()
+    )
+
+    results = []
+
+    for ar in action_requests:
+        items = (
+            db.query(ActionRequestItem)
+            .filter(ActionRequestItem.action_request_id == ar.action_request_id)
+            .order_by(desc(ActionRequestItem.item_id))
+            .all()
+        )
+
+        documents = []
+        questions = []
+
+        for it in items:
+            if it.item_type == "DOCUMENT":
+                documents.append(
+                    {
+                        "item_id": it.item_id,
+                        "document_name": it.document_name,
+                        "document_desc": it.document_desc,
+                        "fulfilled_at": it.fulfilled_at,
+                    }
+                )
+
+            elif it.item_type == "QUESTION":
+                questions.append(
+                    {
+                        "item_id": it.item_id,
+                        "question_text": it.question_text,
+                        "answer_text": it.answer_text,
+                        "fulfilled_at": it.fulfilled_at,
+                    }
+                )
+
+        results.append(
+            {
+                "action_request_id": ar.action_request_id,
+                "status": ar.status,
+                "reason": ar.reason,
+                "created_at": ar.created_at,
+                "documents": documents,
+                "questions": questions,
+            }
+        )
+
+    return {
+        "application_id": application_id,
+        "action_requests": results,
+    }

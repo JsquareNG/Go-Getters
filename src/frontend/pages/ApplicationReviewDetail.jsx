@@ -329,7 +329,7 @@ export default function ApplicationReviewDetail() {
         </div>
 
         {/* rules */}
-        <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between mb-2">
+        {/* <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between mb-2">
           {rules.rules_triggered.length > 0 && (() => {
             const overallGrade = rules?.risk_grade?.toUpperCase();
 
@@ -346,13 +346,11 @@ export default function ApplicationReviewDetail() {
             return (
               <div className="mb-8 rounded-xl border border-amber-200 bg-amber-50 p-4">
                 <div className="flex items-start gap-3">
-                  {/* Icon */}
                   <div className="mt-0.5 flex h-8 w-8 items-center justify-center rounded-full bg-amber-200">
                     <AlertCircle className="h-4 w-4 text-slate-700" />
                   </div>
 
                   <div className="flex-1">
-                    {/* Header Row */}
                     <div className="flex flex-wrap items-center justify-between gap-2">
                       <p className="font-semibold text-slate-900">
                         Risk Assessment ({rules.rules_triggered.length} rule
@@ -360,14 +358,12 @@ export default function ApplicationReviewDetail() {
                       </p>
 
                       <div className="flex items-center gap-2">
-                        {/* Risk Score */}
                         {typeof rules?.risk_score === "number" && (
                           <span className="rounded-full bg-white px-2 py-0.5 text-xs font-medium border border-slate-200 text-slate-700">
                             Score: {rules.risk_score}
                           </span>
                         )}
 
-                        {/* Overall Grade Badge */}
                         {overallGrade && (
                           <span
                             className={`rounded-full px-2 py-0.5 text-xs font-semibold ${overallBadgeStyle}`}
@@ -378,7 +374,6 @@ export default function ApplicationReviewDetail() {
                       </div>
                     </div>
 
-                    {/* Rules List */}
                     <div className="mt-3 space-y-2">
                       {rules.rules_triggered.map((r, idx) => {
                         const severity = r?.severity?.toUpperCase();
@@ -442,7 +437,7 @@ export default function ApplicationReviewDetail() {
                     </div>
                   );
                 })()}
-              </div>
+              </div> */}
 
         {/* MAIN 2-COLUMN LAYOUT */}
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
