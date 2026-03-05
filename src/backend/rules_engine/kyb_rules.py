@@ -1,7 +1,7 @@
 # kyb_rules.py
 
-from models import Company
-from config import HIGH_RISK_JURISDICTIONS, HIGH_RISK_INDUSTRIES
+from backend.rules_engine.models import Company
+from backend.rules_engine.config import HIGH_RISK_JURISDICTIONS, HIGH_RISK_INDUSTRIES
 
 
 def evaluate_company(company: Company):

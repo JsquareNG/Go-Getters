@@ -30,11 +30,11 @@ class ActionRequest(Base):
     created_at = Column(
         DateTime(timezone=False),
         nullable=False,
-        server_default=text("(now() AT TIME ZONE 'Asia/Singapore')"),
+        server_default=text("(now() AT TIME ZONE 'Asia/Singapore')")
     )
 
     application = relationship("ApplicationForm", back_populates="action_requests")
-    
+
     items = relationship(
         "ActionRequestItem",
         back_populates="action_request",
@@ -71,7 +71,7 @@ class ActionRequestItem(Base):
     # DOCUMENT or QUESTION
     item_type = Column(String(20), nullable=False)
 
-    # DOCUMENT (free-text request)
+    # DOCUMENT
     document_name = Column(String(500), nullable=True)
     document_desc = Column(String(500), nullable=True)
 
@@ -80,7 +80,12 @@ class ActionRequestItem(Base):
     answer_text = Column(String(1500), nullable=True)
 
     fulfilled = Column(Boolean, nullable=False, server_default=text("false"))
-    fulfilled_at = Column(DateTime(timezone=False), nullable=True)
+
+    fulfilled_at = Column(
+        DateTime(timezone=False),
+        nullable=True,
+        server_default=text("(now() AT TIME ZONE 'Asia/Singapore')")
+    )
 
     action_request = relationship("ActionRequest", back_populates="items")
 

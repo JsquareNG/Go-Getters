@@ -1,7 +1,7 @@
 # test_engine.py
 
-from models import Individual, Company
-from application_service import submit_application
+from backend.rules_engine.models import Individual, Company
+from backend.rules_engine.application_service import submit_application
 
 
 def test_high_risk_sme():
