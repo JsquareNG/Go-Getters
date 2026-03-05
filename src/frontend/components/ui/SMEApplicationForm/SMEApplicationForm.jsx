@@ -55,15 +55,46 @@ const SMEApplicationForm = () => {
   const routeMode = window.location.pathname.includes("/application/view/")
     ? "view"
     : "edit";
-  const clampedStep = Math.max(0, Math.min(4, Number(routeStep) || 0));
-  const isViewOnly = routeMode === "view" || currentMode === "view";
 
-  /* ------------------------------------------------ */
+  const routeStepNumber = parseInt(routeStep, 10);
+  const clampedStep = isNaN(routeStepNumber)
+    ? 0
+    : Math.max(0, Math.min(4, routeStepNumber));
+  const isViewOnly =
+    routeMode === "view" ||
+    currentApp?.status ===
+      "Submitted"; /* ------------------------------------------------ */
+
+  console.log("Step props", { isViewOnly, formData });
   /* REDUX FIELD UPDATE */
   /* ------------------------------------------------ */
-  const handleFieldChange = (field, value) => {
-    dispatch(updateField({ field, value }));
+
+  // helper function to set nested value in formData based on field path (e.g. for document upload")
+  // function setNestedValue(obj, path, value) {
+  //   const keys = path.split(".");
+  //   const lastKey = keys.pop();
+  //   let curr = { ...obj };
+  //   let ref = curr;
+
+  //   for (const key of keys) {
+  //     // create nested object if undefined
+  //     ref[key] = ref[key] ? { ...ref[key] } : {};
+  //     ref = ref[key];
+  //   }
+
+  //   ref[lastKey] = value;
+  //   return curr;
+  // }
+
+  // In your parent:
+  const handleFieldChange = (fieldPath, value) => {
+    dispatch(updateField({ field: fieldPath, value })); // send fieldPath + value
+    console.log("Field change dispatched:", { fieldPath, value });
   };
+
+  // const handleFieldChange = (field, value) => {
+  //   dispatch(updateField({ field, value }));
+  // };
 
   /* ------------------------------------------------ */
   /* SYNC ROUTE STEP -> REDUX STEP */
@@ -88,29 +119,130 @@ const SMEApplicationForm = () => {
   // }, [currentApp, formData]); // only run when currentApp loads
 
   useEffect(() => {
-  if (currentApp?.formData && Object.keys(formData).length === 0) {
-    Object.entries(currentApp.formData).forEach(([key, value]) => {
-      if (value !== undefined && value !== null) {
-        handleFieldChange(key, value);
+    if (currentApp?.formData && Object.keys(formData).length === 0) {
+      const cleanData = {};
+
+      function flatten(obj) {
+        if (!obj || typeof obj !== "object") return;
+        Object.entries(obj).forEach(([key, value]) => {
+          if (key === "null") {
+            // skip recursion into "null" objects
+            return;
+          } else if (value !== undefined && value !== null) {
+            // preserve nested objects only if not arrays or File objects
+            if (
+              typeof value === "object" &&
+              !Array.isArray(value) &&
+              !(value instanceof File)
+            ) {
+              flatten(value);
+            } else {
+              cleanData[key] = value === "" ? null : value; // normalize empty string
+            }
+          }
+        });
       }
-    });
-  }
-}, [currentApp, formData]); // run only once
+
+      flatten(currentApp.formData);
+
+      // remove top-level null key if exists
+      if ("null" in cleanData) delete cleanData.null;
+
+      // dispatch all cleaned fields
+      Object.entries(cleanData).forEach(([key, value]) => {
+        handleFieldChange(key, value);
+      });
+
+      console.log("Cleaned and flattened draft loaded:", cleanData);
+    }
+  }, [currentApp, formData]);
+
+  /**
+   * Validate SME application form data
+   * Returns { isValid: boolean, errors: Record<string, string> }
+   */
+  // NOTE: CURRENTLY NOT IN USE
+  const validateFormData = (data) => {
+    const errors = {};
+
+    // Required fields
+    if (!data.businessName || data.businessName.trim() === "") {
+      errors.businessName = "Business name is required";
+    }
+    if (!data.businessType || data.businessType.trim() === "") {
+      errors.businessType = "Business type is required";
+    }
+    if (!data.country || data.country.trim() === "") {
+      errors.country = "Country is required";
+    }
+    if (!data.email || data.email.trim() === "") {
+      errors.email = "Email is required";
+    } else if (!/^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}$/i.test(data.email)) {
+      errors.email = "Email is invalid";
+    }
+    if (!data.phone || data.phone.trim() === "") {
+      errors.phone = "Phone number is required";
+    } else if (!/^\d{6,15}$/.test(data.phone)) {
+      errors.phone = "Phone number must be 6-15 digits";
+    }
+
+    // Numeric fields
+    if (data.expectedMonthlyTransactionVolume) {
+      const value = Number(data.expectedMonthlyTransactionVolume);
+      if (isNaN(value) || value < 0) {
+        errors.expectedMonthlyTransactionVolume =
+          "Expected monthly transaction volume must be a positive number";
+      }
+    }
+
+    return { isValid: Object.keys(errors).length === 0, errors };
+  };
 
   /* ------------------------------------------------ */
   /* SAVE DRAFT */
   /* ------------------------------------------------ */
   const handleSaveDraft = async () => {
     try {
-      // Map camelCase fields from store to snake_case for API
+      // Flatten formData before validating
+      const cleanData = {};
+      const flatten = (obj) => {
+        if (!obj || typeof obj !== "object") return;
+        Object.entries(obj).forEach(([key, value]) => {
+          if (key === "null" || value === null || value === undefined) return;
+          if (
+            typeof value === "object" &&
+            !Array.isArray(value) &&
+            !(value instanceof File)
+          ) {
+            flatten(value);
+          } else {
+            cleanData[key] = value === "" ? null : value;
+          }
+        });
+      };
+      flatten(formData);
+
+      // Validate
+      // const { isValid, errors } = validateFormData(cleanData);
+      // if (!isValid) {
+      //   console.log("Validation errors:", errors);
+      //   toast({
+      //     title: "Cannot Save Draft",
+      //     description:
+      //       "Some fields have validation errors. Please check and fix them.",
+      //     variant: "destructive",
+      //   });
+      //   return;
+      // }
+
       const payload = {
         user_id: user.user_id,
         email: user.email,
         firstName: user.firstName,
-        business_name: formData.businessName || "",
-        business_type: formData.businessType || "",
-        business_country: formData.country || "",
-        form_data: formData,
+        business_name: cleanData.businessName || "",
+        business_type: cleanData.businessType || "",
+        business_country: cleanData.country || "",
+        form_data: cleanData,
         last_saved_step: clampedStep,
         application_id: appId !== "new" ? appId : undefined,
       };
@@ -142,7 +274,18 @@ const SMEApplicationForm = () => {
   const handleSubmitApplication = async () => {
     setIsSubmitting(true);
     try {
-      const payload = {
+      const { isValid, errors } = validateFormData(formData);
+      if (!isValid) {
+        toast({
+          title: "Cannot Submit",
+          description: "Please fix validation errors before submitting.",
+          variant: "destructive",
+        });
+        console.log("Submit validation errors:", errors);
+        return;
+      }
+
+      await submitApplicationApi({
         user_id: user.user_id,
         email: user.email,
         firstName: user.firstName,
@@ -150,9 +293,7 @@ const SMEApplicationForm = () => {
         business_type: formData.businessType || "",
         business_country: formData.country || "",
         form_data: formData,
-      };
-
-      await submitApplicationApi(payload);
+      });
 
       dispatch(submitApplication({ appId, data: formData }));
 

@@ -16,7 +16,7 @@ import {
  */
 const Step0Brief = ({ data, onFieldChange, disabled = false }) => {
   const dispatch = useDispatch();
-  const formData = useSelector(selectFormData);
+  const formData = data;
 
   // // Log formData whenever it changes
   // useEffect(() => {
