@@ -5,7 +5,6 @@ import {
   ArrowLeft,
   Building2,
   Calendar,
-  Clock,
   FileText,
   AlertCircle,
   Upload,
@@ -36,11 +35,11 @@ import {
   approveApplication,
   rejectApplication,
   escalateApplication,
+  getQnA, // ✅ use this instead of getMissingItems
   // getReviewJob,
 } from "@/api/applicationApi";
 import { allDocuments, downloadDocuments } from "./../api/documentApi";
 
-// ✅ NEW: import dialog (adjust path if needed)
 import RequestDocumentsDialog from "../components/ui/features/RequestDocumentsDialog";
 
 export default function ApplicationReviewDetail() {
@@ -53,24 +52,26 @@ export default function ApplicationReviewDetail() {
   const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
   const [error, setError] = useState(null);
 
-  // ✅ documents state (NEW)
   const [documents, setDocuments] = useState([]);
   const [docsLoading, setDocsLoading] = useState(false);
   const [docsError, setDocsError] = useState(null);
 
-  // ✅ NEW: dialog open state
+  // ✅ NEW: action requests / QnA state
+  const [actionRequestsData, setActionRequestsData] = useState(null);
+  const [qnaLoading, setQnaLoading] = useState(false);
+  const [qnaError, setQnaError] = useState(null);
+
   const [requestDocsOpen, setRequestDocsOpen] = useState(false);
 
+  // -----------------------------
+  // Fetch application
+  // -----------------------------
   useEffect(() => {
     const fetchApplication = async () => {
       try {
         setIsLoading(true);
         const data = await getApplicationByAppId(id);
-        // const rulesData = await getReviewJob(id)
-
         setApplication(data);
-        // setRules(rulesData);
-        // console.log(rulesData)
         setError(null);
       } catch (err) {
         console.error("Error fetching application:", err);
@@ -83,14 +84,16 @@ export default function ApplicationReviewDetail() {
     if (id) fetchApplication();
   }, [id]);
 
-  // ✅ fetch documents for this application id (NEW)
+  // -----------------------------
+  // Fetch uploaded documents
+  // -----------------------------
   useEffect(() => {
     const fetchDocuments = async () => {
       try {
         setDocsLoading(true);
         setDocsError(null);
 
-        const docs = await allDocuments(id); // should return docs for this application
+        const docs = await allDocuments(id);
         setDocuments(Array.isArray(docs) ? docs : []);
       } catch (err) {
         console.error("Error fetching documents:", err);
@@ -103,9 +106,48 @@ export default function ApplicationReviewDetail() {
     if (id) fetchDocuments();
   }, [id]);
 
-  const currentStatus = application?.current_status || "Not started";
+  // -----------------------------
+  // Fetch Action Requests (QnA) via getQnA
+  // -----------------------------
+  useEffect(() => {
+    const fetchQnA = async () => {
+      try {
+        setQnaLoading(true);
+        setQnaError(null);
 
-  // ✅ Staff only reviews when application is in staff review statuses
+        const appIdToUse = application?.application_id || application?.id || id;
+        if (!appIdToUse) return;
+
+        const data = await getQnA(appIdToUse);
+        setActionRequestsData(data && typeof data === "object" ? data : null);
+      } catch (err) {
+        console.error("Error fetching QnA:", {
+          message: err?.message,
+          status: err?.response?.status,
+          data: err?.response?.data,
+          url: err?.config?.url,
+        });
+
+        setQnaError(
+          err?.response?.data?.detail ||
+            err?.response?.data?.message ||
+            err?.message ||
+            "Could not retrieve questions & answers."
+        );
+        setActionRequestsData(null);
+      } finally {
+        setQnaLoading(false);
+      }
+    };
+
+    // wait for application so we can use application.application_id if needed
+    if (id && application) fetchQnA();
+  }, [id, application]);
+
+  // -----------------------------
+  // Derived values
+  // -----------------------------
+  const currentStatus = application?.current_status || "Not started";
   const canReview = ["Under Review", "Under Manual Review"].includes(currentStatus);
 
   const formattedDate = application?.last_edited
@@ -121,15 +163,58 @@ export default function ApplicationReviewDetail() {
     return Array.isArray(arr) ? arr : [];
   }, [application]);
 
-  // ✅ reason might be stored as application.reason OR inside form_data.reason
-  const actionReason = application?.reason ?? application?.form_data?.reason;
+  const actionRequests = useMemo(() => {
+    const arr = actionRequestsData?.action_requests;
+    return Array.isArray(arr) ? arr : [];
+  }, [actionRequestsData]);
 
-  // ✅ (FIX) prevent ReferenceError in sticky bar (keep placeholder)
+  const sortedActionRequests = useMemo(() => {
+    return [...actionRequests].sort((a, b) => {
+      const ta = new Date(a?.created_at || 0).getTime();
+      const tb = new Date(b?.created_at || 0).getTime();
+      return tb - ta;
+    });
+  }, [actionRequests]);
+
+  // latest OPEN request (current pending round)
+  const latestOpenRequest = useMemo(() => {
+    return sortedActionRequests.find((r) => r?.status === "OPEN") || null;
+  }, [sortedActionRequests]);
+
+  // Show action reason from OPEN request first, else fall back
+  const actionReason =
+    latestOpenRequest?.reason ?? application?.reason ?? application?.form_data?.reason;
+
+  // Missing docs should reflect current OPEN request
   const missingDocuments = useMemo(() => {
-    return [];
-  }, [rules, documents, application]);
+    const docs = latestOpenRequest?.documents;
+    return Array.isArray(docs) ? docs : [];
+  }, [latestOpenRequest]);
 
-  // ✅ open PDF by signed URL (NEW)
+  // Flatten ALL questions across all requests (history + open)
+  const allQuestions = useMemo(() => {
+    const rows = [];
+    for (const ar of sortedActionRequests) {
+      const qs = Array.isArray(ar?.questions) ? ar.questions : [];
+      for (const q of qs) {
+        rows.push({
+          action_request_id: ar?.action_request_id,
+          status: ar?.status,
+          reason: ar?.reason,
+          created_at: ar?.created_at,
+          item_id: q?.item_id,
+          question_text: q?.question_text,
+          answer_text: q?.answer_text,
+          fulfilled_at: q?.fulfilled_at,
+        });
+      }
+    }
+    return rows;
+  }, [sortedActionRequests]);
+
+  // -----------------------------
+  // Handlers
+  // -----------------------------
   const handleOpenDocument = async (doc) => {
     const newTab = window.open("", "_blank");
 
@@ -158,13 +243,11 @@ export default function ApplicationReviewDetail() {
     }
   };
 
-  // ✅ UPDATED: open dialog instead of prompt
-    const handleRequestDocuments = () => {
-      setRequestDocsOpen(true);
-    };
+  const handleRequestDocuments = () => {
+    setRequestDocsOpen(true);
+  };
 
-    // ✅ NEW: dialog submit -> call your existing escalate API properly
-    const handleSubmitRequestDocs = async ({ reason, documents, questions }) => {
+  const handleSubmitRequestDocs = async ({ reason, documents, questions }) => {
     if (!id) return;
 
     try {
@@ -198,15 +281,12 @@ export default function ApplicationReviewDetail() {
 
     const reason = window.prompt("Reason for approving this application?") || "";
     if (!reason.trim()) {
-      toast.error("Reason required", {
-        description: "Please enter a reason to approve.",
-      });
+      toast.error("Reason required", { description: "Please enter a reason to approve." });
       return;
     }
 
     try {
       setIsUpdatingStatus(true);
-
       const appIdToUse = application?.application_id || id;
       await approveApplication(appIdToUse, reason.trim());
 
@@ -217,22 +297,9 @@ export default function ApplicationReviewDetail() {
       navigate("/staff-landingpage");
     } catch (err) {
       console.error("Approve failed:", err);
-      console.log("Approve err.response?.data:", err?.response?.data);
-
       toast.error("Approve failed", {
-        description:
-          err?.response?.data?.detail || err?.message || "Could not approve application.",
-      });{missingDocuments.length > 0 && (
-                  <div className="mt-4 flex items-start gap-2 rounded-lg bg-warning/10 p-3">
-                    <AlertTriangle className="h-4 w-4 text-warning mt-0.5" />
-                    <div>
-                      <p className="text-sm font-medium text-warning">Missing Documents</p>
-                      <p className="text-xs text-muted-foreground">
-                        {missingDocuments.length} document(s) still required before approval
-                      </p>
-                    </div>
-                  </div>
-                )}
+        description: err?.response?.data?.detail || err?.message || "Could not approve application.",
+      });
     } finally {
       setIsUpdatingStatus(false);
     }
@@ -243,15 +310,12 @@ export default function ApplicationReviewDetail() {
 
     const reason = window.prompt("Reason for rejecting this application?") || "";
     if (!reason.trim()) {
-      toast.error("Reason required", {
-        description: "Please enter a reason to reject.",
-      });
+      toast.error("Reason required", { description: "Please enter a reason to reject." });
       return;
     }
 
     try {
       setIsUpdatingStatus(true);
-
       const appIdToUse = application?.application_id || id;
       await rejectApplication(appIdToUse, reason.trim());
 
@@ -262,17 +326,17 @@ export default function ApplicationReviewDetail() {
       navigate("/staff-landingpage");
     } catch (err) {
       console.error("Reject failed:", err);
-      console.log("Reject err.response?.data:", err?.response?.data);
-
       toast.error("Reject failed", {
-        description:
-          err?.response?.data?.detail || err?.message || "Could not reject application.",
+        description: err?.response?.data?.detail || err?.message || "Could not reject application.",
       });
     } finally {
       setIsUpdatingStatus(false);
     }
   };
 
+  // -----------------------------
+  // Loading / error states
+  // -----------------------------
   if (isLoading) {
     return (
       <div className="flex min-h-screen items-center justify-center">
@@ -292,6 +356,9 @@ export default function ApplicationReviewDetail() {
 
   const appDisplayId = application?.application_id || application?.id || id || "-";
 
+  // -----------------------------
+  // Render
+  // -----------------------------
   return (
     <div className="min-h-screen bg-background pb-24">
       <main className="container mx-auto px-6 py-8 animate-fade-in">
@@ -327,117 +394,6 @@ export default function ApplicationReviewDetail() {
             </div>
           </div>
         </div>
-
-        {/* rules */}
-        {/* <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between mb-2">
-          {rules.rules_triggered.length > 0 && (() => {
-            const overallGrade = rules?.risk_grade?.toUpperCase();
-
-            const overallStyles = {
-              HIGH: "bg-red-100 text-red-800 border border-red-200",
-              MEDIUM: "bg-amber-100 text-amber-800 border border-amber-200",
-              LOW: "bg-emerald-100 text-emerald-800 border border-emerald-200",
-            };
-
-            const overallBadgeStyle =
-              overallStyles[overallGrade] ||
-              "bg-slate-100 text-slate-700 border border-slate-200";
-
-            return (
-              <div className="mb-8 rounded-xl border border-amber-200 bg-amber-50 p-4">
-                <div className="flex items-start gap-3">
-                  <div className="mt-0.5 flex h-8 w-8 items-center justify-center rounded-full bg-amber-200">
-                    <AlertCircle className="h-4 w-4 text-slate-700" />
-                  </div>
-
-                  <div className="flex-1">
-                    <div className="flex flex-wrap items-center justify-between gap-2">
-                      <p className="font-semibold text-slate-900">
-                        Risk Assessment ({rules.rules_triggered.length} rule
-                        {rules.rules_triggered.length > 1 ? "s" : ""})
-                      </p>
-
-                      <div className="flex items-center gap-2">
-                        {typeof rules?.risk_score === "number" && (
-                          <span className="rounded-full bg-white px-2 py-0.5 text-xs font-medium border border-slate-200 text-slate-700">
-                            Score: {rules.risk_score}
-                          </span>
-                        )}
-
-                        {overallGrade && (
-                          <span
-                            className={`rounded-full px-2 py-0.5 text-xs font-semibold ${overallBadgeStyle}`}
-                          >
-                            {overallGrade}
-                          </span>
-                        )}
-                      </div>
-                    </div>
-
-                    <div className="mt-3 space-y-2">
-                      {rules.rules_triggered.map((r, idx) => {
-                        const severity = r?.severity?.toUpperCase();
-
-                        const severityStyles = {
-                          HIGH: "bg-red-100 text-red-800 border border-red-200",
-                          MEDIUM:
-                            "bg-amber-100 text-amber-800 border border-amber-200",
-                          LOW: "bg-emerald-100 text-emerald-800 border border-emerald-200",
-                        };
-
-                        const severityBadgeStyle =
-                          severityStyles[severity] ||
-                          "bg-slate-100 text-slate-700 border border-slate-200";
-
-                        return (
-                          <div
-                            key={r?.rule_id ?? idx}
-                            className="rounded-lg border border-slate-200 bg-white p-3"
-                          >
-                            <div className="flex flex-wrap items-start justify-between gap-2">
-                              <div>
-                                <p className="font-medium text-slate-900">
-                                  {r?.name || "Triggered Rule"}
-                                  {r?.rule_id && (
-                                    <span className="ml-2 text-xs text-slate-500">
-                                      ({r.rule_id})
-                                    </span>
-                                  )}
-                                </p>
-
-                                {r?.reason && (
-                                  <p className="mt-0.5 text-sm text-slate-600">
-                                    {r.reason}
-                                  </p>
-                                )}
-                              </div>
-
-                              <div className="flex items-center gap-2">
-                                {severity && (
-                                  <span
-                                    className={`rounded-full px-2 py-0.5 text-xs font-semibold ${severityBadgeStyle}`}
-                                  >
-                                    {severity}
-                                  </span>
-                                )}
-
-                                {typeof r?.points === "number" && (
-                                  <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-700 border border-slate-200">
-                                    +{r.points} pts
-                                  </span>
-                                )}
-                              </div>
-                            </div>
-                          </div>
-                              );
-                            })}
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })()}
-              </div> */}
 
         {/* MAIN 2-COLUMN LAYOUT */}
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
@@ -648,11 +604,60 @@ export default function ApplicationReviewDetail() {
                 )}
               </CardContent>
             </Card>
+
+            {/* Questions & Answers (from getQnA) */}
+            <Card className="border-border">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2 text-lg">
+                  <FileQuestion className="h-5 w-5 text-muted-foreground" />
+                  Questions & Answers
+                </CardTitle>
+              </CardHeader>
+
+              <CardContent className="space-y-4">
+                {qnaLoading ? (
+                  <p className="text-sm text-muted-foreground">Loading questions & answers...</p>
+                ) : qnaError ? (
+                  <p className="text-sm text-red-500">{qnaError}</p>
+                ) : allQuestions.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">No questions requested.</p>
+                ) : (
+                  <div className="space-y-4">
+                    {allQuestions.map((qa, index) => (
+                      <div
+                        key={qa.item_id || `${qa.action_request_id}-${index}`}
+                        className="rounded-lg border border-border p-4 space-y-2"
+                      >
+                        <div className="flex flex-wrap items-center justify-between gap-2">
+                          <p className="text-xs text-muted-foreground">
+                            Request: {qa.action_request_id?.slice?.(0, 8) || "-"} •{" "}
+                            {qa.created_at ? new Date(qa.created_at).toLocaleString() : "-"}
+                          </p>
+                          <span className="text-xs font-medium">
+                            {qa.status === "OPEN" ? "OPEN" : "CLOSED"}
+                          </span>
+                        </div>
+
+                        <p className="text-sm font-medium text-foreground">
+                          <span className="text-muted-foreground mr-1.5">Q{index + 1}.</span>
+                          {qa.question_text || "-"}
+                        </p>
+
+                        <div className="rounded-md bg-muted/50 p-3">
+                          <p className="text-sm text-foreground leading-relaxed">
+                            {qa.answer_text ? qa.answer_text : "No answer submitted yet."}
+                          </p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
           </div>
         </div>
       </main>
 
-      {/* ✅ Dialog mounted here so sticky button can open it */}
       <RequestDocumentsDialog
         open={requestDocsOpen}
         onOpenChange={setRequestDocsOpen}
@@ -662,12 +667,10 @@ export default function ApplicationReviewDetail() {
         isSubmitting={isUpdatingStatus}
       />
 
-      {/* ✅ Sticky Bottom Action Bar = single source of truth for review actions */}
       {canReview && (
-        <div className="fixed bottom-0 left-0 right-0 z-50 border-t border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80">
+        <div className="fixed bottom-0 left-0 right-0 z-50 border-t border-border bg-white supports-[backdrop-filter]:bg-background/80">
           <div className="container mx-auto px-6 py-3">
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-              {/* Left text */}
               <div className="min-w-0">
                 <p className="text-sm text-muted-foreground">
                   Reviewing{" "}
@@ -677,7 +680,6 @@ export default function ApplicationReviewDetail() {
                 </p>
               </div>
 
-              {/* Right buttons */}
               <div className="flex flex-wrap items-center justify-start sm:justify-end gap-2">
                 <Button
                   variant="outline"
