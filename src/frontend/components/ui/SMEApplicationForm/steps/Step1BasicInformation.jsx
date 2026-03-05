@@ -5,28 +5,12 @@ import SINGAPORE_CONFIG from "../config/singaporeConfig";
 const ACRA_WITH_TABLES_ENDPOINT =
   "http://127.0.0.1:8000/document-ai/extract-acra-with-tables";
 
-const Step1BasicInformation = ({
-  data,
-  errors = {},
-  touched = {},
-  onFieldChange,
-  disabled = false,
-}) => {
+const Step1BasicInformation = ({ data, onFieldChange, disabled = false }) => {
   const fileRef = useRef(null);
   const [acraFile, setAcraFile] = useState(null);
   const [acraUploading, setAcraUploading] = useState(false);
   const [acraError, setAcraError] = useState("");
   const [acraSuccessMsg, setAcraSuccessMsg] = useState("");
-
-  // ---- helper to fire change ----
-  const fireField = (name, value) => {
-    if (!onFieldChange) return;
-    if (onFieldChange.length >= 2) {
-      onFieldChange(name, value);
-      return;
-    }
-    onFieldChange({ target: { name, value } });
-  };
 
   // ---- dynamic config from singaporeConfig ----
   const { basicFieldsConfig, repeatableSectionsConfig } = useMemo(() => {
@@ -43,16 +27,14 @@ const Step1BasicInformation = ({
     }
 
     if (step2.repeatableSections) {
-      Object.entries(step2.repeatableSections).forEach(
-        ([sectionKey, section]) => {
-          repeatableSections[sectionKey] = {
-            label: section.label,
-            min: section.min,
-            max: section.max,
-            fields: { ...section.fields },
-          };
-        },
-      );
+      Object.entries(step2.repeatableSections).forEach(([sectionKey, section]) => {
+        repeatableSections[sectionKey] = {
+          label: section.label,
+          min: section.min,
+          max: section.max,
+          fields: { ...section.fields },
+        };
+      });
     }
 
     return {
@@ -61,7 +43,7 @@ const Step1BasicInformation = ({
     };
   }, [data?.businessType]);
 
-  // ---- ACRA Upload ----
+  // ---- ACRA Upload Handlers ----
   const handleChooseAcra = () => fileRef.current?.click();
 
   const handleAcraFileChange = (e) => {
@@ -84,19 +66,17 @@ const Step1BasicInformation = ({
     setAcraUploading(true);
 
     try {
-      const formData = new FormData();
-      formData.append("file", acraFile);
+      const formDataApi = new FormData();
+      formDataApi.append("file", acraFile);
 
       const res = await fetch(ACRA_WITH_TABLES_ENDPOINT, {
         method: "POST",
-        body: formData,
+        body: formDataApi,
       });
 
       if (!res.ok) throw new Error("Autofill failed");
 
       const result = await res.json();
-
-      // ---- normalize keys to avoid casing issues ----
       const rawKv = result?.data?.kv_page_1 || {};
       const kv = {};
       Object.keys(rawKv).forEach((k) => {
@@ -110,48 +90,31 @@ const Step1BasicInformation = ({
       const setIfEmpty = (key, value) => {
         if (!(key in basicFieldsConfig)) return;
         if (!value) return;
-
         const next = String(value).trim();
         if (!next) return;
-
         const current = data?.[key] ?? "";
         if (!current || String(current).trim() === "") {
-          fireField(key, next);
+          onFieldChange?.(key, next); // direct Redux update
         }
       };
 
       const ddMmmYyyyToISO = (s) => {
         if (!s) return "";
-        const m = String(s)
-          .trim()
-          .match(/^(\d{1,2})\s+([A-Z]{3})\s+(\d{4})$/i);
+        const m = String(s).trim().match(/^(\d{1,2})\s+([A-Z]{3})\s+(\d{4})$/i);
         if (!m) return "";
-
         const months = {
-          JAN: "01",
-          FEB: "02",
-          MAR: "03",
-          APR: "04",
-          MAY: "05",
-          JUN: "06",
-          JUL: "07",
-          AUG: "08",
-          SEP: "09",
-          OCT: "10",
-          NOV: "11",
-          DEC: "12",
+          JAN: "01", FEB: "02", MAR: "03", APR: "04",
+          MAY: "05", JUN: "06", JUL: "07", AUG: "08",
+          SEP: "09", OCT: "10", NOV: "11", DEC: "12",
         };
-
         const day = m[1].padStart(2, "0");
         const mm = months[m[2].toUpperCase()];
-        if (!mm) return "";
         return `${m[3]}-${mm}-${day}`;
       };
 
       const normalizeStatus = (s) => {
         if (!s) return "";
         const v = String(s).trim().toUpperCase();
-
         if (v === "LIVE" || v === "ACTIVE") return "Active";
         if (v === "INACTIVE") return "Inactive";
         if (v === "DISSOLVED") return "Dissolved";
@@ -161,28 +124,14 @@ const Step1BasicInformation = ({
         return "";
       };
 
-      // ---- explicit ACRA → form mapping ----
-
-      setIfEmpty(
-        "businessName",
-        kv["name of business"] || kv["name of company"],
-      );
-
+      // ---- map ACRA → Redux ----
+      setIfEmpty("businessName", kv["name of business"] || kv["name of company"]);
       setIfEmpty("registeredAddress", kv["principal place of business"]);
-
-      const isoDate = ddMmmYyyyToISO(
-        kv["registration date"] || kv["commencement date"],
-      );
+      const isoDate = ddMmmYyyyToISO(kv["registration date"] || kv["commencement date"]);
       if (isoDate) setIfEmpty("registrationDate", isoDate);
-
-      const mappedStatus = normalizeStatus(
-        kv["status of business"] || kv["status of company"],
-      );
+      const mappedStatus = normalizeStatus(kv["status of business"] || kv["status of company"]);
       if (mappedStatus) setIfEmpty("businessStatus", mappedStatus);
-
       setIfEmpty("uen", kv["uen"]);
-
-      // business type owner fields
       if (ownerName) setIfEmpty("fullName", ownerName);
       if (ownerId) setIfEmpty("idNumber", ownerId);
 
@@ -265,9 +214,7 @@ const Step1BasicInformation = ({
           label={fieldConfig.label}
           placeholder={fieldConfig.placeholder || ""}
           value={data[fieldName] || ""}
-          onChange={fireField}
-          error={errors[fieldName]}
-          touched={touched[fieldName]}
+          onChange={onFieldChange} // Redux-only
           type={fieldConfig.type || "text"}
           options={fieldConfig.options || []}
           required={fieldConfig.required || false}
@@ -282,24 +229,14 @@ const Step1BasicInformation = ({
             {section.label}
           </h3>
 
-          {/* Currently renders one set; extendable to dynamic add/remove */}
           {Object.entries(section.fields).map(([fieldName, fieldConfig]) => (
             <FormFieldGroup
               key={fieldName}
               fieldName={fieldName}
               label={fieldConfig.label}
               placeholder={fieldConfig.placeholder || ""}
-              // value={data[sectionKey]?.[fieldName] || ""}
               value={data[fieldName] || ""}
-              // onChange={(name, value) =>
-              //   fireField(`${sectionKey}.${name}`, value)
-              // }
-                        onChange={fireField}
-
-              error={errors[fieldName]}
-              // touched={touched[sectionKey]?.[fieldName]}
-                        touched={touched[fieldName]}
-
+              onChange={onFieldChange} // Redux-only
               type={fieldConfig.type || "text"}
               options={fieldConfig.options || []}
               required={fieldConfig.required || false}

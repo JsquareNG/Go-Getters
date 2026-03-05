@@ -1,23 +1,32 @@
 import React, { useEffect } from "react";
+import { useDispatch, useSelector } from "react-redux";
+
 import FormFieldGroup from "../components/FormFieldGroup";
 import SINGAPORE_CONFIG from "../config/singaporeConfig";
+
+import {
+  selectFormData,
+  updateField,
+  startNewApplication,
+} from "@/store/applicationFormSlice";
 
 /**
  * Step0Brief component
  * Collects SME country of operation and business type
  */
-const Step0Brief = ({
-  data = {},
-  errors = {},
-  touched = {},
-  onFieldChange,
-  disabled = false,
-}) => {
-  // Ensure data.country has a default for safe access
-  const currentCountry = data.country || "";
-  const currentBusinessType = data.businessType || "";
+const Step0Brief = ({ data, onFieldChange, disabled = false }) => {
+  const dispatch = useDispatch();
+  const formData = useSelector(selectFormData);
 
-  // Country options (currently only Singapore)
+  // // Log formData whenever it changes
+  // useEffect(() => {
+  //   console.log("Form Data changed:", formData);
+  // }, [formData]);
+
+  const currentCountry = formData.country || "";
+  const currentBusinessType = formData.businessType || "";
+
+  // Country options
   const countryOptions = [
     {
       label: SINGAPORE_CONFIG.country?.name || "Singapore",
@@ -25,7 +34,7 @@ const Step0Brief = ({
     },
   ];
 
-  // Business type options (only if country is SG and entities exist)
+  // Business types
   const businessTypeOptions =
     currentCountry === "SG" && SINGAPORE_CONFIG.entities
       ? Object.entries(SINGAPORE_CONFIG.entities).map(([key, entity]) => ({
@@ -34,22 +43,19 @@ const Step0Brief = ({
         }))
       : [];
 
-  // Reset businessType if country changes
+  // Start new draft if none exists
+  useEffect(() => {
+    if (!formData || Object.keys(formData).length === 0) {
+      dispatch(startNewApplication());
+    }
+  }, [dispatch, formData]);
+
+  // Reset business type if country changes
   useEffect(() => {
     if (currentCountry !== "SG" && currentBusinessType) {
-      onFieldChange?.("businessType", "");
+      dispatch(updateField({ field: "businessType", value: "" }));
     }
-  }, [currentCountry, currentBusinessType, onFieldChange]);
-
-    // --- NEW: populate fields if draft exists ---
-  useEffect(() => {
-    if (data.country && data.country !== currentCountry) {
-      onFieldChange?.("country", data.country);
-    }
-    if (data.businessType && data.businessType !== currentBusinessType) {
-      onFieldChange?.("businessType", data.businessType);
-    }
-  }, [data, currentCountry, currentBusinessType, onFieldChange]);
+  }, [currentCountry, currentBusinessType, dispatch]);
 
   return (
     <div>
@@ -61,30 +67,24 @@ const Step0Brief = ({
       <FormFieldGroup
         fieldName="country"
         label="Country of Operation"
-        value={data.country || ""}
-        // onChange={(value) => onFieldChange?.("country", value)}
-        onChange={onFieldChange} // Pass directly
-        error={errors.country || ""}
-        touched={touched.country || false}
+        value={formData.country || ""}
+        onChange={onFieldChange}
         type="select"
         options={countryOptions}
         required
         disabled={disabled}
       />
 
-      {/* Business Type Selection */}
+      {/* Business Type */}
       <FormFieldGroup
         fieldName="businessType"
         label="Business Type"
-        value={data.businessType || ""}
-        // onChange={(value) => onFieldChange?.("businessType", value)}
-        onChange={onFieldChange} // Pass directly
-        error={errors.businessType || ""}
-        touched={touched.businessType || false}
+        value={formData.businessType || ""}
+        onChange={onFieldChange}
         type="select"
         options={businessTypeOptions}
         required
-        disabled={!data.country || disabled}
+        disabled={!formData.country || disabled}
       />
     </div>
   );

@@ -1,27 +1,24 @@
 import React, { useMemo } from "react";
+import { useDispatch, useSelector } from "react-redux";
 import FileUploadField from "../components/FileUploadField";
 import FormFieldGroup from "../components/FormFieldGroup";
 import SINGAPORE_CONFIG from "../config/singaporeConfig";
+import { updateField } from "@/store/applicationFormSlice";
 
 /**
  * Step3ComplianceDocumentation component
- * Handles document uploads and additional compliance fields
+ * Handles document uploads and additional compliance fields (Redux version)
  */
-const Step3ComplianceDocumentation = ({
-  data,
-  documents,
-  errors,
-  touched,
-  onDocumentChange,
-  onFieldChange,
-  disabled = false,
-}) => {
+const Step3ComplianceDocumentation = ({ disabled = false }) => {
+  const dispatch = useDispatch();
+  const data = useSelector((state) => state.applicationForm.formData);
+  const documents = useSelector((state) => state.applicationForm.documents);
+
   // ---- Grab the step4 configuration for the current business type ----
   const { complianceFieldsConfig, requiredDocuments } = useMemo(() => {
     const entity = SINGAPORE_CONFIG.entities[data?.businessType] || {};
     const step4 = entity.steps?.find((s) => s.id === "step4") || {};
 
-    // Fields
     const fields = step4.fields || {};
 
     // Map documents array to object with camelCase keys
@@ -38,35 +35,30 @@ const Step3ComplianceDocumentation = ({
     return { complianceFieldsConfig: fields, requiredDocuments: docsObj };
   }, [data?.businessType]);
 
-  const handleDocumentChange = (fieldName, file, error = "") => {
-    onDocumentChange(fieldName, file, error);
-  };
-
-  //TODO: this validation logic is getting complex, consider moving to a separate hook or utility file
+  // ---- Redux field update ---- need to handle nested fields for conditional logic
   const fireField = (name, value) => {
-    if (!onFieldChange) return;
-    // all compliance inputs are stored under a nested object; we always
-    // replace the whole object using the generic setter so that the
-    // reducer (which only understands flat keys) can update state.
     const existing = data?.complianceFields || {};
     if (name.includes(".")) {
-      // support dotted path (e.g. "pepDeclaration.country")
       const [top, sub] = name.split(".");
       const topObj = { ...(existing[top] || {}) };
       topObj[sub] = value;
-      onFieldChange("complianceFields", { ...existing, [top]: topObj });
+      dispatch(updateField({ field: "complianceFields", value: { ...existing, [top]: topObj } }));
     } else {
-      onFieldChange("complianceFields", { ...existing, [name]: value });
+      dispatch(updateField({ field: "complianceFields", value: { ...existing, [name]: value } }));
     }
   };
 
-  // ---- Render conditional fields for checkboxes like PEP, Sanctions ----
+  // ---- Redux document update ----
+  const handleDocumentChange = (fieldName, file, error = "") => {
+    dispatch(updateField({ field: `documents.${fieldName}`, value: { file, error, progress: 0 } }));
+  };
+
+  // ---- Conditional fields helper ----
   const renderConditionalFields = (fieldKey, fieldValue) => {
     const fieldConfig = complianceFieldsConfig[fieldKey];
-    if (!fieldConfig || !fieldConfig.conditionalFields) return null;
+    if (!fieldConfig?.conditionalFields) return null;
 
-    const selectedOption = fieldValue;
-    const conditional = fieldConfig.conditionalFields[selectedOption];
+    const conditional = fieldConfig.conditionalFields[fieldValue];
     if (!conditional) return null;
 
     return (
@@ -77,11 +69,7 @@ const Step3ComplianceDocumentation = ({
             fieldName={`${fieldKey}.${condKey}`}
             label={condCfg.label}
             value={data?.complianceFields?.[fieldKey]?.[condKey] || ""}
-            onChange={(name, value) => {
-              fireField(`${fieldKey}.${condKey}`, value);
-            }}
-            error={errors?.[fieldKey]?.[condKey]}
-            touched={touched?.[fieldKey]?.[condKey]}
+            onChange={(name, value) => fireField(`${fieldKey}.${condKey}`, value)}
             required={condCfg.required}
             type={condCfg.type || "text"}
             disabled={disabled}
@@ -93,14 +81,11 @@ const Step3ComplianceDocumentation = ({
 
   return (
     <div>
-      <h2 className="text-2xl font-bold mb-6 text-gray-900">
-        Compliance & Documentation
-      </h2>
+      <h2 className="text-2xl font-bold mb-6 text-gray-900">Compliance & Documentation</h2>
 
       {/* Additional Compliance Fields */}
       {Object.entries(complianceFieldsConfig).map(([fieldKey, fieldCfg]) => {
         if (fieldCfg.type === "checkbox") {
-          // render checkbox options
           return (
             <div key={fieldKey} className="mb-6">
               <p className="font-semibold text-gray-900">{fieldCfg.label}</p>
@@ -117,39 +102,23 @@ const Step3ComplianceDocumentation = ({
                   <span className="ml-2">{opt}</span>
                 </label>
               ))}
-              {/* Render conditional fields if any */}
-              {renderConditionalFields(
-                fieldKey,
-                data?.complianceFields?.[fieldKey],
-              )}
+              {renderConditionalFields(fieldKey, data?.complianceFields?.[fieldKey])}
             </div>
           );
         }
 
-        // check if this is a nested object field group (like taxResidency)
-        if (
-          typeof fieldCfg === "object" &&
-          !fieldCfg.type &&
-          !fieldCfg.label &&
-          Object.values(fieldCfg).some((v) => v.type)
-        ) {
-          // render nested fields (e.g., taxResidency.country, taxResidency.tin)
+        // Nested field groups (e.g., taxResidency)
+        if (typeof fieldCfg === "object" && !fieldCfg.type && !fieldCfg.label && Object.values(fieldCfg).some((v) => v.type)) {
           return (
             <div key={fieldKey} className="mb-6">
-              <p className="font-semibold text-gray-900 mb-4">
-                {fieldKey.replace(/([A-Z])/g, " $1").trim()}
-              </p>
+              <p className="font-semibold text-gray-900 mb-4">{fieldKey.replace(/([A-Z])/g, " $1").trim()}</p>
               {Object.entries(fieldCfg).map(([subKey, subCfg]) => (
                 <FormFieldGroup
                   key={`${fieldKey}_${subKey}`}
                   fieldName={`${fieldKey}.${subKey}`}
                   label={subCfg.label}
                   value={data?.complianceFields?.[fieldKey]?.[subKey] || ""}
-                  onChange={(name, value) =>
-                    fireField(`${fieldKey}.${subKey}`, value)
-                  }
-                  error={errors?.[fieldKey]?.[subKey]}
-                  touched={touched?.[fieldKey]?.[subKey]}
+                  onChange={(name, value) => fireField(`${fieldKey}.${subKey}`, value)}
                   required={subCfg.required}
                   type={subCfg.type || "text"}
                   disabled={disabled}
@@ -159,7 +128,7 @@ const Step3ComplianceDocumentation = ({
           );
         }
 
-        // normal flat fields
+        // Normal flat fields
         return (
           <FormFieldGroup
             key={fieldKey}
@@ -167,8 +136,6 @@ const Step3ComplianceDocumentation = ({
             label={fieldCfg.label}
             value={data?.complianceFields?.[fieldKey] || ""}
             onChange={(name, value) => fireField(fieldKey, value)}
-            error={errors?.[fieldKey]}
-            touched={touched?.[fieldKey]}
             required={fieldCfg.required}
             type={fieldCfg.type || "text"}
             disabled={disabled}
@@ -188,20 +155,17 @@ const Step3ComplianceDocumentation = ({
         </ul>
       </div>
 
-      {/* Dynamic Upload Fields */}
       {Object.entries(requiredDocuments).map(([fieldName, doc]) => (
         <FileUploadField
           key={fieldName}
           fieldName={fieldName}
           label={doc.label}
-          file={documents?.[fieldName] || null}
+          file={documents?.[fieldName]?.file || null}
           onChange={handleDocumentChange}
-          error={errors?.[fieldName]}
-          touched={touched?.[fieldName]}
           required
           acceptTypes="application/pdf,image/jpeg,image/png"
           maxSize={5242880}
-          uploadProgress={documents?.[fieldName]?.progress}
+          uploadProgress={documents?.[fieldName]?.progress || 0}
           disabled={disabled}
         />
       ))}
@@ -209,8 +173,7 @@ const Step3ComplianceDocumentation = ({
       {/* Compliance Note */}
       <div className="mt-8 p-4 bg-blue-50 border border-blue-200 rounded-lg">
         <p className="text-sm text-blue-800">
-          ✓ All documents and declarations will be reviewed by our compliance
-          team within 2-3 business days.
+          ✓ All documents and declarations will be reviewed by our compliance team within 2-3 business days.
         </p>
         <p className="text-sm text-blue-800 mt-2">
           ✓ We may request additional documents or clarifications if needed.
