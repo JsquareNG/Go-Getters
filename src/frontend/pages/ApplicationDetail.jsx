@@ -542,10 +542,10 @@ export default function ApplicationDetail() {
             </Card>
 
             {/* ✅ NEW: Questions & Answers card */}
-            <Card className="border-blue-500">
+            <Card className="border-blue-500/30">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2 text-lg">
-                  <FileQuestion className="h-5 w-5 text-muted-foreground border-blue-500" />
+                  <FileQuestion className="h-5 w-5 text-muted-foreground" />
                   Questions & Answers
                 </CardTitle>
               </CardHeader>
