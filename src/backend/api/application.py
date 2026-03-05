@@ -18,7 +18,7 @@ from backend.models.reviewJobs import ReviewJobs
 from backend.models.bellNotifications import BellNotification
 from backend.risk.review_service import run_review_job
 from backend.services.application_transitions import approve_application_service, need_manual_review_service
-
+from backend.models.action_requests import ActionRequest, ActionRequestItem
 
 router = APIRouter(prefix="/applications", tags=["applications"])
 
@@ -263,7 +263,252 @@ def first_submit_application(
         "email_notes": email_notes,
     }
 
+def close_open_action_request_and_update_answers(db: Session, application_id: str, data: dict):
+    ar = (
+        db.query(ActionRequest)
+        .filter(ActionRequest.application_id == application_id, ActionRequest.status == "OPEN")
+        .order_by(desc(ActionRequest.created_at))
+        .first()
+    )
+    if not ar:
+        return None
+
+    items = (
+        db.query(ActionRequestItem)
+        .filter(ActionRequestItem.action_request_id == ar.action_request_id)
+        .all()
+    )
+
+    now = datetime.utcnow()
+
+    # Split requested items
+    doc_items = [i for i in items if i.item_type == "DOCUMENT"]
+    q_items   = [i for i in items if i.item_type == "QUESTION"]
+
+    # ---------------------------
+    # DOCUMENTS: only if requested
+    # ---------------------------
+    for it in doc_items:
+        it.fulfilled = True
+        it.fulfilled_at = now
+
+    # ---------------------------
+    # QUESTIONS: only if requested
+    # ---------------------------
+    if q_items:
+        answers = data.get("question_answers") or []
+        ans_map = {a.get("item_id"): (a.get("answer_text") or "").strip()
+                   for a in answers if a.get("item_id")}
+
+        for it in q_items:
+            ans = ans_map.get(it.item_id)
+            if ans:
+                it.answer_text = ans
+                it.fulfilled = True
+                it.fulfilled_at = now
+
+        missing_qns = [it.item_id for it in q_items if not it.fulfilled]
+        if missing_qns:
+            raise HTTPException(
+                status_code=400,
+                detail={
+                    "message": "Not all requested questions are answered.",
+                    "missing_question_item_ids": missing_qns,
+                },
+            )
+
+    # Close only after requirements satisfied
+    ar.status = "CLOSED"
+    return ar
+
+def apply_full_application_update(app: ApplicationForm, data: dict):
+    """
+    Used ONLY for first submit case.
+    Updates any editable fields + form_data, but blocks status fields from being overwritten by client.
+    """
+    blocked = {"application_id", "current_status", "previous_status", "created_at", "last_edited"}
+
+    for key, value in (data or {}).items():
+        if key in blocked:
+            continue
+        if hasattr(app, key):
+            setattr(app, key, value)
+        else:
+            app.form_data[key] = value
+
 @router.put("/secondSubmit/{application_id}")
+# def second_submit(
+#     application_id: str,
+#     background_tasks: BackgroundTasks,
+#     data: dict = Body(...),
+#     db: Session = Depends(get_db),
+# ):
+#     app = (
+#         db.query(ApplicationForm)
+#         .filter(ApplicationForm.application_id == application_id)
+#         .first()
+#     )
+
+#     if not app:
+#         raise HTTPException(status_code=404, detail="Application not found")
+
+#     # -----------------------------
+#     # Update fields
+#     # -----------------------------
+#     for key, value in (data or {}).items():
+#         if key == "application_id":
+#             continue
+#         if hasattr(app, key):
+#             setattr(app, key, value)
+#         else:
+#             app.form_data[key] = value
+
+#     curr = app.current_status
+#     prev = app.previous_status
+#     prev_blank = (prev is None) or (prev == "")
+
+#     user_email = data.get("email")
+#     user_firstName = data.get("firstName")
+
+#     # -----------------------------
+#     # Resolve staff (if assigned)
+#     # -----------------------------
+#     staff_email = None
+#     staff_firstName = None
+#     if app.reviewer_id:
+#         staff = db.query(User).filter(User.user_id == app.reviewer_id).first()
+#         if staff:
+#             staff_email = staff.email
+#             staff_firstName = staff.first_name
+
+#     # -----------------------------
+#     # Helper: safe background send
+#     # -----------------------------
+#     def safe_send(to_email: str, subject: str, body: str):
+#         try:
+#             send_email(to_email, subject, body)
+#         except Exception as e:
+#             print(f"❌ Email failed to {to_email}: {e}")
+
+#     emails_queued = {"user": False, "staff": False}
+#     email_notes = []
+
+#     # -----------------------------
+#     # Branch logic
+#     # -----------------------------
+#     if curr == "Draft" and prev_blank:
+#         app.previous_status = app.current_status
+#         app.current_status = "Under Review"
+
+#         add_bell(
+#             db=db,
+#             appId=app.application_id,
+#             recipient_id=app.user_id,
+#             message="Your application has been submitted successfully and is currently under review.",
+#             from_status=app.previous_status,
+#             to_status=app.current_status,
+#         )
+
+#         if user_email:
+#             subject, body = build_application_submitted_email(app, user_firstName)
+#             background_tasks.add_task(safe_send, user_email, subject, body)
+#             emails_queued["user"] = True
+#         else:
+#             email_notes.append("Missing user email; user email not queued.")
+
+        
+
+#     elif curr == "Requires Action" and prev == "Under Manual Review":
+#         app.previous_status = app.current_status
+#         app.current_status = "Under Manual Review"
+
+#         add_bell(
+#             db=db,
+#             appId=app.application_id,
+#             recipient_id=app.user_id,
+#             message="We received your additional documents. Your application is back under manual review.",
+#             from_status=app.previous_status,
+#             to_status=app.current_status,
+#         )
+
+#         if app.reviewer_id:
+#             add_bell(
+#                 db=db,
+#                 appId=app.application_id,
+#                 recipient_id=app.reviewer_id,
+#                 message="Applicant has uploaded additional documents. Please review the application again.",
+#                 from_status=app.previous_status,
+#                 to_status=app.current_status,
+#             )
+
+#         # user email
+#         if user_email:
+#             user_subject, user_body = build_user_manual_review_email(app, user_firstName)
+#             background_tasks.add_task(safe_send, user_email, user_subject, user_body)
+#             emails_queued["user"] = True
+#         else:
+#             email_notes.append("Missing user email; user email not queued.")
+
+#         # staff email
+#         if staff_email:
+#             staff_subject, staff_body = build_staff_manual_review_email(app, staff_firstName)
+#             background_tasks.add_task(safe_send, staff_email, staff_subject, staff_body)
+#             emails_queued["staff"] = True
+#         else:
+#             email_notes.append("Missing staff/reviewer email; staff email not queued.")
+
+#     elif curr == "Draft" and prev == "Requires Action":
+#         app.previous_status = app.current_status
+#         app.current_status = "Under Manual Review"
+
+#         add_bell(
+#             db=db,
+#             appId=app.application_id,
+#             recipient_id=app.user_id,
+#             message="We received your additional documents. Your application is back under manual review.",
+#             from_status=app.previous_status,
+#             to_status=app.current_status,
+#         )
+
+#         if app.reviewer_id:
+#             add_bell(
+#                 db=db,
+#                 appId=app.application_id,
+#                 recipient_id=app.reviewer_id,
+#                 message="Applicant has uploaded additional documents. Please review the application again.",
+#                 from_status=app.previous_status,
+#                 to_status=app.current_status,
+#             )
+
+#         # user email
+#         if user_email:
+#             user_subject, user_body = build_user_manual_review_email(app, user_firstName)
+#             background_tasks.add_task(safe_send, user_email, user_subject, user_body)
+#             emails_queued["user"] = True
+#         else:
+#             email_notes.append("Missing user email; user email not queued.")
+
+#         # staff email
+#         if staff_email:
+#             staff_subject, staff_body = build_staff_manual_review_email(app, staff_firstName)
+#             background_tasks.add_task(safe_send, staff_email, staff_subject, staff_body)
+#             emails_queued["staff"] = True
+#         else:
+#             email_notes.append("Missing staff/reviewer email; staff email not queued.")
+
+#     # -----------------------------
+#     # Persist changes (IMPORTANT)
+#     # -----------------------------
+#     db.commit()
+#     db.refresh(app)
+
+#     return {
+#         "application_id": app.application_id,
+#         "previous_status": app.previous_status,
+#         "current_status": app.current_status,
+#         "emails_queued": emails_queued,
+#         "email_notes": email_notes,
+#     }
 def second_submit(
     application_id: str,
     background_tasks: BackgroundTasks,
@@ -275,31 +520,17 @@ def second_submit(
         .filter(ApplicationForm.application_id == application_id)
         .first()
     )
-
     if not app:
         raise HTTPException(status_code=404, detail="Application not found")
-
-    # -----------------------------
-    # Update fields
-    # -----------------------------
-    for key, value in (data or {}).items():
-        if key == "application_id":
-            continue
-        if hasattr(app, key):
-            setattr(app, key, value)
-        else:
-            app.form_data[key] = value
 
     curr = app.current_status
     prev = app.previous_status
     prev_blank = (prev is None) or (prev == "")
 
-    user_email = data.get("email")
-    user_firstName = data.get("firstName")
+    user_email = (data or {}).get("email")
+    user_firstName = (data or {}).get("firstName")
 
-    # -----------------------------
-    # Resolve staff (if assigned)
-    # -----------------------------
+    # Resolve staff email (if assigned)
     staff_email = None
     staff_firstName = None
     if app.reviewer_id:
@@ -308,9 +539,6 @@ def second_submit(
             staff_email = staff.email
             staff_firstName = staff.first_name
 
-    # -----------------------------
-    # Helper: safe background send
-    # -----------------------------
     def safe_send(to_email: str, subject: str, body: str):
         try:
             send_email(to_email, subject, body)
@@ -321,9 +549,12 @@ def second_submit(
     email_notes = []
 
     # -----------------------------
-    # Branch logic
+    # CASE A: First submit (Draft -> Under Review)
+    # user can edit ANY application fields
     # -----------------------------
     if curr == "Draft" and prev_blank:
+        apply_full_application_update(app, data)
+
         app.previous_status = app.current_status
         app.current_status = "Under Review"
 
@@ -343,9 +574,18 @@ def second_submit(
         else:
             email_notes.append("Missing user email; user email not queued.")
 
-        
+    # -----------------------------
+    # CASE B/C: Resubmit after Requires Action
+    # user cannot edit application fields; only submit required info (answers etc.)
+    # -----------------------------
+    elif (curr == "Requires Action" and prev == "Under Manual Review") or (curr == "Draft" and prev == "Requires Action"):
+        # ✅ Close open action request + update answers
+        closed_ar = close_open_action_request_and_update_answers(db, app.application_id, data)
+        if not closed_ar:
+            # your choice: either error out, or allow but log note
+            email_notes.append("No OPEN action request found to close for this application.")
 
-    elif curr == "Requires Action" and prev == "Under Manual Review":
+        # Move app back to manual review
         app.previous_status = app.current_status
         app.current_status = "Under Manual Review"
 
@@ -353,7 +593,7 @@ def second_submit(
             db=db,
             appId=app.application_id,
             recipient_id=app.user_id,
-            message="We received your additional documents. Your application is back under manual review.",
+            message="We received your additional information. Your application is back under manual review.",
             from_status=app.previous_status,
             to_status=app.current_status,
         )
@@ -363,7 +603,7 @@ def second_submit(
                 db=db,
                 appId=app.application_id,
                 recipient_id=app.reviewer_id,
-                message="Applicant has uploaded additional documents. Please review the application again.",
+                message="Applicant has responded to the action request. Please review the application again.",
                 from_status=app.previous_status,
                 to_status=app.current_status,
             )
@@ -384,48 +624,12 @@ def second_submit(
         else:
             email_notes.append("Missing staff/reviewer email; staff email not queued.")
 
-    elif curr == "Draft" and prev == "Requires Action":
-        app.previous_status = app.current_status
-        app.current_status = "Under Manual Review"
-
-        add_bell(
-            db=db,
-            appId=app.application_id,
-            recipient_id=app.user_id,
-            message="We received your additional documents. Your application is back under manual review.",
-            from_status=app.previous_status,
-            to_status=app.current_status,
+    else:
+        raise HTTPException(
+            status_code=400,
+            detail=f"secondSubmit not allowed for current_status='{curr}' previous_status='{prev}'"
         )
 
-        if app.reviewer_id:
-            add_bell(
-                db=db,
-                appId=app.application_id,
-                recipient_id=app.reviewer_id,
-                message="Applicant has uploaded additional documents. Please review the application again.",
-                from_status=app.previous_status,
-                to_status=app.current_status,
-            )
-
-        # user email
-        if user_email:
-            user_subject, user_body = build_user_manual_review_email(app, user_firstName)
-            background_tasks.add_task(safe_send, user_email, user_subject, user_body)
-            emails_queued["user"] = True
-        else:
-            email_notes.append("Missing user email; user email not queued.")
-
-        # staff email
-        if staff_email:
-            staff_subject, staff_body = build_staff_manual_review_email(app, staff_firstName)
-            background_tasks.add_task(safe_send, staff_email, staff_subject, staff_body)
-            emails_queued["staff"] = True
-        else:
-            email_notes.append("Missing staff/reviewer email; staff email not queued.")
-
-    # -----------------------------
-    # Persist changes (IMPORTANT)
-    # -----------------------------
     db.commit()
     db.refresh(app)
 
@@ -843,9 +1047,8 @@ def require_action(
 
     reason = data.get("reason")
 
-    # (Recommended) require reason when setting Requires Action
-    if reason is None or str(reason).strip() == "":
-        raise HTTPException(status_code=400, detail="reason is required when setting Requires Action")
+    requested_docs = data.get("documents") or []
+    requested_qns = data.get("questions") or []
 
     if app.has_sent:
         app.has_sent = False
@@ -853,7 +1056,40 @@ def require_action(
     # Status update
     app.previous_status = app.current_status
     app.current_status = "Requires Action"
-    app.form_data["reason"] = reason
+
+    # ✅ NEW: Create ActionRequest (one escalation round)
+    action_request = ActionRequest(
+        application_id=app.application_id,
+        reviewer_id=app.reviewer_id,  # better: enforce reviewer_id exists
+        reason=reason,
+        status="OPEN",
+    )
+    db.add(action_request)
+    db.flush()  # so action_request.action_request_id is available without committing
+
+    # ✅ NEW: Create ActionRequestItems (documents)
+    for d in requested_docs:
+        item = ActionRequestItem(
+            action_request_id=action_request.action_request_id,
+            item_type="DOCUMENT",
+            document_name=d.get("document_name"),
+            document_desc=d.get("document_desc"),
+            fulfilled=False,
+            fulfilled_at=None,
+        )
+        db.add(item)
+
+    # ✅ NEW: Create ActionRequestItems (questions)
+    for q in requested_qns:
+        item = ActionRequestItem(
+            action_request_id=action_request.action_request_id,
+            item_type="QUESTION",
+            question_text=q.get("question_text"),
+            fulfilled=False,
+            fulfilled_at=None,
+        )
+        db.add(item)
+
 
     db.add(BellNotification(
         application_id=app.application_id,
@@ -893,7 +1129,7 @@ def require_action(
     email_notes = []
 
     if user_email:
-        subject, body = build_action_required_email(app, user_firstName)
+        subject, body = build_action_required_email(app, user_firstName, reason, requested_docs, requested_qns)
         background_tasks.add_task(safe_send_email, user_email, subject, body)
         emails_queued = True
     else:
@@ -902,7 +1138,7 @@ def require_action(
     return {
         "application_id": app.application_id,
         "status": app.current_status,
-        "reason": app.form_data["reason"],
+        "reason": reason,
         "reviewer_id": app.reviewer_id,
         "emails_queued": emails_queued,
         "email_notes": email_notes,
@@ -1272,4 +1508,54 @@ def send_draft_reminders(db: Session = Depends(get_db),
         "failed": failed,
         "updated_has_sent": len(sent_app_ids),
         "failures": failures[:20],
+    }
+
+@router.get("/getRequired/{application_id}")
+def get_required_requirements(application_id: str, db: Session = Depends(get_db)):
+    action_request = (
+        db.query(ActionRequest)
+        .filter(
+            ActionRequest.application_id == application_id,
+            ActionRequest.status == "OPEN",
+        )
+        .order_by(desc(ActionRequest.created_at))
+        .first()
+    )
+
+    items = (
+        db.query(ActionRequestItem)
+        .filter(ActionRequestItem.action_request_id == action_request.action_request_id)
+        .order_by(desc(ActionRequestItem.item_id))  # you can change ordering if you want
+        .all()
+    )
+
+    required_documents = []
+    required_questions = []
+
+    for it in items:
+        # NOTE: since your table doesn't have `required`, we treat all items as required
+        if it.item_type == "DOCUMENT":
+            required_documents.append(
+                {
+                    "item_id": it.item_id,
+                    "document_name": it.document_name,
+                    "document_desc": it.document_desc,
+                }
+            )
+        elif it.item_type == "QUESTION":
+            required_questions.append(
+                {
+                    "item_id": it.item_id,
+                    "question_text": it.question_text,
+                    "answer_text": it.answer_text,
+                }
+            )
+
+    return {
+        "application_id": application_id,
+        "action_request_id": action_request.action_request_id,
+        "status": action_request.status,
+        "reason": action_request.reason,
+        "required_documents": required_documents,
+        "required_questions": required_questions,
     }

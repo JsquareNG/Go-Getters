@@ -12,3 +12,8 @@ export const registerSME = async (payload) => {
   const res = await axiosClient.post("/users/register", payload);
   return res.data;
 };
+
+export const userInfo = async (userId) => {
+  const res = await axiosClient.get(`/users/${userId}`);
+  return res.data;
+};

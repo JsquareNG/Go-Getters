@@ -1,3 +1,4 @@
+// ApplicationDetail.jsx
 import React, { useState, useEffect, useMemo } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import {
@@ -11,7 +12,8 @@ import {
   User,
   MapPin,
   Mail,
-  Phone
+  Phone,
+  Download,
 } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -21,67 +23,56 @@ import {
   CardHeader,
   CardTitle,
   StatusBadge,
-  Separator,
-  Accordion, AccordionContent, AccordionItem, AccordionTrigger
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
 } from "@/components/ui";
-import { getApplicationByAppId } from "./../api/applicationApi"; // Import the API function
 
-const stepsByStatus = {
-  "Not started": [
-    { label: "Company Information", completed: false, current: true },
-    { label: "Business Documentation", completed: false, current: false },
-    { label: "Authorized Signatories", completed: false, current: false },
-    { label: "Review & Submit", completed: false, current: false },
-  ],
-  Draft: [
-    { label: "Company Information", completed: true, current: false },
-    { label: "Business Documentation", completed: true, current: false },
-    { label: "Authorized Signatories", completed: false, current: true },
-    { label: "Review & Submit", completed: false, current: false },
-  ],
-  Submitted: [
-    { label: "Company Information", completed: true, current: false },
-    { label: "Business Documentation", completed: true, current: false },
-    { label: "Authorized Signatories", completed: true, current: false },
-    { label: "Review & Submit", completed: true, current: false },
-    { label: "Bank Review", completed: false, current: true },
-  ],
-  "Under Review": [
-    { label: "Company Information", completed: true, current: false },
-    { label: "Business Documentation", completed: true, current: false },
-    { label: "Authorized Signatories", completed: true, current: false },
-    { label: "Review & Submit", completed: true, current: false },
-    { label: "Bank Review", completed: false, current: true },
-  ],
-  "Requires Action": [
-    { label: "Company Information", completed: true, current: false },
-    { label: "Business Documentation", completed: true, current: false },
-    { label: "Authorized Signatories", completed: true, current: false },
-    { label: "Review & Submit", completed: true, current: false },
-    {
-      label: "Additional Information Required",
-      completed: false,
-      current: true,
-    },
-  ],
-  Approved: [
-    { label: "Company Information", completed: true, current: false },
-    { label: "Business Documentation", completed: true, current: false },
-    { label: "Authorized Signatories", completed: true, current: false },
-    { label: "Review & Submit", completed: true, current: false },
-    { label: "Bank Review", completed: true, current: false },
-    { label: "Account Activated", completed: true, current: false },
-  ],
-};
+import { getApplicationByAppId, getMissingItems } from "./../api/applicationApi";
+import { allDocuments, downloadDocuments } from "./../api/documentApi";
+import { userInfo } from "./../api/usersApi";
+
+// ✅ Your ResubmitDialog
+import { ResubmitDialog } from "../components/ui/features/ResubmitDialog";
 
 export default function ApplicationDetail() {
-  const { id } = useParams();
+  const { id } = useParams(); // application_id
   const navigate = useNavigate();
 
   const [application, setApplication] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
 
+  const [documents, setDocuments] = useState([]);
+  const [docsLoading, setDocsLoading] = useState(false);
+  const [docsError, setDocsError] = useState(null);
+
+  // ✅ missing items from /applications/getRequired/{application_id}
+  const [missing, setMissing] = useState(null);
+  const [missingLoading, setMissingLoading] = useState(false);
+
+  // ✅ this controls the ResubmitDialog
+  const [resubmitOpen, setResubmitOpen] = useState(false);
+  const [user, setUser] = useState(null);
+
+  // the userInfo
+  useEffect(() => {
+  const fetchUser = async () => {
+    if (!application?.user_id) return;
+
+    try {
+      const data = await userInfo(application.user_id);
+      setUser(data);
+    } catch (err) {
+      console.error("Error fetching user info:", err);
+    }
+  };
+
+  fetchUser();
+}, [application]);
+
+  // --- Fetch application ---
   useEffect(() => {
     const fetchApplication = async () => {
       try {
@@ -100,8 +91,62 @@ export default function ApplicationDetail() {
     if (id) fetchApplication();
   }, [id]);
 
+  // --- Fetch documents for this application ---
+  useEffect(() => {
+    const fetchDocuments = async () => {
+      try {
+        setDocsLoading(true);
+        setDocsError(null);
+
+        const docs = await allDocuments(id);
+        setDocuments(Array.isArray(docs) ? docs : []);
+      } catch (err) {
+        console.error("Error fetching documents:", err);
+        setDocsError("Could not retrieve documents.");
+      } finally {
+        setDocsLoading(false);
+      }
+    };
+
+    if (id) fetchDocuments();
+  }, [id]);
+
   const currentStatus = application?.current_status || "Not started";
-  const isEditable = ["Not started", "Draft", "Requires Action"].includes(currentStatus);
+
+  // --- Fetch missing items (getRequired) ---
+  useEffect(() => {
+    const fetchMissing = async () => {
+      if (!id) return;
+
+      try {
+        setMissingLoading(true);
+        const data = await getMissingItems(id);
+        setMissing(data);
+      } catch (err) {
+        console.error("Error fetching missing items:", err);
+        setMissing(null);
+      } finally {
+        setMissingLoading(false);
+      }
+    };
+
+    fetchMissing();
+  }, [id, currentStatus]);
+
+  const requiredDocs = Array.isArray(missing?.required_documents)
+    ? missing.required_documents
+    : [];
+  const requiredQns = Array.isArray(missing?.required_questions)
+    ? missing.required_questions
+    : [];
+
+  const missingDocsCount = requiredDocs.length;
+  const missingQnsCount = requiredQns.length;
+  const hasMissing = missingDocsCount > 0 || missingQnsCount > 0;
+
+  // ✅ IMPORTANT: reason often lives in missing.reason (ActionRequest), not application.reason
+  const actionReason = missing?.reason || application?.reason || "";
+  const showActionRequired = currentStatus === "Requires Action";
 
   const formattedDate = application?.last_edited
     ? new Date(application.last_edited).toLocaleDateString("en-US", {
@@ -111,31 +156,38 @@ export default function ApplicationDetail() {
       })
     : "-";
 
-  // ✅ directors array comes from form_data.directors (dynamic length)
   const directors = useMemo(() => {
     const arr = application?.form_data?.directors;
     return Array.isArray(arr) ? arr : [];
   }, [application]);
 
-  // const handleRequestDocuments = () => {
-  //   toast.success("Document request sent to applicant", {
-  //     description: "An email has been sent requesting the missing documents.",
-  //   });
-  // };
+  const handleDownload = async (doc) => {
+    const newTab = window.open("", "_blank");
 
-  // const handleApprove = () => {
-  //   toast.success("Application Approved", {
-  //     description: `${application?.business_name} has been approved.`,
-  //   });
-  //   navigate("/staff");
-  // };
+    try {
+      const documentId = doc?.document_id;
+      if (!documentId) {
+        if (newTab) newTab.close();
+        toast.error("Missing document_id");
+        console.log("Doc object missing document_id:", doc);
+        return;
+      }
 
-  // const handleReject = () => {
-  //   toast.error("Application Rejected", {
-  //     description: `${application?.business_name}'s application has been rejected.`,
-  //   });
-  //   navigate("/staff");
-  // };
+      const res = await downloadDocuments(documentId);
+      const signedUrl = res?.url;
+
+      if (!signedUrl) throw new Error("No url returned from download endpoint");
+
+      if (newTab) newTab.location.href = signedUrl;
+      else window.open(signedUrl, "_blank", "noopener,noreferrer");
+    } catch (e) {
+      if (newTab) newTab.close();
+      console.error("Download error:", e?.response?.status, e?.response?.data || e);
+      toast.error("Could not open document", {
+        description: e?.response?.data?.detail || e?.message || "Unknown error",
+      });
+    }
+  };
 
   if (isLoading) {
     return (
@@ -192,6 +244,43 @@ export default function ApplicationDetail() {
           </div>
         </div>
 
+        {/* ✅ Action Required (shows whenever status is Requires Action) */}
+        {showActionRequired && (
+          <Card className="mb-6 border-rose-600/30 bg-rose-600/5">
+            <CardHeader className="pb-3">
+              <CardTitle className="flex items-center gap-2 text-rose-600 text-lg">
+                <AlertCircle className="h-5 w-5" />
+                Action Required
+              </CardTitle>
+            </CardHeader>
+
+            <CardContent>
+              {missingLoading ? (
+                <p className="text-xs text-muted-foreground mb-4">
+                  Loading missing items...
+                </p>
+              ) : hasMissing ? (
+                <div className="mb-4 rounded-md bg-secondary/40 p-3">
+                  <p className="text-sm font-medium text-foreground">
+                    Items to resubmit
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    {missingDocsCount} document{missingDocsCount === 1 ? "" : "s"} and{" "}
+                    {missingQnsCount} question{missingQnsCount === 1 ? "" : "s"} requested.
+                  </p>
+                </div>
+              ) : null}
+
+              <div className="flex flex-wrap gap-3">
+                <Button className="gap-2" onClick={() => setResubmitOpen(true)}>
+                  <Upload className="h-4 w-4" />
+                  Upload Documents
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
         {/* MAIN 2-COLUMN LAYOUT */}
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
           {/* LEFT */}
@@ -207,7 +296,9 @@ export default function ApplicationDetail() {
               <CardContent>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
-                    <p className="text-sm text-muted-foreground">Registration Number</p>
+                    <p className="text-sm text-muted-foreground">
+                      Registration Number
+                    </p>
                     <p className="font-medium text-foreground">
                       {application.business_registration_number || "-"}
                     </p>
@@ -215,37 +306,56 @@ export default function ApplicationDetail() {
 
                   <div>
                     <p className="text-sm text-muted-foreground">Business Name</p>
-                    <p className="font-medium text-foreground">{application.business_name || "-"}</p>
+                    <p className="font-medium text-foreground">
+                      {application.business_name || "-"}
+                    </p>
                   </div>
 
                   <div>
-                    <p className="text-sm text-muted-foreground">Incorporation Date</p>
-                    <p className="font-medium text-foreground">{application.incorporationDate || "-"}</p>
+                    <p className="text-sm text-muted-foreground">
+                      Incorporation Date
+                    </p>
+                    <p className="font-medium text-foreground">
+                      {application.incorporationDate || "-"}
+                    </p>
                   </div>
 
                   <div>
                     <p className="text-sm text-muted-foreground">Business Type</p>
-                    <p className="font-medium text-foreground">{application.business_type || "-"}</p>
+                    <p className="font-medium text-foreground">
+                      {application.business_type || "-"}
+                    </p>
                   </div>
 
                   <div>
                     <p className="text-sm text-muted-foreground">Industry</p>
-                    <p className="font-medium text-foreground">{application.industry || "-"}</p>
+                    <p className="font-medium text-foreground">
+                      {application.industry || "-"}
+                    </p>
                   </div>
 
                   <div>
-                    <p className="text-sm text-muted-foreground">Employee Count</p>
-                    <p className="font-medium text-foreground">{application.employeeCount || "-"}</p>
+                    <p className="text-sm text-muted-foreground">
+                      Employee Count
+                    </p>
+                    <p className="font-medium text-foreground">
+                      {application.employeeCount || "-"}
+                    </p>
                   </div>
 
                   <div>
-                    <p className="text-sm text-muted-foreground">Annual Revenue</p>
-                    <p className="font-medium text-foreground">{application.annualRevenue || "-"}</p>
+                    <p className="text-sm text-muted-foreground">
+                      Annual Revenue
+                    </p>
+                    <p className="font-medium text-foreground">
+                      {application.annualRevenue || "-"}
+                    </p>
                   </div>
                 </div>
               </CardContent>
             </Card>
 
+            {/* Directors */}
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2 text-lg">
@@ -293,9 +403,7 @@ export default function ApplicationDetail() {
                               <div className="flex items-center gap-2">
                                 <Mail className="h-4 w-4 text-muted-foreground" />
                                 <div>
-                                  <p className="text-sm text-muted-foreground">
-                                    Email
-                                  </p>
+                                  <p className="text-sm text-muted-foreground">Email</p>
                                   <p className="font-medium text-foreground">
                                     {d?.email || "-"}
                                   </p>
@@ -304,9 +412,7 @@ export default function ApplicationDetail() {
                               <div className="flex items-center gap-2">
                                 <Phone className="h-4 w-4 text-muted-foreground" />
                                 <div>
-                                  <p className="text-sm text-muted-foreground">
-                                    Phone
-                                  </p>
+                                  <p className="text-sm text-muted-foreground">Phone</p>
                                   <p className="font-medium text-foreground">
                                     {d?.phone || "-"}
                                   </p>
@@ -322,7 +428,7 @@ export default function ApplicationDetail() {
               </CardContent>
             </Card>
 
-{/* Registered Address */}
+            {/* Registered Address */}
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2 text-lg">
@@ -335,9 +441,13 @@ export default function ApplicationDetail() {
                   Street: {application.street || "-"}
                 </p>
                 <p className="text-muted-foreground">
-                  City and Postal Code: {application.city || "-"}, {application.postalCode || "-"}
+                  City and Postal Code: {application.city || "-"},{" "}
+                  {application.postalCode || "-"}
                 </p>
-                Country: <p className="text-muted-foreground">{application.business_country || "-"}</p>
+                Country:{" "}
+                <p className="text-muted-foreground">
+                  {application.business_country || "-"}
+                </p>
               </CardContent>
             </Card>
 
@@ -353,11 +463,15 @@ export default function ApplicationDetail() {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <p className="text-sm text-muted-foreground">Initial Deposit</p>
-                    <p className="font-medium text-foreground">{application.initialDeposit || "-"}</p>
+                    <p className="font-medium text-foreground">
+                      {application.initialDeposit || "-"}
+                    </p>
                   </div>
 
                   <div>
-                    <p className="text-sm text-muted-foreground">Expected Monthly Volume</p>
+                    <p className="text-sm text-muted-foreground">
+                      Expected Monthly Volume
+                    </p>
                     <p className="font-medium text-foreground">
                       {application.expectedMonthlyVolume || "-"}
                     </p>
@@ -365,73 +479,18 @@ export default function ApplicationDetail() {
 
                   <div>
                     <p className="text-sm text-muted-foreground">Currencies Required</p>
-                    {/* add badges here when you have currencies array */}
                   </div>
 
                   <div>
                     <p className="text-sm text-muted-foreground">Services Requested</p>
-                    {/* add badges here when you have services array */}
                   </div>
                 </div>
               </CardContent>
             </Card>
-
-            {/* Requires Action feedback */}
-            {currentStatus === "Requires Action" && application.reason && (
-              <Card className="border-rose-500/30 bg-rose-500/5">
-                <CardHeader className="pb-3">
-                  <CardTitle className="flex items-center gap-2 text-rose-500 text-lg">
-                    <AlertCircle className="h-5 w-5" />
-                    Action Required
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-foreground mb-4">{application.reason}</p>
-                  <div className="flex flex-wrap gap-3">
-                    <Button className="gap-2">
-                      <Upload className="h-4 w-4" /> Upload Documents
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
-            )}
           </div>
 
           {/* RIGHT */}
           <div className="space-y-6">
-            {/* <Card>
-              <CardHeader>
-                <CardTitle className="text-lg">Review Actions</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                <Button
-                  variant="outline"
-                  className="w-full gap-2 bg-amber-500 text-white"
-                  onClick={handleRequestDocuments}
-                >
-                  <FileQuestion className="h-4 w-4" />
-                  Request Documents
-                </Button>
-
-                <Button
-                  className="w-full gap-2 bg-green-500 text-white"
-                  onClick={handleApprove}
-                >
-                  <CheckCircle2 className="h-4 w-4" />
-                  Approve Application
-                </Button>
-
-                <Button
-                  variant="outline"
-                  className="w-full gap-2 bg-red-500 text-white"
-                  onClick={handleReject}
-                >
-                  <XCircle className="h-4 w-4" />
-                  Reject Application
-                </Button>
-              </CardContent>
-            </Card> */}
-
             {/* Documents */}
             <Card>
               <CardHeader>
@@ -440,6 +499,57 @@ export default function ApplicationDetail() {
                   Documents
                 </CardTitle>
               </CardHeader>
+
+              <CardContent className="space-y-3">
+                {docsLoading ? (
+                  <p className="text-sm text-muted-foreground">Loading documents...</p>
+                ) : docsError ? (
+                  <p className="text-sm text-red-500">{docsError}</p>
+                ) : documents.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">
+                    No documents uploaded yet.
+                  </p>
+                ) : (
+                  <div className="space-y-2">
+                    {documents.map((doc) => (
+                      <div
+                        key={
+                          doc.document_id ||
+                          doc.id ||
+                          `${doc.document_type}-${doc.created_at}`
+                        }
+                        className="relative flex items-center justify-between rounded-lg border border-border p-3"
+                      >
+                        <div className="min-w-0">
+                          <p className="truncate font-medium text-foreground">
+                            {doc.document_type || "Document"}
+                          </p>
+                          <p className="text-xs text-muted-foreground">
+                            {doc.created_at
+                              ? `Uploaded: ${new Date(doc.created_at).toLocaleDateString()}`
+                              : ""}
+                          </p>
+                        </div>
+
+                        <Button
+                          variant="ghost"
+                          className="relative z-50 h-8 w-8 p-0 pointer-events-auto"
+                          type="button"
+                          title="Download"
+                          onClick={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            handleDownload(doc);
+                          }}
+                          aria-label="Download"
+                        >
+                          <Download className="h-4 w-4 pointer-events-none" />
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
             </Card>
 
             {/* Review Timeline */}
@@ -452,65 +562,44 @@ export default function ApplicationDetail() {
               </CardHeader>
               <CardContent>
                 <div className="space-y-4">
-                  <div className="flex gap-3">
-                    <div className="flex flex-col items-center">
-                      <div className="h-2 w-2 rounded-full bg-green-500" />
-                      <div className="flex-1 w-px bg-gray-500" />
+                  {[
+                    "To Get Started",
+                    "Basic Information",
+                    "Financial Details",
+                    "Compliance",
+                    "Manual Review",
+                  ].map((label, idx) => (
+                    <div className="flex gap-3" key={label}>
+                      <div className="flex flex-col items-center">
+                        <div
+                          className={`h-2 w-2 rounded-full ${
+                            idx < 4 ? "bg-green-500" : "bg-amber-500"
+                          }`}
+                        />
+                        {idx < 4 && <div className="flex-1 w-px bg-gray-500" />}
+                      </div>
+                      <div className={idx < 4 ? "pb-4" : ""}>
+                        <p className="text-sm font-medium text-foreground">{label}</p>
+                      </div>
                     </div>
-                    <div className="pb-4">
-                      <p className="text-sm font-medium text-foreground">To Get Started</p>
-                    </div>
-                  </div>
-
-                  <div className="flex gap-3">
-                    <div className="flex flex-col items-center">
-                      <div className="h-2 w-2 rounded-full bg-green-500" />
-                      <div className="flex-1 w-px bg-gray-500" />
-                    </div>
-                    <div className="pb-4">
-                      <p className="text-sm font-medium text-foreground">Basic Information</p>
-                    </div>
-                  </div>
-
-                  <div className="flex gap-3">
-                    <div className="flex flex-col items-center">
-                      <div className="h-2 w-2 rounded-full bg-green-500" />
-                      <div className="flex-1 w-px bg-gray-500" />
-                    </div>
-                    <div>
-                      <p className="text-sm font-medium text-foreground">Financial Details</p>
-                    </div>
-                  </div>
-
-                  <div className="flex gap-3">
-                    <div className="flex flex-col items-center">
-                      <div className="h-2 w-2 rounded-full bg-green-500" />
-                      <div className="flex-1 w-px bg-gray-500" />
-                    </div>
-                    <div>
-                      <p className="text-sm font-medium text-foreground">Compliance</p>
-                    </div>
-                  </div>
-
-                  <div className="flex gap-3">
-                    <div className="flex flex-col items-center">
-                      <div className="h-2 w-2 rounded-full bg-amber-500" />
-                      <div className="flex-1 w-px bg-gray-500" />
-                    </div>
-                    <div>
-                      <p className="text-sm font-medium text-foreground">Manual Review</p>
-                    </div>
-                  </div>
+                  ))}
                 </div>
               </CardContent>
             </Card>
-
-            {/* KEEP YOUR COMMENTED OUT BLOCK COMMENTED OUT (as requested) */}
-            {/* <div className="space-y-6">
-              ...
-            </div> */}
           </div>
         </div>
+
+        {/* Resubmit dialog */}
+        <ResubmitDialog
+          open={resubmitOpen}
+          onOpenChange={setResubmitOpen}
+          applicationId={id}
+          email={user?.email}
+          firstName={user?.first_name}
+          actionRequired={actionReason}
+          requiredDocuments={requiredDocs}
+          requiredQuestions={requiredQns}
+        />
       </main>
     </div>
   );

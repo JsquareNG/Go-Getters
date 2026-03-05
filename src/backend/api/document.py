@@ -163,26 +163,26 @@ def list_docs(application_id: str, db: Session = Depends(get_db)):
     ]
 
 # get url for specific document
-@router.get("/download-url/{application_id}/{document_type}")
-def get_download_url(application_id: str, document_type: str, db: Session = Depends(get_db)):
-    doc = (
-        db.query(Document)
-        .filter(
-            Document.application_id == application_id,
-            Document.document_type == document_type,
-            Document.status == "uploaded",
-        )
-        .order_by(Document.created_at.desc())
-        .first()
-    )
-    if not doc:
-        raise HTTPException(404, "No uploaded document found")
+# @router.get("/download-url/{application_id}/{document_type}")
+# def get_download_url(application_id: str, document_type: str, db: Session = Depends(get_db)):
+#     doc = (
+#         db.query(Document)
+#         .filter(
+#             Document.application_id == application_id,
+#             Document.document_type == document_type,
+#             Document.status == "uploaded",
+#         )
+#         .order_by(Document.created_at.desc())
+#         .first()
+#     )
+#     if not doc:
+#         raise HTTPException(404, "No uploaded document found")
 
-    signed = supabase.storage.from_(BUCKET).create_signed_url(doc.storage_path, 300)
-    if not signed:
-        raise HTTPException(500, "Failed to create signed download URL")
+#     signed = supabase.storage.from_(BUCKET).create_signed_url(doc.storage_path, 300)
+#     if not signed:
+#         raise HTTPException(500, "Failed to create signed download URL")
 
-    return {"signed_download": signed}
+#     return {"signed_download": signed}
 
 @router.post("/replace-upload/{document_id}")
 def replace_upload(document_id: str, file: UploadFile = File(...), db: Session = Depends(get_db)):
