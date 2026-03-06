@@ -24,25 +24,27 @@ const Step4ReviewSubmit = ({ onEdit, disabled = false }) => {
   // ---- Entity and step configs ----
   const entityConfig = useMemo(
     () => SINGAPORE_CONFIG.entities[data?.businessType] || {},
-    [data?.businessType]
+    [data?.businessType],
   );
 
   const step2Config = useMemo(
     () => entityConfig.steps?.find((s) => s.id === "step2") || {},
-    [entityConfig]
+    [entityConfig],
   );
   const step3Config = useMemo(
     () => entityConfig.steps?.find((s) => s.id === "step3") || {},
-    [entityConfig]
+    [entityConfig],
   );
   const step4Config = useMemo(
     () => entityConfig.steps?.find((s) => s.id === "step4") || {},
-    [entityConfig]
+    [entityConfig],
   );
 
   // ---- Helpers ----
   const formatDocumentName = (file) =>
-    file ? `${file.name} (${(file.size / 1024).toFixed(2)} KB)` : "Not uploaded";
+    file
+      ? `${file.name} (${(file.size / 1024).toFixed(2)} KB)`
+      : "Not uploaded";
 
   const getFieldsFromStep = (stepConfig, sectionData) => {
     const fields = [];
@@ -50,12 +52,26 @@ const Step4ReviewSubmit = ({ onEdit, disabled = false }) => {
 
     // Normal fields
     Object.entries(stepConfig.fields || {}).forEach(([key, cfg]) => {
+      // let value = sectionData?.[key] ?? "";
       let value = sectionData?.[key] ?? "";
-      if (cfg.type === "checkbox" && cfg.conditionalFields && sectionData?.[key]) {
+
+      if (typeof value === "object" && value !== null) {
+        value = Object.entries(value)
+          .map(([k, v]) => `${k}: ${v}`)
+          .join(", ");
+      }
+      if (
+        cfg.type === "checkbox" &&
+        cfg.conditionalFields &&
+        sectionData?.[key]
+      ) {
         const subFields = cfg.conditionalFields[sectionData[key]];
         if (subFields) {
           Object.entries(subFields).forEach(([subKey, subCfg]) => {
-            fields.push({ label: subCfg.label, value: sectionData?.[subKey] ?? "" });
+            fields.push({
+              label: subCfg.label,
+              value: sectionData?.[subKey] ?? "",
+            });
           });
         }
       }
@@ -64,22 +80,29 @@ const Step4ReviewSubmit = ({ onEdit, disabled = false }) => {
 
     // Repeatable sections
     if (stepConfig.repeatableSections) {
-      Object.entries(stepConfig.repeatableSections).forEach(([sectionKey, sectionCfg]) => {
-        const items = sectionData?.[sectionKey] || [];
-        items.forEach((item, idx) => {
-          Object.entries(sectionCfg.fields).forEach(([key, cfg]) => {
-            fields.push({
-              label: `${sectionCfg.label} ${idx + 1} - ${cfg.label}`,
-              value: item[key] || "",
+      Object.entries(stepConfig.repeatableSections).forEach(
+        ([sectionKey, sectionCfg]) => {
+          const items = sectionData?.[sectionKey] || [];
+          items.forEach((item, idx) => {
+            Object.entries(sectionCfg.fields).forEach(([key, cfg]) => {
+              fields.push({
+                label: `${sectionCfg.label} ${idx + 1} - ${cfg.label}`,
+                value: item[key] || "",
+              });
             });
           });
-        });
-      });
+        },
+      );
     }
 
     // Documents
     (stepConfig.documents || []).forEach((doc) => {
-      const key = doc.toLowerCase().replace(/[^\w]+/g, "_");
+      // const key = doc.toLowerCase().replace(/[^\w]+/g, "_");
+      const key = doc
+        .toLowerCase()
+        .replace(/[^\w]+/g, " ")
+        .trim()
+        .replace(/\s+/g, "_");
       fields.push({
         label: doc,
         value: formatDocumentName(sectionData?.documents?.[key]?.file),
@@ -90,22 +113,39 @@ const Step4ReviewSubmit = ({ onEdit, disabled = false }) => {
   };
 
   // ---- Review fields ----
-  const basicFields = useMemo(() => getFieldsFromStep(step2Config, data.basicFields), [
-    step2Config,
-    data,
-  ]);
-  const financialFields = useMemo(() => getFieldsFromStep(step3Config, data.financialFields), [
-    step3Config,
-    data,
-  ]);
+  // const basicFields = useMemo(
+  //   () => getFieldsFromStep(step2Config, data.basicFields),
+  //   [step2Config, data],
+  // );
+  // const financialFields = useMemo(
+  //   () => getFieldsFromStep(step3Config, data.financialFields),
+  //   [step3Config, data],
+  // );
+  // const complianceFields = useMemo(
+  //   () => getFieldsFromStep(step4Config, data.complianceFields),
+  //   [step4Config, data],
+  // );
+  const basicFields = useMemo(
+    () => getFieldsFromStep(step2Config, data),
+    [step2Config, data],
+  );
+
+  const financialFields = useMemo(
+    () => getFieldsFromStep(step3Config, data),
+    [step3Config, data],
+  );
+
   const complianceFields = useMemo(
-    () => getFieldsFromStep(step4Config, data.complianceFields),
-    [step4Config, data]
+    () => getFieldsFromStep(step4Config, data),
+    [step4Config, data],
   );
 
   // ---- Submission readiness ----
   const allStepsComplete =
-    stepCompletion[0] && stepCompletion[1] && stepCompletion[2] && stepCompletion[3];
+    stepCompletion[0] &&
+    stepCompletion[1] &&
+    stepCompletion[2] &&
+    stepCompletion[3];
 
   const handleButtonClick = () => {
     if (allStepsComplete) {
@@ -133,9 +173,21 @@ const Step4ReviewSubmit = ({ onEdit, disabled = false }) => {
       </div>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {fields.map((field, idx) => (
-          <div key={idx} className="bg-white p-3 rounded border border-gray-200">
-            <p className="text-xs font-medium text-gray-500 uppercase mb-1">{field.label}</p>
-            <p className="text-sm text-gray-900 break-words">{field.value || "Not provided"}</p>
+          <div
+            key={idx}
+            className="bg-white p-3 rounded border border-gray-200"
+          >
+            <p className="text-xs font-medium text-gray-500 uppercase mb-1">
+              {field.label}
+            </p>
+            {/* <p className="text-sm text-gray-900 break-words">{field.value || "Not provided"}</p> */}
+            <p className="text-sm text-gray-900 break-words">
+              {typeof field.value === "object"
+                ? Object.entries(field.value)
+                    .map(([k, v]) => `${k}: ${v}`)
+                    .join(", ")
+                : field.value || "Not provided"}
+            </p>
           </div>
         ))}
       </div>
@@ -144,13 +196,24 @@ const Step4ReviewSubmit = ({ onEdit, disabled = false }) => {
 
   return (
     <div>
-      <h2 className="text-2xl font-bold mb-2 text-gray-900">Review Your Application</h2>
+      <h2 className="text-2xl font-bold mb-2 text-gray-900">
+        Review Your Application
+      </h2>
       <p className="text-gray-600 mb-8">
-        Please review all information below. Click "Edit" to make changes if needed.
+        Please review all information below. Click "Edit" to make changes if
+        needed.
       </p>
 
-      <ReviewSection title="Basic Information" fields={basicFields} onEditClick={() => onEdit(1)} />
-      <ReviewSection title="Financial Details" fields={financialFields} onEditClick={() => onEdit(2)} />
+      <ReviewSection
+        title="Basic Information"
+        fields={basicFields}
+        onEditClick={() => onEdit(1)}
+      />
+      <ReviewSection
+        title="Financial Details"
+        fields={financialFields}
+        onEditClick={() => onEdit(2)}
+      />
       <ReviewSection
         title="Compliance & Documentation"
         fields={complianceFields}
@@ -160,7 +223,9 @@ const Step4ReviewSubmit = ({ onEdit, disabled = false }) => {
       {/* Status Banner */}
       <div
         className={`mb-8 p-4 rounded-lg border flex items-start gap-3 ${
-          allStepsComplete ? "bg-green-50 border-green-200" : "bg-amber-50 border-amber-200"
+          allStepsComplete
+            ? "bg-green-50 border-green-200"
+            : "bg-amber-50 border-amber-200"
         }`}
       >
         <AlertCircle
@@ -169,10 +234,16 @@ const Step4ReviewSubmit = ({ onEdit, disabled = false }) => {
           }`}
         />
         <div>
-          <p className={`font-semibold ${allStepsComplete ? "text-green-900" : "text-amber-900"}`}>
-            {allStepsComplete ? "Application Complete" : "Application Incomplete"}
+          <p
+            className={`font-semibold ${allStepsComplete ? "text-green-900" : "text-amber-900"}`}
+          >
+            {allStepsComplete
+              ? "Application Complete"
+              : "Application Incomplete"}
           </p>
-          <p className={`text-sm ${allStepsComplete ? "text-green-700" : "text-amber-700"}`}>
+          <p
+            className={`text-sm ${allStepsComplete ? "text-green-700" : "text-amber-700"}`}
+          >
             {allStepsComplete
               ? "All fields are filled. Click Submit to send your application."
               : "Some required fields are missing. Click Save Draft to save your progress."}
@@ -180,13 +251,14 @@ const Step4ReviewSubmit = ({ onEdit, disabled = false }) => {
         </div>
       </div>
 
-      <Button
+      {/* save draft button which is not needed here */}
+      {/* <Button
         onClick={handleButtonClick}
         disabled={disabled}
         variant={allStepsComplete ? "default" : "outline"}
       >
         {allStepsComplete ? "Submit Application" : "Save Draft"}
-      </Button>
+      </Button> */}
     </div>
   );
 };

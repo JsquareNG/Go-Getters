@@ -23,7 +23,7 @@ const FormStepper = ({
 
   return (
     <div className="mb-8">
-      <div className="flex items-center justify-between">
+      <div className="flex justify-between">
         {Array.from({ length: totalSteps }).map((_, index) => {
           const stepNumber = index + 1;
           const isActive = index === currentStep;

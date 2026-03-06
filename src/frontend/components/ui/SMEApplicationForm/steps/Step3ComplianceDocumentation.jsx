@@ -52,6 +52,15 @@ const Step3ComplianceDocumentation = ({
     handleFieldChange(`documents.${fieldName}`, { file, progress: 0 });
   };
 
+  const handleRadioChange = (fieldKey, value) => {
+    // Ensure complianceFields[fieldKey] exists
+    if (!data.complianceFields?.[fieldKey]) {
+      handleFieldChange(`complianceFields.${fieldKey}`, {});
+    }
+
+    handleFieldChange(`complianceFields.${fieldKey}`, value);
+  };
+
   // ---- Conditional fields ----
   const renderConditionalFields = (fieldKey, fieldValue) => {
     const fieldConfig = complianceFieldsConfig[fieldKey];
@@ -61,7 +70,7 @@ const Step3ComplianceDocumentation = ({
     if (!conditional) return null;
 
     return (
-      <div className="mt-4 p-4 bg-blue-50 rounded-lg border border-blue-200">
+      <div className="mt-4 p-4 rounded-lg border border-gray-200">
         {Object.entries(conditional).map(([condKey, condCfg]) => (
           <FormFieldGroup
             key={`${fieldKey}_${condKey}`}
@@ -97,10 +106,19 @@ const Step3ComplianceDocumentation = ({
                     type="radio"
                     name={fieldKey}
                     value={opt}
-                    checked={data?.complianceFields?.[fieldKey] === opt}
+                    // checked={data?.complianceFields?.[fieldKey] === opt}
+                    checked={
+                      data?.complianceFields?.[fieldKey]?.selected === opt
+                    }
+                    // onChange={(e) =>
+                    //   handleFieldChange(
+                    //     `complianceFields.${fieldKey}`,
+                    //     e.target.value,
+                    //   )
+                    // }
                     onChange={(e) =>
                       handleFieldChange(
-                        `complianceFields.${fieldKey}`,
+                        `complianceFields.${fieldKey}.selected`,
                         e.target.value,
                       )
                     }
@@ -109,10 +127,11 @@ const Step3ComplianceDocumentation = ({
                   <span className="ml-2">{opt}</span>
                 </label>
               ))}
-              {renderConditionalFields(
+              {/* {renderConditionalFields(
                 fieldKey,
                 data?.complianceFields?.[fieldKey],
-              )}
+              )} */}
+              {renderConditionalFields(fieldKey, data?.complianceFields?.[fieldKey]?.selected)}
             </div>
           );
         }
@@ -174,7 +193,8 @@ const Step3ComplianceDocumentation = ({
           label={doc.label}
           file={data?.documents?.[fieldName]?.file || null}
           onChange={(file) =>
-            handleFieldChange(`documents.${fieldName}`, { file, progress: 0 })
+            // handleFieldChange(`documents.${fieldName}`, { file, progress: 0 })
+            handleDocumentChange(fieldName, file)
           }
           required
           acceptTypes="application/pdf,image/jpeg,image/png"

@@ -355,9 +355,9 @@ const SMEApplicationForm = () => {
   /* ------------------------------------------------ */
   return (
     <div className="h-[calc(100vh-4rem)] flex overflow-hidden bg-gray-50">
-      <div className="hidden md:flex flex-col w-96 border-r bg-white">
+      <div className="hidden md:flex flex-col items-center w-96 border-r bg-white">
         <div className="p-8">
-          <h1 className="text-3xl font-bold">
+          <h1 className="text-3xl font-bold md:pb-6">
             SME Cross-Border Payment Application
           </h1>
           <FormStepper
