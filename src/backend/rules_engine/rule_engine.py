@@ -1,6 +1,6 @@
-from kyc_rules import evaluate_individual
-from kyb_rules import evaluate_company
-from config import SIMPLIFIED_THRESHOLD, STANDARD_THRESHOLD
+from backend.rules_engine.kyc_rules import evaluate_individual
+from backend.rules_engine.kyb_rules import evaluate_company
+from backend.rules_engine.config import SIMPLIFIED_THRESHOLD, STANDARD_THRESHOLD
 
 
 def run_engine(company):

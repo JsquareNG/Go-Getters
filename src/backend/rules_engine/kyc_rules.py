@@ -1,4 +1,4 @@
-from config import HIGH_RISK_COUNTRIES
+from backend.rules_engine.config import HIGH_RISK_COUNTRIES
 
 
 def evaluate_individual(person):

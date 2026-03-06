@@ -44,6 +44,8 @@ def run_review_job(application_id: str):
                     ownership_pct=p.get("ownership_pct", 0),
                     is_pep=p.get("is_pep", False),
                     sanctions_match=p.get("sanctions_match", False),
+                    is_signatory=p.get("is_signatory",False),
+                    directorships=p.get("directorships", 1)
                 )
             )
 
@@ -52,8 +54,11 @@ def run_review_job(application_id: str):
             country=form.get("country"),
             industry=form.get("industry"),
             ownership_layers=form.get("ownership_layers", 1),
-            uses_trust_or_nominee=form.get("uses_trust_or_nominee", False),
-            expected_monthly_volume=form.get("expectedMonthlyTransactionVolume", 0),
+            trust_structure=form.get("uses_trust_or_nominee", False),
+            expected_volume=form.get("expectedMonthlyTransactionVolume", 0),
+            years_incorporated=form.get("years_incorporated", 1),
+            physical_presence=form.get("physical_presence", False),
+            cross_border=form.get("cross_border", False),
             individuals=individuals,
         )
 
