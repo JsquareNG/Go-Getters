@@ -112,43 +112,70 @@ const Step4 = ({ onEdit, disabled = false }) => {
     // });
 
     /* REPEATABLE SECTIONS */
-    if (stepConfig.repeatableSections) {
-      Object.entries(stepConfig.repeatableSections).forEach(
-        ([sectionKey, sectionCfg]) => {
-          if (!key || key === "null") return; // skip null keys
-          if (!cfg?.label) return; // skip fields without labels
-          const items = data?.[sectionKey] || [];
+    // if (stepConfig.repeatableSections) {
+    //   Object.entries(stepConfig.repeatableSections).forEach(
+    //     ([sectionKey, sectionCfg]) => {
+    //       if (!key || key === "null") return; // skip null keys
+    //       if (!cfg?.label) return; // skip fields without labels
+    //       const items = data?.[sectionKey] || [];
 
-          items.forEach((item, idx) => {
-            Object.entries(sectionCfg.fields).forEach(([key, cfg]) => {
-              let value = item[key];
-              if (value && typeof value === "object") {
-                if (Array.isArray(value)) {
-                  value = value.join(", ");
-                } else if (value instanceof File) {
-                  value = formatDocumentName(value);
-                } else {
-                  value = JSON.stringify(value);
-                }
-              }
-              fields.push({
-                label: `${sectionCfg.label} ${idx + 1} - ${cfg.label}`,
-                value: value || "Not provided",
-              });
+    //       items.forEach((item, idx) => {
+    //         Object.entries(sectionCfg.fields).forEach(([key, cfg]) => {
+    //           let value = item[key];
+    //           if (value && typeof value === "object") {
+    //             if (Array.isArray(value)) {
+    //               value = value.join(", ");
+    //             } else if (value instanceof File) {
+    //               value = formatDocumentName(value);
+    //             } else {
+    //               value = JSON.stringify(value);
+    //             }
+    //           }
+    //           fields.push({
+    //             label: `${sectionCfg.label} ${idx + 1} - ${cfg.label}`,
+    //             value: value || "Not provided",
+    //           });
+    //         });
+    //       });
+    //     },
+    //   );
+    // }
+    Object.entries(stepConfig.repeatableSections || {}).forEach(
+      ([sectionKey, sectionCfg]) => {
+        const items = data?.[sectionKey] || [];
+
+        items.forEach((item, idx) => {
+          Object.entries(sectionCfg.fields || {}).forEach(([fKey, fCfg]) => {
+            let value = item[fKey] ?? "Not provided";
+
+            if (value instanceof File) value = formatDocumentName(value);
+            else if (Array.isArray(value)) value = value.join(", ");
+            else if (typeof value === "object")
+              value = JSON.stringify(value, null, 2);
+
+            fields.push({
+              label: `${sectionCfg.label} ${idx + 1} - ${fCfg.label || fKey}`,
+              value,
             });
           });
-        },
-      );
-    }
+        });
+      },
+    );
 
     /* DOCUMENTS */
+    // (stepConfig.documents || []).forEach((doc) => {
+    //   const key = generateDocKey(doc);
+    //   const file = data?.documents?.[key]?.file || data?.[key];
+    //   fields.push({
+    //     label: doc,
+    //     value: formatDocumentName(file),
+    //   });
+    // });
+    // --- DOCUMENTS ---
     (stepConfig.documents || []).forEach((doc) => {
       const key = generateDocKey(doc);
       const file = data?.documents?.[key]?.file || data?.[key];
-      fields.push({
-        label: doc,
-        value: formatDocumentName(file),
-      });
+      fields.push({ label: doc, value: formatDocumentName(file) });
     });
 
     /* ADDITIONAL TOP-LEVEL FIELDS NOT IN CONFIG */

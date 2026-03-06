@@ -127,23 +127,41 @@ const SMEApplicationForm = () => {
     if (currentApp?.formData && Object.keys(formData).length === 0) {
       const cleanData = {};
 
+      // function flatten(obj) {
+      //   if (!obj || typeof obj !== "object") return;
+      //   Object.entries(obj).forEach(([key, value]) => {
+      //     if (key === "null") {
+      //       // skip recursion into "null" objects
+      //       return;
+      //     } else if (value !== undefined && value !== null) {
+      //       // preserve nested objects only if not arrays or File objects
+      //       if (
+      //         typeof value === "object" &&
+      //         !Array.isArray(value) &&
+      //         !(value instanceof File)
+      //       ) {
+      //         flatten(value);
+      //       } else {
+      //         cleanData[key] = value === "" ? null : value; // normalize empty string
+      //       }
+      //     }
+      //   });
+      // }
+
       function flatten(obj) {
         if (!obj || typeof obj !== "object") return;
         Object.entries(obj).forEach(([key, value]) => {
-          if (key === "null") {
-            // skip recursion into "null" objects
-            return;
-          } else if (value !== undefined && value !== null) {
-            // preserve nested objects only if not arrays or File objects
-            if (
-              typeof value === "object" &&
-              !Array.isArray(value) &&
-              !(value instanceof File)
-            ) {
-              flatten(value);
-            } else {
-              cleanData[key] = value === "" ? null : value; // normalize empty string
-            }
+          if (value instanceof File) {
+            cleanData[key] = value; // keep File as is
+          } else if (Array.isArray(value)) {
+            // preserve arrays as arrays, do not flatten into indices
+            cleanData[key] = value.map((v) =>
+              typeof v === "object" ? { ...v } : v,
+            );
+          } else if (typeof value === "object" && value !== null) {
+            flatten(value);
+          } else {
+            cleanData[key] = value === "" ? null : value;
           }
         });
       }
@@ -240,58 +258,201 @@ const SMEApplicationForm = () => {
 
   //   return { ...payload, individuals };
   // };
-  const buildFormPayload = (formData, config, entityType) => {
-    // top-level copy of formData
-    const payload = { ...formData };
-    const individuals = {};
+  const mapIndividuals = (data) => {
+    const individual = {
+      fullName: data.fullName || null,
+      idNumber: data.idNumber || null,
+      nationality: data.nationality || null,
+      residentialAddress: data.residentialAddress || null,
+      dateOfBirth: data.dateOfBirth || null,
+      idDocument: data.idDocument || null,
+      role: "Owner",
+      ownership: "100%",
+    };
 
-    // Find all repeatable section keys from config
-    const entityConfig = config.entities[entityType];
-    const repeatableKeys = Object.values(entityConfig.steps || [])
-      .map((step) => step.repeatableSections || {})
-      .reduce((acc, sectionObj) => ({ ...acc, ...sectionObj }), {});
+    // List of declarations
+    const declarations = [
+      "pepDeclaration",
+      "sanctionsDeclaration",
+      "fatcaDeclaration",
+    ];
 
-    Object.keys(repeatableKeys).forEach((key) => {
-      if (formData[key]) {
-        individuals[key] = formData[key]; // wrap repeatable sections
-        delete payload[key]; // remove from top-level
+    declarations.forEach((decl) => {
+      if (data[decl]) {
+        individual[decl] = data[decl]; // store the user's input ("Yes" or "No")
+
+        // Only store actual values from conditional fields if user said "Yes"
+        const configFields =
+          SINGAPORE_CONFIG2.entities.sole_proprietorship.steps[0]
+            .repeatableSections.owners.fields[decl]?.conditionalFields;
+
+        if (configFields?.[data[decl]]) {
+          // Only copy the **values**, not the field definitions
+          Object.keys(configFields[data[decl]]).forEach((key) => {
+            // Use value from data if exists, else null
+            individual[key] = data[key] ?? null;
+          });
+        }
       }
     });
 
-    // Business type-specific rules
-    switch (entityType) {
-      case "sole_proprietorship":
-        payload.ownership = "100%";
-        break;
-
-      case "general_partnership":
-        if (individuals.partners) {
-          Object.values(individuals.partners).forEach((partner) => {
-            if (!partner.profitSharingRatio) partner.profitSharingRatio = 50;
-          });
-        }
-        break;
-
-      case "limited_partnership":
-        if (individuals.generalPartners) {
-          Object.values(individuals.generalPartners).forEach(
-            (gp) => (gp.sharePercentage = gp.sharePercentage || 60),
-          );
-        }
-        if (individuals.limitedPartners) {
-          Object.values(individuals.limitedPartners).forEach(
-            (lp) => (lp.sharePercentage = lp.sharePercentage || 40),
-          );
-        }
-        break;
-
-      case "private_limited":
-        // Example: could auto-detect UBOs here if sharePercentage >= 25
-        break;
-    }
-
-    return { ...payload, individuals };
+    return individual;
   };
+  // const mapIndividuals = (data) => {
+  //   const individuals = [];
+
+  //   switch (data.businessType) {
+  //     case "sole_proprietorship":
+  //       ina
+  //     case "general_partnership":
+  //       (data.partners || []).forEach((p) => {
+  //         individuals.push({
+  //           ...p,
+  //           role: "Partner",
+  //           ownership: p.ownership || null,
+  //         });
+  //       });
+  //       break;
+
+  //     case "limited_partnership":
+  //       (data.generalPartners || []).forEach((gp) => {
+  //         individuals.push({
+  //           ...gp,
+  //           role: "General Partner",
+  //           ownership: gp.ownership || null,
+  //         });
+  //       });
+  //       (data.limitedPartners || []).forEach((lp) => {
+  //         individuals.push({
+  //           ...lp,
+  //           role: "Limited Partner",
+  //           ownership: lp.ownership || null,
+  //         });
+  //       });
+  //       break;
+
+  //     case "llp":
+  //       (data.partners || []).forEach((p) => {
+  //         individuals.push({
+  //           ...p,
+  //           role: "Partner",
+  //           ownership: p.ownership || null,
+  //         });
+  //       });
+  //       (data.managers || []).forEach((m) => {
+  //         individuals.push({
+  //           ...m,
+  //           role: "Manager",
+  //           ownership: null,
+  //         });
+  //       });
+  //       break;
+
+  //     case "private_limited":
+  //       (data.directors || []).forEach((d) => {
+  //         individuals.push({
+  //           ...d,
+  //           role: "Director",
+  //           ownership: null,
+  //         });
+  //       });
+  //       (data.shareholders || []).forEach((s) => {
+  //         individuals.push({
+  //           ...s,
+  //           role: "Shareholder",
+  //           ownership: s.sharePercentage || null,
+  //         });
+  //       });
+  //       break;
+
+  //     default:
+  //       break;
+  //   }
+
+  //   return individuals;
+  // };
+
+  const buildFormPayload = (data) => {
+    // shallow copy top-level fields
+    const payload = { ...data };
+
+    // Map individuals
+    payload.individuals = mapIndividuals(data);
+
+    // Remove top-level fields that are now under individuals
+    [
+      "fullName",
+      "idNumber",
+      "nationality",
+      "residentialAddress",
+      "dateOfBirth",
+      "idDocument",
+      "pepDeclaration",
+      "sanctionsDeclaration",
+      "fatcaDeclaration",
+      "partners",
+      "managers",
+      "generalPartners",
+      "limitedPartners",
+      "directors",
+      "shareholders",
+    ].forEach((key) => delete payload[key]);
+
+    return payload;
+  };
+
+  // const buildFormPayload = (formData, config, entityType) => {
+  //   // top-level copy of formData
+  //   const payload = { ...formData };
+  //   const individuals = {};
+
+  //   // Find all repeatable section keys from config
+  //   const entityConfig = config.entities[entityType];
+  //   const repeatableKeys = Object.values(entityConfig.steps || [])
+  //     .map((step) => step.repeatableSections || {})
+  //     .reduce((acc, sectionObj) => ({ ...acc, ...sectionObj }), {});
+
+  //   Object.keys(repeatableKeys).forEach((key) => {
+  //     if (formData[key]) {
+  //       individuals[key] = formData[key]; // wrap repeatable sections
+  //       delete payload[key]; // remove from top-level
+  //     }
+  //   });
+
+  //   // Business type-specific rules
+  //   switch (entityType) {
+  //     case "sole_proprietorship":
+  //       payload.ownership = "100%";
+  //       break;
+
+  //     case "general_partnership":
+  //       if (individuals.partners) {
+  //         Object.values(individuals.partners).forEach((partner) => {
+  //           if (!partner.profitSharingRatio) partner.profitSharingRatio = 50;
+  //         });
+  //       }
+  //       break;
+
+  //     case "limited_partnership":
+  //       if (individuals.generalPartners) {
+  //         Object.values(individuals.generalPartners).forEach(
+  //           (gp) => (gp.sharePercentage = gp.sharePercentage || 60),
+  //         );
+  //       }
+  //       if (individuals.limitedPartners) {
+  //         Object.values(individuals.limitedPartners).forEach(
+  //           (lp) => (lp.sharePercentage = lp.sharePercentage || 40),
+  //         );
+  //       }
+  //       break;
+
+  //     case "private_limited":
+  //       // Example: could auto-detect UBOs here if sharePercentage >= 25
+  //       break;
+  //   }
+
+  //   return { ...payload, individuals };
+  // };
 
   /* ------------------------------------------------ */
   /* SAVE DRAFT */
@@ -301,7 +462,11 @@ const SMEApplicationForm = () => {
       // Flatten formData before validating
 
       // const cleanData = buildFormPayload(formData);
-      const cleanData = buildFormPayload(formData, SINGAPORE_CONFIG2, formData.businessType);
+      const cleanData = buildFormPayload(
+        formData,
+        SINGAPORE_CONFIG2,
+        formData.businessType,
+      );
       // const cleanData = {};
       // const flatten = (obj) => {
       //   if (!obj || typeof obj !== "object") return;
@@ -386,7 +551,11 @@ const SMEApplicationForm = () => {
       // }
 
       // const cleanData = buildFormPayload(formData);
-      const cleanData = buildFormPayload(formData, SINGAPORE_CONFIG2, formData.businessType);
+      const cleanData = buildFormPayload(
+        formData,
+        SINGAPORE_CONFIG2,
+        formData.businessType,
+      );
       const payload = {
         user_id: user.user_id,
         email: user.email,
