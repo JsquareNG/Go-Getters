@@ -43,7 +43,7 @@ class ReviewJobs(Base):
 
     # ✅ NEW: risk results
     risk_score = Column(Integer, nullable=True)
-    risk_grade = Column(String(20), nullable=True)
+    risk_grade = Column(String(100), nullable=True)
 
     # ✅ NEW: store triggered rules as JSON array
     # e.g. [{"rule_id":"R001","name":"High-risk country","severity":"HIGH","points":40,"reason":"..."}]

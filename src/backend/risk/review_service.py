@@ -39,7 +39,7 @@ def run_review_job(application_id: str):
         for p in people:
             individuals.append(
                 Individual(
-                    name=p.get("name"),
+                    name=p.get("fullName"),
                     nationality=p.get("nationality"),
                     ownership_pct=p.get("ownership_pct", 0),
                     is_pep=p.get("is_pep", False),
@@ -48,19 +48,21 @@ def run_review_job(application_id: str):
             )
 
         company = Company(
-            name=app.business_name,
-            country=app.business_country,
+            name=form.get("businessName"),
+            country=form.get("country"),
             industry=form.get("industry"),
             ownership_layers=form.get("ownership_layers", 1),
             uses_trust_or_nominee=form.get("uses_trust_or_nominee", False),
-            expected_monthly_volume=form.get("expected_monthly_volume", 0),
+            expected_monthly_volume=form.get("expectedMonthlyTransactionVolume", 0),
             individuals=individuals,
         )
 
         result = submit_application(company)
 
         job.risk_score = result.get("risk_score")
-        job.rules_triggered = result.get("triggered_checks")
+        job.risk_grade = result.get("decision")
+        job.rules_triggered = result.get("triggered_checks", [])
+
 
         decision = result.get("decision")
 
