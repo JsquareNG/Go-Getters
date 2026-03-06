@@ -208,7 +208,7 @@ const Step4ReviewSubmit = ({ onEdit, disabled = false }) => {
         onEditClick={() => onEdit(2)}
       />
       <ReviewSection
-        title="Compliance & Documentation"
+        title="Documentation"
         fields={complianceFields}
         onEditClick={() => onEdit(3)}
       />

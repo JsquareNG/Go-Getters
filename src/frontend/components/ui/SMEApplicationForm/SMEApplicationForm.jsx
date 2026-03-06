@@ -37,7 +37,7 @@ const STEP_LABELS = [
   "To Get Started",
   "Basic Information",
   "Financial Details",
-  "Compliance",
+  "Documentation",
   "Review & Submit",
 ];
 
@@ -769,9 +769,9 @@ const SMEApplicationForm = () => {
                     </Button>
 
                     <div className="flex gap-3">
-                      <Button variant="outline" onClick={handleSaveDraft}>
+                      {/* <Button variant="outline" onClick={handleSaveDraft}>
                         Save Draft
-                      </Button>
+                      </Button> */}
 
                       {clampedStep < 4 ? (
                         <Button
@@ -790,24 +790,21 @@ const SMEApplicationForm = () => {
                               toast({
                                 title: "Incomplete Fields",
                                 description:
-                                  "Some required fields are missing. The form will be saved as a draft instead.",
+                                  "Some required fields are missing. Your form will be saved as a draft.",
                                 variant: "destructive",
                               });
-                              handleSaveDraft();
-                            } else {
-                              handleSubmitApplication();
                             }
+                            handleSaveDraft(); // always save the draft
+                            if (!hasNullFields(formData))
+                              handleSubmitApplication(); // submit if complete
                           }}
                           disabled={isSubmitting}
+                          variant={
+                            hasNullFields(formData) ? "outline" : "destructive"
+                          }
                         >
                           {hasNullFields(formData) ? "Save Draft" : "Submit"}
                         </Button>
-                        // <Button
-                        //   onClick={handleSubmitApplication}
-                        //   disabled={isSubmitting}
-                        // >
-                        //   Submit
-                        // </Button>
                       )}
                     </div>
                   </div>

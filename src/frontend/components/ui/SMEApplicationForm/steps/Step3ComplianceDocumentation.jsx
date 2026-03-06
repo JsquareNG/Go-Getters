@@ -172,7 +172,7 @@ const Step3ComplianceDocumentation = ({
   return (
     <div>
       <h2 className="text-2xl font-bold mb-6 text-gray-900">
-        Compliance & Documentation
+        Documentation
       </h2>
 
       {/* Compliance Fields */}

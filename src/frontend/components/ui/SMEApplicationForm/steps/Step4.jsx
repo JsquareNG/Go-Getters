@@ -336,19 +336,23 @@ const Step4 = ({ onEdit, disabled = false }) => {
       for (const [key, cfg] of Object.entries(fields || {})) {
         const value = data?.[key];
 
-        // If the field has conditionalFields, check the relevant branch
+        // Conditional fields
         if (cfg.conditionalFields && value in cfg.conditionalFields) {
           if (!checkFields(cfg.conditionalFields[value], data[key] || {})) {
             return false;
           }
         }
 
-        // Regular required field check
-        if (
-          cfg.required &&
-          (value === null || value === undefined || value === "")
-        ) {
-          return false;
+        // Required field check
+        if (cfg.required) {
+          if (
+            value === null ||
+            value === undefined ||
+            (typeof value === "string" && value.trim() === "") ||
+            (Array.isArray(value) && value.length === 0)
+          ) {
+            return false;
+          }
         }
       }
       return true;
@@ -363,10 +367,10 @@ const Step4 = ({ onEdit, disabled = false }) => {
     )) {
       const items = formData?.[sectionKey] || [];
 
-      // Section required but no items
+      // Section required but empty
       if (sectionCfg.required && items.length === 0) return false;
 
-      // Check each item
+      // Each item
       for (const item of items) {
         if (!checkFields(sectionCfg.fields, item)) return false;
       }
@@ -511,7 +515,7 @@ const Step4 = ({ onEdit, disabled = false }) => {
       />
 
       <ReviewSection
-        title="Compliance & Documentation"
+        title="Documentation"
         fields={complianceFields}
         onEditClick={() => onEdit?.(3)}
       />
