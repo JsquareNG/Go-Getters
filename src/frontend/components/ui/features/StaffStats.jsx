@@ -30,9 +30,8 @@ function StatCard({ icon, label, value, variant = "default" }) {
 
 const StaffStats = ({
   totalPending,
-  critical,
-  awaitingResubmission,
-  approved,
+  enhancedEDD,
+  standardEDD,
 }) => {
   return (
     <div className="flex flex-wrap gap-4">
@@ -42,20 +41,14 @@ const StaffStats = ({
         value={totalPending}
       />
       <StatCard
-        icon={<AlertTriangle className="h-5 w-5" />}
-        label="Critical"
-        value={critical}
-        variant="warning"
-      />
-      <StatCard
         icon={<Clock className="h-5 w-5" />}
-        label="Awaiting Resubmission"
-        value={awaitingResubmission}
+        label="Enhanced EDD"
+        value={enhancedEDD}
       />
       <StatCard
         icon={<CheckCircle2 className="h-5 w-5" />}
-        label="Approved"
-        value={approved}
+        label="Standard EDD"
+        value={standardEDD}
         variant="success"
       />
     </div>

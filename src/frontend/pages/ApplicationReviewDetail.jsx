@@ -27,7 +27,6 @@ import {
   Card,
   CardContent,
   CardHeader,
-  CardTitle,
   StatusBadge,
   Separator,
   Tabs,
@@ -261,6 +260,33 @@ export default function ApplicationReviewDetail() {
   }, [sortedActionRequests]);
 
   const riskRules = Array.isArray(rules?.rules_triggered) ? rules.rules_triggered : [];
+  const riskGrade = rules?.risk_grade || "";
+
+  const riskTone = useMemo(() => {
+    switch (riskGrade) {
+      case "Enhanced Due Diligence (EDD)":
+        return {
+          badge: "bg-red-500 text-white border-red-500",
+          soft: "border-red-500/20 bg-red-500/5",
+          text: "text-red-500",
+          icon: "text-red-500",
+        };
+      case "Standard CDD":
+        return {
+          badge: "bg-orange-400 text-white border-orange-400",
+          soft: "border-orange-400/20 bg-orange-400/5",
+          text: "text-orange-500",
+          icon: "text-orange-500",
+        };
+      default:
+        return {
+          badge: "bg-muted text-foreground border-border",
+          soft: "border-border bg-muted/30",
+          text: "text-foreground",
+          icon: "text-muted-foreground",
+        };
+    }
+  }, [riskGrade]);
 
   const firstActionRequestTime = useMemo(() => {
     if (sortedActionRequestsAsc.length === 0) return null;
@@ -440,7 +466,7 @@ export default function ApplicationReviewDetail() {
   if (error || !application) {
     return (
       <div className="flex min-h-screen flex-col items-center justify-center gap-4">
-        <p className="text-red-500 font-medium">{error || "Application not found."}</p>
+        <p className="font-medium text-red-500">{error || "Application not found."}</p>
         <Button onClick={() => navigate("/staff-landingpage")}>Back to List</Button>
       </div>
     );
@@ -450,7 +476,7 @@ export default function ApplicationReviewDetail() {
 
   return (
     <div className="min-h-screen bg-background pb-24">
-      <main className="container mx-auto px-6 py-8 animate-fade-in">
+      <main className="container mx-auto animate-fade-in px-6 py-8">
         <div className="mb-6">
           <Button
             variant="ghost"
@@ -661,7 +687,7 @@ export default function ApplicationReviewDetail() {
                       <div className="flex items-start justify-between gap-3">
                         <div>
                           <h4 className="flex items-center gap-2 text-sm font-semibold text-muted-foreground">
-                            <ShieldAlert className="h-4 w-4 text-destructive" />
+                            <ShieldAlert className={`h-4 w-4 ${riskTone.icon}`} />
                             Risk Assessment Summary
                           </h4>
                         </div>
@@ -670,7 +696,7 @@ export default function ApplicationReviewDetail() {
                       <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                         <div>
                           <p className="text-xs text-muted-foreground">Risk Grade</p>
-                          <p className="text-sm font-semibold text-destructive">
+                          <p className={`text-sm font-semibold ${riskTone.text}`}>
                             {rules.risk_grade || "-"}
                           </p>
                         </div>
@@ -679,7 +705,7 @@ export default function ApplicationReviewDetail() {
                           <p className="text-xs text-muted-foreground">Risk Score</p>
                           <div className="flex items-center gap-3">
                             {rules?.risk_score != null && (
-                              <Badge className="border border-destructive/20 bg-destructive/10 text-xs text-destructive">
+                              <Badge className={`text-xs ${riskTone.badge}`}>
                                 Score: {rules.risk_score}
                               </Badge>
                             )}
@@ -715,9 +741,11 @@ export default function ApplicationReviewDetail() {
                             {riskRules.map((rule, index) => (
                               <div
                                 key={`${rule.code || "rule"}-${index}`}
-                                className="flex items-start gap-2.5 rounded-lg border border-destructive/20 bg-destructive/5 p-2.5"
+                                className={`flex items-start gap-2.5 rounded-lg border p-2.5 ${riskTone.soft}`}
                               >
-                                <AlertOctagon className="mt-0.5 h-3.5 w-3.5 shrink-0 text-destructive" />
+                                <AlertOctagon
+                                  className={`mt-0.5 h-3.5 w-3.5 shrink-0 ${riskTone.icon}`}
+                                />
                                 <div className="min-w-0">
                                   <p className="text-[10px] font-mono text-muted-foreground">
                                     {rule.code || "-"}
@@ -1053,7 +1081,7 @@ export default function ApplicationReviewDetail() {
 
               <Button
                 variant="outline"
-                className="gap-2 bg-red-500 border-destructive text-white hover:bg-destructive/10"
+                className="gap-2 border-destructive bg-red-500 text-white hover:bg-red-600"
                 onClick={handleReject}
                 disabled={isUpdatingStatus}
               >
