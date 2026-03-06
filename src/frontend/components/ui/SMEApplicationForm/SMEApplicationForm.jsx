@@ -68,7 +68,7 @@ const SMEApplicationForm = () => {
       "Submitted"; /* ------------------------------------------------ */
 
   // console.log("Step props", { isViewOnly, formData });
-  console.log("form data: ", formData);
+  // console.log("form data: ", formData);
   /* REDUX FIELD UPDATE */
   /* ------------------------------------------------ */
 
@@ -167,7 +167,7 @@ const SMEApplicationForm = () => {
    * Returns { isValid: boolean, errors: Record<string, string> }
    */
   // NOTE: CURRENTLY NOT IN USE
-  console.log(formData);
+  // console.log(formData);
 
   const validateFormData = (data) => {
     const errors = {};
@@ -320,7 +320,7 @@ const SMEApplicationForm = () => {
       // };
       // flatten(formData);
 
-      console.log("Cleaned data before saving draft:", cleanData); // debug log
+      // console.log("Cleaned data before saving draft:", cleanData); // debug log
 
       // Validate
       // const { isValid, errors } = validateFormData(cleanData);

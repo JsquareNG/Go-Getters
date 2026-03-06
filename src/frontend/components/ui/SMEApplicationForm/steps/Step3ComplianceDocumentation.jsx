@@ -58,13 +58,25 @@ const Step3ComplianceDocumentation = ({
   //   handleFieldChange(`documents.${fieldName}`, { file, progress: 0 });
   // };
 
-  const handleDocumentChange = (fieldName, file) => {
-    if (!fieldName) {
-      console.error("Invalid document field:", fieldName);
+  // const handleDocumentChange = (fieldName, file) => {
+  //   if (!fieldName) {
+  //     console.error("Invalid document field:", fieldName);
+  //     return;
+  //   }
+
+  //   handleFieldChange(`documents.${fieldName}`, {
+  //     file,
+  //     progress: 0,
+  //   });
+  // };
+
+   const handleDocumentChange = (fieldPath, file) => {
+    if (!fieldPath) {
+      console.error("Invalid document field:", fieldPath);
       return;
     }
 
-    handleFieldChange(`documents.${fieldName}`, {
+    handleFieldChange(fieldPath, {
       file,
       progress: 0,
     });
