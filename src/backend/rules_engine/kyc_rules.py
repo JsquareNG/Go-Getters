@@ -1,31 +1,44 @@
-# kyc_rules.py
-
-from backend.rules_engine.models import Individual
-from backend.rules_engine.config import HIGH_RISK_JURISDICTIONS
+from config import HIGH_RISK_COUNTRIES
 
 
-def evaluate_individual(person: Individual):
+def evaluate_individual(person):
+
     score = 0
     triggers = []
 
-    if person.nationality in HIGH_RISK_JURISDICTIONS:
-        score += 20
+    if person.sanctions_match:
         triggers.append({
-            "code": "KYC_JURISDICTION_RISK",
-            "description": f"{person.name} is from a high-risk jurisdiction"
+            "code": "R001",
+            "description": "Sanctions list match detected"
         })
+        score += 100
 
     if person.is_pep:
         score += 40
         triggers.append({
-            "code": "KYC_PEP",
-            "description": f"{person.name} is identified as a Politically Exposed Person"
+            "code": "R002",
+            "description": "Politically Exposed Person detected"
         })
 
-    if person.sanctions_match:
+    if person.nationality in HIGH_RISK_COUNTRIES:
+        score += 20
         triggers.append({
-            "code": "KYC_SANCTIONS_MATCH",
-            "description": f"{person.name} matched a sanctions list"
+            "code": "R003",
+            "description": "Nationality from high-risk jurisdiction"
+        })
+
+    if person.is_signatory and person.ownership_pct < 25:
+        score += 10
+        triggers.append({
+            "code": "R012",
+            "description": "Account control without significant ownership"
+        })
+
+    if person.directorships > 5:
+        score += 10
+        triggers.append({
+            "code": "R013",
+            "description": "Individual holds multiple company directorships"
         })
 
     return score, triggers

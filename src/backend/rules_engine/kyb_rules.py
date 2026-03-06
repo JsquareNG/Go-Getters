@@ -1,46 +1,69 @@
-# kyb_rules.py
+from config import (
+    HIGH_RISK_COUNTRIES,
+    HIGH_RISK_INDUSTRIES,
+    HIGH_TX_VOLUME_THRESHOLD
+)
 
-from backend.rules_engine.models import Company
-from backend.rules_engine.config import HIGH_RISK_JURISDICTIONS, HIGH_RISK_INDUSTRIES
 
+def evaluate_company(company):
 
-def evaluate_company(company: Company):
     score = 0
     triggers = []
 
-    if company.country in HIGH_RISK_JURISDICTIONS:
+    if company.country in HIGH_RISK_COUNTRIES:
         score += 25
         triggers.append({
-            "code": "KYB_HIGH_RISK_COUNTRY",
-            "description": "Company operates in a high-risk jurisdiction"
+            "code": "R001B",
+            "description": "Company registered in high-risk jurisdiction"
         })
 
     if company.industry in HIGH_RISK_INDUSTRIES:
-        score += 15
+        score += 20
         triggers.append({
-            "code": "KYB_HIGH_RISK_INDUSTRY",
-            "description": f"Company operates in a high-risk industry ({company.industry})"
+            "code": "R002B",
+            "description": "High-risk industry"
         })
 
     if company.ownership_layers > 2:
         score += 20
         triggers.append({
-            "code": "KYB_COMPLEX_OWNERSHIP",
-            "description": "Company has multiple ownership layers"
+            "code": "R003B",
+            "description": "Complex multi-layer ownership structure"
         })
 
-    if company.uses_trust_or_nominee:
-        score += 30
+    if company.trust_structure:
+        score += 25
         triggers.append({
-            "code": "KYB_TRUST_NOMINEE",
-            "description": "Company uses trust or nominee arrangements"
+            "code": "R004B",
+            "description": "Trust or nominee ownership detected"
         })
 
-    if company.expected_monthly_volume > 1_000_000:
+    if company.expected_volume > HIGH_TX_VOLUME_THRESHOLD:
+        score += 15
+        triggers.append({
+            "code": "R005B",
+            "description": "Expected transaction volume unusually high"
+        })
+
+    if company.years_incorporated < 1:
         score += 10
         triggers.append({
-            "code": "KYB_HIGH_TX_VOLUME",
-            "description": "Expected transaction volume is unusually high"
+            "code": "R006B",
+            "description": "Newly incorporated company"
+        })
+
+    if not company.physical_presence:
+        score += 10
+        triggers.append({
+            "code": "R007B",
+            "description": "No verifiable physical business presence"
+        })
+
+    if company.cross_border:
+        score += 10
+        triggers.append({
+            "code": "R008B",
+            "description": "Significant cross-border transaction exposure"
         })
 
     return score, triggers
