@@ -4,9 +4,11 @@ import { useDispatch } from "react-redux";
 import FormFieldGroup from "../components/FormFieldGroup";
 import SINGAPORE_CONFIG from "../config/singaporeConfig";
 import SINGAPORE_CONFIG2 from "../config/updatedSingaporeConfig";
+import { useSelector } from "react-redux";
 
 import {
   // selectFormData,
+  resetForm,
   updateField,
   startNewApplication,
 } from "@/store/applicationFormSlice";
@@ -17,6 +19,9 @@ import {
  */
 const Step0Brief = ({ data, onFieldChange, disabled = false }) => {
   const dispatch = useDispatch();
+  const { currentApplicationId } = useSelector(
+    (state) => state.applicationForm,
+  );
 
   const currentCountry = data.country || "";
   const currentBusinessType = data.businessType || "";
@@ -39,11 +44,22 @@ const Step0Brief = ({ data, onFieldChange, disabled = false }) => {
       : [];
 
   // Start new draft if none exists
+  // useEffect(() => {
+  //   if (!data || Object.keys(data).length === 0) {
+  //     dispatch(resetForm());
+  //     dispatch(startNewApplication());
+  //   }
+  // }, [dispatch, data]);
+  // useEffect(() => {
+  //   dispatch(resetForm());
+  //   dispatch(startNewApplication());
+  // }, [dispatch]);
   useEffect(() => {
-    if (!data || Object.keys(data).length === 0) {
+    if (!currentApplicationId) {
+      dispatch(resetForm());
       dispatch(startNewApplication());
     }
-  }, [dispatch, data]);
+  }, [dispatch, currentApplicationId]);
 
   // Reset business type if country changes
   useEffect(() => {

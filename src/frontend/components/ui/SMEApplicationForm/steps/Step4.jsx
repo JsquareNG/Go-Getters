@@ -14,33 +14,47 @@ import {
  * Step4ReviewSubmit
  * Pure review screen (submission handled by parent)
  */
-const Step4ReviewSubmit = ({ onEdit, disabled = false }) => {
+const Step4 = ({ onEdit, disabled = false }) => {
   const data = useSelector(selectFormData);
   const stepCompletion = useSelector(selectStepCompletion);
 
   /* ------------------------------------------------ */
   /* ENTITY CONFIG */
   /* ------------------------------------------------ */
-
   const entityConfig = useMemo(
     () => SINGAPORE_CONFIG2.entities[data?.businessType] || {},
     [data?.businessType],
   );
+  const getStepConfigById = (id) => {
+    return (
+      entityConfig.steps?.find((s) => s.id === id) || {
+        fields: {},
+        repeatableSections: {},
+        documents: [],
+      }
+    );
+  };
 
-  const step2Config = useMemo(
-    () => entityConfig.steps?.find((s) => s.id === "step2") || {},
-    [entityConfig],
-  );
+  console.log("entity", entityConfig);
 
-  const step3Config = useMemo(
-    () => entityConfig.steps?.find((s) => s.id === "step3") || {},
-    [entityConfig],
-  );
+  const step2Config = getStepConfigById("step1_basic_info"); // match your config
+  const step3Config = getStepConfigById("step2_financial"); // match your config
+  const step4Config = getStepConfigById("step3_compliance"); // match your config
 
-  const step4Config = useMemo(
-    () => entityConfig.steps?.find((s) => s.id === "step4") || {},
-    [entityConfig],
-  );
+  //   const step2Config = useMemo(
+  //     () => entityConfig.steps?.find((s) => s.id === "step2") || {},
+  //     [entityConfig],
+  //   );
+
+  //   const step3Config = useMemo(
+  //     () => entityConfig.steps?.find((s) => s.id === "step3") || {},
+  //     [entityConfig],
+  //   );
+
+  //   const step4Config = useMemo(
+  //     () => entityConfig.steps?.find((s) => s.id === "step4") || {},
+  //     [entityConfig],
+  //   );
 
   /* ------------------------------------------------ */
   /* HELPERS */
@@ -51,48 +65,75 @@ const Step4ReviewSubmit = ({ onEdit, disabled = false }) => {
       ? `${file.name} (${(file.size / 1024).toFixed(2)} KB)`
       : "Not uploaded";
 
-  const flattenObject = (obj) => {
-    if (!obj || typeof obj !== "object") return obj;
+  //   const flattenObject = (obj) => {
+  //     if (!obj || typeof obj !== "object") return obj;
 
-    return Object.entries(obj)
-      .map(([k, v]) => {
-        if (typeof v === "object") {
-          return `${k}: ${flattenObject(v)}`;
-        }
-        return `${k}: ${v}`;
-      })
-      .join(", ");
-  };
+  //     return Object.entries(obj)
+  //       .map(([k, v]) => {
+  //         if (typeof v === "object") {
+  //           return `${k}: ${flattenObject(v)}`;
+  //         }
+  //         return `${k}: ${v}`;
+  //       })
+  //       .join(", ");
+  //   };
+  //   const flattenObject = (obj, seen = new WeakSet()) => {
+  //     if (!obj || typeof obj !== "object") return obj;
+  //     if (seen.has(obj)) return "[Circular]";
+  //     seen.add(obj);
+
+  //     return Object.entries(obj)
+  //       .map(([k, v]) => {
+  //         if (v === null) return `${k}: null`;
+  //         if (v instanceof File) return `${k}: ${v.name}`;
+  //         if (Array.isArray(v)) return `${k}: [${v.join(", ")}]`;
+  //         if (typeof v === "object") return `${k}: {${flattenObject(v, seen)}}`; // recursive safely
+  //         return `${k}: ${v}`;
+  //       })
+  //       .join(", ");
+  //   };
 
   const getFieldsFromStep = (stepConfig) => {
     const fields = [];
     if (!stepConfig) return fields;
 
     /* NORMAL FIELDS */
-    Object.entries(stepConfig.fields || {}).forEach(([key, cfg]) => {
-      let value = data?.[key] ?? "";
+    // Object.entries(stepConfig.fields || {}).forEach(([key, cfg]) => {
+    //   let value = data?.[key] ?? "";
 
-      if (typeof value === "object" && value !== null) {
-        value = flattenObject(value);
-      }
+    //   if (typeof value === "object" && value !== null) {
+    //     value = flattenObject(value);
+    //   }
 
-      fields.push({
-        label: cfg.label,
-        value,
-      });
-    });
+    //   fields.push({
+    //     label: cfg.label,
+    //     value,
+    //   });
+    // });
 
     /* REPEATABLE SECTIONS */
     if (stepConfig.repeatableSections) {
       Object.entries(stepConfig.repeatableSections).forEach(
         ([sectionKey, sectionCfg]) => {
+          if (!key || key === "null") return; // skip null keys
+          if (!cfg?.label) return; // skip fields without labels
           const items = data?.[sectionKey] || [];
 
           items.forEach((item, idx) => {
             Object.entries(sectionCfg.fields).forEach(([key, cfg]) => {
+              let value = item[key];
+              if (value && typeof value === "object") {
+                if (Array.isArray(value)) {
+                  value = value.join(", ");
+                } else if (value instanceof File) {
+                  value = formatDocumentName(value);
+                } else {
+                  value = JSON.stringify(value);
+                }
+              }
               fields.push({
                 label: `${sectionCfg.label} ${idx + 1} - ${cfg.label}`,
-                value: item[key] || "",
+                value: value || "Not provided",
               });
             });
           });
@@ -103,11 +144,29 @@ const Step4ReviewSubmit = ({ onEdit, disabled = false }) => {
     /* DOCUMENTS */
     (stepConfig.documents || []).forEach((doc) => {
       const key = generateDocKey(doc);
-
+      const file = data?.documents?.[key]?.file || data?.[key];
       fields.push({
         label: doc,
-        value: formatDocumentName(data?.documents?.[key]?.file),
+        value: formatDocumentName(file),
       });
+    });
+
+    /* ADDITIONAL TOP-LEVEL FIELDS NOT IN CONFIG */
+    Object.keys(data || {}).forEach((key) => {
+      if (
+        stepConfig.fields?.[key] ||
+        (stepConfig.repeatableSections && stepConfig.repeatableSections[key]) ||
+        (stepConfig.documents && stepConfig.documents.includes(key))
+      )
+        return;
+
+      let value = data[key];
+      if (value && typeof value === "object") {
+        if (Array.isArray(value)) value = value.join(", ");
+        else if (value instanceof File) value = formatDocumentName(value);
+        else value = JSON.stringify(value);
+      }
+      fields.push({ label: key, value: value || "Not provided" });
     });
 
     return fields;
@@ -117,30 +176,52 @@ const Step4ReviewSubmit = ({ onEdit, disabled = false }) => {
   /* REVIEW FIELDS */
   /* ------------------------------------------------ */
 
+  //   const basicFields = useMemo(
+  //     () => getFieldsFromStep(step2Config),
+  //     [step2Config, data],
+  //   );
+
+  //   const financialFields = useMemo(
+  //     () => getFieldsFromStep(step3Config),
+  //     [step3Config, data],
+  //   );
+
+  //   const complianceFields = useMemo(
+  //     () => getFieldsFromStep(step4Config),
+  //     [step4Config, data],
+  //   );
+
   const basicFields = useMemo(
     () => getFieldsFromStep(step2Config),
     [step2Config, data],
   );
-
   const financialFields = useMemo(
     () => getFieldsFromStep(step3Config),
     [step3Config, data],
   );
-
   const complianceFields = useMemo(
     () => getFieldsFromStep(step4Config),
     [step4Config, data],
+  );
+
+  const allFields = [...basicFields, ...financialFields, ...complianceFields];
+  const allStepsComplete = allFields.every(
+    (f) => f.value && f.value !== "Not provided",
   );
 
   /* ------------------------------------------------ */
   /* STEP COMPLETION */
   /* ------------------------------------------------ */
 
-  const allStepsComplete =
-    stepCompletion[0] &&
-    stepCompletion[1] &&
-    stepCompletion[2] &&
-    stepCompletion[3];
+  //   const allFields = [...basicFields, ...financialFields, ...complianceFields];
+  //   const allStepsComplete = allFields.every(
+  //     (f) => f.value && f.value !== "Not provided",
+  //   );
+  //   const allStepsComplete =
+  //     stepCompletion[0] &&
+  //     stepCompletion[1] &&
+  //     stepCompletion[2] &&
+  //     stepCompletion[3];
 
   /* ------------------------------------------------ */
   /* REVIEW SECTION */
@@ -255,4 +336,4 @@ const Step4ReviewSubmit = ({ onEdit, disabled = false }) => {
   );
 };
 
-export default Step4ReviewSubmit;
+export default Step4;

@@ -68,6 +68,9 @@ const applicationFormSlice = createSlice({
       state.currentStep = 0;
       state.hasUnsavedChanges = false;
 
+      // Reset all previous drafts
+      state.drafts = {};
+
       if (!state.drafts[id]) {
         state.drafts[id] = {
           formData: {},
@@ -76,7 +79,13 @@ const applicationFormSlice = createSlice({
         };
       }
     },
-
+    resetForm: (state) => {
+      state.drafts = {};
+      state.currentApplicationId = null;
+      state.currentStep = 0;
+      state.currentMode = "edit";
+      state.hasUnsavedChanges = false;
+    },
     // Update single field (safe for controlled inputs)
     // updateField: (state, action) => {
     //   const { field, value } = action.payload;
@@ -150,7 +159,11 @@ const applicationFormSlice = createSlice({
       if (!appId || !field) return;
 
       if (!state.drafts[appId]) {
-        state.drafts[appId] = { formData: {}, status: "Draft", lastModified: new Date().toISOString() };
+        state.drafts[appId] = {
+          formData: {},
+          status: "Draft",
+          lastModified: new Date().toISOString(),
+        };
       }
 
       try {
@@ -257,6 +270,7 @@ export const {
   updateField,
   updateFormData,
   setCurrentStep,
+  resetForm,
   saveDraft,
   submitApplication,
   setMode,
@@ -293,9 +307,12 @@ export const selectStepCompletion = createSelector(
     // Example: mark step complete if fields exist
     return {
       0: !!formData.country && !!formData.businessType,
-      1: !!formData.basicFields,
-      2: !!formData.financialFields,
-      3: !!formData.complianceFields,
+      // 1: !!formData.basicFields,
+      // 2: !!formData.financialFields,
+      // 3: !!formData.complianceFields,
+      1: !!formData.step1_basic_info, // check actual step keys
+      2: !!formData.step2_financial,
+      3: !!formData.step3_compliance,
     };
   },
 );
