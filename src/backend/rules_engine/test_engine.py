@@ -1,5 +1,5 @@
-from models import Company, Individual
-from application_service import submit_application
+from backend.rules_engine.models import Company, Individual
+from backend.rules_engine.application_service import submit_application
 
 
 # TEST 1 — Low Risk SME (Expected: Simplified CDD)

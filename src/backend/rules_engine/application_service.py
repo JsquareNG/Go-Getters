@@ -1,4 +1,4 @@
-from rule_engine import run_engine
+from backend.rules_engine.rule_engine import run_engine
 
 
 def submit_application(company):
