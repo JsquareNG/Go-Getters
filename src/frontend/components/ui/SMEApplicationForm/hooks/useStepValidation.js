@@ -1,6 +1,4 @@
 import { useMemo } from "react";
-import { getCountryConfig } from "../config/countriesConfig";
-import { getBusinessTypeConfig } from "../config/businessTypesConfig";
 
 export function useStepValidation(data = {}, documents = {}) {
   return useMemo(() => {

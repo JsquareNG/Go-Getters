@@ -15,11 +15,14 @@ const FileUploadField = ({
   acceptTypes = "application/pdf,image/jpeg,image/png",
   maxSize = 5242880, // 5MB
   helpText = "Accepted formats: PDF, JPG, PNG. Max size: 5MB",
+  placeholderText = "",
   disabled = false,
 }) => {
   const inputRef = useRef(null);
   const [isDragging, setIsDragging] = useState(false);
   const [previewUrl, setPreviewUrl] = useState(null);
+
+  const actualFile = file instanceof File ? file : file?.file;
 
   const allowedTypes = useMemo(
     () =>
@@ -30,13 +33,33 @@ const FileUploadField = ({
     [acceptTypes],
   );
 
+  // useEffect(() => {
+  //   if (!file) {
+  //     setPreviewUrl(null);
+  //     return;
+  //   }
+  //   const url = URL.createObjectURL(file);
+  //   setPreviewUrl(url);
+  //   return () => URL.revokeObjectURL(url);
+  // }, [file]);
+
   useEffect(() => {
     if (!file) {
       setPreviewUrl(null);
       return;
     }
-    const url = URL.createObjectURL(file);
+
+    // Redux may store { file, progress }
+    const actualFile = file instanceof File ? file : file?.file;
+
+    if (!(actualFile instanceof File)) {
+      setPreviewUrl(null);
+      return;
+    }
+
+    const url = URL.createObjectURL(actualFile);
     setPreviewUrl(url);
+
     return () => URL.revokeObjectURL(url);
   }, [file]);
 
@@ -138,9 +161,18 @@ const FileUploadField = ({
         {file ? (
           <div className="text-center">
             <CheckCircle className="h-8 w-8 text-green-500 mx-auto mb-2" />
-            <p className="text-sm font-medium text-gray-900">{file.name}</p>
+            <p className="text-sm font-medium text-gray-900">
+              {/* {file.name} */}
+              {actualFile?.name}
+            </p>
+
+            {placeholderText && !isUploading && (
+              <p className="text-xs text-gray-400 mt-1">{placeholderText}</p>
+            )}
+
             <p className="text-xs text-gray-500 mt-1">
-              {formatFileSize(file.size)}
+              {/* {formatFileSize(file.size)} */}
+              {formatFileSize(actualFile?.size)}
             </p>
 
             {previewUrl && (

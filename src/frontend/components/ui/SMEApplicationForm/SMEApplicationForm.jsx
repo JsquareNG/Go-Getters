@@ -9,6 +9,8 @@ import Step1BasicInformation from "./steps/Step1BasicInformation";
 import Step2FinancialDetails from "./steps/Step2FinancialDetails";
 import Step3ComplianceDocumentation from "./steps/Step3ComplianceDocumentation";
 import Step4ReviewSubmit from "./steps/Step4ReviewSubmit";
+import Step4 from "./steps/Step4";
+import SINGAPORE_CONFIG2 from "./config/updatedSingaporeConfig";
 
 import { useToast } from "@/hooks/use-toast";
 import { useNavigate, useParams } from "react-router-dom";
@@ -65,7 +67,8 @@ const SMEApplicationForm = () => {
     currentApp?.status ===
       "Submitted"; /* ------------------------------------------------ */
 
-  console.log("Step props", { isViewOnly, formData });
+  // console.log("Step props", { isViewOnly, formData });
+  console.log("form data: ", formData);
   /* REDUX FIELD UPDATE */
   /* ------------------------------------------------ */
 
@@ -86,15 +89,26 @@ const SMEApplicationForm = () => {
   //   return curr;
   // }
 
-  // In your parent:
-  const handleFieldChange = (fieldPath, value) => {
-    dispatch(updateField({ field: fieldPath, value })); // send fieldPath + value
-    console.log("Field change dispatched:", { fieldPath, value });
-  };
+  // const handleFieldChange = (fieldPath, value) => {
+  //   if (!fieldPath) {
+  //     console.error("Invalid fieldPath:", fieldPath);
+  //     return;
+  //   }
 
-  // const handleFieldChange = (field, value) => {
-  //   dispatch(updateField({ field, value }));
+  //   dispatch(updateField({ fieldPath, value }));
   // };
+  // const handleFieldChange = (field, value) => {
+  //   if (!field) {
+  //     console.error("Invalid field:", field);
+  //     return;
+  //   }
+
+  //   dispatch(updateField({ field, value })); // <-- must be "field", not "fieldPath"
+  // };
+  const handleFieldChange = (fieldPath, value) => {
+    if (!fieldPath) return;
+    dispatch(updateField({ field: fieldPath, value }));
+  };
 
   /* ------------------------------------------------ */
   /* SYNC ROUTE STEP -> REDUX STEP */
@@ -108,15 +122,6 @@ const SMEApplicationForm = () => {
   /* ------------------------------------------------ */
   /* POPULATE PREVIOUS DRAFT */
   /* ------------------------------------------------ */
-  // useEffect(() => {
-  //   if (currentApp?.formData) {
-  //     Object.entries(currentApp.formData).forEach(([key, value]) => {
-  //       if (value !== undefined && value !== null) {
-  //         handleFieldChange(key, value);
-  //       }
-  //     });
-  //   }
-  // }, [currentApp, formData]); // only run when currentApp loads
 
   useEffect(() => {
     if (currentApp?.formData && Object.keys(formData).length === 0) {
@@ -162,6 +167,8 @@ const SMEApplicationForm = () => {
    * Returns { isValid: boolean, errors: Record<string, string> }
    */
   // NOTE: CURRENTLY NOT IN USE
+  console.log(formData);
+
   const validateFormData = (data) => {
     const errors = {};
 
@@ -198,29 +205,122 @@ const SMEApplicationForm = () => {
     return { isValid: Object.keys(errors).length === 0, errors };
   };
 
+  // HELPER
+  // const buildFormPayload = (data, config) => {
+  //   const payload = {};
+  //   const individuals = {};
+
+  //   Object.entries(data).forEach(([key, val]) => {
+  //     // Check if key is a repeatable section from config
+  //     const repeatableKeys = Object.keys(config.repeatableSections || {});
+  //     if (repeatableKeys.includes(key)) {
+  //       individuals[key] = val; // wrap entire section under individuals
+  //     } else {
+  //       payload[key] = val;
+  //     }
+  //   });
+
+  //   return { ...payload, individuals };
+  // };
+  // const buildFormPayload = (data, config) => {
+  //   const payload = {};
+  //   const individuals = {};
+
+  //   Object.entries(data).forEach(([key, val]) => {
+  //     // check if key is a repeatable section from config
+  //     const repeatableKeys = Object.keys(config.repeatableSections || {});
+  //     if (repeatableKeys.includes(key)) {
+  //       // wrap repeatable section under "individuals"
+  //       individuals[key] = val;
+  //     } else {
+  //       // leave top-level fields (including files) as-is
+  //       payload[key] = val;
+  //     }
+  //   });
+
+  //   return { ...payload, individuals };
+  // };
+  const buildFormPayload = (formData, config, entityType) => {
+    // top-level copy of formData
+    const payload = { ...formData };
+    const individuals = {};
+
+    // Find all repeatable section keys from config
+    const entityConfig = config.entities[entityType];
+    const repeatableKeys = Object.values(entityConfig.steps || [])
+      .map((step) => step.repeatableSections || {})
+      .reduce((acc, sectionObj) => ({ ...acc, ...sectionObj }), {});
+
+    Object.keys(repeatableKeys).forEach((key) => {
+      if (formData[key]) {
+        individuals[key] = formData[key]; // wrap repeatable sections
+        delete payload[key]; // remove from top-level
+      }
+    });
+
+    // Business type-specific rules
+    switch (entityType) {
+      case "sole_proprietorship":
+        payload.ownership = "100%";
+        break;
+
+      case "general_partnership":
+        if (individuals.partners) {
+          Object.values(individuals.partners).forEach((partner) => {
+            if (!partner.profitSharingRatio) partner.profitSharingRatio = 50;
+          });
+        }
+        break;
+
+      case "limited_partnership":
+        if (individuals.generalPartners) {
+          Object.values(individuals.generalPartners).forEach(
+            (gp) => (gp.sharePercentage = gp.sharePercentage || 60),
+          );
+        }
+        if (individuals.limitedPartners) {
+          Object.values(individuals.limitedPartners).forEach(
+            (lp) => (lp.sharePercentage = lp.sharePercentage || 40),
+          );
+        }
+        break;
+
+      case "private_limited":
+        // Example: could auto-detect UBOs here if sharePercentage >= 25
+        break;
+    }
+
+    return { ...payload, individuals };
+  };
+
   /* ------------------------------------------------ */
   /* SAVE DRAFT */
   /* ------------------------------------------------ */
   const handleSaveDraft = async () => {
     try {
       // Flatten formData before validating
-      const cleanData = {};
-      const flatten = (obj) => {
-        if (!obj || typeof obj !== "object") return;
-        Object.entries(obj).forEach(([key, value]) => {
-          if (key === "null" || value === null || value === undefined) return;
-          if (
-            typeof value === "object" &&
-            !Array.isArray(value) &&
-            !(value instanceof File)
-          ) {
-            flatten(value);
-          } else {
-            cleanData[key] = value === "" ? null : value;
-          }
-        });
-      };
-      flatten(formData);
+
+      // const cleanData = buildFormPayload(formData);
+      const cleanData = buildFormPayload(formData, SINGAPORE_CONFIG2, formData.businessType);
+      // const cleanData = {};
+      // const flatten = (obj) => {
+      //   if (!obj || typeof obj !== "object") return;
+      //   Object.entries(obj).forEach(([key, value]) => {
+      //     if (key === "null" || value === null || value === undefined) return;
+      //     if (
+      //       typeof value === "object" &&
+      //       !Array.isArray(value) &&
+      //       !(value instanceof File)
+      //     ) {
+      //       flatten(value);
+      //     } else {
+      //       cleanData[key] = value === "" ? null : value;
+      //     }
+      //   });
+      // };
+      // flatten(formData);
+
+      console.log("Cleaned data before saving draft:", cleanData); // debug log
 
       // Validate
       // const { isValid, errors } = validateFormData(cleanData);
@@ -274,26 +374,32 @@ const SMEApplicationForm = () => {
   const handleSubmitApplication = async () => {
     setIsSubmitting(true);
     try {
-      const { isValid, errors } = validateFormData(formData);
-      if (!isValid) {
-        toast({
-          title: "Cannot Submit",
-          description: "Please fix validation errors before submitting.",
-          variant: "destructive",
-        });
-        console.log("Submit validation errors:", errors);
-        return;
-      }
+      // const { isValid, errors } = validateFormData(formData);
+      // if (!isValid) {
+      //   toast({
+      //     title: "Cannot Submit",
+      //     description: "Please fix validation errors before submitting.",
+      //     variant: "destructive",
+      //   });
+      //   console.log("Submit validation errors:", errors);
+      //   return;
+      // }
 
-      await submitApplicationApi({
+      // const cleanData = buildFormPayload(formData);
+      const cleanData = buildFormPayload(formData, SINGAPORE_CONFIG2, formData.businessType);
+      const payload = {
         user_id: user.user_id,
         email: user.email,
         firstName: user.firstName,
-        business_name: formData.businessName || "",
-        business_type: formData.businessType || "",
-        business_country: formData.country || "",
-        form_data: formData,
-      });
+        business_name: cleanData.businessName || "",
+        business_type: cleanData.businessType || "",
+        business_country: cleanData.country || "",
+        form_data: cleanData,
+        last_saved_step: clampedStep,
+        application_id: appId !== "new" ? appId : undefined,
+      };
+
+      await submitApplicationApi(payload);
 
       dispatch(submitApplication({ appId, data: formData }));
 
@@ -339,7 +445,12 @@ const SMEApplicationForm = () => {
         );
       case 4:
         return (
-          <Step4ReviewSubmit
+          // <Step4ReviewSubmit
+          //   {...commonProps}
+          //   onSubmit={handleSubmitApplication}
+          //   isSubmitting={isSubmitting}
+          // />
+          <Step4
             {...commonProps}
             onSubmit={handleSubmitApplication}
             isSubmitting={isSubmitting}

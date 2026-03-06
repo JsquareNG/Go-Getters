@@ -1,6 +1,9 @@
 import React, { useMemo, useRef, useState } from "react";
 import FormFieldGroup from "../components/FormFieldGroup";
+import FileUploadField from "../components/FileUploadField";
 import SINGAPORE_CONFIG from "../config/singaporeConfig";
+import SINGAPORE_CONFIG2 from "../config/updatedSingaporeConfig";
+// import { extractFieldsFromStep, resolveConditionalFields, isFieldVisible } from "../utils/extractFields";
 
 const ACRA_WITH_TABLES_ENDPOINT =
   "http://127.0.0.1:8000/document-ai/extract-acra-with-tables";
@@ -14,7 +17,7 @@ const Step1BasicInformation = ({ data, onFieldChange, disabled = false }) => {
 
   // ---- dynamic config from singaporeConfig ----
   const { basicFieldsConfig, repeatableSectionsConfig } = useMemo(() => {
-    const entity = SINGAPORE_CONFIG.entities[data?.businessType] || {};
+    const entity = SINGAPORE_CONFIG2.entities[data?.businessType] || {};
     const step2 = entity.steps?.find((s) => s.id === "step2") || {};
 
     const basicFields = {};
@@ -27,14 +30,16 @@ const Step1BasicInformation = ({ data, onFieldChange, disabled = false }) => {
     }
 
     if (step2.repeatableSections) {
-      Object.entries(step2.repeatableSections).forEach(([sectionKey, section]) => {
-        repeatableSections[sectionKey] = {
-          label: section.label,
-          min: section.min,
-          max: section.max,
-          fields: { ...section.fields },
-        };
-      });
+      Object.entries(step2.repeatableSections).forEach(
+        ([sectionKey, section]) => {
+          repeatableSections[sectionKey] = {
+            label: section.label,
+            min: section.min,
+            max: section.max,
+            fields: { ...section.fields },
+          };
+        },
+      );
     }
 
     return {
@@ -100,12 +105,23 @@ const Step1BasicInformation = ({ data, onFieldChange, disabled = false }) => {
 
       const ddMmmYyyyToISO = (s) => {
         if (!s) return "";
-        const m = String(s).trim().match(/^(\d{1,2})\s+([A-Z]{3})\s+(\d{4})$/i);
+        const m = String(s)
+          .trim()
+          .match(/^(\d{1,2})\s+([A-Z]{3})\s+(\d{4})$/i);
         if (!m) return "";
         const months = {
-          JAN: "01", FEB: "02", MAR: "03", APR: "04",
-          MAY: "05", JUN: "06", JUL: "07", AUG: "08",
-          SEP: "09", OCT: "10", NOV: "11", DEC: "12",
+          JAN: "01",
+          FEB: "02",
+          MAR: "03",
+          APR: "04",
+          MAY: "05",
+          JUN: "06",
+          JUL: "07",
+          AUG: "08",
+          SEP: "09",
+          OCT: "10",
+          NOV: "11",
+          DEC: "12",
         };
         const day = m[1].padStart(2, "0");
         const mm = months[m[2].toUpperCase()];
@@ -125,11 +141,18 @@ const Step1BasicInformation = ({ data, onFieldChange, disabled = false }) => {
       };
 
       // ---- map ACRA → Redux ----
-      setIfEmpty("businessName", kv["name of business"] || kv["name of company"]);
+      setIfEmpty(
+        "businessName",
+        kv["name of business"] || kv["name of company"],
+      );
       setIfEmpty("registeredAddress", kv["principal place of business"]);
-      const isoDate = ddMmmYyyyToISO(kv["registration date"] || kv["commencement date"]);
+      const isoDate = ddMmmYyyyToISO(
+        kv["registration date"] || kv["commencement date"],
+      );
       if (isoDate) setIfEmpty("registrationDate", isoDate);
-      const mappedStatus = normalizeStatus(kv["status of business"] || kv["status of company"]);
+      const mappedStatus = normalizeStatus(
+        kv["status of business"] || kv["status of company"],
+      );
       if (mappedStatus) setIfEmpty("businessStatus", mappedStatus);
       setIfEmpty("uen", kv["uen"]);
       if (ownerName) setIfEmpty("fullName", ownerName);
@@ -142,6 +165,170 @@ const Step1BasicInformation = ({ data, onFieldChange, disabled = false }) => {
       setAcraUploading(false);
     }
   };
+
+  // const handleDocumentChange = (fieldName, file) => {
+  //   if (!fieldName) {
+  //     console.error("Invalid document field:", fieldName);
+  //     return;
+  //   }
+
+  //   handleFieldChange(`documents.${fieldName}`, {
+  //     file,
+  //     progress: 0,
+  //   });
+  // };
+
+  const handleFieldChange = (name, value) => {
+    if (!name || typeof name !== "string") {
+      console.error("Invalid field name:", name);
+      return;
+    }
+
+    onFieldChange(name, value);
+  };
+  const handleDocumentChange = (fieldPath, file) => {
+    if (!fieldPath) {
+      console.error("Invalid document field:", fieldPath);
+      return;
+    }
+
+    handleFieldChange(fieldPath, {
+      file,
+      progress: 0,
+    });
+  };
+
+  //HELPER
+  const getVisibleConditionalFields = (fieldCfg, value) => {
+    if (!fieldCfg.conditionalFields) return {};
+    return fieldCfg.conditionalFields[value] || {};
+  };
+
+  // ---- Generic field renderer (recursive for nested fields) ----
+  const renderField = (fieldName, fieldCfg, parentKey = null) => {
+    const fullKey = parentKey ? `${parentKey}.${fieldName}` : fieldName;
+    const value = parentKey
+      ? data?.[parentKey]?.[fieldName]
+      : data?.[fieldName];
+
+    // Nested object
+    if (typeof fieldCfg === "object" && !fieldCfg.type && !fieldCfg.label) {
+      return (
+        <div key={fullKey} className="mb-6">
+          <p className="font-semibold text-gray-900 mb-2">
+            {fieldName.replace(/([A-Z])/g, " $1").trim()}
+          </p>
+          {Object.entries(fieldCfg).map(([subKey, subCfg]) =>
+            renderField(subKey, subCfg, fullKey),
+          )}
+        </div>
+      );
+    }
+
+    // File field
+    if (fieldCfg.type === "file") {
+      return (
+        <FileUploadField
+          key={fullKey}
+          fieldName={fullKey}
+            // fieldName="documents.0.file" // nested path
+
+          label={fieldCfg.label}
+          // file={value?.file || null}
+          file={data?.[fullKey] || null} // <- must match your Redux structure
+          // onChange={(file) => handleDocumentChange(fieldName, { file })}
+          onChange={(file) => handleDocumentChange(fullKey, file)}
+          required={fieldCfg.required || false}
+          acceptTypes="application/pdf,image/jpeg,image/png"
+          placeholder={fieldCfg.placeholder || ""}
+          maxSize={5242880}
+          disabled={disabled}
+        />
+      );
+    }
+
+    // // Regular field
+    // return (
+    //   <FormFieldGroup
+    //     key={fullKey}
+    //     fieldName={fullKey}
+    //     label={fieldCfg.label}
+    //     placeholder={fieldCfg.placeholder || ""}
+    //     value={value || ""}
+    //     onChange={onFieldChange}
+    //     type={fieldCfg.type || "text"}
+    //     options={fieldCfg.options || []}
+    //     required={fieldCfg.required || false}
+    //     disabled={disabled}
+    //   />
+    // );
+
+    // Regular field (text/select/etc.)
+    const fieldElement = (
+      <FormFieldGroup
+        key={fullKey}
+        fieldName={fullKey}
+        label={fieldCfg.label}
+        placeholder={fieldCfg.placeholder || ""}
+        value={value || ""}
+        onChange={onFieldChange}
+        type={fieldCfg.type || "text"}
+        options={fieldCfg.options || []}
+        required={fieldCfg.required || false}
+        disabled={disabled}
+      />
+    );
+
+    // Render conditional fields if any
+    if (fieldCfg.conditionalFields && value != null) {
+      const visibleFields = getVisibleConditionalFields(fieldCfg, value);
+      const conditionalElements = Object.entries(visibleFields).map(
+        ([condKey, condCfg]) => renderField(condKey, condCfg, parentKey),
+      );
+      return (
+        <div key={fullKey}>
+          {fieldElement}
+          <div className="ml-4 mt-2">{conditionalElements}</div>
+        </div>
+      );
+    }
+
+    return fieldElement;
+  };
+  // ---- Helper to render a field or file field ----
+  // const renderField = (fieldName, fieldConfig) => {
+  //   if (fieldConfig.type === "file") {
+  //     return (
+  //       <FileUploadField
+  //         key={fieldName}
+  //         fieldName={fieldName}
+  //         label={fieldConfig.label}
+  //         file={data[fieldName]?.file || null}
+  //         onChange={(file) => handleDocumentChange(fieldName, {file})}
+  //         required={fieldConfig.required || false}
+  //         acceptTypes="application/pdf,image/jpeg,image/png"
+  //         placeholder={fieldConfig.placeholder || ""}
+  //         maxSize={5242880}
+  //         disabled={disabled}
+  //       />
+  //     );
+  //   }
+
+  //   return (
+  //     <FormFieldGroup
+  //       key={fieldName}
+  //       fieldName={fieldName}
+  //       label={fieldConfig.label}
+  //       placeholder={fieldConfig.placeholder || ""}
+  //       value={data[fieldName] || ""}
+  //       onChange={onFieldChange}
+  //       type={fieldConfig.type || "text"}
+  //       options={fieldConfig.options || []}
+  //       required={fieldConfig.required || false}
+  //       disabled={disabled}
+  //     />
+  //   );
+  // };
 
   return (
     <div>
@@ -207,7 +394,7 @@ const Step1BasicInformation = ({ data, onFieldChange, disabled = false }) => {
       )}
 
       {/* Top-Level Fields */}
-      {Object.entries(basicFieldsConfig).map(([fieldName, fieldConfig]) => (
+      {/* {Object.entries(basicFieldsConfig).map(([fieldName, fieldConfig]) => (
         <FormFieldGroup
           key={fieldName}
           fieldName={fieldName}
@@ -220,10 +407,10 @@ const Step1BasicInformation = ({ data, onFieldChange, disabled = false }) => {
           required={fieldConfig.required || false}
           disabled={disabled}
         />
-      ))}
+      ))} */}
 
       {/* Repeatable Sections */}
-      {Object.entries(repeatableSectionsConfig).map(([sectionKey, section]) => (
+      {/* {Object.entries(repeatableSectionsConfig).map(([sectionKey, section]) => (
         <div key={sectionKey} className="mt-6">
           <h3 className="text-lg font-semibold mb-3 text-gray-900">
             {section.label}
@@ -243,6 +430,23 @@ const Step1BasicInformation = ({ data, onFieldChange, disabled = false }) => {
               disabled={disabled}
             />
           ))}
+        </div>
+      ))} */}
+
+      {/* Top-Level Fields */}
+      {Object.entries(basicFieldsConfig).map(([fieldName, fieldConfig]) =>
+        renderField(fieldName, fieldConfig),
+      )}
+
+      {/* Repeatable Sections */}
+      {Object.entries(repeatableSectionsConfig).map(([sectionKey, section]) => (
+        <div key={sectionKey} className="mt-6">
+          <h3 className="text-lg font-semibold mb-3 text-gray-900">
+            {section.label}
+          </h3>
+          {Object.entries(section.fields).map(([fieldName, fieldConfig]) =>
+            renderField(fieldName, fieldConfig),
+          )}
         </div>
       ))}
     </div>

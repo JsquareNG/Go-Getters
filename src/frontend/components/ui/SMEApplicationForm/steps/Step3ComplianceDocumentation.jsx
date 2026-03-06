@@ -1,7 +1,9 @@
 import React, { useMemo } from "react";
 import FormFieldGroup from "../components/FormFieldGroup";
 import FileUploadField from "../components/FileUploadField";
+import { generateDocKey } from "../utils/formHelpers";
 import SINGAPORE_CONFIG from "../config/singaporeConfig";
+import SINGAPORE_CONFIG2 from "../config/updatedSingaporeConfig";
 
 /**
  * Step3ComplianceDocumentation component
@@ -14,7 +16,7 @@ const Step3ComplianceDocumentation = ({
 }) => {
   // ---- dynamic field config from Singapore config ----
   const { complianceFieldsConfig, requiredDocuments } = useMemo(() => {
-    const entity = SINGAPORE_CONFIG.entities[data?.businessType] || {};
+    const entity = SINGAPORE_CONFIG2.entities[data?.businessType] || {};
     const step4 = entity.steps?.find((s) => s.id === "step4") || {};
 
     // Compliance fields
@@ -23,11 +25,7 @@ const Step3ComplianceDocumentation = ({
     // Map documents array to object with camelCase keys
     const docsObj = {};
     (step4.documents || []).forEach((doc) => {
-      const key = doc
-        .toLowerCase()
-        .replace(/[^\w]+/g, " ")
-        .trim()
-        .replace(/\s+/g, "_");
+      const key = generateDocKey(doc);
       docsObj[key] = { label: doc };
     });
 
@@ -35,7 +33,15 @@ const Step3ComplianceDocumentation = ({
   }, [data?.businessType]);
 
   // ---- Helper for nested fields ----
+  // const handleFieldChange = (name, value) => {
+  //   onFieldChange(name, value);
+  // };
   const handleFieldChange = (name, value) => {
+    if (!name || typeof name !== "string") {
+      console.error("Invalid field name:", name);
+      return;
+    }
+
     onFieldChange(name, value);
   };
 
@@ -48,42 +54,106 @@ const Step3ComplianceDocumentation = ({
   //   };
   //   handleFieldChange("documents", updatedDocs);
   // };
-  const handleDocumentChange = (fieldName, file) => {
-    handleFieldChange(`documents.${fieldName}`, { file, progress: 0 });
-  };
+  // const handleDocumentChange = (fieldName, file) => {
+  //   handleFieldChange(`documents.${fieldName}`, { file, progress: 0 });
+  // };
 
-  const handleRadioChange = (fieldKey, value) => {
-    // Ensure complianceFields[fieldKey] exists
-    if (!data.complianceFields?.[fieldKey]) {
-      handleFieldChange(`complianceFields.${fieldKey}`, {});
+  const handleDocumentChange = (fieldName, file) => {
+    if (!fieldName) {
+      console.error("Invalid document field:", fieldName);
+      return;
     }
 
-    handleFieldChange(`complianceFields.${fieldKey}`, value);
+    handleFieldChange(`documents.${fieldName}`, {
+      file,
+      progress: 0,
+    });
   };
 
-  // ---- Conditional fields ----
-  const renderConditionalFields = (fieldKey, fieldValue) => {
-    const fieldConfig = complianceFieldsConfig[fieldKey];
-    if (!fieldConfig?.conditionalFields) return null;
+  // ---- recursive field renderer ----
+  const renderField = (fieldKey, fieldCfg, parentKey = null) => {
+    const fullKey = parentKey ? `${parentKey}.${fieldKey}` : fieldKey;
+    const value = parentKey
+      ? data?.complianceFields?.[parentKey]?.[fieldKey]
+      : data?.complianceFields?.[fieldKey];
 
-    const conditional = fieldConfig.conditionalFields[fieldValue];
-    if (!conditional) return null;
+    // Nested object (no type/label)
+    if (typeof fieldCfg === "object" && !fieldCfg.type && !fieldCfg.label) {
+      return (
+        <div key={fullKey} className="mb-6">
+          <p className="font-semibold text-gray-900 mb-2">
+            {fieldKey.replace(/([A-Z])/g, " $1").trim()}
+          </p>
+          {Object.entries(fieldCfg).map(([subKey, subCfg]) =>
+            renderField(subKey, subCfg, fullKey),
+          )}
+        </div>
+      );
+    }
 
+    // File field
+    if (fieldCfg.type === "file") {
+      return (
+        <FileUploadField
+          key={fullKey}
+          fieldName={fullKey}
+          label={fieldCfg.label}
+          // file={value?.file || null}
+          file={data?.[fullKey] || null} // <- must match your Redux structure
+          // onChange={(file) => handleDocumentChange(fieldKey, file)}
+          onChange={(file) => handleDocumentChange(fullKey, file)}
+          required={fieldCfg.required || false}
+          acceptTypes="application/pdf,image/jpeg,image/png"
+          placeholder={fieldCfg.placeholder || ""}
+          maxSize={5242880}
+          disabled={disabled}
+        />
+      );
+    }
+
+    // Select/radio with conditional fields
+    if (fieldCfg.type === "select") {
+      const selected = value?.selected || "";
+      return (
+        <div key={fullKey} className="mb-6">
+          <p className="font-semibold text-gray-900">{fieldCfg.label}</p>
+          {fieldCfg.options.map((opt) => (
+            <label key={opt} className="inline-flex items-center mr-4">
+              <input
+                type="radio"
+                name={fullKey}
+                value={opt}
+                checked={selected === opt}
+                onChange={(e) =>
+                  onFieldChange(`${fullKey}.selected`, e.target.value)
+                }
+                disabled={disabled}
+              />
+              <span className="ml-2">{opt}</span>
+            </label>
+          ))}
+
+          {fieldCfg.conditionalFields?.[selected] &&
+            Object.entries(fieldCfg.conditionalFields[selected]).map(
+              ([condKey, condCfg]) => renderField(condKey, condCfg, fullKey),
+            )}
+        </div>
+      );
+    }
+
+    // Normal flat field
     return (
-      <div className="mt-4 p-4 rounded-lg border border-gray-200">
-        {Object.entries(conditional).map(([condKey, condCfg]) => (
-          <FormFieldGroup
-            key={`${fieldKey}_${condKey}`}
-            fieldName={`complianceFields.${fieldKey}.${condKey}`}
-            label={condCfg.label}
-            value={data?.complianceFields?.[fieldKey]?.[condKey] || ""}
-            onChange={handleFieldChange}
-            required={condCfg.required}
-            type={condCfg.type || "text"}
-            disabled={disabled}
-          />
-        ))}
-      </div>
+      <FormFieldGroup
+        key={fullKey}
+        fieldName={fullKey}
+        label={fieldCfg.label}
+        placeholder={fieldCfg.placeholder || ""}
+        value={value || ""}
+        onChange={onFieldChange}
+        required={fieldCfg.required || false}
+        type={fieldCfg.type || "text"}
+        disabled={disabled}
+      />
     );
   };
 
@@ -94,9 +164,8 @@ const Step3ComplianceDocumentation = ({
       </h2>
 
       {/* Compliance Fields */}
-      {Object.entries(complianceFieldsConfig).map(([fieldKey, fieldCfg]) => {
-        // Checkbox with options
-        if (fieldCfg.type === "checkbox") {
+      {/* {Object.entries(complianceFieldsConfig).map(([fieldKey, fieldCfg]) => {
+        if (fieldCfg.type === "select") {
           return (
             <div key={fieldKey} className="mb-6">
               <p className="font-semibold text-gray-900">{fieldCfg.label}</p>
@@ -106,16 +175,9 @@ const Step3ComplianceDocumentation = ({
                     type="radio"
                     name={fieldKey}
                     value={opt}
-                    // checked={data?.complianceFields?.[fieldKey] === opt}
                     checked={
                       data?.complianceFields?.[fieldKey]?.selected === opt
                     }
-                    // onChange={(e) =>
-                    //   handleFieldChange(
-                    //     `complianceFields.${fieldKey}`,
-                    //     e.target.value,
-                    //   )
-                    // }
                     onChange={(e) =>
                       handleFieldChange(
                         `complianceFields.${fieldKey}.selected`,
@@ -127,11 +189,10 @@ const Step3ComplianceDocumentation = ({
                   <span className="ml-2">{opt}</span>
                 </label>
               ))}
-              {/* {renderConditionalFields(
+              {renderConditionalFields(
                 fieldKey,
-                data?.complianceFields?.[fieldKey],
-              )} */}
-              {renderConditionalFields(fieldKey, data?.complianceFields?.[fieldKey]?.selected)}
+                data?.complianceFields?.[fieldKey]?.selected,
+              )}
             </div>
           );
         }
@@ -172,10 +233,10 @@ const Step3ComplianceDocumentation = ({
             disabled={disabled}
           />
         );
-      })}
+      })} */}
 
       {/* Required Documents */}
-      <div className="mb-8 p-4 bg-amber-50 border border-amber-200 rounded-lg">
+      {/* <div className="mb-8 p-4 bg-amber-50 border border-amber-200 rounded-lg">
         <p className="text-sm text-amber-800 mb-2">
           <strong>Required Documents:</strong>
         </p>
@@ -184,25 +245,43 @@ const Step3ComplianceDocumentation = ({
             <li key={key}>{doc.label}</li>
           ))}
         </ul>
-      </div>
+      </div> */}
 
-      {Object.entries(requiredDocuments).map(([fieldName, doc]) => (
+      {/* {Object.entries(requiredDocuments).map(([fieldName, doc]) => (
         <FileUploadField
           key={fieldName}
           fieldName={fieldName}
           label={doc.label}
           file={data?.documents?.[fieldName]?.file || null}
-          onChange={(file) =>
-            // handleFieldChange(`documents.${fieldName}`, { file, progress: 0 })
-            handleDocumentChange(fieldName, file)
-          }
+          onChange={(file) => handleDocumentChange(fieldName, file)}
           required
           acceptTypes="application/pdf,image/jpeg,image/png"
+          placeholderText={doc.placeholder || ""}
           maxSize={5242880}
-          // uploadProgress={data?.documents?.[fieldName]?.progress || 0}
           disabled={disabled}
         />
-      ))}
+      ))} */}
+      {/* Render compliance fields */}
+      {Object.entries(complianceFieldsConfig).map(([key, cfg]) =>
+        renderField(key, cfg),
+      )}
+
+      {/* Required Documents List */}
+      {/* <div className="mb-8 p-4 bg-amber-50 border border-amber-200 rounded-lg">
+        <p className="text-sm text-amber-800 mb-2">
+          <strong>Required Documents:</strong>
+        </p>
+        <ul className="text-sm text-amber-800 list-disc list-inside space-y-1">
+          {Object.entries(requiredDocuments).map(([key, doc]) => (
+            <li key={key}>{doc.label}</li>
+          ))}
+        </ul>
+      </div> */}
+
+      {/* Render file upload fields */}
+      {Object.entries(requiredDocuments).map(([fieldName, doc]) =>
+        renderField(fieldName, { type: "file", label: doc.label }),
+      )}
 
       {/* Compliance Note */}
       <div className="mt-8 p-4 bg-blue-50 border border-blue-200 rounded-lg">

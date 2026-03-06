@@ -1,8 +1,26 @@
 import { createSlice, createSelector } from "@reduxjs/toolkit";
 
 // --- HELPER FUNCTION TO UPDATE NESTED FIELDS IN AN IMMUTABLE WAY ---
+// export const setIn = (obj, path, value) => {
+//   const keys = path.split(".");
+//   const lastKey = keys.pop();
+//   let ref = obj;
+
+//   keys.forEach((key) => {
+//     if (!ref[key] || typeof ref[key] !== "object") ref[key] = {};
+//     ref = ref[key];
+//   });
+
+//   ref[lastKey] = value;
+// };
 export const setIn = (obj, path, value) => {
-  const keys = path.split(".");
+  if (!path || typeof path !== "string") {
+    throw new Error("Invalid path: " + path);
+  }
+
+  const keys = path.split(".").filter(Boolean); // remove empty segments
+  if (keys.length === 0) throw new Error("Path cannot be empty");
+
   const lastKey = keys.pop();
   let ref = obj;
 
@@ -88,26 +106,78 @@ const applicationFormSlice = createSlice({
 
     // },
 
+    // updateField: (state, action) => {
+    //   const { field, value } = action.payload;
+    //   const appId = state.currentApplicationId;
+
+    //   // validation: ensure application exists
+    //   if (!appId) return;
+
+    //   // validation: prevent invalid field paths
+    //   if (!field || typeof field !== "string") {
+    //     console.error("updateField: Invalid field path ->", field);
+    //     return;
+    //   }
+
+    //   // validation: ensure draft exists for current application
+    //   if (!state.drafts[appId]) {
+    //     state.drafts[appId] = {
+    //       formData: {},
+    //       status: "Draft",
+    //       lastModified: new Date().toISOString(),
+    //     };
+    //   }
+
+    //   const draft = state.drafts[appId];
+
+    //   // safely update nested paths
+    //   try {
+    //     setIn(draft.formData, field, value);
+    //   } catch (err) {
+    //     console.error("updateField failed:", field, value, err);
+    //     return;
+    //   }
+
+    //   state.drafts[appId].lastModified = new Date().toISOString();
+    //   state.hasUnsavedChanges = true;
+
+    //   console.log("Redux formData updated:", state.drafts[appId].formData);
+    // },
+
     updateField: (state, action) => {
       const { field, value } = action.payload;
       const appId = state.currentApplicationId;
-      if (!appId) return;
+      if (!appId || !field) return;
 
       if (!state.drafts[appId]) {
-        state.drafts[appId] = {
-          formData: {},
-          status: "Draft",
-          lastModified: new Date().toISOString(),
-        };
+        state.drafts[appId] = { formData: {}, status: "Draft", lastModified: new Date().toISOString() };
       }
 
-      // safely update nested paths
-      setIn(state.drafts[appId].formData, field, value);
+      try {
+        setIn(state.drafts[appId].formData, field, value);
+      } catch (err) {
+        console.error("updateField failed:", field, value, err);
+        return;
+      }
+
       state.drafts[appId].lastModified = new Date().toISOString();
       state.hasUnsavedChanges = true;
-
-      console.log("Redux formData updated:", state.drafts[appId].formData);
     },
+
+    // applicationFormSlice.js
+    // updateField: (state, action) => {
+    //   const { field, value } = action.payload;
+    //   const keys = field.split("."); // split nested path
+    //   let curr = state.formData;
+
+    //   for (let i = 0; i < keys.length - 1; i++) {
+    //     const key = keys[i];
+    //     if (!(key in curr)) curr[key] = {}; // create nested object if missing
+    //     curr = curr[key];
+    //   }
+
+    //   curr[keys[keys.length - 1]] = value; // set the final value
+    // },
 
     // Bulk update (useful when loading multiple fields)
     updateFormData: (state, action) => {

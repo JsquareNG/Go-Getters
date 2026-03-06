@@ -1,28 +1,27 @@
 import React, { useMemo } from "react";
-import { useSelector, useDispatch } from "react-redux";
+import { useSelector } from "react-redux";
 import { CheckCircle2, AlertCircle } from "lucide-react";
+
 import { generateDocKey } from "../utils/formHelpers";
-import SINGAPORE_CONFIG from "../config/singaporeConfig";
 import SINGAPORE_CONFIG2 from "../config/updatedSingaporeConfig";
 
 import {
   selectFormData,
   selectStepCompletion,
-  submitApplication,
-  saveDraft,
 } from "@/store/applicationFormSlice";
 
 /**
- * Step4ReviewSubmit component (Redux-only)
- * - Reads formData and stepCompletion directly from Redux store
- * - Handles draft/save and submission via dispatch
+ * Step4ReviewSubmit
+ * Pure review screen (submission handled by parent)
  */
 const Step4ReviewSubmit = ({ onEdit, disabled = false }) => {
-  const dispatch = useDispatch();
   const data = useSelector(selectFormData);
   const stepCompletion = useSelector(selectStepCompletion);
 
-  // ---- Entity and step configs ----
+  /* ------------------------------------------------ */
+  /* ENTITY CONFIG */
+  /* ------------------------------------------------ */
+
   const entityConfig = useMemo(
     () => SINGAPORE_CONFIG2.entities[data?.businessType] || {},
     [data?.businessType],
@@ -37,58 +36,58 @@ const Step4ReviewSubmit = ({ onEdit, disabled = false }) => {
     () => entityConfig.steps?.find((s) => s.id === "step3") || {},
     [entityConfig],
   );
+
   const step4Config = useMemo(
     () => entityConfig.steps?.find((s) => s.id === "step4") || {},
     [entityConfig],
   );
 
-  // console.log("Entity Config:", entityConfig);
-  // console.log(step2Config);
-  // console.log(step3Config);
-  // console.log(step4Config);
-  // ---- Helpers ----
+  /* ------------------------------------------------ */
+  /* HELPERS */
+  /* ------------------------------------------------ */
+
   const formatDocumentName = (file) =>
     file
       ? `${file.name} (${(file.size / 1024).toFixed(2)} KB)`
       : "Not uploaded";
 
-  const getFieldsFromStep = (stepConfig, sectionData) => {
+  const flattenObject = (obj) => {
+    if (!obj || typeof obj !== "object") return obj;
+
+    return Object.entries(obj)
+      .map(([k, v]) => {
+        if (typeof v === "object") {
+          return `${k}: ${flattenObject(v)}`;
+        }
+        return `${k}: ${v}`;
+      })
+      .join(", ");
+  };
+
+  const getFieldsFromStep = (stepConfig) => {
     const fields = [];
     if (!stepConfig) return fields;
 
-    // Normal fields
+    /* NORMAL FIELDS */
     Object.entries(stepConfig.fields || {}).forEach(([key, cfg]) => {
-      // let value = sectionData?.[key] ?? "";
-      let value = sectionData?.[key] ?? "";
+      let value = data?.[key] ?? "";
 
       if (typeof value === "object" && value !== null) {
-        value = Object.entries(value)
-          .map(([k, v]) => `${k}: ${v}`)
-          .join(", ");
+        value = flattenObject(value);
       }
-      if (
-        cfg.type === "checkbox" &&
-        cfg.conditionalFields &&
-        sectionData?.[key]
-      ) {
-        const subFields = cfg.conditionalFields[sectionData[key]];
-        if (subFields) {
-          Object.entries(subFields).forEach(([subKey, subCfg]) => {
-            fields.push({
-              label: subCfg.label,
-              value: sectionData?.[subKey] ?? "",
-            });
-          });
-        }
-      }
-      fields.push({ label: cfg.label, value });
+
+      fields.push({
+        label: cfg.label,
+        value,
+      });
     });
 
-    // Repeatable sections
+    /* REPEATABLE SECTIONS */
     if (stepConfig.repeatableSections) {
       Object.entries(stepConfig.repeatableSections).forEach(
         ([sectionKey, sectionCfg]) => {
-          const items = sectionData?.[sectionKey] || [];
+          const items = data?.[sectionKey] || [];
+
           items.forEach((item, idx) => {
             Object.entries(sectionCfg.fields).forEach(([key, cfg]) => {
               fields.push({
@@ -101,55 +100,52 @@ const Step4ReviewSubmit = ({ onEdit, disabled = false }) => {
       );
     }
 
-    // Documents
+    /* DOCUMENTS */
     (stepConfig.documents || []).forEach((doc) => {
-      // const key = doc.toLowerCase().replace(/[^\w]+/g, "_");
       const key = generateDocKey(doc);
+
       fields.push({
         label: doc,
-        value: formatDocumentName(sectionData?.documents?.[key]?.file),
+        value: formatDocumentName(data?.documents?.[key]?.file),
       });
     });
 
     return fields;
   };
 
-  // ---- Review fields ----
+  /* ------------------------------------------------ */
+  /* REVIEW FIELDS */
+  /* ------------------------------------------------ */
+
   const basicFields = useMemo(
-    () => getFieldsFromStep(step2Config, data),
+    () => getFieldsFromStep(step2Config),
     [step2Config, data],
   );
 
   const financialFields = useMemo(
-    () => getFieldsFromStep(step3Config, data),
+    () => getFieldsFromStep(step3Config),
     [step3Config, data],
   );
 
   const complianceFields = useMemo(
-    () => getFieldsFromStep(step4Config, data),
+    () => getFieldsFromStep(step4Config),
     [step4Config, data],
   );
 
-  console.log("Basic Fields:", basicFields);
-  console.log("Financial Fields:", financialFields);
-  console.log("Compliance Fields:", complianceFields);
+  /* ------------------------------------------------ */
+  /* STEP COMPLETION */
+  /* ------------------------------------------------ */
 
-  // ---- Submission readiness ----
   const allStepsComplete =
     stepCompletion[0] &&
     stepCompletion[1] &&
     stepCompletion[2] &&
     stepCompletion[3];
 
-  const handleButtonClick = () => {
-    if (allStepsComplete) {
-      dispatch(submitApplication());
-    } else {
-      dispatch(saveDraft());
-    }
-  };
+  /* ------------------------------------------------ */
+  /* REVIEW SECTION */
+  /* ------------------------------------------------ */
 
-  // ---- Review Section component ----
   const ReviewSection = ({ title, fields, onEditClick }) => (
     <div className="mb-8 border rounded-lg p-6 bg-gray-50">
       <div className="flex items-center justify-between mb-4">
@@ -157,14 +153,16 @@ const Step4ReviewSubmit = ({ onEdit, disabled = false }) => {
           <CheckCircle2 className="h-5 w-5 text-green-500" />
           <h3 className="text-lg font-semibold text-gray-900">{title}</h3>
         </div>
+
         <button
           onClick={onEditClick}
           disabled={disabled}
-          className="text-sm text-red-500 hover:text-red-700 font-medium disabled:text-gray-400 disabled:cursor-not-allowed"
+          className="text-sm text-red-500 hover:text-red-700 font-medium disabled:text-gray-400"
         >
           Edit
         </button>
       </div>
+
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {fields.map((field, idx) => (
           <div
@@ -174,12 +172,9 @@ const Step4ReviewSubmit = ({ onEdit, disabled = false }) => {
             <p className="text-xs font-medium text-gray-500 uppercase mb-1">
               {field.label}
             </p>
+
             <p className="text-sm text-gray-900 break-words">
-              {typeof field.value === "object"
-                ? Object.entries(field.value)
-                    .map(([k, v]) => `${k}: ${v}`)
-                    .join(", ")
-                : field.value || "Not provided"}
+              {field.value || "Not provided"}
             </p>
           </div>
         ))}
@@ -187,11 +182,16 @@ const Step4ReviewSubmit = ({ onEdit, disabled = false }) => {
     </div>
   );
 
+  /* ------------------------------------------------ */
+  /* UI */
+  /* ------------------------------------------------ */
+
   return (
     <div>
       <h2 className="text-2xl font-bold mb-2 text-gray-900">
         Review Your Application
       </h2>
+
       <p className="text-gray-600 mb-8">
         Please review all information below. Click "Edit" to make changes if
         needed.
@@ -200,20 +200,22 @@ const Step4ReviewSubmit = ({ onEdit, disabled = false }) => {
       <ReviewSection
         title="Basic Information"
         fields={basicFields}
-        onEditClick={() => onEdit(1)}
+        onEditClick={() => onEdit?.(1)}
       />
+
       <ReviewSection
         title="Financial Details"
         fields={financialFields}
-        onEditClick={() => onEdit(2)}
+        onEditClick={() => onEdit?.(2)}
       />
+
       <ReviewSection
         title="Compliance & Documentation"
         fields={complianceFields}
-        onEditClick={() => onEdit(3)}
+        onEditClick={() => onEdit?.(3)}
       />
 
-      {/* Status Banner */}
+      {/* STATUS BANNER */}
       <div
         className={`mb-8 p-4 rounded-lg border flex items-start gap-3 ${
           allStepsComplete
@@ -226,32 +228,29 @@ const Step4ReviewSubmit = ({ onEdit, disabled = false }) => {
             allStepsComplete ? "text-green-600" : "text-amber-600"
           }`}
         />
+
         <div>
           <p
-            className={`font-semibold ${allStepsComplete ? "text-green-900" : "text-amber-900"}`}
+            className={`font-semibold ${
+              allStepsComplete ? "text-green-900" : "text-amber-900"
+            }`}
           >
             {allStepsComplete
               ? "Application Complete"
               : "Application Incomplete"}
           </p>
+
           <p
-            className={`text-sm ${allStepsComplete ? "text-green-700" : "text-amber-700"}`}
+            className={`text-sm ${
+              allStepsComplete ? "text-green-700" : "text-amber-700"
+            }`}
           >
             {allStepsComplete
               ? "All fields are filled. Click Submit to send your application."
-              : "Some required fields are missing. Click Save Draft to save your progress."}
+              : "Some required fields are missing. Save your draft to continue later."}
           </p>
         </div>
       </div>
-
-      {/* save draft button which is not needed here */}
-      {/* <Button
-        onClick={handleButtonClick}
-        disabled={disabled}
-        variant={allStepsComplete ? "default" : "outline"}
-      >
-        {allStepsComplete ? "Submit Application" : "Save Draft"}
-      </Button> */}
     </div>
   );
 };
