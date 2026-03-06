@@ -1,4 +1,4 @@
-from config import (
+from backend.rules_engine.config import (
     HIGH_RISK_COUNTRIES,
     HIGH_RISK_INDUSTRIES,
     HIGH_TX_VOLUME_THRESHOLD,
