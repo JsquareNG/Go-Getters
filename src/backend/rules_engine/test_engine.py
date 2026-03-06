@@ -7,7 +7,6 @@ ubo = Individual(
     nationality="CountryX",
     ownership_pct=60,
     is_pep=False,
-    sanctions_match=False,
     is_signatory=True,
     directorships=7
 )
