@@ -10,7 +10,7 @@ const ACRA_WITH_TABLES_ENDPOINT =
 
 const Step1BasicInformation = ({ data, onFieldChange, disabled = false }) => {
   const fileRef = useRef(null);
-  const [files, setFiles] = useState({}); // only actual files uploaded in form
+
   const [acraFile, setAcraFile] = useState(null);
   const [acraUploading, setAcraUploading] = useState(false);
   const [acraError, setAcraError] = useState("");
@@ -167,18 +167,6 @@ const Step1BasicInformation = ({ data, onFieldChange, disabled = false }) => {
     }
   };
 
-  // const handleDocumentChange = (fieldName, file) => {
-  //   if (!fieldName) {
-  //     console.error("Invalid document field:", fieldName);
-  //     return;
-  //   }
-
-  //   handleFieldChange(`documents.${fieldName}`, {
-  //     file,
-  //     progress: 0,
-  //   });
-  // };
-
   const handleFieldChange = (name, value) => {
     if (!name || typeof name !== "string") {
       console.error("Invalid field name:", name);
@@ -208,59 +196,34 @@ const Step1BasicInformation = ({ data, onFieldChange, disabled = false }) => {
     return newObj;
   };
 
-  const handleDocumentChange = (fieldPath, file) => {
-    if (!fieldPath || !file) return;
-
-    // store only metadata in Redux for UI
-    const fileMeta = {
-      fileName: file.name,
-      fileType: file.type,
-      progress: 0,
-    };
-
-    const updatedData = setNestedValue(data, fieldPath, fileMeta);
-    onFieldChange("", updatedData);
-
-    // keep the actual file locally for upload
-    setFiles((prev) => ({ ...prev, [fieldPath]: file }));
-  };
   // const handleDocumentChange = (fieldPath, file) => {
   //   if (!fieldPath || !file) return;
 
-  //   // store only metadata in Redux, not the raw File object
+  //   // Store metadata in Redux
   //   const fileMeta = {
   //     fileName: file.name,
   //     fileType: file.type,
+  //     size: file.size,
   //     progress: 0,
   //   };
 
   //   const updatedData = setNestedValue(data, fieldPath, fileMeta);
 
-  //   onFieldChange("", updatedData); // send entire updated object
+  //   onFieldChange("", updatedData); // Redux update
+
   // };
 
-  // const handleDocumentChange = (fieldPath, file) => {
-  //   if (!fieldPath || !file) return;
+  const handleDocumentChange = (fieldPath, file) => {
+    if (!fieldPath) {
+      console.error("Invalid document field:", fieldPath);
+      return;
+    }
 
-  //   const updatedData = setNestedValue(data, fieldPath, {
-  //     file,
-  //     progress: 0,
-  //   });
-
-  //   onFieldChange("", updatedData); // send entire updated object to Redux
-  // };
-
-  // const handleDocumentChange = (fieldPath, file) => {
-  //   if (!fieldPath) {
-  //     console.error("Invalid document field:", fieldPath);
-  //     return;
-  //   }
-
-  //   handleFieldChange(fieldPath, {
-  //     file,
-  //     progress: 0,
-  //   });
-  // };
+    handleFieldChange(fieldPath, {
+      file,
+      progress: 0,
+    });
+  };
 
   //HELPER
   const getVisibleConditionalFields = (fieldCfg, value) => {

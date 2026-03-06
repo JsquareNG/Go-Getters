@@ -292,6 +292,67 @@ const SMEApplicationForm = () => {
     return false;
   };
 
+  /**
+   * Recursively traverses the formData object
+   * Returns an array of all keys/paths where type === "file"
+   * Also supports conditional and repeatable sections
+   */
+  function extractFileFields(config, path = []) {
+    let files = [];
+
+    for (const key in config) {
+      const field = config[key];
+
+      if (!field) continue;
+
+      // Standard file field
+      if (field.type === "file") {
+        files.push({ path: [...path, key], field });
+      }
+
+      // Conditional fields (e.g., UBO, conditionalFields)
+      if (field.conditionalFields) {
+        for (const condKey in field.conditionalFields) {
+          files.push(
+            ...extractFileFields(field.conditionalFields[condKey], [
+              ...path,
+              key,
+              condKey,
+            ]),
+          );
+        }
+      }
+
+      // Repeatable sections
+      if (field.fields && typeof field.fields === "object") {
+        files.push(...extractFileFields(field.fields, [...path, key]));
+      }
+    }
+
+    return files;
+  }
+
+  const extractFiles = (obj) => {
+    if (!obj || typeof obj !== "object") return obj;
+
+    // If it's a File itself
+    if (obj instanceof File) return obj;
+
+    // If it's the { file, progress } structure
+    if ("file" in obj && obj.file instanceof File) return obj.file;
+
+    // Arrays: map recursively
+    if (Array.isArray(obj)) return obj.map(extractFiles);
+
+    // Objects: recurse
+    const result = {};
+    Object.entries(obj).forEach(([key, value]) => {
+      result[key] = extractFiles(value);
+    });
+
+    return result;
+  };
+
   const mapIndividuals = (data) => {
     const individual = {
       fullName: data.fullName || null,
@@ -410,8 +471,9 @@ const SMEApplicationForm = () => {
     // shallow copy top-level fields
     const payload = { ...data };
 
-    // Map individuals
-    payload.individuals = mapIndividuals(data);
+    // Map individuals n extrcat files
+    const individuals = mapIndividuals(data);
+    payload.individuals = extractFiles(individuals);
 
     // Remove top-level fields that are now under individuals
     [
