@@ -130,9 +130,9 @@ const Step4ReviewSubmit = ({ onEdit, disabled = false }) => {
     [step4Config, data],
   );
 
-  console.log("Basic Fields:", basicFields);
-  console.log("Financial Fields:", financialFields);
-  console.log("Compliance Fields:", complianceFields);
+  // console.log("Basic Fields:", basicFields);
+  // console.log("Financial Fields:", financialFields);
+  // console.log("Compliance Fields:", complianceFields);
 
   // ---- Submission readiness ----
   const allStepsComplete =

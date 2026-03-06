@@ -35,26 +35,13 @@ const Step4 = ({ onEdit, disabled = false }) => {
     );
   };
 
-  console.log("entity", entityConfig);
+  //   console.log(entityConfig)
 
-  const step2Config = getStepConfigById("step1_basic_info"); // match your config
-  const step3Config = getStepConfigById("step2_financial"); // match your config
-  const step4Config = getStepConfigById("step3_compliance"); // match your config
+  const step2Config = getStepConfigById("step2"); // match your config
+  const step3Config = getStepConfigById("step3"); // match your config
+  const step4Config = getStepConfigById("step4"); // match your config
 
-  //   const step2Config = useMemo(
-  //     () => entityConfig.steps?.find((s) => s.id === "step2") || {},
-  //     [entityConfig],
-  //   );
-
-  //   const step3Config = useMemo(
-  //     () => entityConfig.steps?.find((s) => s.id === "step3") || {},
-  //     [entityConfig],
-  //   );
-
-  //   const step4Config = useMemo(
-  //     () => entityConfig.steps?.find((s) => s.id === "step4") || {},
-  //     [entityConfig],
-  //   );
+  console.log(step2Config);
 
   /* ------------------------------------------------ */
   /* HELPERS */
@@ -65,147 +52,138 @@ const Step4 = ({ onEdit, disabled = false }) => {
       ? `${file.name} (${(file.size / 1024).toFixed(2)} KB)`
       : "Not uploaded";
 
-  //   const flattenObject = (obj) => {
-  //     if (!obj || typeof obj !== "object") return obj;
-
-  //     return Object.entries(obj)
-  //       .map(([k, v]) => {
-  //         if (typeof v === "object") {
-  //           return `${k}: ${flattenObject(v)}`;
-  //         }
-  //         return `${k}: ${v}`;
-  //       })
-  //       .join(", ");
-  //   };
-  //   const flattenObject = (obj, seen = new WeakSet()) => {
-  //     if (!obj || typeof obj !== "object") return obj;
-  //     if (seen.has(obj)) return "[Circular]";
-  //     seen.add(obj);
-
-  //     return Object.entries(obj)
-  //       .map(([k, v]) => {
-  //         if (v === null) return `${k}: null`;
-  //         if (v instanceof File) return `${k}: ${v.name}`;
-  //         if (Array.isArray(v)) return `${k}: [${v.join(", ")}]`;
-  //         if (typeof v === "object") return `${k}: {${flattenObject(v, seen)}}`; // recursive safely
-  //         return `${k}: ${v}`;
-  //       })
-  //       .join(", ");
-  //   };
-
-  //   const getFieldsFromStep = (stepConfig, stepData = {}) => {
+  //   function getFieldsFromStep(stepConfig, stepData = {}) {
   //     const fields = [];
 
-  //     if (!stepConfig) return fields;
+  //     const processFields = (fieldSet, data) => {
+  //       Object.entries(fieldSet || {}).forEach(([key, cfg]) => {
+  //         let value = data?.[key] ?? "";
+  //         let missing =
+  //           cfg.required &&
+  //           (value === "" || value === null || value === undefined);
 
-  //     // --- Normal fields ---
-  //     Object.entries(stepConfig.fields || {}).forEach(([key, cfg]) => {
-  //       // Conditional fields
-  //       if (cfg.condition && !cfg.condition(stepData)) return;
-
-  //       let value = stepData[key] ?? "";
-  //       const missing =
-  //         cfg.required && (value === null || value === undefined || value === "");
-  //       if (typeof value === "object" && value !== null)
-  //         value = JSON.stringify(value, null, 2);
-
-  //       fields.push({
-  //         label: cfg.label,
-  //         value: value || "Not provided",
-  //         missing,
+  //         // Handle conditionalFields
+  //         if (cfg.conditionalFields && value in cfg.conditionalFields) {
+  //           // Only show fields under this conditional key
+  //           const conditional = cfg.conditionalFields[value];
+  //           fields.push({
+  //             label: cfg.label,
+  //             value: value || "Not provided",
+  //             missing,
+  //           });
+  //           fields.push(...processFields(conditional, data[key] || {}));
+  //         } else if (!cfg.conditionalFields) {
+  //           // Normal field
+  //           fields.push({
+  //             label: cfg.label,
+  //             value: value || "Not provided",
+  //             missing,
+  //           });
+  //         }
   //       });
-  //     });
+  //       return fields;
+  //     };
 
-  //     // --- Repeatable sections ---
+  //     // Step fields
+  //     fields.push(...processFields(stepConfig.fields, stepData));
+
+  //     // Repeatable sections
   //     Object.entries(stepConfig.repeatableSections || {}).forEach(
   //       ([sectionKey, sectionCfg]) => {
-  //         const items = stepData[sectionKey] || [];
+  //         const items = stepData?.[sectionKey] || [];
   //         items.forEach((item, idx) => {
-  //           Object.entries(sectionCfg.fields || {}).forEach(([fKey, fCfg]) => {
-  //             if (fCfg.condition && !fCfg.condition(item)) return;
-
-  //             let value = item[fKey] ?? "";
-  //             const missing =
-  //               fCfg.required &&
-  //               (value === null || value === undefined || value === "");
-  //             if (value instanceof File) value = formatDocumentName(value);
-  //             else if (Array.isArray(value)) value = value.join(", ");
-  //             else if (typeof value === "object")
-  //               value = JSON.stringify(value, null, 2);
-
-  //             fields.push({
-  //               label: `${sectionCfg.label} ${idx + 1} - ${fCfg.label || fKey}`,
-  //               value: value || "Not provided",
-  //               missing,
-  //             });
-  //           });
+  //           fields.push(
+  //             ...processFields(sectionCfg.fields, item).map((f) => ({
+  //               ...f,
+  //               label: `${sectionCfg.label} ${idx + 1} - ${f.label}`,
+  //             })),
+  //           );
   //         });
   //       },
   //     );
 
-  //     // --- Documents ---
-  //     (stepConfig.documents || []).forEach((doc) => {
-  //       const key = generateDocKey(doc);
-  //       const file = stepData?.documents?.[key]?.file || stepData?.[key];
-  //       const missing = !file;
-  //       fields.push({ label: doc, value: formatDocumentName(file), missing });
-  //     });
-
   //     return fields;
-  //   };
+  //   }
 
-  function getFieldsFromStep(stepConfig, stepData = {}) {
+  const getFieldsFromStep = (stepConfig, stepData = {}) => {
     const fields = [];
 
-    const processFields = (fieldSet, data) => {
+    if (!stepConfig) return fields;
+
+    // --- Helper to process normal/conditional fields ---
+    const processFields = (fieldSet, data, prefix = "") => {
       Object.entries(fieldSet || {}).forEach(([key, cfg]) => {
         let value = data?.[key] ?? "";
-        let missing =
-          cfg.required &&
-          (value === "" || value === null || value === undefined);
 
-        // Handle conditionalFields
+        // Handle conditionalFields (like select/checkbox with extra subfields)
         if (cfg.conditionalFields && value in cfg.conditionalFields) {
-          // Only show fields under this conditional key
-          const conditional = cfg.conditionalFields[value];
           fields.push({
-            label: cfg.label,
+            label: prefix + cfg.label,
             value: value || "Not provided",
-            missing,
+            missing:
+              cfg.required &&
+              (value === "" || value === null || value === undefined),
           });
-          fields.push(...processFields(conditional, data[key] || {}));
-        } else if (!cfg.conditionalFields) {
+
+          const subFields = cfg.conditionalFields[value];
+          Object.entries(subFields).forEach(([subKey, subCfg]) => {
+            fields.push({
+              label: prefix + subCfg.label,
+              value: data?.[subKey] || "Not provided",
+              missing: subCfg.required && !data?.[subKey],
+            });
+          });
+        } else {
           // Normal field
+          if (value instanceof File) {
+            value = `${value.name} (${(value.size / 1024).toFixed(2)} KB)`;
+          } else if (typeof value === "object" && value !== null) {
+            value = JSON.stringify(value, null, 2);
+          } else if (value === "") {
+            value = "Not provided";
+          }
+
           fields.push({
-            label: cfg.label,
-            value: value || "Not provided",
-            missing,
+            label: prefix + cfg.label,
+            value,
+            missing: cfg.required && value === "Not provided",
           });
         }
       });
-      return fields;
     };
 
-    // Step fields
-    fields.push(...processFields(stepConfig.fields, stepData));
+    // --- Top-level fields ---
+    processFields(stepConfig.fields, stepData);
 
-    // Repeatable sections
+    // --- Repeatable sections (like Owners) ---
     Object.entries(stepConfig.repeatableSections || {}).forEach(
       ([sectionKey, sectionCfg]) => {
         const items = stepData?.[sectionKey] || [];
         items.forEach((item, idx) => {
-          fields.push(
-            ...processFields(sectionCfg.fields, item).map((f) => ({
-              ...f,
-              label: `${sectionCfg.label} ${idx + 1} - ${f.label}`,
-            })),
+          processFields(
+            sectionCfg.fields,
+            item,
+            `${sectionCfg.label} ${idx + 1} - `,
           );
         });
       },
     );
 
+    // --- Documents ---
+    (stepConfig.documents || []).forEach((doc) => {
+      const key = generateDocKey(doc);
+      const file = stepData?.documents?.[key]?.file || stepData?.[key];
+      fields.push({
+        label: doc,
+        value: file
+          ? `${file.name} (${(file.size / 1024).toFixed(2)} KB)`
+          : "Not uploaded",
+        missing: !file,
+      });
+    });
+
     return fields;
-  }
+  };
   //   const getFieldsFromStep = (stepConfig) => {
   //     const fields = [];
   //     if (!stepConfig) return fields;
@@ -270,65 +248,6 @@ const Step4 = ({ onEdit, disabled = false }) => {
   /* REVIEW FIELDS */
   /* ------------------------------------------------ */
 
-  //   const basicFields = useMemo(
-  //     () => getFieldsFromStep(step2Config),
-  //     [step2Config, data],
-  //   );
-
-  //   const financialFields = useMemo(
-  //     () => getFieldsFromStep(step3Config),
-  //     [step3Config, data],
-  //   );
-
-  //   const complianceFields = useMemo(
-  //     () => getFieldsFromStep(step4Config),
-  //     [step4Config, data],
-  //   );
-
-  //   const isStepComplete = (stepConfig, formData) => {
-  //     if (!stepConfig) return true;
-
-  //     // --- Normal fields ---
-  //     for (const [key, cfg] of Object.entries(stepConfig.fields || {})) {
-  //       const value = formData[key];
-  //       if (
-  //         cfg.required &&
-  //         (value === null || value === undefined || value === "")
-  //       ) {
-  //         return false;
-  //       }
-  //     }
-
-  //     // --- Repeatable sections ---
-  //     for (const [sectionKey, sectionCfg] of Object.entries(
-  //       stepConfig.repeatableSections || {},
-  //     )) {
-  //       const items = formData[sectionKey] || [];
-  //       if (sectionCfg.required && items.length === 0) return false;
-
-  //       for (const item of items) {
-  //         for (const [fKey, fCfg] of Object.entries(sectionCfg.fields || {})) {
-  //           const value = item[fKey];
-  //           if (
-  //             fCfg.required &&
-  //             (value === null || value === undefined || value === "")
-  //           ) {
-  //             return false;
-  //           }
-  //         }
-  //       }
-  //     }
-
-  //     // --- Documents ---
-  //     for (const doc of stepConfig.documents || []) {
-  //       const key = generateDocKey(doc);
-  //       const fileWrapper = formData?.documents?.[key];
-  //       const file = fileWrapper?.file || formData?.[key];
-  //       if (!file) return false;
-  //     }
-
-  //     return true;
-  //   };
   const isStepComplete = (stepConfig, formData = {}) => {
     if (!stepConfig) return true;
 
@@ -387,19 +306,32 @@ const Step4 = ({ onEdit, disabled = false }) => {
     return true;
   };
 
+  //   const basicFields = useMemo(
+  //     () => getFieldsFromStep(step2Config),
+  //     [step2Config, data],
+  //   );
+  //   const financialFields = useMemo(
+  //     () => getFieldsFromStep(step3Config),
+  //     [step3Config, data],
+  //   );
+  //   const complianceFields = useMemo(
+  //     () => getFieldsFromStep(step4Config),
+  //     [step4Config, data],
+  //   );
   const basicFields = useMemo(
-    () => getFieldsFromStep(step2Config),
+    () => getFieldsFromStep(step2Config, data),
     [step2Config, data],
   );
+
   const financialFields = useMemo(
-    () => getFieldsFromStep(step3Config),
+    () => getFieldsFromStep(step3Config, data),
     [step3Config, data],
   );
+
   const complianceFields = useMemo(
-    () => getFieldsFromStep(step4Config),
+    () => getFieldsFromStep(step4Config, data),
     [step4Config, data],
   );
-  console.log(data);
 
   const allFields = [...basicFields, ...financialFields, ...complianceFields];
   //   const allStepsComplete = allFields.every(
