@@ -1,22 +1,17 @@
-# application_service.py
-
-from backend.rules_engine.models import Company
-from backend.rules_engine.rule_engine import determine_due_diligence
+from rule_engine import run_engine
 
 
-def submit_application(company: Company):
-    print(f"\n📨 Application submitted: {company.name}")
+def submit_application(company):
 
-    result = determine_due_diligence(company)
+    result = run_engine(company)
 
-    print(f"🔢 Risk Score: {result['risk_score']}")
-    print(f"📌 Decision: {result['decision']}")
+    print("\nApplication Result")
+    print("---------------------")
+    print("Company:", company.name)
+    print("Risk Score:", result["risk_score"])
+    print("Decision:", result["decision"])
 
-    if result["triggered_checks"]:
-        print("\n🚩 Triggered Checks:")
-        for check in result["triggered_checks"]:
-            print(f"- [{check['code']}] {check['description']}")
-    else:
-        print("\n✅ No risk triggers detected")
+    print("\nTriggered Rules:")
 
-    return result
+    for r in result["rules_triggered"]:
+        print(f"{r['code']} - {r['description']}")

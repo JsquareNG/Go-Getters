@@ -1,64 +1,79 @@
-# test_engine.py
-
-from backend.rules_engine.models import Individual, Company
-from backend.rules_engine.application_service import submit_application
+from models import Company, Individual
+from application_service import submit_application
 
 
-def test_high_risk_sme():
-    ubo = Individual(
-        name="John Doe",
-        nationality="CountryX",
-        ownership_pct=60,
-        is_pep=False,
-        sanctions_match=False
-    )
+# TEST 1 — Low Risk SME (Expected: Simplified CDD)
+def test_low_risk_sme():
 
-    director = Individual(
-        name="Jane Tan",
-        nationality="Singapore",
-        ownership_pct=10,
-        is_pep=False,
-        sanctions_match=False
-    )
-
-    company = Company(
-        name="ABC Fintech Pte Ltd",
-        country="Singapore",
-        industry="Crypto",
-        ownership_layers=3,
-        uses_trust_or_nominee=True,
-        expected_monthly_volume=5_000_000,
-        individuals=[ubo, director]
-    )
-
-    submit_application(company)
-
-
-def test_sanctions_hit():
     owner = Individual(
-        name="Mr X",
-        nationality="CountryY",
-        ownership_pct=100,
+        name="Tan Wei Ming",
+        nationality="Singapore",
+        ownership_pct=80,
         is_pep=False,
-        sanctions_match=True
+        sanctions_match=False,
+        is_signatory=True,
+        directorships=1
     )
 
     company = Company(
-        name="Shadow Trading Pte Ltd",
+        name="Sunrise Retail Pte Ltd",
         country="Singapore",
-        industry="Trading",
+        industry="Retail",
         ownership_layers=1,
-        uses_trust_or_nominee=False,
-        expected_monthly_volume=200_000,
+        trust_structure=False,
+        expected_volume=200000,
+        years_incorporated=5,
+        physical_presence=True,
+        cross_border=False,
         individuals=[owner]
     )
 
+
     submit_application(company)
 
 
-if __name__ == "__main__":
-    print("\n=== TEST 1: High-Risk SME ===")
-    test_high_risk_sme()
 
-    print("\n=== TEST 2: Sanctions Match ===")
-    test_sanctions_hit()
+# TEST 2 — High Risk SME (Expected: Enhanced Due Diligence)
+def test_high_risk_sme():
+
+    ubo = Individual(
+        name="John Doe",
+        nationality="Iran",  # FATF blacklist
+        ownership_pct=60,
+        is_pep=False,
+        sanctions_match=False,
+        is_signatory=True,
+        directorships=7
+    )
+
+    director = Individual(
+        name="Jane Smith",
+        nationality="Singapore",
+        ownership_pct=10,
+        is_pep=False,
+        sanctions_match=False,
+        is_signatory=True,
+        directorships=3
+    )
+
+    company = Company(
+        name="Global Crypto Trading Ltd",
+        country="Singapore",
+        industry="Cryptocurrency Exchange",
+        ownership_layers=4,
+        trust_structure=True,
+        expected_volume=12000000,
+        years_incorporated=0,
+        physical_presence=False,
+        cross_border=True,
+        individuals=[ubo, director]
+    )
+
+    
+    submit_application(company)
+
+
+
+if __name__ == "__main__":
+    test_low_risk_sme()
+    test_high_risk_sme()
