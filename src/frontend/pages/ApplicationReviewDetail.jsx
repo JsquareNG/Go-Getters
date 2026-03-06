@@ -5,8 +5,6 @@ import {
   ArrowLeft,
   Building2,
   Calendar,
-  Clock,
-  FileText,
   AlertCircle,
   Upload,
   User,
@@ -17,6 +15,8 @@ import {
   CheckCircle2,
   XCircle,
   Download,
+  ShieldAlert,
+  AlertOctagon,
 } from "lucide-react";
 import {
   Accordion,
@@ -27,18 +27,25 @@ import {
   Card,
   CardContent,
   CardHeader,
-  CardTitle,
   StatusBadge,
+  Separator,
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
 } from "@/components/ui";
+import { Badge } from "../components/ui/primitives/Badge";
 import { toast } from "sonner";
 import {
   getApplicationByAppId,
   approveApplication,
   rejectApplication,
   escalateApplication,
+  getQnA,
   getReviewJob,
 } from "@/api/applicationApi";
 import { allDocuments, downloadDocuments } from "./../api/documentApi";
+import RequestDocumentsDialog from "../components/ui/features/RequestDocumentsDialog";
 
 export default function ApplicationReviewDetail() {
   const { id } = useParams();
@@ -50,21 +57,28 @@ export default function ApplicationReviewDetail() {
   const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
   const [error, setError] = useState(null);
 
-  // ✅ documents state (NEW)
   const [documents, setDocuments] = useState([]);
   const [docsLoading, setDocsLoading] = useState(false);
   const [docsError, setDocsError] = useState(null);
 
+  const [riskLoading, setRiskLoading] = useState(false);
+  const [riskError, setRiskError] = useState(null);
+
+  const [actionRequestsData, setActionRequestsData] = useState(null);
+  const [qnaLoading, setQnaLoading] = useState(false);
+  const [qnaError, setQnaError] = useState(null);
+
+  const [requestDocsOpen, setRequestDocsOpen] = useState(false);
+
+  // -----------------------------
+  // Fetch application
+  // -----------------------------
   useEffect(() => {
     const fetchApplication = async () => {
       try {
         setIsLoading(true);
         const data = await getApplicationByAppId(id);
-        const rulesData = await getReviewJob(id)
-
         setApplication(data);
-        setRules(rulesData);
-        console.log(rulesData)
         setError(null);
       } catch (err) {
         console.error("Error fetching application:", err);
@@ -77,14 +91,16 @@ export default function ApplicationReviewDetail() {
     if (id) fetchApplication();
   }, [id]);
 
-  // ✅ fetch documents for this application id (NEW)
+  // -----------------------------
+  // Fetch uploaded documents
+  // -----------------------------
   useEffect(() => {
     const fetchDocuments = async () => {
       try {
         setDocsLoading(true);
         setDocsError(null);
 
-        const docs = await allDocuments(id); // should return docs for this application
+        const docs = await allDocuments(id);
         setDocuments(Array.isArray(docs) ? docs : []);
       } catch (err) {
         console.error("Error fetching documents:", err);
@@ -97,12 +113,85 @@ export default function ApplicationReviewDetail() {
     if (id) fetchDocuments();
   }, [id]);
 
-  const currentStatus = application?.current_status || "Not started";
+  // -----------------------------
+  // Fetch Risk Assessment via getReviewJob
+  // -----------------------------
+  useEffect(() => {
+    const fetchReviewJob = async () => {
+      try {
+        setRiskLoading(true);
+        setRiskError(null);
 
-  // ✅ Staff only reviews when application is in staff review statuses
-  const canReview = ["Under Review", "Under Manual Review"].includes(
-    currentStatus,
-  );
+        const appIdToUse = application?.application_id || application?.id || id;
+        if (!appIdToUse) return;
+
+        const data = await getReviewJob(appIdToUse);
+        setRules(data && typeof data === "object" ? data : null);
+      } catch (err) {
+        console.error("Error fetching review job:", {
+          message: err?.message,
+          status: err?.response?.status,
+          data: err?.response?.data,
+          url: err?.config?.url,
+        });
+
+        setRiskError(
+          err?.response?.data?.detail ||
+            err?.response?.data?.message ||
+            err?.message ||
+            "Could not retrieve risk assessment."
+        );
+        setRules(null);
+      } finally {
+        setRiskLoading(false);
+      }
+    };
+
+    if (id && application) fetchReviewJob();
+  }, [id, application]);
+
+  // -----------------------------
+  // Fetch Action Requests (QnA) via getQnA
+  // -----------------------------
+  useEffect(() => {
+    const fetchQnA = async () => {
+      try {
+        setQnaLoading(true);
+        setQnaError(null);
+
+        const appIdToUse = application?.application_id || application?.id || id;
+        if (!appIdToUse) return;
+
+        const data = await getQnA(appIdToUse);
+        setActionRequestsData(data && typeof data === "object" ? data : null);
+      } catch (err) {
+        console.error("Error fetching QnA:", {
+          message: err?.message,
+          status: err?.response?.status,
+          data: err?.response?.data,
+          url: err?.config?.url,
+        });
+
+        setQnaError(
+          err?.response?.data?.detail ||
+            err?.response?.data?.message ||
+            err?.message ||
+            "Could not retrieve questions & answers."
+        );
+        setActionRequestsData(null);
+      } finally {
+        setQnaLoading(false);
+      }
+    };
+
+    if (id && application) fetchQnA();
+  }, [id, application]);
+
+  // -----------------------------
+  // Derived values
+  // -----------------------------
+  const currentStatus = application?.current_status || "Not started";
+  const canReview = ["Under Review", "Under Manual Review"].includes(currentStatus);
 
   const formattedDate = application?.last_edited
     ? new Date(application.last_edited).toLocaleDateString("en-US", {
@@ -117,16 +206,137 @@ export default function ApplicationReviewDetail() {
     return Array.isArray(arr) ? arr : [];
   }, [application]);
 
-  // ✅ reason might be stored as application.reason OR inside form_data.reason
-  const actionReason = application?.reason ?? application?.form_data?.reason;
+  const actionRequests = useMemo(() => {
+    const arr = actionRequestsData?.action_requests;
+    return Array.isArray(arr) ? arr : [];
+  }, [actionRequestsData]);
 
-  // ✅ open PDF by signed URL (NEW)
+  const sortedActionRequests = useMemo(() => {
+    return [...actionRequests].sort((a, b) => {
+      const ta = new Date(a?.created_at || 0).getTime();
+      const tb = new Date(b?.created_at || 0).getTime();
+      return tb - ta;
+    });
+  }, [actionRequests]);
+
+  const sortedActionRequestsAsc = useMemo(() => {
+    return [...actionRequests].sort((a, b) => {
+      const ta = new Date(a?.created_at || 0).getTime();
+      const tb = new Date(b?.created_at || 0).getTime();
+      return ta - tb;
+    });
+  }, [actionRequests]);
+
+  const latestOpenRequest = useMemo(() => {
+    return sortedActionRequests.find((r) => r?.status === "OPEN") || null;
+  }, [sortedActionRequests]);
+
+  const actionReason =
+    latestOpenRequest?.reason ?? application?.reason ?? application?.form_data?.reason;
+
+  const missingDocuments = useMemo(() => {
+    const docs = latestOpenRequest?.documents;
+    return Array.isArray(docs) ? docs : [];
+  }, [latestOpenRequest]);
+
+  const allQuestions = useMemo(() => {
+    const rows = [];
+    for (const ar of sortedActionRequests) {
+      const qs = Array.isArray(ar?.questions) ? ar.questions : [];
+      for (const q of qs) {
+        rows.push({
+          action_request_id: ar?.action_request_id,
+          status: ar?.status,
+          reason: ar?.reason,
+          created_at: ar?.created_at,
+          item_id: q?.item_id,
+          question_text: q?.question_text,
+          answer_text: q?.answer_text,
+          fulfilled_at: q?.fulfilled_at,
+        });
+      }
+    }
+    return rows;
+  }, [sortedActionRequests]);
+
+  const riskRules = Array.isArray(rules?.rules_triggered) ? rules.rules_triggered : [];
+  const riskGrade = rules?.risk_grade || "";
+
+  const riskTone = useMemo(() => {
+    switch (riskGrade) {
+      case "Enhanced Due Diligence (EDD)":
+        return {
+          badge: "bg-red-500 text-white border-red-500",
+          soft: "border-red-500/20 bg-red-500/5",
+          text: "text-red-500",
+          icon: "text-red-500",
+        };
+      case "Standard CDD":
+        return {
+          badge: "bg-orange-400 text-white border-orange-400",
+          soft: "border-orange-400/20 bg-orange-400/5",
+          text: "text-orange-500",
+          icon: "text-orange-500",
+        };
+      default:
+        return {
+          badge: "bg-muted text-foreground border-border",
+          soft: "border-border bg-muted/30",
+          text: "text-foreground",
+          icon: "text-muted-foreground",
+        };
+    }
+  }, [riskGrade]);
+
+  const firstActionRequestTime = useMemo(() => {
+    if (sortedActionRequestsAsc.length === 0) return null;
+    return new Date(sortedActionRequestsAsc[0]?.created_at || 0).getTime();
+  }, [sortedActionRequestsAsc]);
+
+  const initialDocuments = useMemo(() => {
+    if (!Array.isArray(documents)) return [];
+    if (!firstActionRequestTime) return documents;
+
+    return documents.filter((doc) => {
+      const t = new Date(doc?.created_at || 0).getTime();
+      return t && t < firstActionRequestTime;
+    });
+  }, [documents, firstActionRequestTime]);
+
+  const resubmissionGroups = useMemo(() => {
+    if (!Array.isArray(documents) || sortedActionRequestsAsc.length === 0) return [];
+
+    return sortedActionRequestsAsc.map((request, index) => {
+      const currentTime = new Date(request?.created_at || 0).getTime();
+      const nextTime =
+        index < sortedActionRequestsAsc.length - 1
+          ? new Date(sortedActionRequestsAsc[index + 1]?.created_at || 0).getTime()
+          : Infinity;
+
+      const groupedDocs = documents.filter((doc) => {
+        const t = new Date(doc?.created_at || 0).getTime();
+        return t && t >= currentTime && t < nextTime;
+      });
+
+      return {
+        round: index + 1,
+        action_request_id: request?.action_request_id,
+        created_at: request?.created_at,
+        status: request?.status,
+        reason: request?.reason,
+        documents: groupedDocs,
+      };
+    });
+  }, [documents, sortedActionRequestsAsc]);
+
+  // -----------------------------
+  // Handlers
+  // -----------------------------
   const handleOpenDocument = async (doc) => {
-    // open a blank tab immediately to avoid popup blockers
     const newTab = window.open("", "_blank");
 
     try {
-      const documentId = doc?.document_id; // ✅ backend expects Document.document_id
+      const documentId = doc?.document_id;
       if (!documentId) {
         if (newTab) newTab.close();
         toast.error("Missing document_id");
@@ -135,7 +345,7 @@ export default function ApplicationReviewDetail() {
       }
 
       const res = await downloadDocuments(documentId);
-      const signedUrl = res?.url; // backend returns { url }
+      const signedUrl = res?.url;
 
       if (!signedUrl) throw new Error("No url returned from download endpoint");
 
@@ -143,59 +353,41 @@ export default function ApplicationReviewDetail() {
       else window.open(signedUrl, "_blank", "noopener,noreferrer");
     } catch (err) {
       if (newTab) newTab.close();
-      console.error(
-        "Open document error:",
-        err?.response?.status,
-        err?.response?.data || err,
-      );
+      console.error("Open document error:", err?.response?.status, err?.response?.data || err);
       toast.error("Could not open document", {
-        description:
-          err?.response?.data?.detail || err?.message || "Unknown error",
+        description: err?.response?.data?.detail || err?.message || "Unknown error",
       });
     }
   };
 
-  /**
-   * ✅ ESCALATE (Request Documents)
-   * - Prompts for reason
-   * - Calls escalateApplication(appId, reason)
-   * - Redirect back to staff landing page
-   * - Staff landing page filters out Requires Action so it disappears
-   */
-  const handleRequestDocuments = async () => {
-    if (!id) return;
+  const handleRequestDocuments = () => {
+    setRequestDocsOpen(true);
+  };
 
-    const reason =
-      window.prompt("Reason / documents required from applicant?") || "";
-    if (!reason.trim()) {
-      toast.error("Reason required", {
-        description: "Please enter a reason to request documents.",
-      });
-      return;
-    }
+  const handleSubmitRequestDocs = async ({ reason, documents, questions }) => {
+    if (!id) return;
 
     try {
       setIsUpdatingStatus(true);
 
       const appIdToUse = application?.application_id || id;
-      await escalateApplication(appIdToUse, reason.trim());
 
-      toast.success("Escalated to applicant", {
-        description:
-          "Status set to Requires Action and applicant has been notified.",
+      await escalateApplication(appIdToUse, {
+        reason,
+        documents,
+        questions,
       });
 
-      // ✅ go back; it will be removed from staff queue
+      toast.success("Escalated to applicant", {
+        description: "Status set to Requires Action and applicant has been notified.",
+      });
+
       navigate("/staff-landingpage");
     } catch (err) {
       console.error("Escalate failed:", err);
-      console.log("Escalate err.response?.data:", err?.response?.data);
-
       toast.error("Request Documents failed", {
         description:
-          err?.response?.data?.detail ||
-          err?.message ||
-          "Could not escalate application.",
+          err?.response?.data?.detail || err?.message || "Could not escalate application.",
       });
     } finally {
       setIsUpdatingStatus(false);
@@ -205,18 +397,14 @@ export default function ApplicationReviewDetail() {
   const handleApprove = async () => {
     if (!id) return;
 
-    const reason =
-      window.prompt("Reason for approving this application?") || "";
+    const reason = window.prompt("Reason for approving this application?") || "";
     if (!reason.trim()) {
-      toast.error("Reason required", {
-        description: "Please enter a reason to approve.",
-      });
+      toast.error("Reason required", { description: "Please enter a reason to approve." });
       return;
     }
 
     try {
       setIsUpdatingStatus(true);
-
       const appIdToUse = application?.application_id || id;
       await approveApplication(appIdToUse, reason.trim());
 
@@ -227,13 +415,8 @@ export default function ApplicationReviewDetail() {
       navigate("/staff-landingpage");
     } catch (err) {
       console.error("Approve failed:", err);
-      console.log("Approve err.response?.data:", err?.response?.data);
-
       toast.error("Approve failed", {
-        description:
-          err?.response?.data?.detail ||
-          err?.message ||
-          "Could not approve application.",
+        description: err?.response?.data?.detail || err?.message || "Could not approve application.",
       });
     } finally {
       setIsUpdatingStatus(false);
@@ -243,18 +426,14 @@ export default function ApplicationReviewDetail() {
   const handleReject = async () => {
     if (!id) return;
 
-    const reason =
-      window.prompt("Reason for rejecting this application?") || "";
+    const reason = window.prompt("Reason for rejecting this application?") || "";
     if (!reason.trim()) {
-      toast.error("Reason required", {
-        description: "Please enter a reason to reject.",
-      });
+      toast.error("Reason required", { description: "Please enter a reason to reject." });
       return;
     }
 
     try {
       setIsUpdatingStatus(true);
-
       const appIdToUse = application?.application_id || id;
       await rejectApplication(appIdToUse, reason.trim());
 
@@ -265,19 +444,17 @@ export default function ApplicationReviewDetail() {
       navigate("/staff-landingpage");
     } catch (err) {
       console.error("Reject failed:", err);
-      console.log("Reject err.response?.data:", err?.response?.data);
-
       toast.error("Reject failed", {
-        description:
-          err?.response?.data?.detail ||
-          err?.message ||
-          "Could not reject application.",
+        description: err?.response?.data?.detail || err?.message || "Could not reject application.",
       });
     } finally {
       setIsUpdatingStatus(false);
     }
   };
 
+  // -----------------------------
+  // Loading / error states
+  // -----------------------------
   if (isLoading) {
     return (
       <div className="flex min-h-screen items-center justify-center">
@@ -289,482 +466,640 @@ export default function ApplicationReviewDetail() {
   if (error || !application) {
     return (
       <div className="flex min-h-screen flex-col items-center justify-center gap-4">
-        <p className="text-red-500 font-medium">
-          {error || "Application not found."}
-        </p>
-        <Button onClick={() => navigate("/staff-landingpage")}>
-          Back to List
-        </Button>
+        <p className="font-medium text-red-500">{error || "Application not found."}</p>
+        <Button onClick={() => navigate("/staff-landingpage")}>Back to List</Button>
       </div>
     );
   }
 
+  const appDisplayId = application?.application_id || application?.id || id || "-";
+
   return (
-    <div className="min-h-screen bg-background">
-      <main className="container mx-auto px-6 py-8 animate-fade-in">
-        <Button
-          variant="ghost"
-          onClick={() => navigate("/staff-landingpage")}
-          className="mb-6 -ml-2 text-slate-600 hover:text-foreground"
-        >
-          <ArrowLeft className="mr-2 h-4 w-4" />
-          Back to Applications
-        </Button>
+    <div className="min-h-screen bg-background pb-24">
+      <main className="container mx-auto animate-fade-in px-6 py-8">
+        <div className="mb-6">
+          <Button
+            variant="ghost"
+            onClick={() => navigate("/staff-landingpage")}
+            className="mb-4 gap-2 text-muted-foreground hover:text-foreground"
+          >
+            <ArrowLeft className="h-4 w-4" />
+            Back to Applications
+          </Button>
 
-        {/* Header */}
-        <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between mb-8">
-          <div className="flex items-start gap-4">
-            <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-xl bg-secondary">
-              <Building2 className="h-7 w-7 text-slate-600" />
-            </div>
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+            <div className="flex items-center gap-4">
+              <div className="flex h-14 w-14 items-center justify-center rounded-xl bg-muted">
+                <Building2 className="h-7 w-7 text-muted-foreground" />
+              </div>
 
-            <div>
-              <h1 className="text-2xl font-semibold text-foreground mb-1">
-                {application.business_name}
-              </h1>
-              <p className="text-slate-600 mb-2">Corporate Account</p>
+              <div>
+                <div className="flex flex-wrap items-center gap-3">
+                  <h1 className="text-2xl font-bold tracking-tight text-foreground">
+                    {application?.business_name || "-"}
+                  </h1>
+                  <StatusBadge status={currentStatus} />
+                </div>
+                <p className="mt-1 text-muted-foreground">
+                  Application ID: {appDisplayId}
+                </p>
 
-              <div className="flex flex-wrap items-center gap-3">
-                <StatusBadge status={currentStatus} />
-                <span className="flex items-center gap-1.5 text-sm text-slate-600">
-                  <Calendar className="h-4 w-4" />
-                  Last updated: {formattedDate}
-                </span>
+                <div className="mt-2 flex flex-wrap items-center gap-3">
+                  <span className="flex items-center gap-1.5 text-sm text-muted-foreground">
+                    <Calendar className="h-4 w-4" />
+                    Last updated: {formattedDate}
+                  </span>
+                  {missingDocuments.length > 0 && (
+                    <Badge className="border border-amber-500/20 bg-amber-500/10 text-amber-600">
+                      {missingDocuments.length} item(s) pending applicant action
+                    </Badge>
+                  )}
+                </div>
               </div>
             </div>
           </div>
         </div>
 
-        {/* rules */}
-        <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between mb-2">
-          {rules.rules_triggered.length > 0 && (() => {
-            const overallGrade = rules?.risk_grade?.toUpperCase();
+        <div className="pb-20">
+          <Card>
+            <Tabs defaultValue="overview" className="w-full">
+              <CardHeader className="pb-3">
+                <TabsList className="flex h-auto w-full flex-wrap justify-start gap-1 bg-muted/50 p-1">
+                  <TabsTrigger value="overview" className="text-xs sm:text-sm">
+                    Overview
+                  </TabsTrigger>
+                  <TabsTrigger value="risk" className="text-xs sm:text-sm">
+                    Risk Assessment
+                  </TabsTrigger>
+                  <TabsTrigger value="documents" className="text-xs sm:text-sm">
+                    Documents
+                  </TabsTrigger>
+                  <TabsTrigger value="qna" className="text-xs sm:text-sm">
+                    Questions & Answers
+                  </TabsTrigger>
+                  {currentStatus === "Requires Action" && actionReason && (
+                    <TabsTrigger value="response" className="text-xs sm:text-sm">
+                      Action Status
+                    </TabsTrigger>
+                  )}
+                </TabsList>
+              </CardHeader>
 
-            const overallStyles = {
-              HIGH: "bg-red-100 text-red-800 border border-red-200",
-              MEDIUM: "bg-amber-100 text-amber-800 border border-amber-200",
-              LOW: "bg-emerald-100 text-emerald-800 border border-emerald-200",
-            };
-
-            const overallBadgeStyle =
-              overallStyles[overallGrade] ||
-              "bg-slate-100 text-slate-700 border border-slate-200";
-
-            return (
-              <div className="mb-8 rounded-xl border border-amber-200 bg-amber-50 p-4">
-                <div className="flex items-start gap-3">
-                  {/* Icon */}
-                  <div className="mt-0.5 flex h-8 w-8 items-center justify-center rounded-full bg-amber-200">
-                    <AlertCircle className="h-4 w-4 text-slate-700" />
-                  </div>
-
-                  <div className="flex-1">
-                    {/* Header Row */}
-                    <div className="flex flex-wrap items-center justify-between gap-2">
-                      <p className="font-semibold text-slate-900">
-                        Risk Assessment ({rules.rules_triggered.length} rule
-                        {rules.rules_triggered.length > 1 ? "s" : ""})
-                      </p>
-
-                      <div className="flex items-center gap-2">
-                        {/* Risk Score */}
-                        {typeof rules?.risk_score === "number" && (
-                          <span className="rounded-full bg-white px-2 py-0.5 text-xs font-medium border border-slate-200 text-slate-700">
-                            Score: {rules.risk_score}
-                          </span>
-                        )}
-
-                        {/* Overall Grade Badge */}
-                        {overallGrade && (
-                          <span
-                            className={`rounded-full px-2 py-0.5 text-xs font-semibold ${overallBadgeStyle}`}
-                          >
-                            {overallGrade}
-                          </span>
-                        )}
+              <CardContent>
+                <TabsContent value="overview" className="mt-0 space-y-6">
+                  <div>
+                    <h4 className="mb-3 flex items-center gap-2 text-sm font-semibold text-muted-foreground">
+                      <Building2 className="h-4 w-4" />
+                      Business Details
+                    </h4>
+                    <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                      <div>
+                        <p className="text-xs text-muted-foreground">Registration Number</p>
+                        <p className="text-sm font-medium text-foreground">
+                          {application.business_registration_number || "-"}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-muted-foreground">Business Name</p>
+                        <p className="text-sm font-medium text-foreground">
+                          {application.business_name || "-"}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-muted-foreground">Incorporation Date</p>
+                        <p className="text-sm font-medium text-foreground">
+                          {application.incorporationDate || "-"}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-muted-foreground">Business Type</p>
+                        <p className="text-sm font-medium text-foreground">
+                          {application.business_type || "-"}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-muted-foreground">Industry</p>
+                        <p className="text-sm font-medium text-foreground">
+                          {application.industry || "-"}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-muted-foreground">Employee Count</p>
+                        <p className="text-sm font-medium text-foreground">
+                          {application.employeeCount || "-"}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-muted-foreground">Annual Revenue</p>
+                        <p className="text-sm font-medium text-foreground">
+                          {application.annualRevenue || "-"}
+                        </p>
                       </div>
                     </div>
-
-                    {/* Rules List */}
-                    <div className="mt-3 space-y-2">
-                      {rules.rules_triggered.map((r, idx) => {
-                        const severity = r?.severity?.toUpperCase();
-
-                        const severityStyles = {
-                          HIGH: "bg-red-100 text-red-800 border border-red-200",
-                          MEDIUM:
-                            "bg-amber-100 text-amber-800 border border-amber-200",
-                          LOW: "bg-emerald-100 text-emerald-800 border border-emerald-200",
-                        };
-
-                        const severityBadgeStyle =
-                          severityStyles[severity] ||
-                          "bg-slate-100 text-slate-700 border border-slate-200";
-
-                        return (
-                          <div
-                            key={r?.rule_id ?? idx}
-                            className="rounded-lg border border-slate-200 bg-white p-3"
-                          >
-                            <div className="flex flex-wrap items-start justify-between gap-2">
-                              <div>
-                                <p className="font-medium text-slate-900">
-                                  {r?.name || "Triggered Rule"}
-                                  {r?.rule_id && (
-                                    <span className="ml-2 text-xs text-slate-500">
-                                      ({r.rule_id})
-                                    </span>
-                                  )}
-                                </p>
-
-                                {r?.reason && (
-                                  <p className="mt-0.5 text-sm text-slate-600">
-                                    {r.reason}
-                                  </p>
-                                )}
-                              </div>
-
-                              <div className="flex items-center gap-2">
-                                {severity && (
-                                  <span
-                                    className={`rounded-full px-2 py-0.5 text-xs font-semibold ${severityBadgeStyle}`}
-                                  >
-                                    {severity}
-                                  </span>
-                                )}
-
-                                {typeof r?.points === "number" && (
-                                  <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-700 border border-slate-200">
-                                    +{r.points} pts
-                                  </span>
-                                )}
-                              </div>
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
                   </div>
-                </div>
-              </div>
-            );
-          })()}
-        </div>
 
-        {/* MAIN 2-COLUMN LAYOUT */}
-        <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-          {/* LEFT */}
-          <div className="lg:col-span-2 space-y-6">
-            {/* Business Details */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2 text-lg">
-                  <Building2 className="h-5 w-5 text-muted-foreground" />
-                  Business Details
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <Separator />
+
                   <div>
+                    <h4 className="mb-3 flex items-center gap-2 text-sm font-semibold text-muted-foreground">
+                      <MapPin className="h-4 w-4" />
+                      Registered Address
+                    </h4>
+                    <p className="text-sm font-medium text-foreground">{application.street || "-"}</p>
                     <p className="text-sm text-muted-foreground">
-                      Registration Number
+                      {application.city || "-"}, {application.postalCode || "-"}
                     </p>
-                    <p className="font-medium text-foreground">
-                      {application.business_registration_number || "-"}
-                    </p>
-                  </div>
-
-                  <div>
-                    <p className="text-sm text-muted-foreground">Business Name</p>
-                    <p className="font-medium text-foreground">
-                      {application.business_name || "-"}
-                    </p>
-                  </div>
-
-                  <div>
                     <p className="text-sm text-muted-foreground">
-                      Incorporation Date
-                    </p>
-                    <p className="font-medium text-foreground">
-                      {application.incorporationDate || "-"}
+                      {application.business_country || "-"}
                     </p>
                   </div>
+
+                  <Separator />
 
                   <div>
-                    <p className="text-sm text-muted-foreground">Business Type</p>
-                    <p className="font-medium text-foreground">
-                      {application.business_type || "-"}
-                    </p>
-                  </div>
+                    <h4 className="mb-3 flex items-center gap-2 text-sm font-semibold text-muted-foreground">
+                      <User className="h-4 w-4" />
+                      Directors ({directors.length})
+                    </h4>
 
-                  <div>
-                    <p className="text-sm text-muted-foreground">Industry</p>
-                    <p className="font-medium text-foreground">
-                      {application.industry || "-"}
-                    </p>
-                  </div>
-
-                  <div>
-                    <p className="text-sm text-muted-foreground">Employee Count</p>
-                    <p className="font-medium text-foreground">
-                      {application.employeeCount || "-"}
-                    </p>
-                  </div>
-
-                  <div>
-                    <p className="text-sm text-muted-foreground">
-                      Annual Revenue
-                    </p>
-                    <p className="font-medium text-foreground">
-                      {application.annualRevenue || "-"}
-                    </p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Directors */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2 text-lg">
-                  <User className="h-5 w-5 text-muted-foreground" />
-                  Directors ({directors.length})
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                {directors.length === 0 ? (
-                  <p className="text-sm text-muted-foreground">
-                    No directors provided.
-                  </p>
-                ) : (
-                  <Accordion
-                    type="single"
-                    collapsible
-                    defaultValue="director-0"
-                    className="w-full"
-                  >
-                    {directors.map((d, idx) => {
-                      const itemValue = `director-${idx}`;
-                      return (
-                        <AccordionItem
-                          key={itemValue}
-                          value={itemValue}
-                          className="border-border"
-                        >
-                          <AccordionTrigger className="hover:no-underline py-3">
-                            <div className="flex items-center gap-3 text-left">
-                              <div className="flex h-8 w-8 items-center justify-center rounded-full bg-muted">
-                                <User className="h-4 w-4 text-muted-foreground" />
-                              </div>
-                              <div>
-                                <p className="font-medium text-foreground">
-                                  {d?.fullName || `Director ${idx + 1}`}
-                                </p>
-                                <p className="text-xs text-muted-foreground">
-                                  {d?.idNumber || "-"}
-                                </p>
-                              </div>
-                            </div>
-                          </AccordionTrigger>
-                          <AccordionContent>
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pl-11 pt-1">
-                              <div className="flex items-center gap-2">
-                                <Mail className="h-4 w-4 text-muted-foreground" />
-                                <div>
-                                  <p className="text-sm text-muted-foreground">
-                                    Email
-                                  </p>
-                                  <p className="font-medium text-foreground">
-                                    {d?.email || "-"}
-                                  </p>
-                                </div>
-                              </div>
-                              <div className="flex items-center gap-2">
-                                <Phone className="h-4 w-4 text-muted-foreground" />
-                                <div>
-                                  <p className="text-sm text-muted-foreground">
-                                    Phone
-                                  </p>
-                                  <p className="font-medium text-foreground">
-                                    {d?.phone || "-"}
-                                  </p>
-                                </div>
-                              </div>
-                            </div>
-                          </AccordionContent>
-                        </AccordionItem>
-                      );
-                    })}
-                  </Accordion>
-                )}
-              </CardContent>
-            </Card>
-
-            {/* Registered Address */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2 text-lg">
-                  <MapPin className="h-5 w-5 text-muted-foreground" />
-                  Registered Address
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="font-medium text-foreground">
-                  Street: {application.street || "-"}
-                </p>
-                <p className="text-muted-foreground">
-                  City and Postal Code: {application.city || "-"},{" "}
-                  {application.postalCode || "-"}
-                </p>
-                Country:{" "}
-                <p className="text-muted-foreground">
-                  {application.business_country || "-"}
-                </p>
-              </CardContent>
-            </Card>
-
-            {/* Requires Action feedback (still visible if staff opens old link) */}
-            {currentStatus === "Requires Action" && actionReason && (
-              <Card className="border-rose-500/30 bg-rose-500/5">
-                <CardHeader className="pb-3">
-                  <CardTitle className="flex items-center gap-2 text-rose-500 text-lg">
-                    <AlertCircle className="h-5 w-5" />
-                    Action Required
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-foreground mb-4">{actionReason}</p>
-                  <div className="flex flex-wrap gap-3">
-                    <Button className="gap-2" disabled>
-                      <Upload className="h-4 w-4" /> Awaiting Applicant Upload
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
-            )}
-          </div>
-
-          {/* RIGHT */}
-          <div className="space-y-6">
-            {/* ✅ Review Actions ONLY when staff can review */}
-            {canReview && (
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-lg">Review Actions</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-3">
-                  <Button
-                    variant="outline"
-                    className="w-full gap-2 bg-amber-500 text-white"
-                    onClick={handleRequestDocuments}
-                    disabled={isUpdatingStatus}
-                  >
-                    <FileQuestion className="h-4 w-4" />
-                    {isUpdatingStatus ? "Requesting..." : "Request Documents"}
-                  </Button>
-
-                  <Button
-                    className="w-full gap-2 bg-green-500 text-white"
-                    onClick={handleApprove}
-                    disabled={isUpdatingStatus}
-                  >
-                    <CheckCircle2 className="h-4 w-4" />
-                    {isUpdatingStatus ? "Approving..." : "Approve Application"}
-                  </Button>
-
-                  <Button
-                    variant="outline"
-                    className="w-full gap-2 bg-red-500 text-white"
-                    onClick={handleReject}
-                    disabled={isUpdatingStatus}
-                  >
-                    <XCircle className="h-4 w-4" />
-                    {isUpdatingStatus ? "Rejecting..." : "Reject Application"}
-                  </Button>
-                </CardContent>
-              </Card>
-            )}
-
-            {/* Documents */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2 text-lg">
-                  <FileText className="h-5 w-5 text-muted-foreground" />
-                  Documents
-                </CardTitle>
-              </CardHeader>
-
-              {/* ✅ NEW: documents list + open button */}
-              <CardContent className="space-y-3">
-                {docsLoading ? (
-                  <p className="text-sm text-muted-foreground">
-                    Loading documents...
-                  </p>
-                ) : docsError ? (
-                  <p className="text-sm text-red-500">{docsError}</p>
-                ) : documents.length === 0 ? (
-                  <p className="text-sm text-muted-foreground">
-                    No documents uploaded yet.
-                  </p>
-                ) : (
-                  <div className="space-y-2">
-                    {documents.map((doc) => (
-                      <div
-                        key={
-                          doc.document_id ||
-                          doc.id ||
-                          `${doc.document_type}-${doc.created_at}`
-                        }
-                        className="relative flex items-center justify-between rounded-lg border border-border p-3"
+                    {directors.length === 0 ? (
+                      <p className="text-sm text-muted-foreground">No directors provided.</p>
+                    ) : (
+                      <Accordion
+                        type="single"
+                        collapsible
+                        defaultValue="director-0"
+                        className="w-full"
                       >
-                        <div className="min-w-0">
-                          <p className="truncate font-medium text-foreground">
-                            {doc.document_type || "Document"}
-                          </p>
-                          <p className="text-xs text-muted-foreground">
-                            {doc.created_at
-                              ? `Uploaded: ${new Date(doc.created_at).toLocaleDateString()}`
-                              : ""}
+                        {directors.map((d, idx) => {
+                          const itemValue = `director-${idx}`;
+                          return (
+                            <AccordionItem
+                              key={itemValue}
+                              value={itemValue}
+                              className="border-border"
+                            >
+                              <AccordionTrigger className="py-2.5 hover:no-underline">
+                                <div className="flex items-center gap-2.5 text-left">
+                                  <div className="flex h-7 w-7 items-center justify-center rounded-full bg-muted">
+                                    <User className="h-3.5 w-3.5 text-muted-foreground" />
+                                  </div>
+                                  <div>
+                                    <p className="text-sm font-medium text-foreground">
+                                      {d?.fullName || `Director ${idx + 1}`}
+                                    </p>
+                                    <p className="text-xs text-muted-foreground">
+                                      {d?.idNumber || "-"}
+                                    </p>
+                                  </div>
+                                </div>
+                              </AccordionTrigger>
+                              <AccordionContent>
+                                <div className="grid grid-cols-1 gap-3 pl-10 pt-1 md:grid-cols-2">
+                                  <div className="flex items-center gap-2">
+                                    <Mail className="h-3.5 w-3.5 text-muted-foreground" />
+                                    <span className="text-sm text-foreground">{d?.email || "-"}</span>
+                                  </div>
+                                  <div className="flex items-center gap-2">
+                                    <Phone className="h-3.5 w-3.5 text-muted-foreground" />
+                                    <span className="text-sm text-foreground">{d?.phone || "-"}</span>
+                                  </div>
+                                </div>
+                              </AccordionContent>
+                            </AccordionItem>
+                          );
+                        })}
+                      </Accordion>
+                    )}
+                  </div>
+                </TabsContent>
+
+                <TabsContent value="risk" className="mt-0 space-y-5">
+                  {riskLoading ? (
+                    <p className="text-sm text-muted-foreground">Loading risk assessment...</p>
+                  ) : riskError ? (
+                    <p className="text-sm text-red-500">{riskError}</p>
+                  ) : !rules ? (
+                    <p className="text-sm text-muted-foreground">No risk assessment available.</p>
+                  ) : (
+                    <>
+                      <div className="flex items-start justify-between gap-3">
+                        <div>
+                          <h4 className="flex items-center gap-2 text-sm font-semibold text-muted-foreground">
+                            <ShieldAlert className={`h-4 w-4 ${riskTone.icon}`} />
+                            Risk Assessment Summary
+                          </h4>
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                        <div>
+                          <p className="text-xs text-muted-foreground">Risk Grade</p>
+                          <p className={`text-sm font-semibold ${riskTone.text}`}>
+                            {rules.risk_grade || "-"}
                           </p>
                         </div>
 
-                        {/* Click-safe icon button */}
-                        <Button
-                          variant="ghost"
-                          className="relative z-50 h-8 w-8 p-0 pointer-events-auto"
-                          type="button"
-                          title="Open"
-                          onClick={(e) => {
-                            e.preventDefault();
-                            e.stopPropagation();
-                            handleOpenDocument(doc);
-                          }}
-                          aria-label="Open document"
-                        >
-                          <Download className="h-4 w-4 pointer-events-none" />
-                        </Button>
+                        <div>
+                          <p className="text-xs text-muted-foreground">Risk Score</p>
+                          <div className="flex items-center gap-3">
+                            {rules?.risk_score != null && (
+                              <Badge className={`text-xs ${riskTone.badge}`}>
+                                Score: {rules.risk_score}
+                              </Badge>
+                            )}
+                          </div>
+                        </div>
+
+                        <div>
+                          <p className="text-xs text-muted-foreground">Assessment ID</p>
+                          <p className="break-all font-mono text-xs text-foreground">
+                            {rules.job_id || "-"}
+                          </p>
+                        </div>
+
+                        <div>
+                          <p className="text-xs text-muted-foreground">Completed At</p>
+                          <p className="text-xs font-medium text-foreground">
+                            {rules.completed_at
+                              ? new Date(rules.completed_at).toLocaleString()
+                              : "-"}
+                          </p>
+                        </div>
                       </div>
-                    ))}
+
+                      <Separator />
+
+                      <div>
+                        <p className="mb-2 text-xs font-medium text-muted-foreground">
+                          Rules Triggered ({riskRules.length})
+                        </p>
+
+                        {riskRules.length > 0 ? (
+                          <div className="space-y-2">
+                            {riskRules.map((rule, index) => (
+                              <div
+                                key={`${rule.code || "rule"}-${index}`}
+                                className={`flex items-start gap-2.5 rounded-lg border p-2.5 ${riskTone.soft}`}
+                              >
+                                <AlertOctagon
+                                  className={`mt-0.5 h-3.5 w-3.5 shrink-0 ${riskTone.icon}`}
+                                />
+                                <div className="min-w-0">
+                                  <p className="text-[10px] font-mono text-muted-foreground">
+                                    {rule.code || "-"}
+                                  </p>
+                                  <p className="text-sm text-foreground">
+                                    {rule.description || "-"}
+                                  </p>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        ) : (
+                          <p className="text-sm text-muted-foreground">No rules triggered.</p>
+                        )}
+                      </div>
+                    </>
+                  )}
+                </TabsContent>
+
+                <TabsContent value="documents" className="mt-0">
+                  {docsLoading ? (
+                    <p className="text-sm text-muted-foreground">Loading documents...</p>
+                  ) : docsError ? (
+                    <p className="text-sm text-red-500">{docsError}</p>
+                  ) : documents.length === 0 ? (
+                    <p className="text-sm text-muted-foreground">No documents uploaded yet.</p>
+                  ) : (
+                    <div className="space-y-6">
+                      <div>
+                        <div className="mb-3 flex items-center justify-between">
+                          <div>
+                            <h4 className="text-sm font-semibold text-foreground">
+                              Initial Submission
+                            </h4>
+                            <p className="text-xs text-muted-foreground">
+                              Documents uploaded during the first application submission.
+                            </p>
+                          </div>
+                          <Badge className="border bg-muted text-foreground">
+                            {initialDocuments.length} file(s)
+                          </Badge>
+                        </div>
+
+                        {initialDocuments.length === 0 ? (
+                          <div className="rounded-lg border border-dashed border-border p-4">
+                            <p className="text-sm text-muted-foreground">
+                              No initial submission documents detected.
+                            </p>
+                          </div>
+                        ) : (
+                          <div className="space-y-2">
+                            {initialDocuments.map((doc) => (
+                              <div
+                                key={
+                                  doc.document_id ||
+                                  doc.id ||
+                                  `${doc.document_type}-${doc.created_at}`
+                                }
+                                className="flex items-center justify-between rounded-lg border border-border p-3"
+                              >
+                                <div className="min-w-0 flex-1">
+                                  <p className="truncate text-sm font-medium text-foreground">
+                                    {doc.document_type || "Document"}
+                                  </p>
+                                  <p className="text-xs text-muted-foreground">
+                                    {doc.created_at
+                                      ? `Uploaded: ${new Date(doc.created_at).toLocaleString()}`
+                                      : ""}
+                                  </p>
+                                </div>
+
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="ml-2 h-8 w-8"
+                                  type="button"
+                                  title="Open"
+                                  onClick={(e) => {
+                                    e.preventDefault();
+                                    e.stopPropagation();
+                                    handleOpenDocument(doc);
+                                  }}
+                                  aria-label="Open document"
+                                >
+                                  <Download className="h-4 w-4" />
+                                </Button>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+
+                      <Separator />
+
+                      <div>
+                        <div className="mb-3 flex items-center justify-between">
+                          <div>
+                            <h4 className="text-sm font-semibold text-foreground">Resubmissions</h4>
+                            <p className="text-xs text-muted-foreground">
+                              Documents uploaded after reviewer requests for additional information.
+                            </p>
+                          </div>
+                          <Badge className="border bg-muted text-foreground">
+                            {resubmissionGroups.reduce(
+                              (sum, group) => sum + group.documents.length,
+                              0
+                            )}{" "}
+                            file(s)
+                          </Badge>
+                        </div>
+
+                        {resubmissionGroups.length === 0 ? (
+                          <div className="rounded-lg border border-dashed border-border p-4">
+                            <p className="text-sm text-muted-foreground">
+                              No resubmitted documents yet.
+                            </p>
+                          </div>
+                        ) : (
+                          <div className="space-y-4">
+                            {resubmissionGroups.map((group) => (
+                              <div
+                                key={group.action_request_id || group.round}
+                                className="rounded-xl border border-border p-4"
+                              >
+                                <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+                                  <div>
+                                    <h5 className="text-sm font-semibold text-foreground">
+                                      Resubmission Round {group.round}
+                                    </h5>
+                                    <p className="text-xs text-muted-foreground">
+                                      Requested on{" "}
+                                      {group.created_at
+                                        ? new Date(group.created_at).toLocaleString()
+                                        : "-"}
+                                    </p>
+                                  </div>
+
+                                  <Badge className="border bg-muted text-foreground">
+                                    {group.documents.length} file(s)
+                                  </Badge>
+                                </div>
+
+                                {group.reason && (
+                                  <div className="mb-3 rounded-md bg-muted/50 p-3">
+                                    <p className="text-xs font-medium text-muted-foreground">
+                                      Request Reason
+                                    </p>
+                                    <p className="mt-1 text-sm text-foreground">{group.reason}</p>
+                                  </div>
+                                )}
+
+                                {group.documents.length === 0 ? (
+                                  <p className="text-sm text-muted-foreground">
+                                    No documents uploaded for this resubmission round yet.
+                                  </p>
+                                ) : (
+                                  <div className="space-y-2">
+                                    {group.documents.map((doc) => (
+                                      <div
+                                        key={
+                                          doc.document_id ||
+                                          doc.id ||
+                                          `${doc.document_type}-${doc.created_at}`
+                                        }
+                                        className="flex items-center justify-between rounded-lg border border-border p-3"
+                                      >
+                                        <div className="min-w-0 flex-1">
+                                          <p className="truncate text-sm font-medium text-foreground">
+                                            {doc.document_type || "Document"}
+                                          </p>
+                                          <p className="text-xs text-muted-foreground">
+                                            {doc.created_at
+                                              ? `Uploaded: ${new Date(doc.created_at).toLocaleString()}`
+                                              : ""}
+                                          </p>
+                                        </div>
+
+                                        <Button
+                                          variant="ghost"
+                                          size="icon"
+                                          className="ml-2 h-8 w-8"
+                                          type="button"
+                                          title="Open"
+                                          onClick={(e) => {
+                                            e.preventDefault();
+                                            e.stopPropagation();
+                                            handleOpenDocument(doc);
+                                          }}
+                                          aria-label="Open document"
+                                        >
+                                          <Download className="h-4 w-4" />
+                                        </Button>
+                                      </div>
+                                    ))}
+                                  </div>
+                                )}
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </TabsContent>
+
+                <TabsContent value="qna" className="mt-0">
+                  <div className="space-y-4">
+                    {qnaLoading ? (
+                      <p className="text-sm text-muted-foreground">
+                        Loading questions & answers...
+                      </p>
+                    ) : qnaError ? (
+                      <p className="text-sm text-red-500">{qnaError}</p>
+                    ) : allQuestions.length === 0 ? (
+                      <p className="text-sm text-muted-foreground">No questions requested.</p>
+                    ) : (
+                      allQuestions.map((qa, index) => (
+                        <div
+                          key={qa.item_id || `${qa.action_request_id}-${index}`}
+                          className="space-y-2 rounded-lg border border-border p-3"
+                        >
+                          <div className="flex flex-wrap items-center justify-between gap-2">
+                            <p className="text-xs text-muted-foreground">
+                              Request: {qa.action_request_id?.slice?.(0, 8) || "-"} •{" "}
+                              {qa.created_at ? new Date(qa.created_at).toLocaleString() : "-"}
+                            </p>
+                            <span className="text-xs font-medium">
+                              {qa.status === "OPEN" ? "OPEN" : "CLOSED"}
+                            </span>
+                          </div>
+
+                          <p className="text-sm font-medium text-foreground">
+                            <span className="mr-1.5 text-muted-foreground">Q{index + 1}.</span>
+                            {qa.question_text || "-"}
+                          </p>
+
+                          <div className="rounded-md bg-muted/50 p-2.5">
+                            <p className="text-sm leading-relaxed text-foreground">
+                              {qa.answer_text || "No answer submitted yet."}
+                            </p>
+                          </div>
+                        </div>
+                      ))
+                    )}
                   </div>
+                </TabsContent>
+
+                {currentStatus === "Requires Action" && actionReason && (
+                  <TabsContent value="response" className="mt-0 space-y-5">
+                    <div className="rounded-lg border border-rose-500/20 bg-rose-500/5 p-4">
+                      <div className="mb-2 flex items-center gap-2 text-rose-500">
+                        <AlertCircle className="h-4 w-4" />
+                        <p className="text-sm font-semibold">Action Required</p>
+                      </div>
+                      <p className="text-sm text-foreground">{actionReason}</p>
+                    </div>
+
+                    <div>
+                      <p className="mb-2 text-xs font-medium text-muted-foreground">
+                        Pending document requests ({missingDocuments.length})
+                      </p>
+
+                      {missingDocuments.length === 0 ? (
+                        <p className="text-sm text-muted-foreground">
+                          No pending document requests.
+                        </p>
+                      ) : (
+                        <div className="space-y-2">
+                          {missingDocuments.map((doc, index) => (
+                            <div
+                              key={doc?.item_id || index}
+                              className="rounded-lg border border-border p-3"
+                            >
+                              <p className="text-sm font-medium text-foreground">
+                                {doc?.document_name || `Requested Document ${index + 1}`}
+                              </p>
+                              <p className="text-xs text-muted-foreground">
+                                {doc?.document_desc || "Awaiting applicant submission"}
+                              </p>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="flex flex-wrap gap-3">
+                      <Button className="gap-2" disabled>
+                        <Upload className="h-4 w-4" />
+                        Awaiting Applicant Upload
+                      </Button>
+                    </div>
+                  </TabsContent>
                 )}
               </CardContent>
-            </Card>
-
-            {/* Review Timeline */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2 text-lg">
-                  <Clock className="h-5 w-5 text-muted-foreground" />
-                  Review Timeline
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">{/* (unchanged timeline) */}</div>
-              </CardContent>
-            </Card>
-          </div>
+            </Tabs>
+          </Card>
         </div>
       </main>
+
+      <RequestDocumentsDialog
+        open={requestDocsOpen}
+        onOpenChange={setRequestDocsOpen}
+        businessName={application?.business_name || application?.businessName || "-"}
+        missingCount={missingDocuments.length}
+        onSubmit={handleSubmitRequestDocs}
+        isSubmitting={isUpdatingStatus}
+      />
+
+      {canReview && (
+        <div className="fixed bottom-0 left-0 right-0 z-50 border-t border-border bg-slate-200/70 backdrop-blur supports-[backdrop-filter]:bg-background/80">
+          <div className="container mx-auto flex flex-col gap-3 px-6 py-3 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex items-center gap-3">
+              <p className="hidden text-sm text-muted-foreground sm:block">
+                Reviewing <span className="font-medium text-foreground">{appDisplayId}</span>
+              </p>
+              {missingDocuments.length > 0 && (
+                <Badge className="border border-amber-500/20 bg-amber-500/10 text-xs text-amber-600">
+                  {missingDocuments.length} item(s) pending
+                </Badge>
+              )}
+            </div>
+
+            <div className="flex flex-wrap items-center gap-2">
+              <Button
+                variant="outline"
+                className="gap-2 border-amber-500 text-amber-600 hover:bg-amber-500/10"
+                onClick={handleRequestDocuments}
+                disabled={isUpdatingStatus}
+              >
+                <FileQuestion className="h-4 w-4" />
+                {isUpdatingStatus ? "Requesting..." : "Request Documents"}
+              </Button>
+
+              <Button
+                variant="outline"
+                className="gap-2 border-destructive bg-red-500 text-white hover:bg-red-600"
+                onClick={handleReject}
+                disabled={isUpdatingStatus}
+              >
+                <XCircle className="h-4 w-4" />
+                {isUpdatingStatus ? "Rejecting..." : "Reject Application"}
+              </Button>
+
+              <Button
+                className="gap-2 bg-emerald-600 text-white hover:bg-emerald-600/90"
+                onClick={handleApprove}
+                disabled={isUpdatingStatus}
+              >
+                <CheckCircle2 className="h-4 w-4" />
+                {isUpdatingStatus ? "Approving..." : "Approve Application"}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -1,10 +1,8 @@
-
 import os
 import re
 from typing import Dict, Optional, List, Any, Tuple
 from google.cloud import documentai
-
-
+from .acra_extractor import extract_acra_profile, table_signature, classify_table
 
 def _norm(text: str) -> str:
     return re.sub(r"\s+", " ", (text or "").strip().upper())
@@ -389,8 +387,22 @@ def extract_acra_data_auto(pdf_bytes: bytes) -> Dict:
         # "kv_all_pages": pages_kv,
         # "raw_text": document.text,
     }
+def build_debug_tables(tables_by_page):
+    debug = []
+    for p_i, page_tables in enumerate(tables_by_page):
+        for t in page_tables:
+            grid = t.get("grid") or []
+            debug.append({
+                "page": p_i + 1,
+                "table_index": t.get("table_index"),
+                "label": classify_table(grid),
+                "signature": table_signature(grid)[:220],
+                "preview_rows": grid[:4],  # header + 2 rows usually
+            })
+    return debug
 
 def extract_acra_data_with_tables(pdf_bytes: bytes) -> Dict:
+
     project_id = os.getenv("GCP_PROJECT_ID")
     location = os.getenv("GCP_LOCATION")
     processor_id = os.getenv("DOC_AI_PROCESSOR_ID")
@@ -400,7 +412,10 @@ def extract_acra_data_with_tables(pdf_bytes: bytes) -> Dict:
 
     request = documentai.ProcessRequest(
         name=name,
-        raw_document=documentai.RawDocument(content=pdf_bytes, mime_type="application/pdf"),
+        raw_document=documentai.RawDocument(
+            content=pdf_bytes,
+            mime_type="application/pdf",
+        ),
     )
 
     result = client.process_document(request=request)
@@ -409,35 +424,15 @@ def extract_acra_data_with_tables(pdf_bytes: bytes) -> Dict:
     pages_kv = _extract_kv_pairs_by_page(document)
     kv_page_1 = pages_kv[0] if pages_kv else {}
 
-    # ✅ Auto-detect entity type (reuse your existing function)
-    detected = detect_entity_type(document.text, kv_page_1)
-    if not detected:
-        raise ValueError("Unable to auto-detect entity type from the document.")
-
-    # ✅ Validate detected type against page 1 structure
-    if not validate_selected_entity_type(detected, kv_page_1):
-        raise ValueError(
-            f"Auto-detected entity type '{detected}' but validation failed. "
-            f"Extracted page-1 keys were: {list(kv_page_1.keys())[:30]}"
-        )
-
     tables_by_page = _extract_tables_by_page(document)
 
-    owner_info = None
-    if len(tables_by_page) >= 2:
-        page2_tables = tables_by_page[1]
-
-        # ✅ force the table that includes Position (your table_index 1 case)
-        t = _find_table_by_headers(
-            page2_tables,
-            required_headers=["Name", "Identification", "Position"]
-        )
-        if t:
-            owner_info = _extract_owner_from_table_grid(t["grid"])
+    profile = extract_acra_profile(
+        kv_page_1=kv_page_1,
+        tables_by_page=tables_by_page,
+        full_text=document.text,  
+    )
 
     return {
-        "entity_type": detected,
-        "kv_page_1": kv_page_1,
-        "tables_by_page": tables_by_page,
-        "owner": owner_info,
+        "data": profile,
+        #"debug_tables": build_debug_tables(tables_by_page),
     }

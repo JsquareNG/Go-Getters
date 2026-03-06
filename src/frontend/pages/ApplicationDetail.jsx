@@ -4,8 +4,6 @@ import {
   ArrowLeft,
   Building2,
   Calendar,
-  Clock,
-  FileText,
   AlertCircle,
   Upload,
   User,
@@ -13,73 +11,59 @@ import {
   Mail,
   Phone,
   Download,
+  Undo2,
+  Trash2,
 } from "lucide-react";
 import { toast } from "sonner";
 import {
-  Button,
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-  StatusBadge,
   Accordion,
   AccordionContent,
   AccordionItem,
   AccordionTrigger,
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+  Button,
+  Card,
+  CardContent,
+  CardHeader,
+  StatusBadge,
+  Separator,
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
 } from "@/components/ui";
-import { getApplicationByAppId } from "./../api/applicationApi";
-import { allDocuments, downloadDocuments } from "./../api/documentApi";
+import { Badge } from "../components/ui/primitives/Badge";
 
-const stepsByStatus = {
-  "Not started": [
-    { label: "Company Information", completed: false, current: true },
-    { label: "Business Documentation", completed: false, current: false },
-    { label: "Authorized Signatories", completed: false, current: false },
-    { label: "Review & Submit", completed: false, current: false },
-  ],
-  Draft: [
-    { label: "Company Information", completed: true, current: false },
-    { label: "Business Documentation", completed: true, current: false },
-    { label: "Authorized Signatories", completed: false, current: true },
-    { label: "Review & Submit", completed: false, current: false },
-  ],
-  Submitted: [
-    { label: "Company Information", completed: true, current: false },
-    { label: "Business Documentation", completed: true, current: false },
-    { label: "Authorized Signatories", completed: true, current: false },
-    { label: "Review & Submit", completed: true, current: false },
-    { label: "Bank Review", completed: false, current: true },
-  ],
-  "Under Review": [
-    { label: "Company Information", completed: true, current: false },
-    { label: "Business Documentation", completed: true, current: false },
-    { label: "Authorized Signatories", completed: true, current: false },
-    { label: "Review & Submit", completed: true, current: false },
-    { label: "Bank Review", completed: false, current: true },
-  ],
-  "Requires Action": [
-    { label: "Company Information", completed: true, current: false },
-    { label: "Business Documentation", completed: true, current: false },
-    { label: "Authorized Signatories", completed: true, current: false },
-    { label: "Review & Submit", completed: true, current: false },
-    {
-      label: "Additional Information Required",
-      completed: false,
-      current: true,
-    },
-  ],
-  Approved: [
-    { label: "Company Information", completed: true, current: false },
-    { label: "Business Documentation", completed: true, current: false },
-    { label: "Authorized Signatories", completed: true, current: false },
-    { label: "Review & Submit", completed: true, current: false },
-    { label: "Bank Review", completed: true, current: false },
-    { label: "Account Activated", completed: true, current: false },
-  ],
+import {
+  getApplicationByAppId,
+  getQnA,
+  withdrawApplication,
+  deleteApplication,
+} from "./../api/applicationApi";
+import { allDocuments, downloadDocuments } from "./../api/documentApi";
+import { userInfo } from "./../api/usersApi";
+import { ResubmitDialog } from "../components/ui/features/ResubmitDialog";
+
+const normKey = (v) => {
+  if (v == null) return null;
+  const s = String(v)
+    .trim()
+    .replace(/_/g, " ")
+    .replace(/\s+/g, " ")
+    .toLowerCase();
+  return s.length ? s : null;
 };
 
 export default function ApplicationDetail() {
-  const { id } = useParams(); // application_id
+  const { id } = useParams();
   const navigate = useNavigate();
 
   const [application, setApplication] = useState(null);
@@ -90,7 +74,18 @@ export default function ApplicationDetail() {
   const [docsLoading, setDocsLoading] = useState(false);
   const [docsError, setDocsError] = useState(null);
 
-  // --- Fetch application ---
+  const [actionRequestsData, setActionRequestsData] = useState(null);
+  const [qnaLoading, setQnaLoading] = useState(false);
+  const [qnaError, setQnaError] = useState(null);
+
+  const [resubmitOpen, setResubmitOpen] = useState(false);
+  const [user, setUser] = useState(null);
+  const [isWithdrawing, setIsWithdrawing] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+
+  // -----------------------------
+  // Fetch application
+  // -----------------------------
   useEffect(() => {
     const fetchApplication = async () => {
       try {
@@ -109,14 +104,60 @@ export default function ApplicationDetail() {
     if (id) fetchApplication();
   }, [id]);
 
-  // --- Fetch documents for this application ---
+  const currentStatus = application?.current_status || "Not started";
+  const showActionRequired = currentStatus === "Requires Action";
+
+  const currentStatusKey = normKey(application?.current_status);
+  const previousStatusKey = normKey(application?.previous_status);
+
+  const canWithdraw = useMemo(() => {
+    if (
+      currentStatusKey === "draft" &&
+      previousStatusKey === "requires action"
+    ) {
+      return true;
+    }
+    if (
+      currentStatusKey === "requires action" &&
+      previousStatusKey === "under manual review"
+    ) {
+      return true;
+    }
+    return false;
+  }, [currentStatusKey, previousStatusKey]);
+
+  const canDelete = useMemo(() => {
+    return currentStatusKey === "draft" && previousStatusKey == null;
+  }, [currentStatusKey, previousStatusKey]);
+
+  // -----------------------------
+  // Fetch user info
+  // -----------------------------
+  useEffect(() => {
+    const fetchUser = async () => {
+      if (!application?.user_id) return;
+
+      try {
+        const data = await userInfo(application.user_id);
+        setUser(data);
+      } catch (err) {
+        console.error("Error fetching user info:", err);
+      }
+    };
+
+    fetchUser();
+  }, [application]);
+
+  // -----------------------------
+  // Fetch documents
+  // -----------------------------
   useEffect(() => {
     const fetchDocuments = async () => {
       try {
         setDocsLoading(true);
         setDocsError(null);
 
-        const docs = await allDocuments(id); // should return docs for this application
+        const docs = await allDocuments(id);
         setDocuments(Array.isArray(docs) ? docs : []);
       } catch (err) {
         console.error("Error fetching documents:", err);
@@ -130,6 +171,107 @@ export default function ApplicationDetail() {
   }, [id]);
 
   const currentStatus = application?.current_status || "Not started"; //"Draft", "Submitted", "Under Review", "Requires Action", "Approved"
+  // -----------------------------
+  // Fetch QnA
+  // -----------------------------
+  useEffect(() => {
+    const fetchQnA = async () => {
+      try {
+        setQnaLoading(true);
+        setQnaError(null);
+
+        const appIdToUse = application?.application_id || application?.id || id;
+        if (!appIdToUse) return;
+
+        const data = await getQnA(appIdToUse);
+        setActionRequestsData(data && typeof data === "object" ? data : null);
+      } catch (err) {
+        console.error("Error fetching QnA:", {
+          message: err?.message,
+          status: err?.response?.status,
+          data: err?.response?.data,
+          url: err?.config?.url,
+        });
+
+        setQnaError(
+          err?.response?.data?.detail ||
+            err?.response?.data?.message ||
+            err?.message ||
+            "Could not retrieve questions & answers.",
+        );
+        setActionRequestsData(null);
+      } finally {
+        setQnaLoading(false);
+      }
+    };
+
+    if (id && application) fetchQnA();
+  }, [id, application]);
+
+  // -----------------------------
+  // Derived values
+  // -----------------------------
+  const actionRequests = useMemo(() => {
+    const arr = actionRequestsData?.action_requests;
+    return Array.isArray(arr) ? arr : [];
+  }, [actionRequestsData]);
+
+  const sortedActionRequests = useMemo(() => {
+    return [...actionRequests].sort((a, b) => {
+      const ta = new Date(a?.created_at || 0).getTime();
+      const tb = new Date(b?.created_at || 0).getTime();
+      return tb - ta;
+    });
+  }, [actionRequests]);
+
+  const sortedActionRequestsAsc = useMemo(() => {
+    return [...actionRequests].sort((a, b) => {
+      const ta = new Date(a?.created_at || 0).getTime();
+      const tb = new Date(b?.created_at || 0).getTime();
+      return ta - tb;
+    });
+  }, [actionRequests]);
+
+  const latestRelevantRequest = useMemo(() => {
+    const open = sortedActionRequests.find((r) => r?.status === "OPEN");
+    return open || sortedActionRequests[0] || null;
+  }, [sortedActionRequests]);
+
+  const requiredDocs = useMemo(() => {
+    const docs = latestRelevantRequest?.documents;
+    return Array.isArray(docs) ? docs : [];
+  }, [latestRelevantRequest]);
+
+  const requiredQns = useMemo(() => {
+    const qs = latestRelevantRequest?.questions;
+    return Array.isArray(qs) ? qs : [];
+  }, [latestRelevantRequest]);
+
+  const missingDocsCount = requiredDocs.length;
+  const missingQnsCount = requiredQns.length;
+  const hasMissing = missingDocsCount > 0 || missingQnsCount > 0;
+
+  const actionReason =
+    latestRelevantRequest?.reason || application?.reason || "";
+
+  const allQuestions = useMemo(() => {
+    const rows = [];
+    for (const ar of sortedActionRequests) {
+      const qs = Array.isArray(ar?.questions) ? ar.questions : [];
+      for (const q of qs) {
+        rows.push({
+          action_request_id: ar?.action_request_id,
+          status: ar?.status,
+          created_at: ar?.created_at,
+          item_id: q?.item_id,
+          question_text: q?.question_text,
+          answer_text: q?.answer_text,
+          fulfilled_at: q?.fulfilled_at,
+        });
+      }
+    }
+    return rows;
+  }, [sortedActionRequests]);
 
   const formattedDate = application?.last_edited
     ? new Date(application.last_edited).toLocaleDateString("en-US", {
@@ -144,21 +286,58 @@ export default function ApplicationDetail() {
     return Array.isArray(arr) ? arr : [];
   }, [application]);
 
-  /**
-   * Download handler (works with your backend)
-   * Backend: GET /documents/download-url/{document_id}
-   * Returns: { url: "https://..." }
-   *
-   * IMPORTANT:
-   * Your backend queries Document.document_id, so we must pass doc.document_id (NOT doc.id).
-   *
-   * Also opens a blank tab immediately to avoid popup blockers.
-   */
+  const firstActionRequestTime = useMemo(() => {
+    if (sortedActionRequestsAsc.length === 0) return null;
+    return new Date(sortedActionRequestsAsc[0]?.created_at || 0).getTime();
+  }, [sortedActionRequestsAsc]);
+
+  const initialDocuments = useMemo(() => {
+    if (!Array.isArray(documents)) return [];
+    if (!firstActionRequestTime) return documents;
+
+    return documents.filter((doc) => {
+      const t = new Date(doc?.created_at || 0).getTime();
+      return t && t < firstActionRequestTime;
+    });
+  }, [documents, firstActionRequestTime]);
+
+  const resubmissionGroups = useMemo(() => {
+    if (!Array.isArray(documents) || sortedActionRequestsAsc.length === 0)
+      return [];
+
+    return sortedActionRequestsAsc.map((request, index) => {
+      const currentTime = new Date(request?.created_at || 0).getTime();
+      const nextTime =
+        index < sortedActionRequestsAsc.length - 1
+          ? new Date(
+              sortedActionRequestsAsc[index + 1]?.created_at || 0,
+            ).getTime()
+          : Infinity;
+
+      const groupedDocs = documents.filter((doc) => {
+        const t = new Date(doc?.created_at || 0).getTime();
+        return t && t >= currentTime && t < nextTime;
+      });
+
+      return {
+        round: index + 1,
+        action_request_id: request?.action_request_id,
+        created_at: request?.created_at,
+        status: request?.status,
+        reason: request?.reason,
+        documents: groupedDocs,
+      };
+    });
+  }, [documents, sortedActionRequestsAsc]);
+
+  // -----------------------------
+  // Handlers
+  // -----------------------------
   const handleDownload = async (doc) => {
-    const newTab = window.open("", "_blank"); // open immediately on click to avoid popup blocking
+    const newTab = window.open("", "_blank");
 
     try {
-      const documentId = doc?.document_id; // matches backend
+      const documentId = doc?.document_id;
       if (!documentId) {
         if (newTab) newTab.close();
         toast.error("Missing document_id");
@@ -167,7 +346,7 @@ export default function ApplicationDetail() {
       }
 
       const res = await downloadDocuments(documentId);
-      const signedUrl = res?.url; // backend returns { url }
+      const signedUrl = res?.url;
 
       if (!signedUrl) throw new Error("No url returned from download endpoint");
 
@@ -186,6 +365,55 @@ export default function ApplicationDetail() {
     }
   };
 
+  const handleWithdraw = async () => {
+    try {
+      setIsWithdrawing(true);
+      await withdrawApplication(id);
+      toast.success("Application withdrawn successfully.");
+      navigate("/landingpage");
+    } catch (err) {
+      console.error(
+        "[API] withdrawApplication failed",
+        err?.response?.data || err,
+      );
+      toast.error("Could not withdraw application", {
+        description:
+          err?.response?.data?.detail ||
+          err?.response?.data?.message ||
+          err?.message ||
+          "Unknown error",
+      });
+    } finally {
+      setIsWithdrawing(false);
+    }
+  };
+
+  const handleDelete = async () => {
+    try {
+      setIsDeleting(true);
+      await deleteApplication(id);
+      toast.success("Application deleted successfully.");
+      navigate("/landingpage");
+    } catch (err) {
+      console.error(
+        "[API] deleteApplication failed",
+        err?.response?.data || err,
+      );
+      toast.error("Could not delete application", {
+        description:
+          err?.response?.data?.detail ||
+          err?.response?.data?.message ||
+          err?.message ||
+          "Unknown error",
+      });
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
+  // -----------------------------
+  // Loading / error states
+  // -----------------------------
   if (isLoading) {
     return (
       <div className="flex min-h-screen items-center justify-center">
@@ -197,7 +425,7 @@ export default function ApplicationDetail() {
   if (error || !application) {
     return (
       <div className="flex min-h-screen flex-col items-center justify-center gap-4">
-        <p className="text-red-500 font-medium">
+        <p className="font-medium text-red-500">
           {error || "Application not found."}
         </p>
         <Button onClick={() => navigate("/landingpage")}>Back to List</Button>
@@ -205,37 +433,53 @@ export default function ApplicationDetail() {
     );
   }
 
+  const appDisplayId =
+    application?.application_id || application?.id || id || "-";
+
   return (
-    <div className="min-h-screen bg-background">
-      <main className="container mx-auto px-6 py-8 animate-fade-in">
-        <Button
-          variant="ghost"
-          onClick={() => navigate("/landingpage")}
-          className="mb-6 -ml-2 text-slate-600 hover:text-foreground"
-        >
-          <ArrowLeft className="mr-2 h-4 w-4" />
-          Back to Applications
-        </Button>
+    <div className="min-h-screen bg-background pb-24">
+      <main className="container mx-auto animate-fade-in px-6 py-8">
+        <div className="mb-6">
+          <Button
+            variant="ghost"
+            onClick={() => navigate("/landingpage")}
+            className="mb-4 gap-2 text-muted-foreground hover:text-foreground"
+          >
+            <ArrowLeft className="h-4 w-4" />
+            Back to Applications
+          </Button>
 
-        {/* Header */}
-        <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between mb-8">
-          <div className="flex items-start gap-4">
-            <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-xl bg-secondary">
-              <Building2 className="h-7 w-7 text-slate-600" />
-            </div>
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+            <div className="flex items-center gap-4">
+              <div className="flex h-14 w-14 items-center justify-center rounded-xl bg-muted">
+                <Building2 className="h-7 w-7 text-muted-foreground" />
+              </div>
 
-            <div>
-              <h1 className="text-2xl font-semibold text-foreground mb-1">
-                {application.business_name}
-              </h1>
-              <p className="text-slate-600 mb-2">Corporate Account</p>
+              <div>
+                <div className="flex flex-wrap items-center gap-3">
+                  <h1 className="text-2xl font-bold tracking-tight text-foreground">
+                    {application?.business_name || "-"}
+                  </h1>
+                  <StatusBadge status={currentStatus} />
+                </div>
 
-              <div className="flex flex-wrap items-center gap-3">
-                <StatusBadge status={currentStatus} />
-                <span className="flex items-center gap-1.5 text-sm text-slate-600">
-                  <Calendar className="h-4 w-4" />
-                  Last updated: {formattedDate}
-                </span>
+                <p className="mt-1 text-muted-foreground">
+                  Application ID: {appDisplayId}
+                </p>
+
+                <div className="mt-2 flex flex-wrap items-center gap-3">
+                  <span className="flex items-center gap-1.5 text-sm text-muted-foreground">
+                    <Calendar className="h-4 w-4" />
+                    Last updated: {formattedDate}
+                  </span>
+
+                  {showActionRequired && hasMissing && (
+                    <Badge className="border border-amber-500/20 bg-amber-500/10 text-amber-600">
+                      {missingDocsCount + missingQnsCount} item(s) pending your
+                      action
+                    </Badge>
+                  )}
+                </div>
               </div>
             </div>
           </div>
@@ -254,390 +498,637 @@ export default function ApplicationDetail() {
           )}
         </div>
 
-        {/* MAIN 2-COLUMN LAYOUT */}
-        <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-          {/* LEFT */}
-          <div className="lg:col-span-2 space-y-6">
-            {/* Business Details */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2 text-lg">
-                  <Building2 className="h-5 w-5 text-muted-foreground" />
-                  Business Details
-                </CardTitle>
+        <div className="pb-20 space-y-6">
+          <Card>
+            <Tabs
+              defaultValue={showActionRequired ? "response" : "overview"}
+              className="w-full"
+            >
+              <CardHeader className="pb-3">
+                <TabsList className="flex h-auto w-full flex-wrap justify-start gap-1 bg-muted/50 p-1">
+                  {showActionRequired && actionReason && (
+                    <TabsTrigger
+                      value="response"
+                      className="text-xs sm:text-sm"
+                    >
+                      Action Status
+                    </TabsTrigger>
+                  )}
+                  <TabsTrigger value="overview" className="text-xs sm:text-sm">
+                    Overview
+                  </TabsTrigger>
+                  <TabsTrigger value="documents" className="text-xs sm:text-sm">
+                    Documents
+                  </TabsTrigger>
+                  <TabsTrigger value="qna" className="text-xs sm:text-sm">
+                    Questions & Answers
+                  </TabsTrigger>
+                </TabsList>
               </CardHeader>
+
               <CardContent>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <TabsContent value="overview" className="mt-0 space-y-6">
                   <div>
+                    <h4 className="mb-3 flex items-center gap-2 text-sm font-semibold text-muted-foreground">
+                      <Building2 className="h-4 w-4" />
+                      Business Details
+                    </h4>
+
+                    <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                      <div>
+                        <p className="text-xs text-muted-foreground">
+                          Registration Number
+                        </p>
+                        <p className="text-sm font-medium text-foreground">
+                          {application.business_registration_number || "-"}
+                        </p>
+                      </div>
+
+                      <div>
+                        <p className="text-xs text-muted-foreground">
+                          Business Name
+                        </p>
+                        <p className="text-sm font-medium text-foreground">
+                          {application.business_name || "-"}
+                        </p>
+                      </div>
+
+                      <div>
+                        <p className="text-xs text-muted-foreground">
+                          Incorporation Date
+                        </p>
+                        <p className="text-sm font-medium text-foreground">
+                          {application.incorporationDate || "-"}
+                        </p>
+                      </div>
+
+                      <div>
+                        <p className="text-xs text-muted-foreground">
+                          Business Type
+                        </p>
+                        <p className="text-sm font-medium text-foreground">
+                          {application.business_type || "-"}
+                        </p>
+                      </div>
+
+                      <div>
+                        <p className="text-xs text-muted-foreground">
+                          Industry
+                        </p>
+                        <p className="text-sm font-medium text-foreground">
+                          {application.industry || "-"}
+                        </p>
+                      </div>
+
+                      <div>
+                        <p className="text-xs text-muted-foreground">
+                          Employee Count
+                        </p>
+                        <p className="text-sm font-medium text-foreground">
+                          {application.employeeCount || "-"}
+                        </p>
+                      </div>
+
+                      <div>
+                        <p className="text-xs text-muted-foreground">
+                          Annual Revenue
+                        </p>
+                        <p className="text-sm font-medium text-foreground">
+                          {application.annualRevenue || "-"}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <Separator />
+
+                  <div>
+                    <h4 className="mb-3 flex items-center gap-2 text-sm font-semibold text-muted-foreground">
+                      <MapPin className="h-4 w-4" />
+                      Registered Address
+                    </h4>
+                    <p className="text-sm font-medium text-foreground">
+                      {application.street || "-"}
+                    </p>
                     <p className="text-sm text-muted-foreground">
-                      Registration Number
+                      {application.city || "-"}, {application.postalCode || "-"}
                     </p>
-                    <p className="font-medium text-foreground">
-                      {application.business_registration_number || "-"}
-                    </p>
-                  </div>
-
-                  <div>
                     <p className="text-sm text-muted-foreground">
-                      Business Name
-                    </p>
-                    <p className="font-medium text-foreground">
-                      {application.business_name || "-"}
+                      {application.business_country || "-"}
                     </p>
                   </div>
+
+                  <Separator />
 
                   <div>
-                    <p className="text-sm text-muted-foreground">
-                      Incorporation Date
-                    </p>
-                    <p className="font-medium text-foreground">
-                      {application.incorporationDate || "-"}
-                    </p>
-                  </div>
+                    <h4 className="mb-3 flex items-center gap-2 text-sm font-semibold text-muted-foreground">
+                      <User className="h-4 w-4" />
+                      Directors ({directors.length})
+                    </h4>
 
-                  <div>
-                    <p className="text-sm text-muted-foreground">
-                      Business Type
-                    </p>
-                    <p className="font-medium text-foreground">
-                      {application.business_type || "-"}
-                    </p>
-                  </div>
-
-                  <div>
-                    <p className="text-sm text-muted-foreground">Industry</p>
-                    <p className="font-medium text-foreground">
-                      {application.industry || "-"}
-                    </p>
-                  </div>
-
-                  <div>
-                    <p className="text-sm text-muted-foreground">
-                      Employee Count
-                    </p>
-                    <p className="font-medium text-foreground">
-                      {application.employeeCount || "-"}
-                    </p>
-                  </div>
-
-                  <div>
-                    <p className="text-sm text-muted-foreground">
-                      Annual Revenue
-                    </p>
-                    <p className="font-medium text-foreground">
-                      {application.annualRevenue || "-"}
-                    </p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Directors */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2 text-lg">
-                  <User className="h-5 w-5 text-muted-foreground" />
-                  Directors ({directors.length})
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                {directors.length === 0 ? (
-                  <p className="text-sm text-muted-foreground">
-                    No directors provided.
-                  </p>
-                ) : (
-                  <Accordion
-                    type="single"
-                    collapsible
-                    defaultValue="director-0"
-                    className="w-full"
-                  >
-                    {directors.map((d, idx) => {
-                      const itemValue = `director-${idx}`;
-                      return (
-                        <AccordionItem
-                          key={itemValue}
-                          value={itemValue}
-                          className="border-border"
-                        >
-                          <AccordionTrigger className="hover:no-underline py-3">
-                            <div className="flex items-center gap-3 text-left">
-                              <div className="flex h-8 w-8 items-center justify-center rounded-full bg-muted">
-                                <User className="h-4 w-4 text-muted-foreground" />
-                              </div>
-                              <div>
-                                <p className="font-medium text-foreground">
-                                  {d?.fullName || `Director ${idx + 1}`}
-                                </p>
-                                <p className="text-xs text-muted-foreground">
-                                  {d?.idNumber || "-"}
-                                </p>
-                              </div>
-                            </div>
-                          </AccordionTrigger>
-                          <AccordionContent>
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pl-11 pt-1">
-                              <div className="flex items-center gap-2">
-                                <Mail className="h-4 w-4 text-muted-foreground" />
-                                <div>
-                                  <p className="text-sm text-muted-foreground">
-                                    Email
-                                  </p>
-                                  <p className="font-medium text-foreground">
-                                    {d?.email || "-"}
-                                  </p>
-                                </div>
-                              </div>
-                              <div className="flex items-center gap-2">
-                                <Phone className="h-4 w-4 text-muted-foreground" />
-                                <div>
-                                  <p className="text-sm text-muted-foreground">
-                                    Phone
-                                  </p>
-                                  <p className="font-medium text-foreground">
-                                    {d?.phone || "-"}
-                                  </p>
-                                </div>
-                              </div>
-                            </div>
-                          </AccordionContent>
-                        </AccordionItem>
-                      );
-                    })}
-                  </Accordion>
-                )}
-              </CardContent>
-            </Card>
-
-            {/* Registered Address */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2 text-lg">
-                  <MapPin className="h-5 w-5 text-muted-foreground" />
-                  Registered Address
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="font-medium text-foreground">
-                  Street: {application.street || "-"}
-                </p>
-                <p className="text-muted-foreground">
-                  City and Postal Code: {application.city || "-"},{" "}
-                  {application.postalCode || "-"}
-                </p>
-                Country:{" "}
-                <p className="text-muted-foreground">
-                  {application.business_country || "-"}
-                </p>
-              </CardContent>
-            </Card>
-
-            {/* Account Requirements */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2 text-lg">
-                  <FileText className="h-5 w-5 text-muted-foreground" />
-                  Account Requirements
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <p className="text-sm text-muted-foreground">
-                      Initial Deposit
-                    </p>
-                    <p className="font-medium text-foreground">
-                      {application.initialDeposit || "-"}
-                    </p>
-                  </div>
-
-                  <div>
-                    <p className="text-sm text-muted-foreground">
-                      Expected Monthly Volume
-                    </p>
-                    <p className="font-medium text-foreground">
-                      {application.expectedMonthlyVolume || "-"}
-                    </p>
-                  </div>
-
-                  <div>
-                    <p className="text-sm text-muted-foreground">
-                      Currencies Required
-                    </p>
-                    {/* add badges here when you have currencies array */}
-                  </div>
-
-                  <div>
-                    <p className="text-sm text-muted-foreground">
-                      Services Requested
-                    </p>
-                    {/* add badges here when you have services array */}
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Requires Action feedback */}
-            {currentStatus === "Requires Action" && application.reason && (
-              <Card className="border-rose-500/30 bg-rose-500/5">
-                <CardHeader className="pb-3">
-                  <CardTitle className="flex items-center gap-2 text-rose-500 text-lg">
-                    <AlertCircle className="h-5 w-5" />
-                    Action Required
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-foreground mb-4">{application.reason}</p>
-                  <div className="flex flex-wrap gap-3">
-                    <Button className="gap-2">
-                      <Upload className="h-4 w-4" /> Upload Documents
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
-            )}
-          </div>
-
-          {/* RIGHT */}
-          <div className="space-y-6">
-            {/* Documents */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2 text-lg">
-                  <FileText className="h-5 w-5 text-muted-foreground" />
-                  Documents
-                </CardTitle>
-              </CardHeader>
-
-              <CardContent className="space-y-3">
-                {docsLoading ? (
-                  <p className="text-sm text-muted-foreground">
-                    Loading documents...
-                  </p>
-                ) : docsError ? (
-                  <p className="text-sm text-red-500">{docsError}</p>
-                ) : documents.length === 0 ? (
-                  <p className="text-sm text-muted-foreground">
-                    No documents uploaded yet.
-                  </p>
-                ) : (
-                  <div className="space-y-2">
-                    {documents.map((doc) => (
-                      <div
-                        key={
-                          doc.document_id ||
-                          doc.id ||
-                          `${doc.document_type}-${doc.created_at}`
-                        }
-                        className="relative flex items-center justify-between rounded-lg border border-border p-3"
+                    {directors.length === 0 ? (
+                      <p className="text-sm text-muted-foreground">
+                        No directors provided.
+                      </p>
+                    ) : (
+                      <Accordion
+                        type="single"
+                        collapsible
+                        defaultValue="director-0"
+                        className="w-full"
                       >
-                        <div className="min-w-0">
-                          <p className="truncate font-medium text-foreground">
-                            {doc.document_type || "Document"}
-                          </p>
-                          <p className="text-xs text-muted-foreground">
-                            {doc.created_at
-                              ? `Uploaded: ${new Date(doc.created_at).toLocaleDateString()}`
-                              : ""}
-                          </p>
+                        {directors.map((d, idx) => {
+                          const itemValue = `director-${idx}`;
+                          return (
+                            <AccordionItem
+                              key={itemValue}
+                              value={itemValue}
+                              className="border-border"
+                            >
+                              <AccordionTrigger className="py-2.5 hover:no-underline">
+                                <div className="flex items-center gap-2.5 text-left">
+                                  <div className="flex h-7 w-7 items-center justify-center rounded-full bg-muted">
+                                    <User className="h-3.5 w-3.5 text-muted-foreground" />
+                                  </div>
+                                  <div>
+                                    <p className="text-sm font-medium text-foreground">
+                                      {d?.fullName || `Director ${idx + 1}`}
+                                    </p>
+                                    <p className="text-xs text-muted-foreground">
+                                      {d?.idNumber || "-"}
+                                    </p>
+                                  </div>
+                                </div>
+                              </AccordionTrigger>
+
+                              <AccordionContent>
+                                <div className="grid grid-cols-1 gap-3 pl-10 pt-1 md:grid-cols-2">
+                                  <div className="flex items-center gap-2">
+                                    <Mail className="h-3.5 w-3.5 text-muted-foreground" />
+                                    <span className="text-sm text-foreground">
+                                      {d?.email || "-"}
+                                    </span>
+                                  </div>
+
+                                  <div className="flex items-center gap-2">
+                                    <Phone className="h-3.5 w-3.5 text-muted-foreground" />
+                                    <span className="text-sm text-foreground">
+                                      {d?.phone || "-"}
+                                    </span>
+                                  </div>
+                                </div>
+                              </AccordionContent>
+                            </AccordionItem>
+                          );
+                        })}
+                      </Accordion>
+                    )}
+                  </div>
+                </TabsContent>
+
+                <TabsContent value="documents" className="mt-0">
+                  {docsLoading ? (
+                    <p className="text-sm text-muted-foreground">
+                      Loading documents...
+                    </p>
+                  ) : docsError ? (
+                    <p className="text-sm text-red-500">{docsError}</p>
+                  ) : documents.length === 0 ? (
+                    <p className="text-sm text-muted-foreground">
+                      No documents uploaded yet.
+                    </p>
+                  ) : (
+                    <div className="space-y-6">
+                      <div>
+                        <div className="mb-3 flex items-center justify-between">
+                          <div>
+                            <h4 className="text-sm font-semibold text-foreground">
+                              Initial Submission
+                            </h4>
+                            <p className="text-xs text-muted-foreground">
+                              Documents uploaded during the first application
+                              submission.
+                            </p>
+                          </div>
+
+                          <Badge className="border bg-muted text-foreground">
+                            {initialDocuments.length} file(s)
+                          </Badge>
                         </div>
 
-                        {/* Click-safe download button */}
-                        <Button
-                          variant="ghost"
-                          className="relative z-50 h-8 w-8 p-0 pointer-events-auto"
-                          type="button"
-                          title="Download"
-                          onClick={(e) => {
-                            e.preventDefault();
-                            e.stopPropagation();
-                            handleDownload(doc);
-                          }}
-                          aria-label="Download"
-                        >
-                          <Download className="h-4 w-4 pointer-events-none" />
-                        </Button>
+                        {initialDocuments.length === 0 ? (
+                          <div className="rounded-lg border border-dashed border-border p-4">
+                            <p className="text-sm text-muted-foreground">
+                              No initial submission documents detected.
+                            </p>
+                          </div>
+                        ) : (
+                          <div className="space-y-2">
+                            {initialDocuments.map((doc) => (
+                              <div
+                                key={
+                                  doc.document_id ||
+                                  doc.id ||
+                                  `${doc.document_type}-${doc.created_at}`
+                                }
+                                className="flex items-center justify-between rounded-lg border border-border p-3"
+                              >
+                                <div className="min-w-0 flex-1">
+                                  <p className="truncate text-sm font-medium text-foreground">
+                                    {doc.document_type || "Document"}
+                                  </p>
+                                  <p className="text-xs text-muted-foreground">
+                                    {doc.created_at
+                                      ? `Uploaded: ${new Date(doc.created_at).toLocaleString()}`
+                                      : ""}
+                                  </p>
+                                </div>
+
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="ml-2 h-8 w-8"
+                                  type="button"
+                                  title="Open"
+                                  onClick={(e) => {
+                                    e.preventDefault();
+                                    e.stopPropagation();
+                                    handleDownload(doc);
+                                  }}
+                                  aria-label="Open document"
+                                >
+                                  <Download className="h-4 w-4" />
+                                </Button>
+                              </div>
+                            ))}
+                          </div>
+                        )}
                       </div>
-                    ))}
+
+                      <Separator />
+
+                      <div>
+                        <div className="mb-3 flex items-center justify-between">
+                          <div>
+                            <h4 className="text-sm font-semibold text-foreground">
+                              Resubmissions
+                            </h4>
+                            <p className="text-xs text-muted-foreground">
+                              Documents uploaded after additional information
+                              was requested.
+                            </p>
+                          </div>
+
+                          <Badge className="border bg-muted text-foreground">
+                            {resubmissionGroups.reduce(
+                              (sum, group) => sum + group.documents.length,
+                              0,
+                            )}{" "}
+                            file(s)
+                          </Badge>
+                        </div>
+
+                        {resubmissionGroups.length === 0 ? (
+                          <div className="rounded-lg border border-dashed border-border p-4">
+                            <p className="text-sm text-muted-foreground">
+                              No resubmitted documents yet.
+                            </p>
+                          </div>
+                        ) : (
+                          <div className="space-y-4">
+                            {resubmissionGroups.map((group) => (
+                              <div
+                                key={group.action_request_id || group.round}
+                                className="rounded-xl border border-border p-4"
+                              >
+                                <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+                                  <div>
+                                    <h5 className="text-sm font-semibold text-foreground">
+                                      Resubmission Round {group.round}
+                                    </h5>
+                                    <p className="text-xs text-muted-foreground">
+                                      Requested on{" "}
+                                      {group.created_at
+                                        ? new Date(
+                                            group.created_at,
+                                          ).toLocaleString()
+                                        : "-"}
+                                    </p>
+                                  </div>
+
+                                  <Badge className="border bg-muted text-foreground">
+                                    {group.documents.length} file(s)
+                                  </Badge>
+                                </div>
+
+                                {group.reason && (
+                                  <div className="mb-3 rounded-md bg-muted/50 p-3">
+                                    <p className="text-xs font-medium text-muted-foreground">
+                                      Request Reason
+                                    </p>
+                                    <p className="mt-1 text-sm text-foreground">
+                                      {group.reason}
+                                    </p>
+                                  </div>
+                                )}
+
+                                {group.documents.length === 0 ? (
+                                  <p className="text-sm text-muted-foreground">
+                                    No documents uploaded for this resubmission
+                                    round yet.
+                                  </p>
+                                ) : (
+                                  <div className="space-y-2">
+                                    {group.documents.map((doc) => (
+                                      <div
+                                        key={
+                                          doc.document_id ||
+                                          doc.id ||
+                                          `${doc.document_type}-${doc.created_at}`
+                                        }
+                                        className="flex items-center justify-between rounded-lg border border-border p-3"
+                                      >
+                                        <div className="min-w-0 flex-1">
+                                          <p className="truncate text-sm font-medium text-foreground">
+                                            {doc.document_type || "Document"}
+                                          </p>
+                                          <p className="text-xs text-muted-foreground">
+                                            {doc.created_at
+                                              ? `Uploaded: ${new Date(doc.created_at).toLocaleString()}`
+                                              : ""}
+                                          </p>
+                                        </div>
+
+                                        <Button
+                                          variant="ghost"
+                                          size="icon"
+                                          className="ml-2 h-8 w-8"
+                                          type="button"
+                                          title="Open"
+                                          onClick={(e) => {
+                                            e.preventDefault();
+                                            e.stopPropagation();
+                                            handleDownload(doc);
+                                          }}
+                                          aria-label="Open document"
+                                        >
+                                          <Download className="h-4 w-4" />
+                                        </Button>
+                                      </div>
+                                    ))}
+                                  </div>
+                                )}
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </TabsContent>
+
+                <TabsContent value="qna" className="mt-0">
+                  <div className="space-y-4">
+                    {qnaLoading ? (
+                      <p className="text-sm text-muted-foreground">
+                        Loading questions & answers...
+                      </p>
+                    ) : qnaError ? (
+                      <p className="text-sm text-red-500">{qnaError}</p>
+                    ) : allQuestions.length === 0 ? (
+                      <p className="text-sm text-muted-foreground">
+                        No questions found.
+                      </p>
+                    ) : (
+                      allQuestions.map((qa, index) => (
+                        <div
+                          key={qa.item_id || `${qa.action_request_id}-${index}`}
+                          className="space-y-2 rounded-lg border border-border p-3"
+                        >
+                          <div className="flex flex-wrap items-center justify-between gap-2">
+                            <p className="text-xs text-muted-foreground">
+                              Request:{" "}
+                              {qa.action_request_id?.slice?.(0, 8) || "-"} •{" "}
+                              {qa.created_at
+                                ? new Date(qa.created_at).toLocaleString()
+                                : "-"}
+                            </p>
+                            <span className="text-xs font-medium">
+                              {qa.status === "OPEN" ? "OPEN" : "CLOSED"}
+                            </span>
+                          </div>
+
+                          <p className="text-sm font-medium text-foreground">
+                            <span className="mr-1.5 text-muted-foreground">
+                              Q{index + 1}.
+                            </span>
+                            {qa.question_text || "-"}
+                          </p>
+
+                          <div className="rounded-md bg-muted/50 p-2.5">
+                            <p className="text-sm leading-relaxed text-foreground">
+                              {qa.answer_text || "No answer submitted yet."}
+                            </p>
+                          </div>
+                        </div>
+                      ))
+                    )}
                   </div>
+                </TabsContent>
+
+                {showActionRequired && actionReason && (
+                  <TabsContent value="response" className="mt-0 space-y-5">
+                    <div className="rounded-lg border border-rose-500/20 bg-rose-500/5 p-4">
+                      <div className="mb-2 flex items-center gap-2 text-rose-500">
+                        <AlertCircle className="h-4 w-4" />
+                        <p className="text-sm font-semibold">Action Required</p>
+                      </div>
+                      <p className="text-sm text-foreground">{actionReason}</p>
+                    </div>
+
+                    <div>
+                      <p className="mb-2 text-xs font-medium text-muted-foreground">
+                        Pending document requests ({requiredDocs.length})
+                      </p>
+
+                      {requiredDocs.length === 0 ? (
+                        <p className="text-sm text-muted-foreground">
+                          No pending document requests.
+                        </p>
+                      ) : (
+                        <div className="space-y-2">
+                          {requiredDocs.map((doc, index) => (
+                            <div
+                              key={doc?.item_id || index}
+                              className="rounded-lg border border-border p-3"
+                            >
+                              <p className="text-sm font-medium text-foreground">
+                                {doc?.document_name ||
+                                  `Requested Document ${index + 1}`}
+                              </p>
+                              <p className="text-xs text-muted-foreground">
+                                {doc?.document_desc ||
+                                  "Awaiting your submission"}
+                              </p>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+
+                    <div>
+                      <p className="mb-2 text-xs font-medium text-muted-foreground">
+                        Pending questions ({requiredQns.length})
+                      </p>
+
+                      {requiredQns.length === 0 ? (
+                        <p className="text-sm text-muted-foreground">
+                          No pending questions.
+                        </p>
+                      ) : (
+                        <div className="space-y-2">
+                          {requiredQns.map((q, index) => (
+                            <div
+                              key={q?.item_id || index}
+                              className="rounded-lg border border-border p-3"
+                            >
+                              <p className="text-sm font-medium text-foreground">
+                                Q{index + 1}. {q?.question_text || "-"}
+                              </p>
+                              <p className="mt-1 text-xs text-muted-foreground">
+                                {q?.answer_text || "Awaiting your response"}
+                              </p>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="flex flex-wrap gap-3">
+                      <Button
+                        className="gap-2"
+                        onClick={() => setResubmitOpen(true)}
+                      >
+                        <Upload className="h-4 w-4" />
+                        Upload Documents
+                      </Button>
+                    </div>
+                  </TabsContent>
                 )}
               </CardContent>
-            </Card>
+            </Tabs>
+          </Card>
 
-            {/* Review Timeline */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2 text-lg">
-                  <Clock className="h-5 w-5 text-muted-foreground" />
-                  Review Timeline
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  <div className="flex gap-3">
-                    <div className="flex flex-col items-center">
-                      <div className="h-2 w-2 rounded-full bg-green-500" />
-                      <div className="flex-1 w-px bg-gray-500" />
-                    </div>
-                    <div className="pb-4">
-                      <p className="text-sm font-medium text-foreground">
-                        To Get Started
-                      </p>
-                    </div>
-                  </div>
+          {canWithdraw && (
+            <Card className="border-dashed">
+              <CardContent className="pt-6">
+                <p className="mb-3 text-sm text-muted-foreground">
+                  If you no longer wish to proceed, you may withdraw this
+                  application.
+                </p>
 
-                  <div className="flex gap-3">
-                    <div className="flex flex-col items-center">
-                      <div className="h-2 w-2 rounded-full bg-green-500" />
-                      <div className="flex-1 w-px bg-gray-500" />
-                    </div>
-                    <div className="pb-4">
-                      <p className="text-sm font-medium text-foreground">
-                        Basic Information
-                      </p>
-                    </div>
-                  </div>
+                <AlertDialog>
+                  <AlertDialogTrigger asChild>
+                    <Button
+                      variant="outline"
+                      className="w-full gap-2 bg-violet-500/10 text-destructive hover:bg-destructive/5 hover:text-destructive"
+                      disabled={isWithdrawing}
+                    >
+                      <Undo2 className="h-4 w-4" />
+                      {isWithdrawing
+                        ? "Withdrawing..."
+                        : "Withdraw Application"}
+                    </Button>
+                  </AlertDialogTrigger>
 
-                  <div className="flex gap-3">
-                    <div className="flex flex-col items-center">
-                      <div className="h-2 w-2 rounded-full bg-green-500" />
-                      <div className="flex-1 w-px bg-gray-500" />
-                    </div>
-                    <div>
-                      <p className="text-sm font-medium text-foreground">
-                        Financial Details
-                      </p>
-                    </div>
-                  </div>
+                  <AlertDialogContent>
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>Withdraw Application?</AlertDialogTitle>
+                      <AlertDialogDescription>
+                        This will withdraw your application for{" "}
+                        <strong>{application?.business_name || "-"}</strong>.
+                        This action cannot be undone and you would need to start
+                        a new application.
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
 
-                  <div className="flex gap-3">
-                    <div className="flex flex-col items-center">
-                      <div className="h-2 w-2 rounded-full bg-green-500" />
-                      <div className="flex-1 w-px bg-gray-500" />
-                    </div>
-                    <div>
-                      <p className="text-sm font-medium text-foreground">
-                        Compliance
-                      </p>
-                    </div>
-                  </div>
-
-                  <div className="flex gap-3">
-                    <div className="flex flex-col items-center">
-                      <div className="h-2 w-2 rounded-full bg-amber-500" />
-                      <div className="flex-1 w-px bg-gray-500" />
-                    </div>
-                    <div>
-                      <p className="text-sm font-medium text-foreground">
-                        Manual Review
-                      </p>
-                    </div>
-                  </div>
-                </div>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel disabled={isWithdrawing}>
+                        Cancel
+                      </AlertDialogCancel>
+                      <AlertDialogAction
+                        className="bg-violet-500/10 text-destructive-foreground hover:bg-destructive/90"
+                        onClick={handleWithdraw}
+                        disabled={isWithdrawing}
+                      >
+                        Withdraw
+                      </AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
               </CardContent>
             </Card>
-          </div>
+          )}
+
+          {canDelete && (
+            <Card className="border-dashed">
+              <CardContent className="pt-6">
+                <p className="mb-3 text-sm text-muted-foreground">
+                  If this draft application is no longer needed, you may delete
+                  it.
+                </p>
+
+                <AlertDialog>
+                  <AlertDialogTrigger asChild>
+                    <Button
+                      variant="outline"
+                      className="bg-red-500/10 w-full gap-2 text-destructive hover:bg-destructive/5 hover:text-destructive"
+                      disabled={isDeleting}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                      {isDeleting ? "Deleting..." : "Delete Application"}
+                    </Button>
+                  </AlertDialogTrigger>
+
+                  <AlertDialogContent>
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>Delete Application?</AlertDialogTitle>
+                      <AlertDialogDescription>
+                        This will permanently delete your draft application for{" "}
+                        <strong>{application?.business_name || "-"}</strong>.
+                        This action cannot be undone.
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+
+                    <AlertDialogFooter>
+                      <AlertDialogCancel disabled={isDeleting}>
+                        Cancel
+                      </AlertDialogCancel>
+                      <AlertDialogAction
+                        className="bg-red-500/10 text-destructive-foreground hover:bg-destructive/90"
+                        onClick={handleDelete}
+                        disabled={isDeleting}
+                      >
+                        Delete
+                      </AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
+              </CardContent>
+            </Card>
+          )}
         </div>
+
+        <ResubmitDialog
+          open={resubmitOpen}
+          onOpenChange={setResubmitOpen}
+          applicationId={id}
+          email={user?.email}
+          firstName={user?.first_name}
+          actionRequired={actionReason}
+          requiredDocuments={requiredDocs}
+          requiredQuestions={requiredQns}
+        />
       </main>
     </div>
   );

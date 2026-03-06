@@ -290,7 +290,7 @@ const LandingNavBar = () => {
   };
 
   return (
-    <header className="fixed top-0 left-0 right-0 z-50 bg-background/95 backdrop-blur-sm border-b border-border">
+    <header className="fixed top-0 left-0 right-0 z-50 bg-white/95 backdrop-blur-sm border-b border-border">
       <div className="container mx-auto px-6">
         <div className="flex items-center justify-between h-16">
           <img src={gogetterslogo} alt="GoGetters SME Logo" className="h-30 w-auto" />
@@ -304,7 +304,7 @@ const LandingNavBar = () => {
                   className={({ isActive }) =>
                     `flex items-center gap-2 px-3 py-2 rounded-md text-sm font-medium transition-colors ${
                       isActive
-                        ? "text-green-600 bg-green-50"
+                        ? "text-red-600 bg-red-50"
                         : "text-gray-600 hover:text-gray-900 hover:bg-gray-50"
                     }`
                   }
@@ -329,7 +329,7 @@ const LandingNavBar = () => {
                   >
                     <Bell className="w-5 h-5" />
                     {unreadCount > 0 && (
-                      <span className="absolute -top-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full bg-green-600 text-[10px] font-bold text-white">
+                      <span className="absolute -top-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full bg-cyan-500 text-[10px] font-bold text-white">
                         {unreadCount}
                       </span>
                     )}
@@ -348,7 +348,7 @@ const LandingNavBar = () => {
                     {unreadCount > 0 && !loadingNotifs && !notifError && (
                       <button
                         onClick={handleMarkAllRead}
-                        className="text-xs text-green-600 hover:underline disabled:opacity-50"
+                        className="text-xs text-cyan-500 hover:underline disabled:opacity-50"
                         type="button"
                         disabled={markingAll}
                       >
@@ -402,10 +402,10 @@ const LandingNavBar = () => {
                                   className={`flex w-full items-start gap-3 px-4 py-3 text-left transition-colors ${
                                     isUpdating
                                       ? "opacity-60 cursor-not-allowed"
-                                      : "bg-green-50 hover:bg-green-100/60"
+                                      : "bg-slate-200 hover:bg-slate-200/60"
                                   }`}
                                 >
-                                  <Circle className="mt-1 h-2 w-2 shrink-0 fill-green-600 text-green-600" />
+                                  <Circle className="mt-1 h-2 w-2 shrink-0 fill-sky-500 text-sky-500" />
                                   <div className="flex-1 min-w-0">
                                     <p className="text-sm font-semibold text-foreground">
                                       {n.title}

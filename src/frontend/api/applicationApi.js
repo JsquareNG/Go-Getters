@@ -135,10 +135,38 @@ export const withdrawApplication = async (applicationId) => {
   return res.data;
 };
 
-export const escalateApplication = async (applicationId, reason) => {
-  const res = await axiosClient.put(`/applications/escalate/${applicationId}`, {
-    reason: String(reason ?? "").trim(),
-  });
+export const escalateApplication = async (applicationId, payload) => {
+  const reason = String(payload?.reason ?? "").trim();
+
+  // backend expects: documents + questions
+  const docsInput = Array.isArray(payload?.documents) ? payload.documents : [];
+  const qsInput = Array.isArray(payload?.questions) ? payload.questions : [];
+
+  // Normalize documents (allow multiple)
+  const documents = docsInput
+    .map((d) => ({
+      document_name: String(d?.document_name ?? d?.name ?? "").trim(),
+      document_desc: String(d?.document_desc ?? d?.description ?? "").trim(),
+    }))
+    .filter((d) => d.document_name || d.document_desc);
+
+  // Normalize questions (allow multiple)
+  const questions = qsInput
+    .map((q) => ({
+      question_text: String(q?.question_text ?? q ?? "").trim(),
+      // You can include answer_text if you want, but backend currently doesn't store it on create
+      ...(q?.answer_text !== undefined
+        ? { answer_text: q?.answer_text === null ? null : String(q.answer_text).trim() }
+        : {}),
+    }))
+    .filter((q) => q.question_text);
+
+  const body = { reason, documents, questions };
+
+  // Optional debug (remove later)
+  console.log("PUT /applications/escalate payload:", body);
+
+  const res = await axiosClient.put(`/applications/escalate/${applicationId}`, body);
   return res.data;
 };
 
@@ -148,8 +176,21 @@ export const deleteApplication = async (applicationId) => {
 };
 
 export const getReviewJob = async (applicationId) => {
-  const res = await axiosClient.get(
-    `/reviewJobs/getReviewJob/${applicationId}`,
-  );
+  const res = await axiosClient.get(`/reviewJobs/getReviewJob/${applicationId}`);
+  return res.data;
+};
+
+export const getMissingItems = async (applicationId) => {
+  const res = await axiosClient.get(`/applications/getRequired/${applicationId}`);
+  return res.data;
+};
+
+export const secondSubmit = async (applicationId, payload) => {
+  const res = await axiosClient.put(`/applications/secondSubmit/${applicationId}`, payload);
+  return res.data;
+};
+
+export const getQnA = async (applicationId) => {
+  const res = await axiosClient.get(`/applications/getActionRequests/${applicationId}`);
   return res.data;
 };

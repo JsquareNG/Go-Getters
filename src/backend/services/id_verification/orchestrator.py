@@ -49,4 +49,5 @@ def extract_and_validate(file_bytes: bytes, content_type: str | None, filename: 
         "extracted": extracted,
         "validation_issues": validation_issues,
         "route": route,
+        "ocr_raw_text": raw_text
     }

@@ -51,3 +51,4 @@ export {
   ToastAction,
 } from "./Toast";
 export { Toaster } from "./Toaster";
+export {Tabs, TabsContent, TabsList, TabsTrigger} from "./Tabs"

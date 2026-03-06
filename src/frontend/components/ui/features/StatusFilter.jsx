@@ -1,21 +1,14 @@
 import { cn } from "@/lib/utils";
 
-const statuses = [
-  "Total Pending",
-  "Critical",
-  "Awaiting Resubmission",
-  "Approved"
-];
+const statuses = ["Total Pending", "Enhanced EDD", "Standard EDD"];
 
 const statusStyles = {
-  "Total Pending": 
-    "data-[active=true]:bg-slate-500 data-[active=true]:text-background",
-  "Critical":
-    "data-[active=true]:bg-blue-500 data-[active=true]:text-background",
-  "Awaiting Resubmission":
-    "data-[active=true]:bg-violet-500 data-[active=true]:text-background",
-  Approved:
-    "data-[active=true]:bg-emerald-400 data-[active=true]:text-background"
+  "Total Pending":
+    "data-[active=true]:bg-slate-200 data-[active=true]:text-background",
+  "Enhanced EDD":
+    "data-[active=true]:bg-red-600 data-[active=true]:text-white",
+  "Standard EDD":
+    "data-[active=true]:bg-orange-400 data-[active=true]:text-white",
 };
 
 const StatusFilter = ({ selectedStatus, onStatusChange, statusCounts }) => {
@@ -30,16 +23,14 @@ const StatusFilter = ({ selectedStatus, onStatusChange, statusCounts }) => {
             "inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-sm font-medium transition-colors",
             "border bg-background hover:bg-secondary",
             "data-[active=true]:border-transparent",
-            statusStyles[status],
+            statusStyles[status]
           )}
         >
           {status}
           <span
             className={cn(
               "text-xs tabular-nums",
-              selectedStatus === status
-                ? "opacity-80"
-                : "text-muted-foreground",
+              selectedStatus === status ? "opacity-80" : "text-muted-foreground"
             )}
           >
             {statusCounts?.[status] ?? 0}
@@ -49,4 +40,5 @@ const StatusFilter = ({ selectedStatus, onStatusChange, statusCounts }) => {
     </div>
   );
 };
+
 export { StatusFilter };
