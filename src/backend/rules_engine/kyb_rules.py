@@ -1,7 +1,8 @@
 from config import (
     HIGH_RISK_COUNTRIES,
     HIGH_RISK_INDUSTRIES,
-    HIGH_TX_VOLUME_THRESHOLD
+    HIGH_TX_VOLUME_THRESHOLD,
+    FATF_BLACKLIST
 )
 
 
@@ -64,6 +65,12 @@ def evaluate_company(company):
         triggers.append({
             "code": "R008B",
             "description": "Significant cross-border transaction exposure"
+        })
+    if company.country in FATF_BLACKLIST:
+        score += 100
+        triggers.append({
+            "code": "R017",
+            "description": "Company linked to FATF blacklisted jurisdiction"
         })
 
     return score, triggers
