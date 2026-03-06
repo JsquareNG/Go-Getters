@@ -94,3 +94,8 @@ export const secondSubmit = async (applicationId, payload) => {
   const res = await axiosClient.put(`/applications/secondSubmit/${applicationId}`, payload);
   return res.data;
 };
+
+export const getQnA = async (applicationId) => {
+  const res = await axiosClient.get(`/applications/getActionRequests/${applicationId}`);
+  return res.data;
+};
