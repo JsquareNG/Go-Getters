@@ -223,41 +223,75 @@ const SMEApplicationForm = () => {
     return { isValid: Object.keys(errors).length === 0, errors };
   };
 
-  // HELPER
-  // const buildFormPayload = (data, config) => {
-  //   const payload = {};
-  //   const individuals = {};
+  const getRequiredFields = (data) => {
+    const businessType = data.businessType;
+    if (!businessType) return [];
 
-  //   Object.entries(data).forEach(([key, val]) => {
-  //     // Check if key is a repeatable section from config
-  //     const repeatableKeys = Object.keys(config.repeatableSections || {});
-  //     if (repeatableKeys.includes(key)) {
-  //       individuals[key] = val; // wrap entire section under individuals
-  //     } else {
-  //       payload[key] = val;
-  //     }
-  //   });
+    const steps = SINGAPORE_CONFIG2.entities[businessType]?.steps || [];
+    const requiredFields = [];
 
-  //   return { ...payload, individuals };
-  // };
-  // const buildFormPayload = (data, config) => {
-  //   const payload = {};
-  //   const individuals = {};
+    steps.forEach((step) => {
+      const fields = step.fields || {};
+      Object.entries(fields).forEach(([key, fieldDef]) => {
+        if (fieldDef.required) requiredFields.push(key);
 
-  //   Object.entries(data).forEach(([key, val]) => {
-  //     // check if key is a repeatable section from config
-  //     const repeatableKeys = Object.keys(config.repeatableSections || {});
-  //     if (repeatableKeys.includes(key)) {
-  //       // wrap repeatable section under "individuals"
-  //       individuals[key] = val;
-  //     } else {
-  //       // leave top-level fields (including files) as-is
-  //       payload[key] = val;
-  //     }
-  //   });
+        // Handle conditional fields
+        if (fieldDef.conditionalFields && data[key]) {
+          Object.entries(fieldDef.conditionalFields[data[key]] || {}).forEach(
+            ([cKey, cDef]) => {
+              if (cDef.required) requiredFields.push(cKey);
+            },
+          );
+        }
+      });
 
-  //   return { ...payload, individuals };
-  // };
+      // HELPERS **
+      // Repeatable sections (like owners/partners)
+      const repeatableSections = step.repeatableSections || {};
+      Object.values(repeatableSections).forEach((section) => {
+        Object.entries(section.fields || {}).forEach(([key, fieldDef]) => {
+          if (fieldDef.required) requiredFields.push(key);
+
+          // Handle conditional fields
+          if (fieldDef.conditionalFields && data[key]) {
+            Object.entries(fieldDef.conditionalFields[data[key]] || {}).forEach(
+              ([cKey, cDef]) => {
+                if (cDef.required) requiredFields.push(cKey);
+              },
+            );
+          }
+        });
+      });
+    });
+
+    return requiredFields;
+  };
+
+  const hasNullFields = (data) => {
+    const requiredFields = getRequiredFields(data);
+
+    for (const field of requiredFields) {
+      if (
+        data[field] === null ||
+        data[field] === undefined ||
+        data[field] === ""
+      ) {
+        return true;
+      }
+    }
+
+    // Check repeatable sections/individuals
+    const individuals = mapIndividuals(data);
+    const individualFields = Object.keys(individuals);
+    for (const field of individualFields) {
+      if (individuals[field] === null || individuals[field] === undefined) {
+        return true;
+      }
+    }
+
+    return false;
+  };
+
   const mapIndividuals = (data) => {
     const individual = {
       fullName: data.fullName || null,
@@ -689,11 +723,29 @@ const SMEApplicationForm = () => {
                         </Button>
                       ) : (
                         <Button
-                          onClick={handleSubmitApplication}
+                          onClick={() => {
+                            if (hasNullFields(formData)) {
+                              toast({
+                                title: "Incomplete Fields",
+                                description:
+                                  "Some required fields are missing. The form will be saved as a draft instead.",
+                                variant: "destructive",
+                              });
+                              handleSaveDraft();
+                            } else {
+                              handleSubmitApplication();
+                            }
+                          }}
                           disabled={isSubmitting}
                         >
-                          Submit
+                          {hasNullFields(formData) ? "Save Draft" : "Submit"}
                         </Button>
+                        // <Button
+                        //   onClick={handleSubmitApplication}
+                        //   disabled={isSubmitting}
+                        // >
+                        //   Submit
+                        // </Button>
                       )}
                     </div>
                   </div>
