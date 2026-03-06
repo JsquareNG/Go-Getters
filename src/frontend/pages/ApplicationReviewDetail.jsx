@@ -500,9 +500,8 @@ export default function ApplicationReviewDetail() {
                   </h1>
                   <StatusBadge status={currentStatus} />
                 </div>
-
                 <p className="mt-1 text-muted-foreground">
-                  Corporate Account • ID: {appDisplayId}
+                  Application ID: {appDisplayId}
                 </p>
 
                 <div className="mt-2 flex flex-wrap items-center gap-3">
@@ -1055,7 +1054,7 @@ export default function ApplicationReviewDetail() {
       />
 
       {canReview && (
-        <div className="fixed bottom-0 left-0 right-0 z-50 border-t border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80">
+        <div className="fixed bottom-0 left-0 right-0 z-50 border-t border-border bg-slate-200/70 backdrop-blur supports-[backdrop-filter]:bg-background/80">
           <div className="container mx-auto flex flex-col gap-3 px-6 py-3 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex items-center gap-3">
               <p className="hidden text-sm text-muted-foreground sm:block">

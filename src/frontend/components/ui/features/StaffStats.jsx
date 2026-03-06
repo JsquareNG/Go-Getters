@@ -44,12 +44,12 @@ const StaffStats = ({
         icon={<Clock className="h-5 w-5" />}
         label="Enhanced EDD"
         value={enhancedEDD}
+        variant="warning"
       />
       <StatCard
-        icon={<CheckCircle2 className="h-5 w-5" />}
+        icon={<CheckCircle2 className="h-5 w-5 text-amber-500" />}
         label="Standard EDD"
         value={standardEDD}
-        variant="success"
       />
     </div>
   );
