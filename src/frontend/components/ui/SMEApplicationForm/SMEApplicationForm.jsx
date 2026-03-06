@@ -596,6 +596,13 @@ const SMEApplicationForm = () => {
       //   return;
       // }
 
+      const normalizedData = {
+        ...cleanData,
+        businessName: cleanData.businessName || cleanData.business_name || "",
+        businessType: cleanData.businessType || cleanData.business_type || "",
+        country: cleanData.country || cleanData.business_country || "",
+      };
+      console.log(cleanData);
       const payload = {
         user_id: user.user_id,
         email: user.email,
@@ -603,7 +610,7 @@ const SMEApplicationForm = () => {
         business_name: cleanData.businessName || "",
         business_type: cleanData.businessType || "",
         business_country: cleanData.country || "",
-        form_data: cleanData,
+        form_data: { ...normalizedData},
         last_saved_step: clampedStep,
         application_id: appId !== "new" ? appId : undefined,
       };
@@ -612,9 +619,15 @@ const SMEApplicationForm = () => {
 
       const res = await saveApplicationDraftApi(payload);
 
-      dispatch(
-        saveDraftAction({ appId: res.application_id || appId, data: formData }),
-      );
+      // Always get returned application_id (new or existing)
+      const savedAppId = res.application_id || appId;
+
+      // Update Redux with saved draft
+      dispatch(saveDraftAction({ appId: savedAppId, data: formData }));
+
+      // dispatch(
+      //   saveDraftAction({ appId: res.application_id || appId, data: formData }),
+      // );
 
       toast({
         title: "Draft Saved",
@@ -756,6 +769,7 @@ const SMEApplicationForm = () => {
 
                 {!isViewOnly && (
                   <div className="mt-8 flex justify-between border-t pt-6">
+                    {/* Previous Button */}
                     <Button
                       onClick={() =>
                         navigate(
@@ -769,11 +783,18 @@ const SMEApplicationForm = () => {
                     </Button>
 
                     <div className="flex gap-3">
-                      {/* <Button variant="outline" onClick={handleSaveDraft}>
+                      {/* Always show Save Draft */}
+                      <Button
+                        variant="outline"
+                        onClick={handleSaveDraft}
+                        disabled={isSubmitting}
+                      >
                         Save Draft
-                      </Button> */}
+                      </Button>
 
+                      {/* Next / Submit logic */}
                       {clampedStep < 4 ? (
+                        // Show Next button if not last step
                         <Button
                           onClick={() =>
                             navigate(
@@ -784,27 +805,16 @@ const SMEApplicationForm = () => {
                           Next
                         </Button>
                       ) : (
-                        <Button
-                          onClick={() => {
-                            if (hasNullFields(formData)) {
-                              toast({
-                                title: "Incomplete Fields",
-                                description:
-                                  "Some required fields are missing. Your form will be saved as a draft.",
-                                variant: "destructive",
-                              });
-                            }
-                            handleSaveDraft(); // always save the draft
-                            if (!hasNullFields(formData))
-                              handleSubmitApplication(); // submit if complete
-                          }}
-                          disabled={isSubmitting}
-                          variant={
-                            hasNullFields(formData) ? "outline" : "destructive"
-                          }
-                        >
-                          {hasNullFields(formData) ? "Save Draft" : "Submit"}
-                        </Button>
+                        // Last step: show Submit only if all fields are filled
+                        !hasNullFields(formData) && (
+                          <Button
+                            onClick={handleSubmitApplication}
+                            disabled={isSubmitting}
+                            variant="destructive"
+                          >
+                            Submit
+                          </Button>
+                        )
                       )}
                     </div>
                   </div>

@@ -5,6 +5,8 @@ import FormFieldGroup from "../components/FormFieldGroup";
 import SINGAPORE_CONFIG from "../config/singaporeConfig";
 import SINGAPORE_CONFIG2 from "../config/updatedSingaporeConfig";
 import { useSelector } from "react-redux";
+import { selectUser } from "../../../../store/authSlice";
+import { getApplicationsByUserId } from "../../../../api/applicationApi";
 
 import {
   // selectFormData,
@@ -19,6 +21,9 @@ import {
  */
 const Step0Brief = ({ data, onFieldChange, disabled = false }) => {
   const dispatch = useDispatch();
+  const user = useSelector(selectUser);
+  const user_id = user.user_id;
+  // console.log(user);
   const { currentApplicationId } = useSelector(
     (state) => state.applicationForm,
   );
@@ -44,22 +49,41 @@ const Step0Brief = ({ data, onFieldChange, disabled = false }) => {
       : [];
 
   // Start new draft if none exists
+  useEffect(() => {
+    const initApplication = async () => {
+      if (!user_id) return;
+
+      try {
+        const applications = await getApplicationsByUserId(user_id);
+
+        // Look for a draft (not submitted yet)
+        const draft = applications.find((app) => !app.submitted);
+
+        if (draft) {
+          // Load draft into Redux
+          dispatch(setFormData(draft.data));
+          dispatch(setStepCompletion(draft.stepCompletion));
+        } else {
+          // Reset Redux and start new
+          dispatch(resetForm());
+          dispatch(startNewApplication());
+        }
+      } catch (err) {
+        console.error("Failed to fetch user applications", err);
+        // fallback: start new
+        dispatch(resetForm());
+        dispatch(startNewApplication());
+      }
+    };
+
+    initApplication();
+  }, [user_id, dispatch]);
   // useEffect(() => {
-  //   if (!data || Object.keys(data).length === 0) {
+  //   if (!currentApplicationId) {
   //     dispatch(resetForm());
   //     dispatch(startNewApplication());
   //   }
-  // }, [dispatch, data]);
-  // useEffect(() => {
-  //   dispatch(resetForm());
-  //   dispatch(startNewApplication());
-  // }, [dispatch]);
-  useEffect(() => {
-    if (!currentApplicationId) {
-      dispatch(resetForm());
-      dispatch(startNewApplication());
-    }
-  }, [dispatch, currentApplicationId]);
+  // }, [dispatch, currentApplicationId]);
 
   // Reset business type if country changes
   useEffect(() => {

@@ -75,8 +75,8 @@ export const saveApplicationDraftApi = async (payload) => {
     // business_name: state.data.business_name || "", // match Step0Brief
     // business_type: state.data.businessType || "", // match Step0Brief
     business_country: form_data.business_country || "", // fallback empty string
-    business_name: form_data.business_name || "",
     business_type: form_data.business_type || "",
+    business_name: form_data.businessName || "",
     last_saved_step: form_data.last_saved_step ?? 0, // default to 0 if undefined
     previous_status: form_data.previous_status || null,
     current_status: form_data.current_status || "Draft",
@@ -156,7 +156,10 @@ export const escalateApplication = async (applicationId, payload) => {
       question_text: String(q?.question_text ?? q ?? "").trim(),
       // You can include answer_text if you want, but backend currently doesn't store it on create
       ...(q?.answer_text !== undefined
-        ? { answer_text: q?.answer_text === null ? null : String(q.answer_text).trim() }
+        ? {
+            answer_text:
+              q?.answer_text === null ? null : String(q.answer_text).trim(),
+          }
         : {}),
     }))
     .filter((q) => q.question_text);
@@ -166,7 +169,10 @@ export const escalateApplication = async (applicationId, payload) => {
   // Optional debug (remove later)
   console.log("PUT /applications/escalate payload:", body);
 
-  const res = await axiosClient.put(`/applications/escalate/${applicationId}`, body);
+  const res = await axiosClient.put(
+    `/applications/escalate/${applicationId}`,
+    body,
+  );
   return res.data;
 };
 
@@ -176,21 +182,30 @@ export const deleteApplication = async (applicationId) => {
 };
 
 export const getReviewJob = async (applicationId) => {
-  const res = await axiosClient.get(`/reviewJobs/getReviewJob/${applicationId}`);
+  const res = await axiosClient.get(
+    `/reviewJobs/getReviewJob/${applicationId}`,
+  );
   return res.data;
 };
 
 export const getMissingItems = async (applicationId) => {
-  const res = await axiosClient.get(`/applications/getRequired/${applicationId}`);
+  const res = await axiosClient.get(
+    `/applications/getRequired/${applicationId}`,
+  );
   return res.data;
 };
 
 export const secondSubmit = async (applicationId, payload) => {
-  const res = await axiosClient.put(`/applications/secondSubmit/${applicationId}`, payload);
+  const res = await axiosClient.put(
+    `/applications/secondSubmit/${applicationId}`,
+    payload,
+  );
   return res.data;
 };
 
 export const getQnA = async (applicationId) => {
-  const res = await axiosClient.get(`/applications/getActionRequests/${applicationId}`);
+  const res = await axiosClient.get(
+    `/applications/getActionRequests/${applicationId}`,
+  );
   return res.data;
 };
