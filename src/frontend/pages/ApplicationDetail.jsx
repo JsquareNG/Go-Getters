@@ -104,8 +104,9 @@ export default function ApplicationDetail() {
     if (id) fetchApplication();
   }, [id]);
 
-  const currentStatus = application?.current_status || "Not started";
   const showActionRequired = currentStatus === "Requires Action";
+    // const currentStatus = application?.current_status || "Not started";
+
 
   const currentStatusKey = normKey(application?.current_status);
   const previousStatusKey = normKey(application?.previous_status);
