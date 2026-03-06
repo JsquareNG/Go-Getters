@@ -25,6 +25,7 @@ export function ResubmitDialog({
   actionRequired,
   requiredDocuments = [],
   requiredQuestions = [],
+  onSuccess,
 }) {
   const [filesByDocId, setFilesByDocId] = useState({});
   const [answersByQId, setAnswersByQId] = useState({});
@@ -155,7 +156,6 @@ export function ResubmitDialog({
     setIsSubmitting(true);
 
     try {
-      // 1) Upload docs
       for (const doc of requiredDocuments) {
         const docId = doc.item_id;
         const files = filesByDocId[docId] || [];
@@ -172,7 +172,6 @@ export function ResubmitDialog({
         }
       }
 
-      // 2) secondSubmit
       const payload = {
         email,
         firstName,
@@ -185,6 +184,10 @@ export function ResubmitDialog({
       console.log("[ResubmitDialog] Calling secondSubmit with:", payload);
 
       await secondSubmit(applicationId, payload);
+
+      if (onSuccess) {
+        await onSuccess();
+      }
 
       toast.success("Resubmission sent successfully.");
       resetAndClose();
@@ -213,7 +216,7 @@ export function ResubmitDialog({
               <p className="text-sm font-semibold text-red-600 mb-1">What&apos;s needed</p>
               <p className="text-sm text-foreground leading-relaxed">{actionRequired}</p>
               <p className="text-xs text-muted-foreground mt-2">
-                {docsCount} document{docsCount === 1 ? "" : "s"} • {qnsCount} question
+                {docsCount} document{docsCount === 1 ? "" : "s"} & {qnsCount} question
                 {qnsCount === 1 ? "" : "s"}
               </p>
             </div>
@@ -348,7 +351,7 @@ export function ResubmitDialog({
           )}
         </div>
 
-        <DialogFooter className="gap-2">
+        <DialogFooter className="gap-2 pt-5">
           <Button type="button" variant="outline" onClick={resetAndClose} disabled={isSubmitting}>
             Cancel
           </Button>

@@ -1,26 +1,14 @@
 import {
-  ArrowRight,
   Building2,
   ChevronRight,
   AlertCircle,
   Globe,
   Clock,
-  MoreVertical,
-  Undo2,
-  Trash2,
 } from "lucide-react";
 import { Button, Card, CardContent, StatusBadge } from "../primitives";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "../features";
 import { cn } from "@/lib/utils";
 import { useNavigate } from "react-router-dom";
 import { useEffect, useMemo, useState } from "react";
-
-import { withdrawApplication, deleteApplication } from "@/api/applicationApi";
 
 function getActionText(status) {
   switch (status) {
@@ -62,28 +50,13 @@ const ApplicationCard = ({ application }) => {
     application.previous_status ?? null
   );
 
-  const [isWithdrawing, setIsWithdrawing] = useState(false);
-  const [isDeleting, setIsDeleting] = useState(false);
-  const [isHidden, setIsHidden] = useState(false);
-
   const appId = application.application_id;
   const companyName = application.business_name || "Untitled Business";
   const country = application.business_country || "N/A";
   const lastUpdated = application.last_edited;
 
   const sKey = normKey(status);
-  const pKey = normKey(prevStatus);
   const sDisplay = normDisplay(status);
-
-  const menuAction = useMemo(() => {
-    if (sKey === "draft" && pKey == null) return "delete";
-    if (sKey === "draft" && pKey === "requires action") return "withdraw";
-    if (sKey === "requires action" && pKey === "under manual review")
-      return "withdraw";
-    return null;
-  }, [sKey, pKey]);
-
-  const showHamburger = menuAction !== null;
 
   const isUrgent = sKey === "requires action";
   const isActionable = sKey === "draft" || sKey === "requires action";
@@ -111,44 +84,6 @@ const ApplicationCard = ({ application }) => {
     if (e?.preventDefault) e.preventDefault();
     if (e?.stopPropagation) e.stopPropagation();
   };
-
-  // ✅ Use this for Dropdown trigger (DON'T preventDefault or Radix may not open)
-  const stopOnly = (e) => {
-    if (e?.stopPropagation) e.stopPropagation();
-  };
-
-  const handleWithdraw = async (e) => {
-    safeStop(e);
-    try {
-      setIsWithdrawing(true);
-      await withdrawApplication(appId);
-      setStatus("Withdrawn");
-      setPrevStatus(status);
-    } catch (err) {
-      console.error("[API] withdrawApplication failed", err?.response?.data || err);
-    } finally {
-      setIsWithdrawing(false);
-    }
-  };
-
-  const handleDelete = async (e) => {
-    safeStop(e);
-
-    const ok = window.confirm("Delete this application? This cannot be undone.");
-    if (!ok) return;
-
-    try {
-      setIsDeleting(true);
-      await deleteApplication(appId);
-      setIsHidden(true);
-    } catch (err) {
-      console.error("[API] deleteApplication failed", err?.response?.data || err);
-    } finally {
-      setIsDeleting(false);
-    }
-  };
-
-  if (isHidden) return null;
 
   return (
     <Card
@@ -203,7 +138,6 @@ const ApplicationCard = ({ application }) => {
               <Button
                 variant={isActionable ? "default" : "outline"}
                 size="sm"
-                disabled={isWithdrawing || isDeleting}
                 className={cn(
                   "gap-1.5",
                   isUrgent && "bg-rose-500 hover:bg-rose-600 text-white"
@@ -214,54 +148,8 @@ const ApplicationCard = ({ application }) => {
                 }}
               >
                 {getActionText(sDisplay)}
-                {isActionable ? (
-                  <ArrowRight className="h-4 w-4" />
-                ) : (
-                  <ChevronRight className="h-4 w-4" />
-                )}
+                <ChevronRight className="h-4 w-4" />
               </Button>
-
-              {showHamburger && (
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-9 w-9"
-                      onPointerDown={stopOnly} // ✅ allow Radix to open
-                      onClick={stopOnly}       // ✅ prevent card navigation
-                      disabled={isWithdrawing || isDeleting}
-                      aria-label="More actions"
-                    >
-                      <MoreVertical className="h-4 w-4" />
-                    </Button>
-                  </DropdownMenuTrigger>
-
-                  <DropdownMenuContent align="end" className="bg-card">
-                    {menuAction === "withdraw" && (
-                      <DropdownMenuItem
-                        className="gap-2 cursor-pointer"
-                        onSelect={handleWithdraw}
-                        disabled={isWithdrawing}
-                      >
-                        <Undo2 className="h-4 w-4" />
-                        {isWithdrawing ? "Withdrawing..." : "Withdraw Application"}
-                      </DropdownMenuItem>
-                    )}
-
-                    {menuAction === "delete" && (
-                      <DropdownMenuItem
-                        className="gap-2 text-destructive focus:text-destructive cursor-pointer"
-                        onSelect={handleDelete}
-                        disabled={isDeleting}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                        {isDeleting ? "Deleting..." : "Delete Application"}
-                      </DropdownMenuItem>
-                    )}
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              )}
             </div>
           </div>
         </div>

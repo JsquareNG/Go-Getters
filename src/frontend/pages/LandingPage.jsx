@@ -84,6 +84,9 @@ export default function LandingPage() {
     return "You already have an SME application in progress. You can only submit one application per user.";
   }, [applications, blocksNewApplication, BLOCKING_STATUSES]);
 
+  // ✅ NEW: hide button once user already has any application
+  const showNewApplicationButton = applications.length === 0;
+
   // Filter Logic
   const filteredApplications = useMemo(() => {
     return applications.filter((app) => {
@@ -148,19 +151,16 @@ export default function LandingPage() {
             )}
           </div>
 
-          <Button
-            disabled={blocksNewApplication}
-            onClick={handleCreateNew}
-            className="gap-2 shrink-0 bg-red-500 hover:bg-red-600 disabled:opacity-50 disabled:cursor-not-allowed"
-            title={
-              blocksNewApplication
-                ? "You already have an existing SME application"
-                : "Create a new application"
-            }
-          >
-            <Plus className="h-4 w-4" />
-            New Application
-          </Button>
+          {showNewApplicationButton && (
+            <Button
+              onClick={handleCreateNew}
+              className="gap-2 shrink-0 bg-red-500 hover:bg-red-600"
+              title="Create a new application"
+            >
+              <Plus className="h-4 w-4" />
+              New Application
+            </Button>
+          )}
         </div>
 
         {/* STATS OVERVIEW */}
@@ -184,9 +184,8 @@ export default function LandingPage() {
             </p>
 
             <Button
-              disabled={blocksNewApplication}
               onClick={handleCreateNew}
-              className="gap-2 bg-red-500 hover:bg-red-600 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="gap-2 bg-red-500 hover:bg-red-600"
             >
               <Plus className="h-4 w-4" />
               New Application

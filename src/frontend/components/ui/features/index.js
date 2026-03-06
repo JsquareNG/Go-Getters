@@ -34,3 +34,14 @@ export { RiskBadge } from "./RiskBadge";
 export { StatusFilter } from "./StatusFilter";
 export { StaffStats } from "./StaffStats";
 export { Popover, PopoverContent, PopoverTrigger } from "./Popover"
+export { AlertDialog,
+  AlertDialogPortal,
+  AlertDialogOverlay,
+  AlertDialogTrigger,
+  AlertDialogContent,
+  AlertDialogHeader,
+  AlertDialogFooter,
+  AlertDialogTitle,
+  AlertDialogDescription,
+  AlertDialogAction,
+  AlertDialogCancel } from "./AlertDialog"
