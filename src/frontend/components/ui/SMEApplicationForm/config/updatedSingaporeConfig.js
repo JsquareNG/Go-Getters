@@ -75,7 +75,11 @@ function getCoreFinancialFields() {
     },
     annualRevenue: { type: "number", label: "Annual Revenue", required: true },
     taxResidency: {
-      country: { type: "select", label: "Country of Tax Residency", options: getAllCountries() },
+      country: {
+        type: "select",
+        label: "Country of Tax Residency",
+        options: getAllCountries(),
+      },
       tin: { type: "text", label: "TIN" },
     },
     expectedCountriesOfTransactionActivity: {
@@ -107,7 +111,11 @@ function getComplianceDeclarations() {
       options: YES_NO_OPTIONS,
       conditionalFields: {
         Yes: {
-          country: { type: "select", label: "Country", options: getAllCountries() },
+          country: {
+            type: "select",
+            label: "Country",
+            options: getAllCountries(),
+          },
           position: { type: "text", label: "Position Held" },
           relationship: { type: "text", label: "Relationship Type" },
           period: { type: "text", label: "Period" },
@@ -471,13 +479,13 @@ const SINGAPORE_CONFIG2 = {
               label: "Company Name",
               required: true,
             },
-            businessIndustry: {
-              type: "checkbox",
-              label: "Business Industry",
-              required: true,
-              option: INDUSTRY_OPTIONS,
-              placeholder: "Select your industry",
-            },
+            // businessIndustry: {
+            //   type: "checkbox",
+            //   label: "Business Industry",
+            //   required: true,
+            //   option: INDUSTRY_OPTIONS,
+            //   placeholder: "Select your industry",
+            // },
             uen: { type: "text", label: "UEN", required: true },
             incorporationDate: {
               type: "date",
@@ -493,6 +501,13 @@ const SINGAPORE_CONFIG2 = {
               type: "textarea",
               label: "Registered Address",
               required: true,
+            },
+            businessIndustry: {
+              type: "checkbox",
+              label: "Business Industry",
+              required: true,
+              option: INDUSTRY_OPTIONS,
+              placeholder: "Select your industry",
             },
             email: { type: "email", label: "Email", required: true },
             phone: { type: "text", label: "Phone", required: true },

@@ -1,12 +1,12 @@
 import React, { useMemo, useRef, useState } from "react";
 import FormFieldGroup from "../components/FormFieldGroup";
 import FileUploadField from "../components/FileUploadField";
-import SINGAPORE_CONFIG from "../config/singaporeConfig";
+// import SINGAPORE_CONFIG from "../config/singaporeConfig";
 import SINGAPORE_CONFIG2 from "../config/updatedSingaporeConfig";
 // import { extractFieldsFromStep, resolveConditionalFields, isFieldVisible } from "../utils/extractFields";
 
 const ACRA_WITH_TABLES_ENDPOINT =
-  "http://127.0.0.1:8000/document-ai/extract-acra-with-tables";
+  "http://127.0.0.1:8000/document-ai/extract-acra-bizprofile";
 
 const Step1BasicInformation = ({ data, onFieldChange, disabled = false }) => {
   const fileRef = useRef(null);
@@ -19,7 +19,11 @@ const Step1BasicInformation = ({ data, onFieldChange, disabled = false }) => {
   // ---- dynamic config from singaporeConfig ----
   const { basicFieldsConfig, repeatableSectionsConfig } = useMemo(() => {
     const entity = SINGAPORE_CONFIG2.entities[data?.businessType] || {};
+    // const entity = SINGAPORE_CONFIG2?.entities?.[data?.businessType] || {};
     const step2 = entity.steps?.find((s) => s.id === "step2") || {};
+    // const step2 = Array.isArray(entity.steps)
+    //   ? entity.steps.find((s) => s.id === "step2")
+    //   : {};
 
     const basicFields = {};
     const repeatableSections = {};
@@ -83,14 +87,17 @@ const Step1BasicInformation = ({ data, onFieldChange, disabled = false }) => {
       if (!res.ok) throw new Error("Autofill failed");
 
       const result = await res.json();
-      const rawKv = result?.data?.kv_page_1 || {};
+      console.log("FULL API RESPONSE:", result);
+      const rawKv = result?.data?.data || {};
       const kv = {};
       Object.keys(rawKv).forEach((k) => {
         kv[k.toLowerCase().trim()] = rawKv[k];
       });
 
-      const ownerName = result?.data?.owner?.owner_name || "";
-      const ownerId = result?.data?.owner?.identification_number || "";
+      // const ownerName = result?.data?.owner?.owner_name || "";
+      // const ownerId = result?.data?.owner?.identification_number || "";
+      const ownerName = result?.data?.data?.owners?.name || "";
+      const ownerId = result?.data?.data?.owners?.id_number || "";
 
       // ---- helpers ----
       const setIfEmpty = (key, value) => {
@@ -144,15 +151,19 @@ const Step1BasicInformation = ({ data, onFieldChange, disabled = false }) => {
       // ---- map ACRA → Redux ----
       setIfEmpty(
         "businessName",
-        kv["name of business"] || kv["name of company"],
+        // kv["name of business"] || kv["name of company"],
+        kv["name"],
       );
-      setIfEmpty("registeredAddress", kv["principal place of business"]);
+      // setIfEmpty("registeredAddress", kv["principal place of business"]);
+      setIfEmpty("registeredAddress", kv["address"]);
+
       const isoDate = ddMmmYyyyToISO(
-        kv["registration date"] || kv["commencement date"],
+        kv["registration_date"] || kv["commencement date"],
       );
       if (isoDate) setIfEmpty("registrationDate", isoDate);
       const mappedStatus = normalizeStatus(
-        kv["status of business"] || kv["status of company"],
+        // kv["status of business"] || kv["status of company"],
+        kv["status"]
       );
       if (mappedStatus) setIfEmpty("businessStatus", mappedStatus);
       setIfEmpty("uen", kv["uen"]);

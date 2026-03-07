@@ -480,19 +480,19 @@ export default function ApplicationDetail() {
                 </div>
               </div>
             </div>
-          </div>
 
-          {currentStatus === "Draft" && (
-            <div className="flex items-center justify-end">
-              <Button
-                variant="outline"
-                onClick={() => navigate(`/application/edit/${id}/0`)}
-                className="text-sm-white bg-blue-500 text-white"
-              >
-                Open Draft
-              </Button>
-            </div>
-          )}
+            {currentStatus === "Draft" && (
+              <div className="flex items-center justify-center">
+                <Button
+                  // variant="destructi"
+                  onClick={() => navigate(`/application/edit/${id}/0`)}
+                  // className="text-sm-white bg-red-500 text-white"
+                >
+                  Open Draft
+                </Button>
+              </div>
+            )}
+          </div>
         </div>
 
         <div className="space-y-6 pb-20">

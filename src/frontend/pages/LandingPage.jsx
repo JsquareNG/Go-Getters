@@ -151,7 +151,7 @@ export default function LandingPage() {
             )}
           </div>
 
-          {showNewApplicationButton && (
+          {/* {showNewApplicationButton && (
             <Button
               onClick={handleCreateNew}
               className="gap-2 shrink-0 bg-red-500 hover:bg-red-600"
@@ -160,7 +160,7 @@ export default function LandingPage() {
               <Plus className="h-4 w-4" />
               New Application
             </Button>
-          )}
+          )} */}
         </div>
 
         {/* STATS OVERVIEW */}

@@ -681,6 +681,8 @@ const SMEApplicationForm = () => {
 
       dispatch(submitApplication({ appId, data: formData }));
 
+      navigat
+
       toast({
         title: "Application Submitted",
         description: "Your application has been submitted.",
@@ -810,7 +812,7 @@ const SMEApplicationForm = () => {
                           <Button
                             onClick={handleSubmitApplication}
                             disabled={isSubmitting}
-                            variant="destructive"
+                            // variant="destructive"
                           >
                             Submit
                           </Button>

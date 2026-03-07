@@ -10,6 +10,7 @@ import { getApplicationsByUserId } from "../../../../api/applicationApi";
 
 import {
   // selectFormData,
+  saveDraft,
   resetForm,
   updateField,
   startNewApplication,
@@ -59,10 +60,17 @@ const Step0Brief = ({ data, onFieldChange, disabled = false }) => {
         // Look for a draft (not submitted yet)
         const draft = applications.find((app) => !app.submitted);
 
+        // if (draft) {
+        //   // Load draft into Redux
+        //   dispatch(setFormData(draft.data));
+        //   dispatch(setStepCompletion(draft.stepCompletion));
         if (draft) {
-          // Load draft into Redux
-          dispatch(setFormData(draft.data));
-          dispatch(setStepCompletion(draft.stepCompletion));
+          dispatch(
+            saveDraft({
+              appId: draft.id,
+              data: draft.form_data || {},
+            }),
+          );
         } else {
           // Reset Redux and start new
           dispatch(resetForm());
