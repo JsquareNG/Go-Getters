@@ -91,7 +91,7 @@ export default function ApplicationDetail() {
       try {
         setIsLoading(true);
         const data = await getApplicationByAppId(id);
-        setApplication(data);
+        setApplication(data.form_data);
         setError(null);
       } catch (err) {
         console.error("Error fetching application:", err);
@@ -103,6 +103,8 @@ export default function ApplicationDetail() {
 
     if (id) fetchApplication();
   }, [id]);
+
+  console.log(application);
 
   const currentStatus = application?.current_status || "Not started";
   const currentStatusKey = normKey(application?.current_status);
@@ -456,7 +458,7 @@ export default function ApplicationDetail() {
               <div>
                 <div className="flex flex-wrap items-center gap-3">
                   <h1 className="text-2xl font-bold tracking-tight text-foreground">
-                    {application?.business_name || "-"}
+                    {application?.businessName || "-"}
                   </h1>
                   <StatusBadge status={currentStatus} />
                 </div>
@@ -534,19 +536,19 @@ export default function ApplicationDetail() {
                     <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
                       <div>
                         <p className="text-xs text-muted-foreground">
-                          Registration Number
+                          Registration Number / UEN
                         </p>
                         <p className="text-sm font-medium text-foreground">
-                          {application.business_registration_number || "-"}
+                          {application.uen || "-"}
                         </p>
                       </div>
 
                       <div>
                         <p className="text-xs text-muted-foreground">
-                          Business Name
+                          Name of Corporation
                         </p>
                         <p className="text-sm font-medium text-foreground">
-                          {application.business_name || "-"}
+                          {application.businessName || "-"}
                         </p>
                       </div>
 
@@ -555,7 +557,7 @@ export default function ApplicationDetail() {
                           Incorporation Date
                         </p>
                         <p className="text-sm font-medium text-foreground">
-                          {application.incorporationDate || "-"}
+                          {application.registrationDate || "-"}
                         </p>
                       </div>
 
@@ -564,7 +566,17 @@ export default function ApplicationDetail() {
                           Business Type
                         </p>
                         <p className="text-sm font-medium text-foreground">
-                          {application.business_type || "-"}
+                          {/* {application.businessType || "-"} */}
+                          {application.businessType
+                            ? application.businessType
+                                .split("_")
+                                .map(
+                                  (word) =>
+                                    word.charAt(0).toUpperCase() +
+                                    word.slice(1),
+                                )
+                                .join(" ")
+                            : "-"}
                         </p>
                       </div>
 
@@ -573,7 +585,16 @@ export default function ApplicationDetail() {
                           Industry
                         </p>
                         <p className="text-sm font-medium text-foreground">
-                          {application.industry || "-"}
+                          {application.businessIndustry || "-"}
+                        </p>
+                      </div>
+
+                      <div>
+                        <p className="text-xs text-muted-foreground">
+                          Status
+                        </p>
+                        <p className="text-sm font-medium text-foreground">
+                          {application.businessStatus || "-"}
                         </p>
                       </div>
 
@@ -591,7 +612,7 @@ export default function ApplicationDetail() {
                           Annual Revenue
                         </p>
                         <p className="text-sm font-medium text-foreground">
-                          {application.annualRevenue || "-"}
+                          $ {application.annualRevenue || "-"}
                         </p>
                       </div>
                     </div>
@@ -605,13 +626,13 @@ export default function ApplicationDetail() {
                       Registered Address
                     </h4>
                     <p className="text-sm font-medium text-foreground">
-                      {application.street || "-"}
+                      {application.registeredAddress || "-"}
                     </p>
-                    <p className="text-sm text-muted-foreground">
+                    {/* <p className="text-sm text-muted-foreground">
                       {application.city || "-"}, {application.postalCode || "-"}
-                    </p>
+                    </p> */}
                     <p className="text-sm text-muted-foreground">
-                      {application.business_country || "-"}
+                      {application.country || "-"}
                     </p>
                   </div>
 
