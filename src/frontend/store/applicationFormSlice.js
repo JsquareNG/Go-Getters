@@ -1,4 +1,5 @@
 import { createSlice, createSelector } from "@reduxjs/toolkit";
+import { v4 as uuidv4 } from "uuid";
 
 // --- HELPER FUNCTION TO UPDATE NESTED FIELDS IN AN IMMUTABLE WAY ---
 // export const setIn = (obj, path, value) => {
@@ -62,7 +63,17 @@ const applicationFormSlice = createSlice({
 
     // Start brand new application
     startNewApplication: (state) => {
-      const id = "new";
+      // const id = "new";
+
+      const hasSubmitted = Object.values(state.drafts).some(
+        (d) => d.status === "Submitted",
+      );
+      if (hasSubmitted) {
+        console.warn("User already has a submitted application.");
+        return; // do not create new draft
+      }
+
+      const id = uuidv4(); // unique ID per draft, else will create one draft one submission
       state.currentApplicationId = id;
       state.currentMode = "edit";
       state.currentStep = 0;
@@ -236,6 +247,11 @@ const applicationFormSlice = createSlice({
 
       state.drafts[appId].status = "Submitted";
       state.drafts[appId].submittedAt = new Date().toISOString();
+
+      // Remove any other drafts so only the submitted one remains
+      Object.keys(state.drafts).forEach((id) => {
+        if (id !== appId) delete state.drafts[id];
+      });
 
       state.currentMode = "view";
       state.hasUnsavedChanges = false;

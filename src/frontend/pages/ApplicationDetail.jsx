@@ -104,12 +104,10 @@ export default function ApplicationDetail() {
     if (id) fetchApplication();
   }, [id]);
 
-  const showActionRequired = currentStatus === "Requires Action";
-    // const currentStatus = application?.current_status || "Not started";
-
-
+  const currentStatus = application?.current_status || "Not started";
   const currentStatusKey = normKey(application?.current_status);
   const previousStatusKey = normKey(application?.previous_status);
+  const showActionRequired = currentStatusKey === "requires action";
 
   const canWithdraw = useMemo(() => {
     if (
@@ -171,7 +169,6 @@ export default function ApplicationDetail() {
     if (id) fetchDocuments();
   }, [id]);
 
-  const currentStatus = application?.current_status || "Not started"; //"Draft", "Submitted", "Under Review", "Requires Action", "Approved"
   // -----------------------------
   // Fetch QnA
   // -----------------------------
@@ -483,23 +480,22 @@ export default function ApplicationDetail() {
                 </div>
               </div>
             </div>
-          </div>
 
-          {/* To continue with draft application */}
-          {currentStatus === "Draft" && (
-            <div className="flex items-center justify-end">
-              <Button
-                variant="outline"
-                onClick={() => navigate(`/application/edit/${id}/0`)}
-                className="text-sm"
-              >
-                Open Draft
-              </Button>
-            </div>
-          )}
+            {currentStatus === "Draft" && (
+              <div className="flex items-center justify-center">
+                <Button
+                  // variant="destructi"
+                  onClick={() => navigate(`/application/edit/${id}/0`)}
+                  // className="text-sm-white bg-red-500 text-white"
+                >
+                  Open Draft
+                </Button>
+              </div>
+            )}
+          </div>
         </div>
 
-        <div className="pb-20 space-y-6">
+        <div className="space-y-6 pb-20">
           <Card>
             <Tabs
               defaultValue={showActionRequired ? "response" : "overview"}
@@ -1083,7 +1079,7 @@ export default function ApplicationDetail() {
                   <AlertDialogTrigger asChild>
                     <Button
                       variant="outline"
-                      className="bg-red-500/10 w-full gap-2 text-destructive hover:bg-destructive/5 hover:text-destructive"
+                      className="w-full gap-2 bg-red-500 text-white hover:bg-destructive/5 hover:text-destructive"
                       disabled={isDeleting}
                     >
                       <Trash2 className="h-4 w-4" />
