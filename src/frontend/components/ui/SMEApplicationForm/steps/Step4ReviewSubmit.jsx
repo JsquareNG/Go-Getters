@@ -1,23 +1,155 @@
-import React from "react";
-import { COUNTRIES } from "../config/countriesConfig";
-import { BUSINESS_TYPES } from "../config/businessTypesConfig";
-import { CheckCircle2 } from "lucide-react";
+import React, { useMemo } from "react";
+import { useSelector, useDispatch } from "react-redux";
+import { CheckCircle2, AlertCircle } from "lucide-react";
+import { generateDocKey } from "../utils/formHelpers";
+import SINGAPORE_CONFIG from "../config/singaporeConfig";
+import SINGAPORE_CONFIG2 from "../config/updatedSingaporeConfig";
+
+import {
+  selectFormData,
+  selectStepCompletion,
+  submitApplication,
+  saveDraft,
+} from "@/store/applicationFormSlice";
 
 /**
- * Step4ReviewSubmit component
- * Displays all collected information for review before final submission
+ * Step4ReviewSubmit component (Redux-only)
+ * - Reads formData and stepCompletion directly from Redux store
+ * - Handles draft/save and submission via dispatch
  */
-const Step4ReviewSubmit = ({ data, onEdit, isSubmitting = false }) => {
-  const countryName = COUNTRIES[data.country]?.name || "Not selected";
-  const businessTypeName =
-    Object.values(BUSINESS_TYPES).find((type) => type.id === data.businessType)
-      ?.label || "Not selected";
+const Step4ReviewSubmit = ({ onEdit, disabled = false }) => {
+  const dispatch = useDispatch();
+  const data = useSelector(selectFormData);
+  const stepCompletion = useSelector(selectStepCompletion);
 
-  const formatDocumentName = (file) => {
-    if (!file) return "Not uploaded";
-    return `${file.name} (${(file.size / 1024).toFixed(2)} KB)`;
+  // ---- Entity and step configs ----
+  const entityConfig = useMemo(
+    () => SINGAPORE_CONFIG2.entities[data?.businessType] || {},
+    [data?.businessType],
+  );
+
+  const step2Config = useMemo(
+    () => entityConfig.steps?.find((s) => s.id === "step2") || {},
+    [entityConfig],
+  );
+
+  const step3Config = useMemo(
+    () => entityConfig.steps?.find((s) => s.id === "step3") || {},
+    [entityConfig],
+  );
+  const step4Config = useMemo(
+    () => entityConfig.steps?.find((s) => s.id === "step4") || {},
+    [entityConfig],
+  );
+
+  // console.log("Entity Config:", entityConfig);
+  // console.log(step2Config);
+  // console.log(step3Config);
+  // console.log(step4Config);
+  // ---- Helpers ----
+  const formatDocumentName = (file) =>
+    file
+      ? `${file.name} (${(file.size / 1024).toFixed(2)} KB)`
+      : "Not uploaded";
+
+  const getFieldsFromStep = (stepConfig, sectionData) => {
+    const fields = [];
+    if (!stepConfig) return fields;
+
+    // Normal fields
+    Object.entries(stepConfig.fields || {}).forEach(([key, cfg]) => {
+      // let value = sectionData?.[key] ?? "";
+      let value = sectionData?.[key] ?? "";
+
+      if (typeof value === "object" && value !== null) {
+        value = Object.entries(value)
+          .map(([k, v]) => `${k}: ${v}`)
+          .join(", ");
+      }
+      if (
+        cfg.type === "checkbox" &&
+        cfg.conditionalFields &&
+        sectionData?.[key]
+      ) {
+        const subFields = cfg.conditionalFields[sectionData[key]];
+        if (subFields) {
+          Object.entries(subFields).forEach(([subKey, subCfg]) => {
+            fields.push({
+              label: subCfg.label,
+              value: sectionData?.[subKey] ?? "",
+            });
+          });
+        }
+      }
+      fields.push({ label: cfg.label, value });
+    });
+
+    // Repeatable sections
+    if (stepConfig.repeatableSections) {
+      Object.entries(stepConfig.repeatableSections).forEach(
+        ([sectionKey, sectionCfg]) => {
+          const items = sectionData?.[sectionKey] || [];
+          items.forEach((item, idx) => {
+            Object.entries(sectionCfg.fields).forEach(([key, cfg]) => {
+              fields.push({
+                label: `${sectionCfg.label} ${idx + 1} - ${cfg.label}`,
+                value: item[key] || "",
+              });
+            });
+          });
+        },
+      );
+    }
+
+    // Documents
+    (stepConfig.documents || []).forEach((doc) => {
+      // const key = doc.toLowerCase().replace(/[^\w]+/g, "_");
+      const key = generateDocKey(doc);
+      fields.push({
+        label: doc,
+        value: formatDocumentName(sectionData?.documents?.[key]?.file),
+      });
+    });
+
+    return fields;
   };
 
+  // ---- Review fields ----
+  const basicFields = useMemo(
+    () => getFieldsFromStep(step2Config, data),
+    [step2Config, data],
+  );
+
+  const financialFields = useMemo(
+    () => getFieldsFromStep(step3Config, data),
+    [step3Config, data],
+  );
+
+  const complianceFields = useMemo(
+    () => getFieldsFromStep(step4Config, data),
+    [step4Config, data],
+  );
+
+  // console.log("Basic Fields:", basicFields);
+  // console.log("Financial Fields:", financialFields);
+  // console.log("Compliance Fields:", complianceFields);
+
+  // ---- Submission readiness ----
+  const allStepsComplete =
+    stepCompletion[0] &&
+    stepCompletion[1] &&
+    stepCompletion[2] &&
+    stepCompletion[3];
+
+  const handleButtonClick = () => {
+    if (allStepsComplete) {
+      dispatch(submitApplication());
+    } else {
+      dispatch(saveDraft());
+    }
+  };
+
+  // ---- Review Section component ----
   const ReviewSection = ({ title, fields, onEditClick }) => (
     <div className="mb-8 border rounded-lg p-6 bg-gray-50">
       <div className="flex items-center justify-between mb-4">
@@ -26,13 +158,13 @@ const Step4ReviewSubmit = ({ data, onEdit, isSubmitting = false }) => {
           <h3 className="text-lg font-semibold text-gray-900">{title}</h3>
         </div>
         <button
-          onClick={() => onEditClick(title)}
-          className="text-sm text-red-500 hover:text-red-700 font-medium"
+          onClick={onEditClick}
+          disabled={disabled}
+          className="text-sm text-red-500 hover:text-red-700 font-medium disabled:text-gray-400 disabled:cursor-not-allowed"
         >
           Edit
         </button>
       </div>
-
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {fields.map((field, idx) => (
           <div
@@ -42,83 +174,18 @@ const Step4ReviewSubmit = ({ data, onEdit, isSubmitting = false }) => {
             <p className="text-xs font-medium text-gray-500 uppercase mb-1">
               {field.label}
             </p>
-            <p className="text-sm text-gray-900 break-words">{field.value}</p>
+            <p className="text-sm text-gray-900 break-words">
+              {typeof field.value === "object"
+                ? Object.entries(field.value)
+                    .map(([k, v]) => `${k}: ${v}`)
+                    .join(", ")
+                : field.value || "Not provided"}
+            </p>
           </div>
         ))}
       </div>
     </div>
   );
-
-  // Build review data dynamically
-  const basicInfoFields = [
-    { label: "Company Name", value: data.companyName },
-    { label: "Registration Number", value: data.registrationNumber },
-    { label: "Country", value: countryName },
-    { label: "Business Type", value: businessTypeName },
-    { label: "Email", value: data.email },
-    { label: "Phone", value: data.phone },
-  ];
-
-  // Add dynamic country-specific fields to review
-  if (data.country && COUNTRIES[data.country]?.fields) {
-    Object.entries(COUNTRIES[data.country].fields).forEach(
-      ([fieldName, fieldConfig]) => {
-        const value = data.countrySpecificFields[fieldName];
-        if (value) {
-          basicInfoFields.push({
-            label: fieldConfig.label,
-            value: value,
-          });
-        }
-      },
-    );
-  }
-
-  // Add dynamic business-type-specific fields to review
-  if (data.businessType) {
-    const businessTypeConfig = Object.values(BUSINESS_TYPES).find(
-      (type) => type.id === data.businessType,
-    );
-    if (businessTypeConfig?.fields) {
-      Object.entries(businessTypeConfig.fields).forEach(
-        ([fieldName, fieldConfig]) => {
-          const value = data.businessTypeSpecificFields[fieldName];
-          if (value) {
-            basicInfoFields.push({
-              label: fieldConfig.label,
-              value: value,
-            });
-          }
-        },
-      );
-    }
-  }
-
-  const financialFields = [
-    { label: "Bank Account Number", value: data.bankAccountNumber },
-    { label: "SWIFT / BIC Code", value: data.swift },
-    { label: "Account Currency", value: data.currency },
-    {
-      label: "Annual Revenue",
-      value: `${data.currency} ${parseFloat(data.annualRevenue).toLocaleString()}`,
-    },
-    { label: "Tax ID", value: data.taxId },
-  ];
-
-  const complianceFields = [
-    {
-      label: "KYC Document",
-      value: formatDocumentName(data.documents.kycDocument),
-    },
-    {
-      label: "Business License",
-      value: formatDocumentName(data.documents.businessLicense),
-    },
-    {
-      label: "Proof of Address",
-      value: formatDocumentName(data.documents.proofOfAddress),
-    },
-  ];
 
   return (
     <div>
@@ -126,59 +193,65 @@ const Step4ReviewSubmit = ({ data, onEdit, isSubmitting = false }) => {
         Review Your Application
       </h2>
       <p className="text-gray-600 mb-8">
-        Please review all information below. Click "Edit" to make changes before
-        submitting.
+        Please review all information below. Click "Edit" to make changes if
+        needed.
       </p>
 
-      {/* Basic Information Review */}
       <ReviewSection
         title="Basic Information"
-        fields={basicInfoFields}
+        fields={basicFields}
         onEditClick={() => onEdit(1)}
       />
-
-      {/* Financial Details Review */}
       <ReviewSection
         title="Financial Details"
         fields={financialFields}
         onEditClick={() => onEdit(2)}
       />
-
-      {/* Compliance & Documentation Review */}
       <ReviewSection
-        title="Compliance & Documentation"
+        title="Documentation"
         fields={complianceFields}
         onEditClick={() => onEdit(3)}
       />
 
-      {/* Submission Confirmation */}
-      <div className="mt-8 p-6 bg-green-50 border border-green-200 rounded-lg">
-        <p className="text-sm text-green-800 mb-2">
-          <strong>✓ Ready to Submit</strong>
-        </p>
-        <p className="text-sm text-green-800">
-          All required information has been provided. Click "Submit Application"
-          below to complete your registration.
-        </p>
-      </div>
-
-      {/* Disclaimer */}
-      <div className="mt-6 p-4 bg-gray-100 border border-gray-300 rounded-lg">
-        <p className="text-xs text-gray-700">
-          <strong>Disclaimer:</strong> By submitting this application, you
-          confirm that all information provided is accurate and complete to the
-          best of your knowledge. Any false information may result in
-          application rejection and potential legal consequences.
-        </p>
-      </div>
-
-      {isSubmitting && (
-        <div className="mt-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-          <p className="text-sm text-blue-800">
-            Processing your application...
+      {/* Status Banner */}
+      <div
+        className={`mb-8 p-4 rounded-lg border flex items-start gap-3 ${
+          allStepsComplete
+            ? "bg-green-50 border-green-200"
+            : "bg-amber-50 border-amber-200"
+        }`}
+      >
+        <AlertCircle
+          className={`h-5 w-5 mt-0.5 flex-shrink-0 ${
+            allStepsComplete ? "text-green-600" : "text-amber-600"
+          }`}
+        />
+        <div>
+          <p
+            className={`font-semibold ${allStepsComplete ? "text-green-900" : "text-amber-900"}`}
+          >
+            {allStepsComplete
+              ? "Application Complete"
+              : "Application Incomplete"}
+          </p>
+          <p
+            className={`text-sm ${allStepsComplete ? "text-green-700" : "text-amber-700"}`}
+          >
+            {allStepsComplete
+              ? "All fields are filled. Click Submit to send your application."
+              : "Some required fields are missing. Click Save Draft to save your progress."}
           </p>
         </div>
-      )}
+      </div>
+
+      {/* save draft button which is not needed here */}
+      {/* <Button
+        onClick={handleButtonClick}
+        disabled={disabled}
+        variant={allStepsComplete ? "default" : "outline"}
+      >
+        {allStepsComplete ? "Submit Application" : "Save Draft"}
+      </Button> */}
     </div>
   );
 };

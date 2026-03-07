@@ -1,14 +1,9 @@
 import { createSlice } from "@reduxjs/toolkit";
-import {
-  COUNTRIES,
-  BUSINESS_TYPES,
-  DOCUMENT_TYPES,
-} from "../components/ui/SMEApplicationForm/config";
 
 const initialState = {
-  countries: COUNTRIES,
-  businessTypes: BUSINESS_TYPES,
-  documentTypes: DOCUMENT_TYPES,
+  countries: null,
+  businessTypes: null,
+  documentTypes: null,
 };
 
 const smeConfigSlice = createSlice({

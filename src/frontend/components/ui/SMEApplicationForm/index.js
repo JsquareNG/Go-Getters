@@ -5,11 +5,6 @@
 
 export { default as SMEApplicationForm } from "./SMEApplicationForm";
 export { useSMEApplicationForm } from "./hooks/useSMEApplicationForm";
-export { COUNTRIES, getCountryConfig } from "./config/countriesConfig";
-export {
-  BUSINESS_TYPES,
-  getBusinessTypeConfig,
-} from "./config/businessTypesConfig";
 export {
   VALIDATION_RULES,
   validateField,

@@ -1,19 +1,14 @@
-import React, { useRef, useState } from "react";
+import React, { useMemo, useRef, useState } from "react";
 import FormFieldGroup from "../components/FormFieldGroup";
+import FileUploadField from "../components/FileUploadField";
+import SINGAPORE_CONFIG from "../config/singaporeConfig";
+import SINGAPORE_CONFIG2 from "../config/updatedSingaporeConfig";
+// import { extractFieldsFromStep, resolveConditionalFields, isFieldVisible } from "../utils/extractFields";
 
 const ACRA_WITH_TABLES_ENDPOINT =
   "http://127.0.0.1:8000/document-ai/extract-acra-with-tables";
 
-const Step1BasicInformation = ({
-  data,
-  errors,
-  touched,
-  onFieldChange,
-  onCountrySpecificFieldChange,
-  onBusinessTypeFieldChange,
-  countrySpecificFieldsConfig,
-  businessTypeSpecificFieldsConfig,
-}) => {
+const Step1BasicInformation = ({ data, onFieldChange, disabled = false }) => {
   const fileRef = useRef(null);
 
   const [acraFile, setAcraFile] = useState(null);
@@ -21,229 +16,343 @@ const Step1BasicInformation = ({
   const [acraError, setAcraError] = useState("");
   const [acraSuccessMsg, setAcraSuccessMsg] = useState("");
 
-  // ---- helpers to support both setter styles (event vs (name,value)) ----
-  const callChange = (fn, name, value) => {
-    if (!fn) return;
+  // ---- dynamic config from singaporeConfig ----
+  const { basicFieldsConfig, repeatableSectionsConfig } = useMemo(() => {
+    const entity = SINGAPORE_CONFIG2.entities[data?.businessType] || {};
+    const step2 = entity.steps?.find((s) => s.id === "step2") || {};
 
-    // If the function expects 2 args, it's (fieldName, value)
-    if (fn.length >= 2) {
-      fn(name, value);
-      return;
+    const basicFields = {};
+    const repeatableSections = {};
+
+    if (step2.fields) {
+      Object.entries(step2.fields).forEach(([key, val]) => {
+        basicFields[key] = { ...val };
+      });
     }
 
-    // Otherwise treat as event handler
-    fn({ target: { name, value } });
-  };
+    if (step2.repeatableSections) {
+      Object.entries(step2.repeatableSections).forEach(
+        ([sectionKey, section]) => {
+          repeatableSections[sectionKey] = {
+            label: section.label,
+            min: section.min,
+            max: section.max,
+            fields: { ...section.fields },
+          };
+        },
+      );
+    }
 
-  const fireField = (name, value) => callChange(onFieldChange, name, value);
-  const fireCountryField = (name, value) =>
-    callChange(onCountrySpecificFieldChange, name, value);
-  const fireBusinessField = (name, value) =>
-    callChange(onBusinessTypeFieldChange, name, value);
-
-  const setIfEmpty = (scope, key, setter, nextVal) => {
-    if (nextVal === undefined || nextVal === null) return;
-    const next = String(nextVal).trim();
-    if (!next) return;
-
-    let current = "";
-    if (scope === "root") current = data?.[key] ?? "";
-    if (scope === "country") current = data?.countrySpecificFields?.[key] ?? "";
-    if (scope === "business")
-      current = data?.businessTypeSpecificFields?.[key] ?? "";
-
-    const empty =
-      current === null ||
-      current === undefined ||
-      String(current).trim() === "";
-    if (empty) setter(next);
-  };
-
-  const ddMmmYyyyToISO = (s) => {
-    if (!s) return "";
-    const m = String(s)
-      .trim()
-      .match(/^(\d{1,2})\s+([A-Z]{3})\s+(\d{4})$/i);
-    if (!m) return "";
-    const day = m[1].padStart(2, "0");
-    const mon = m[2].toUpperCase();
-    const year = m[3];
-    const months = {
-      JAN: "01",
-      FEB: "02",
-      MAR: "03",
-      APR: "04",
-      MAY: "05",
-      JUN: "06",
-      JUL: "07",
-      AUG: "08",
-      SEP: "09",
-      OCT: "10",
-      NOV: "11",
-      DEC: "12",
+    return {
+      basicFieldsConfig: basicFields,
+      repeatableSectionsConfig: repeatableSections,
     };
-    const mm = months[mon];
-    if (!mm) return "";
-    return `${year}-${mm}-${day}`;
-  };
+  }, [data?.businessType]);
 
-  const normalizeStatus = (s) => {
-    if (!s) return "";
-    const v = String(s).trim().toUpperCase();
-    if (v === "LIVE") return "Active";
-    if (v === "ACTIVE") return "Active";
-    if (v === "INACTIVE") return "Inactive";
-    if (v === "DISSOLVED") return "Dissolved";
-    if (v === "LIQUIDATED") return "Liquidated";
-    if (v === "IN RECEIVERSHIP") return "InReceivership";
-    if (v === "STRUCK OFF") return "StruckOff";
-    return "";
-  };
-
-  // ---- file select ----
+  // ---- ACRA Upload Handlers ----
   const handleChooseAcra = () => fileRef.current?.click();
 
   const handleAcraFileChange = (e) => {
     setAcraError("");
     setAcraSuccessMsg("");
     const file = e.target.files?.[0];
-    if (!file) return;
-    setAcraFile(file);
+    if (file) setAcraFile(file);
     e.target.value = "";
   };
 
-  // ---- autofill ----
   const handleAutofillAcra = async () => {
     setAcraError("");
     setAcraSuccessMsg("");
 
-    if (data?.country !== "SG") return; // SG-only
-
-    if (!acraFile) {
-      setAcraError("Please upload your ACRA business profile PDF first.");
-      return;
-    }
-
-    if (acraFile.type !== "application/pdf") {
-      setAcraError("Only PDF is allowed.");
-      return;
-    }
+    if (data?.country !== "SG") return;
+    if (!acraFile) return setAcraError("Please upload your ACRA PDF first.");
+    if (acraFile.type !== "application/pdf")
+      return setAcraError("Only PDF is allowed.");
 
     setAcraUploading(true);
 
     try {
-      const formData = new FormData();
-      formData.append("file", acraFile);
+      const formDataApi = new FormData();
+      formDataApi.append("file", acraFile);
 
       const res = await fetch(ACRA_WITH_TABLES_ENDPOINT, {
         method: "POST",
-        body: formData,
+        body: formDataApi,
       });
 
-      if (!res.ok) {
-        const errJson = await res.json().catch(() => null);
-        throw new Error(errJson?.detail || `Autofill failed (${res.status})`);
-      }
+      if (!res.ok) throw new Error("Autofill failed");
 
-      const payload = await res.json();
-      const d = payload?.data ?? payload;
+      const result = await res.json();
+      const rawKv = result?.data?.kv_page_1 || {};
+      const kv = {};
+      Object.keys(rawKv).forEach((k) => {
+        kv[k.toLowerCase().trim()] = rawKv[k];
+      });
 
-      const kv = d?.kv_page_1 || {};
-      const entityType = d?.entity_type || "";
+      const ownerName = result?.data?.owner?.owner_name || "";
+      const ownerId = result?.data?.owner?.identification_number || "";
 
-      const ownerName = d?.owner?.owner_name || "";
-      const ownerId = d?.owner?.identification_number || "";
-
-      // ---- Root fields ----
-      setIfEmpty(
-        "root",
-        "companyName",
-        (v) => fireField("companyName", v),
-        kv["name of business"] || kv["name of company"]
-      );
-
-      setIfEmpty(
-        "root",
-        "registeredOfficeAddress",
-        (v) => fireField("registeredOfficeAddress", v),
-        kv["principal place of business"]
-      );
-
-      const isoDate = ddMmmYyyyToISO(
-        kv["registration date"] || kv["commencement date"]
-      );
-      if (isoDate) {
-        setIfEmpty(
-          "root",
-          "incorporationDate",
-          (v) => fireField("incorporationDate", v),
-          isoDate
-        );
-      }
-
-      const mappedStatus = normalizeStatus(
-        kv["status of business"] || kv["status of company"]
-      );
-      if (mappedStatus) {
-        setIfEmpty("root", "status", (v) => fireField("status", v), mappedStatus);
-      }
-
-      // ---- Country-specific (SG) ----
-      if (countrySpecificFieldsConfig?.acraUEN) {
-        setIfEmpty(
-          "country",
-          "acraUEN",
-          (v) => fireCountryField("acraUEN", v),
-          kv["uen"]
-        );
-      }
-
-      // ---- Business-type-specific fields (dynamic) ----
-      // Only fill if those fields are present for the selected business type
-      const bizFields = businessTypeSpecificFieldsConfig || {};
-
-      // Sole Proprietorship
-      if ("ownerName" in bizFields && ownerName) {
-        setIfEmpty(
-          "business",
-          "ownerName",
-          (v) => fireBusinessField("ownerName", v),
-          ownerName
-        );
-      }
-      if ("ownerIdNumber" in bizFields && ownerId) {
-        setIfEmpty(
-          "business",
-          "ownerIdNumber",
-          (v) => fireBusinessField("ownerIdNumber", v),
-          ownerId
-        );
-      }
-
-      // Partnership: if you want to prefill partnerDetails with owner as first line (optional)
-      // Only if your form is currently a partnership and field exists.
-      if ("partnerDetails" in bizFields && (ownerName || ownerId)) {
-        const line = [ownerName, ownerId].filter(Boolean).join(", ");
-        if (line) {
-          // if empty, set; if not empty, append (avoid duplicates)
-          const current =
-            data?.businessTypeSpecificFields?.partnerDetails?.trim() || "";
-          if (!current) {
-            fireBusinessField("partnerDetails", line);
-          } else if (!current.includes(line)) {
-            fireBusinessField("partnerDetails", `${current}\n${line}`);
-          }
+      // ---- helpers ----
+      const setIfEmpty = (key, value) => {
+        if (!(key in basicFieldsConfig)) return;
+        if (!value) return;
+        const next = String(value).trim();
+        if (!next) return;
+        const current = data?.[key] ?? "";
+        if (!current || String(current).trim() === "") {
+          onFieldChange?.(key, next); // direct Redux update
         }
-      }
+      };
 
-      setAcraSuccessMsg("Autofill completed. Please review the details before proceeding.");
-      
+      const ddMmmYyyyToISO = (s) => {
+        if (!s) return "";
+        const m = String(s)
+          .trim()
+          .match(/^(\d{1,2})\s+([A-Z]{3})\s+(\d{4})$/i);
+        if (!m) return "";
+        const months = {
+          JAN: "01",
+          FEB: "02",
+          MAR: "03",
+          APR: "04",
+          MAY: "05",
+          JUN: "06",
+          JUL: "07",
+          AUG: "08",
+          SEP: "09",
+          OCT: "10",
+          NOV: "11",
+          DEC: "12",
+        };
+        const day = m[1].padStart(2, "0");
+        const mm = months[m[2].toUpperCase()];
+        return `${m[3]}-${mm}-${day}`;
+      };
+
+      const normalizeStatus = (s) => {
+        if (!s) return "";
+        const v = String(s).trim().toUpperCase();
+        if (v === "LIVE" || v === "ACTIVE") return "Active";
+        if (v === "INACTIVE") return "Inactive";
+        if (v === "DISSOLVED") return "Dissolved";
+        if (v === "LIQUIDATED") return "Liquidated";
+        if (v === "IN RECEIVERSHIP") return "InReceivership";
+        if (v === "STRUCK OFF") return "StruckOff";
+        return "";
+      };
+
+      // ---- map ACRA → Redux ----
+      setIfEmpty(
+        "businessName",
+        kv["name of business"] || kv["name of company"],
+      );
+      setIfEmpty("registeredAddress", kv["principal place of business"]);
+      const isoDate = ddMmmYyyyToISO(
+        kv["registration date"] || kv["commencement date"],
+      );
+      if (isoDate) setIfEmpty("registrationDate", isoDate);
+      const mappedStatus = normalizeStatus(
+        kv["status of business"] || kv["status of company"],
+      );
+      if (mappedStatus) setIfEmpty("businessStatus", mappedStatus);
+      setIfEmpty("uen", kv["uen"]);
+      if (ownerName) setIfEmpty("fullName", ownerName);
+      if (ownerId) setIfEmpty("idNumber", ownerId);
+
+      setAcraSuccessMsg("Autofill completed. Please review before proceeding.");
     } catch (err) {
-      setAcraError(err?.message || "Failed to autofill from ACRA.");
+      setAcraError(err?.message || "Failed to autofill.");
     } finally {
       setAcraUploading(false);
     }
   };
+
+  const handleFieldChange = (name, value) => {
+    if (!name || typeof name !== "string") {
+      console.error("Invalid field name:", name);
+      return;
+    }
+
+    onFieldChange(name, value);
+  };
+
+  const getNestedValue = (obj, path) => {
+    return path.split(".").reduce((acc, key) => acc?.[key], obj);
+  };
+
+  const setNestedValue = (obj, path, value) => {
+    const keys = path.split(".");
+    const lastKey = keys.pop();
+    const newObj = { ...obj };
+    let ref = newObj;
+
+    keys.forEach((key) => {
+      if (!ref[key]) ref[key] = {};
+      ref[key] = { ...ref[key] };
+      ref = ref[key];
+    });
+
+    ref[lastKey] = value;
+    return newObj;
+  };
+
+  // const handleDocumentChange = (fieldPath, file) => {
+  //   if (!fieldPath || !file) return;
+
+  //   // Store metadata in Redux
+  //   const fileMeta = {
+  //     fileName: file.name,
+  //     fileType: file.type,
+  //     size: file.size,
+  //     progress: 0,
+  //   };
+
+  //   const updatedData = setNestedValue(data, fieldPath, fileMeta);
+
+  //   onFieldChange("", updatedData); // Redux update
+
+  // };
+
+  const handleDocumentChange = (fieldPath, file) => {
+    if (!fieldPath) {
+      console.error("Invalid document field:", fieldPath);
+      return;
+    }
+
+    handleFieldChange(fieldPath, {
+      file,
+      progress: 0,
+    });
+  };
+
+  //HELPER
+  const getVisibleConditionalFields = (fieldCfg, value) => {
+    if (!fieldCfg.conditionalFields) return {};
+    return fieldCfg.conditionalFields[value] || {};
+  };
+
+  // ---- Generic field renderer (recursive for nested fields) ----
+  const renderField = (fieldName, fieldCfg, parentKey = null) => {
+    const fullKey = parentKey ? `${parentKey}.${fieldName}` : fieldName;
+    const value = parentKey
+      ? data?.[parentKey]?.[fieldName]
+      : data?.[fieldName];
+
+    // Nested object
+    if (typeof fieldCfg === "object" && !fieldCfg.type && !fieldCfg.label) {
+      return (
+        <div key={fullKey} className="mb-6">
+          <p className="font-semibold text-gray-900 mb-2">
+            {fieldName.replace(/([A-Z])/g, " $1").trim()}
+          </p>
+          {Object.entries(fieldCfg).map(([subKey, subCfg]) =>
+            renderField(subKey, subCfg, fullKey),
+          )}
+        </div>
+      );
+    }
+
+    // File field
+    if (fieldCfg.type === "file") {
+      return (
+        <FileUploadField
+          key={fullKey}
+          fieldName={fullKey}
+          label={fieldCfg.label}
+          // file={data?.[fullKey] || null} // <- must match your Redux structure
+          file={getNestedValue(data, fullKey) || null}
+          onChange={(file) => handleDocumentChange(fullKey, file)}
+          required={fieldCfg.required || false}
+          acceptTypes="application/pdf,image/jpeg,image/png"
+          placeholder={fieldCfg.placeholder || ""}
+          maxSize={5242880}
+          disabled={disabled}
+        />
+      );
+    }
+
+    // // Regular field
+    // return (
+    //   <FormFieldGroup
+    //     key={fullKey}
+    //     fieldName={fullKey}
+    //     label={fieldCfg.label}
+    //     placeholder={fieldCfg.placeholder || ""}
+    //     value={value || ""}
+    //     onChange={onFieldChange}
+    //     type={fieldCfg.type || "text"}
+    //     options={fieldCfg.options || []}
+    //     required={fieldCfg.required || false}
+    //     disabled={disabled}
+    //   />
+    // );
+
+    // Regular field (text/select/etc.)
+    const fieldElement = (
+      <FormFieldGroup
+        key={fullKey}
+        fieldName={fullKey}
+        label={fieldCfg.label}
+        placeholder={fieldCfg.placeholder || ""}
+        value={value || ""}
+        onChange={onFieldChange}
+        type={fieldCfg.type || "text"}
+        options={fieldCfg.options || []}
+        required={fieldCfg.required || false}
+        disabled={disabled}
+      />
+    );
+
+    // Render conditional fields if any
+    if (fieldCfg.conditionalFields && value != null) {
+      const visibleFields = getVisibleConditionalFields(fieldCfg, value);
+      const conditionalElements = Object.entries(visibleFields).map(
+        ([condKey, condCfg]) => renderField(condKey, condCfg, parentKey),
+      );
+      return (
+        <div key={fullKey}>
+          {fieldElement}
+          <div className="ml-4 mt-2">{conditionalElements}</div>
+        </div>
+      );
+    }
+
+    return fieldElement;
+  };
+  // ---- Helper to render a field or file field ----
+  // const renderField = (fieldName, fieldConfig) => {
+  //   if (fieldConfig.type === "file") {
+  //     return (
+  //       <FileUploadField
+  //         key={fieldName}
+  //         fieldName={fieldName}
+  //         label={fieldConfig.label}
+  //         file={data[fieldName]?.file || null}
+  //         onChange={(file) => handleDocumentChange(fieldName, {file})}
+  //         required={fieldConfig.required || false}
+  //         acceptTypes="application/pdf,image/jpeg,image/png"
+  //         placeholder={fieldConfig.placeholder || ""}
+  //         maxSize={5242880}
+  //         disabled={disabled}
+  //       />
+  //     );
+  //   }
+
+  //   return (
+  //     <FormFieldGroup
+  //       key={fieldName}
+  //       fieldName={fieldName}
+  //       label={fieldConfig.label}
+  //       placeholder={fieldConfig.placeholder || ""}
+  //       value={data[fieldName] || ""}
+  //       onChange={onFieldChange}
+  //       type={fieldConfig.type || "text"}
+  //       options={fieldConfig.options || []}
+  //       required={fieldConfig.required || false}
+  //       disabled={disabled}
+  //     />
+  //   );
+  // };
 
   return (
     <div>
@@ -251,7 +360,7 @@ const Step1BasicInformation = ({
         Basic Information
       </h2>
 
-      {/* ✅ SG-only ACRA Autofill Block */}
+      {/* ACRA Autofill */}
       {data?.country === "SG" && (
         <div className="mb-6 rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
@@ -263,7 +372,6 @@ const Step1BasicInformation = ({
                 Upload ACRA Business Profile (PDF), then click Autofill.
               </p>
             </div>
-
             <div className="flex items-center gap-3">
               <button
                 type="button"
@@ -309,127 +417,62 @@ const Step1BasicInformation = ({
         </div>
       )}
 
-      {/* Standard Fields */}
-      <FormFieldGroup
-        fieldName="companyName"
-        label="Company Name"
-        placeholder="Enter company legal name"
-        value={data.companyName}
-        onChange={onFieldChange}
-        error={errors.companyName}
-        touched={touched.companyName}
-        required
-      />
+      {/* Top-Level Fields */}
+      {/* {Object.entries(basicFieldsConfig).map(([fieldName, fieldConfig]) => (
+        <FormFieldGroup
+          key={fieldName}
+          fieldName={fieldName}
+          label={fieldConfig.label}
+          placeholder={fieldConfig.placeholder || ""}
+          value={data[fieldName] || ""}
+          onChange={onFieldChange} // Redux-only
+          type={fieldConfig.type || "text"}
+          options={fieldConfig.options || []}
+          required={fieldConfig.required || false}
+          disabled={disabled}
+        />
+      ))} */}
 
-      {/* Dynamic Country-Specific Fields */}
-      {data.country &&
-        Object.entries(countrySpecificFieldsConfig).map(
-          ([fieldName, fieldConfig]) => (
+      {/* Repeatable Sections */}
+      {/* {Object.entries(repeatableSectionsConfig).map(([sectionKey, section]) => (
+        <div key={sectionKey} className="mt-6">
+          <h3 className="text-lg font-semibold mb-3 text-gray-900">
+            {section.label}
+          </h3>
+
+          {Object.entries(section.fields).map(([fieldName, fieldConfig]) => (
             <FormFieldGroup
               key={fieldName}
               fieldName={fieldName}
               label={fieldConfig.label}
-              placeholder={fieldConfig.placeholder}
-              value={data.countrySpecificFields?.[fieldName] || ""}
-              onChange={onCountrySpecificFieldChange}
-              error={errors[fieldName]}
-              touched={touched[fieldName]}
-              required={fieldConfig.required}
-              helpText={`Format: ${fieldConfig.placeholder}`}
+              placeholder={fieldConfig.placeholder || ""}
+              value={data[fieldName] || ""}
+              onChange={onFieldChange} // Redux-only
+              type={fieldConfig.type || "text"}
+              options={fieldConfig.options || []}
+              required={fieldConfig.required || false}
+              disabled={disabled}
             />
-          )
-        )}
+          ))}
+        </div>
+      ))} */}
 
-      {/* Dynamic Business-Type-Specific Fields */}
-      {data.businessType &&
-        Object.entries(businessTypeSpecificFieldsConfig).map(
-          ([fieldName, fieldConfig]) => (
-            <FormFieldGroup
-              key={fieldName}
-              fieldName={fieldName}
-              label={fieldConfig.label}
-              placeholder={fieldConfig.placeholder}
-              value={data.businessTypeSpecificFields?.[fieldName] || ""}
-              onChange={onBusinessTypeFieldChange}
-              error={errors[fieldName]}
-              touched={touched[fieldName]}
-              required={fieldConfig.required}
-              type={fieldName.includes("Details") ? "textarea" : "text"}
-            />
-          )
-        )}
+      {/* Top-Level Fields */}
+      {Object.entries(basicFieldsConfig).map(([fieldName, fieldConfig]) =>
+        renderField(fieldName, fieldConfig),
+      )}
 
-      {/* INCORPORATION DATE */}
-      <FormFieldGroup
-        fieldName="incorporationDate"
-        label="Incorporation Date"
-        placeholder="Select date"
-        value={data.incorporationDate}
-        onChange={onFieldChange}
-        error={errors.incorporationDate}
-        touched={touched.incorporationDate}
-        type="date"
-        required
-      />
-
-      {/* STATUS OF COMPANY */}
-      <FormFieldGroup
-        fieldName="status"
-        label="Status of Company"
-        placeholder="Select status"
-        value={data.status}
-        onChange={onFieldChange}
-        error={errors.status}
-        touched={touched.status}
-        type="select"
-        options={[
-          { value: "Active", label: "Active" },
-          { value: "Inactive", label: "Inactive" },
-          { value: "Dissolved", label: "Dissolved" },
-          { value: "Liquidated", label: "Liquidated" },
-          { value: "InReceivership", label: "In Receivership" },
-          { value: "StruckOff", label: "Struck Off" },
-        ]}
-        required
-      />
-
-      {/* REGISTERED OFFICE ADDRESS */}
-      <FormFieldGroup
-        fieldName="registeredOfficeAddress"
-        label="Registered Office Address"
-        placeholder="Enter registered office address"
-        value={data.registeredOfficeAddress}
-        onChange={onFieldChange}
-        error={errors.registeredOfficeAddress}
-        touched={touched.registeredOfficeAddress}
-        type="textarea"
-        required
-      />
-
-      {/* Contact Information */}
-      <FormFieldGroup
-        fieldName="email"
-        label="Email Address"
-        placeholder="company@example.com"
-        value={data.email}
-        onChange={onFieldChange}
-        error={errors.email}
-        touched={touched.email}
-        type="email"
-        required
-      />
-
-      <FormFieldGroup
-        fieldName="phone"
-        label="Phone Number"
-        placeholder="+1 (555) 000-0000"
-        value={data.phone}
-        onChange={onFieldChange}
-        error={errors.phone}
-        touched={touched.phone}
-        type="tel"
-        required
-      />
+      {/* Repeatable Sections */}
+      {Object.entries(repeatableSectionsConfig).map(([sectionKey, section]) => (
+        <div key={sectionKey} className="mt-6">
+          <h3 className="text-lg font-semibold mb-3 text-gray-900">
+            {section.label}
+          </h3>
+          {Object.entries(section.fields).map(([fieldName, fieldConfig]) =>
+            renderField(fieldName, fieldConfig),
+          )}
+        </div>
+      ))}
     </div>
   );
 };

@@ -104,14 +104,18 @@ export default function ApplicationDetail() {
     if (id) fetchApplication();
   }, [id]);
 
-  const currentStatus = application?.current_status || "Not started";
   const showActionRequired = currentStatus === "Requires Action";
+    // const currentStatus = application?.current_status || "Not started";
+
 
   const currentStatusKey = normKey(application?.current_status);
   const previousStatusKey = normKey(application?.previous_status);
 
   const canWithdraw = useMemo(() => {
-    if (currentStatusKey === "draft" && previousStatusKey === "requires action") {
+    if (
+      currentStatusKey === "draft" &&
+      previousStatusKey === "requires action"
+    ) {
       return true;
     }
     if (
@@ -167,6 +171,7 @@ export default function ApplicationDetail() {
     if (id) fetchDocuments();
   }, [id]);
 
+  const currentStatus = application?.current_status || "Not started"; //"Draft", "Submitted", "Under Review", "Requires Action", "Approved"
   // -----------------------------
   // Fetch QnA
   // -----------------------------
@@ -193,7 +198,7 @@ export default function ApplicationDetail() {
           err?.response?.data?.detail ||
             err?.response?.data?.message ||
             err?.message ||
-            "Could not retrieve questions & answers."
+            "Could not retrieve questions & answers.",
         );
         setActionRequestsData(null);
       } finally {
@@ -247,7 +252,8 @@ export default function ApplicationDetail() {
   const missingQnsCount = requiredQns.length;
   const hasMissing = missingDocsCount > 0 || missingQnsCount > 0;
 
-  const actionReason = latestRelevantRequest?.reason || application?.reason || "";
+  const actionReason =
+    latestRelevantRequest?.reason || application?.reason || "";
 
   const allQuestions = useMemo(() => {
     const rows = [];
@@ -297,13 +303,16 @@ export default function ApplicationDetail() {
   }, [documents, firstActionRequestTime]);
 
   const resubmissionGroups = useMemo(() => {
-    if (!Array.isArray(documents) || sortedActionRequestsAsc.length === 0) return [];
+    if (!Array.isArray(documents) || sortedActionRequestsAsc.length === 0)
+      return [];
 
     return sortedActionRequestsAsc.map((request, index) => {
       const currentTime = new Date(request?.created_at || 0).getTime();
       const nextTime =
         index < sortedActionRequestsAsc.length - 1
-          ? new Date(sortedActionRequestsAsc[index + 1]?.created_at || 0).getTime()
+          ? new Date(
+              sortedActionRequestsAsc[index + 1]?.created_at || 0,
+            ).getTime()
           : Infinity;
 
       const groupedDocs = documents.filter((doc) => {
@@ -346,7 +355,11 @@ export default function ApplicationDetail() {
       else window.open(signedUrl, "_blank", "noopener,noreferrer");
     } catch (e) {
       if (newTab) newTab.close();
-      console.error("Download error:", e?.response?.status, e?.response?.data || e);
+      console.error(
+        "Download error:",
+        e?.response?.status,
+        e?.response?.data || e,
+      );
       toast.error("Could not open document", {
         description: e?.response?.data?.detail || e?.message || "Unknown error",
       });
@@ -360,7 +373,10 @@ export default function ApplicationDetail() {
       toast.success("Application withdrawn successfully.");
       navigate("/landingpage");
     } catch (err) {
-      console.error("[API] withdrawApplication failed", err?.response?.data || err);
+      console.error(
+        "[API] withdrawApplication failed",
+        err?.response?.data || err,
+      );
       toast.error("Could not withdraw application", {
         description:
           err?.response?.data?.detail ||
@@ -380,7 +396,10 @@ export default function ApplicationDetail() {
       toast.success("Application deleted successfully.");
       navigate("/landingpage");
     } catch (err) {
-      console.error("[API] deleteApplication failed", err?.response?.data || err);
+      console.error(
+        "[API] deleteApplication failed",
+        err?.response?.data || err,
+      );
       toast.error("Could not delete application", {
         description:
           err?.response?.data?.detail ||
@@ -407,13 +426,16 @@ export default function ApplicationDetail() {
   if (error || !application) {
     return (
       <div className="flex min-h-screen flex-col items-center justify-center gap-4">
-        <p className="font-medium text-red-500">{error || "Application not found."}</p>
+        <p className="font-medium text-red-500">
+          {error || "Application not found."}
+        </p>
         <Button onClick={() => navigate("/landingpage")}>Back to List</Button>
       </div>
     );
   }
 
-  const appDisplayId = application?.application_id || application?.id || id || "-";
+  const appDisplayId =
+    application?.application_id || application?.id || id || "-";
 
   return (
     <div className="min-h-screen bg-background pb-24">
@@ -454,13 +476,27 @@ export default function ApplicationDetail() {
 
                   {showActionRequired && hasMissing && (
                     <Badge className="border border-amber-500/20 bg-amber-500/10 text-amber-600">
-                      {missingDocsCount + missingQnsCount} item(s) pending your action
+                      {missingDocsCount + missingQnsCount} item(s) pending your
+                      action
                     </Badge>
                   )}
                 </div>
               </div>
             </div>
           </div>
+
+          {/* To continue with draft application */}
+          {currentStatus === "Draft" && (
+            <div className="flex items-center justify-end">
+              <Button
+                variant="outline"
+                onClick={() => navigate(`/application/edit/${id}/0`)}
+                className="text-sm"
+              >
+                Open Draft
+              </Button>
+            </div>
+          )}
         </div>
 
         <div className="pb-20 space-y-6">
@@ -472,7 +508,10 @@ export default function ApplicationDetail() {
               <CardHeader className="pb-3">
                 <TabsList className="flex h-auto w-full flex-wrap justify-start gap-1 bg-muted/50 p-1">
                   {showActionRequired && actionReason && (
-                    <TabsTrigger value="response" className="text-xs sm:text-sm">
+                    <TabsTrigger
+                      value="response"
+                      className="text-xs sm:text-sm"
+                    >
                       Action Status
                     </TabsTrigger>
                   )}
@@ -498,49 +537,63 @@ export default function ApplicationDetail() {
 
                     <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
                       <div>
-                        <p className="text-xs text-muted-foreground">Registration Number</p>
+                        <p className="text-xs text-muted-foreground">
+                          Registration Number
+                        </p>
                         <p className="text-sm font-medium text-foreground">
                           {application.business_registration_number || "-"}
                         </p>
                       </div>
 
                       <div>
-                        <p className="text-xs text-muted-foreground">Business Name</p>
+                        <p className="text-xs text-muted-foreground">
+                          Business Name
+                        </p>
                         <p className="text-sm font-medium text-foreground">
                           {application.business_name || "-"}
                         </p>
                       </div>
 
                       <div>
-                        <p className="text-xs text-muted-foreground">Incorporation Date</p>
+                        <p className="text-xs text-muted-foreground">
+                          Incorporation Date
+                        </p>
                         <p className="text-sm font-medium text-foreground">
                           {application.incorporationDate || "-"}
                         </p>
                       </div>
 
                       <div>
-                        <p className="text-xs text-muted-foreground">Business Type</p>
+                        <p className="text-xs text-muted-foreground">
+                          Business Type
+                        </p>
                         <p className="text-sm font-medium text-foreground">
                           {application.business_type || "-"}
                         </p>
                       </div>
 
                       <div>
-                        <p className="text-xs text-muted-foreground">Industry</p>
+                        <p className="text-xs text-muted-foreground">
+                          Industry
+                        </p>
                         <p className="text-sm font-medium text-foreground">
                           {application.industry || "-"}
                         </p>
                       </div>
 
                       <div>
-                        <p className="text-xs text-muted-foreground">Employee Count</p>
+                        <p className="text-xs text-muted-foreground">
+                          Employee Count
+                        </p>
                         <p className="text-sm font-medium text-foreground">
                           {application.employeeCount || "-"}
                         </p>
                       </div>
 
                       <div>
-                        <p className="text-xs text-muted-foreground">Annual Revenue</p>
+                        <p className="text-xs text-muted-foreground">
+                          Annual Revenue
+                        </p>
                         <p className="text-sm font-medium text-foreground">
                           {application.annualRevenue || "-"}
                         </p>
@@ -555,7 +608,9 @@ export default function ApplicationDetail() {
                       <MapPin className="h-4 w-4" />
                       Registered Address
                     </h4>
-                    <p className="text-sm font-medium text-foreground">{application.street || "-"}</p>
+                    <p className="text-sm font-medium text-foreground">
+                      {application.street || "-"}
+                    </p>
                     <p className="text-sm text-muted-foreground">
                       {application.city || "-"}, {application.postalCode || "-"}
                     </p>
@@ -573,7 +628,9 @@ export default function ApplicationDetail() {
                     </h4>
 
                     {directors.length === 0 ? (
-                      <p className="text-sm text-muted-foreground">No directors provided.</p>
+                      <p className="text-sm text-muted-foreground">
+                        No directors provided.
+                      </p>
                     ) : (
                       <Accordion
                         type="single"
@@ -632,11 +689,15 @@ export default function ApplicationDetail() {
 
                 <TabsContent value="documents" className="mt-0">
                   {docsLoading ? (
-                    <p className="text-sm text-muted-foreground">Loading documents...</p>
+                    <p className="text-sm text-muted-foreground">
+                      Loading documents...
+                    </p>
                   ) : docsError ? (
                     <p className="text-sm text-red-500">{docsError}</p>
                   ) : documents.length === 0 ? (
-                    <p className="text-sm text-muted-foreground">No documents uploaded yet.</p>
+                    <p className="text-sm text-muted-foreground">
+                      No documents uploaded yet.
+                    </p>
                   ) : (
                     <div className="space-y-6">
                       <div>
@@ -646,7 +707,8 @@ export default function ApplicationDetail() {
                               Initial Submission
                             </h4>
                             <p className="text-xs text-muted-foreground">
-                              Documents uploaded during the first application submission.
+                              Documents uploaded during the first application
+                              submission.
                             </p>
                           </div>
 
@@ -709,16 +771,19 @@ export default function ApplicationDetail() {
                       <div>
                         <div className="mb-3 flex items-center justify-between">
                           <div>
-                            <h4 className="text-sm font-semibold text-foreground">Resubmissions</h4>
+                            <h4 className="text-sm font-semibold text-foreground">
+                              Resubmissions
+                            </h4>
                             <p className="text-xs text-muted-foreground">
-                              Documents uploaded after additional information was requested.
+                              Documents uploaded after additional information
+                              was requested.
                             </p>
                           </div>
 
                           <Badge className="border bg-muted text-foreground">
                             {resubmissionGroups.reduce(
                               (sum, group) => sum + group.documents.length,
-                              0
+                              0,
                             )}{" "}
                             file(s)
                           </Badge>
@@ -745,7 +810,9 @@ export default function ApplicationDetail() {
                                     <p className="text-xs text-muted-foreground">
                                       Requested on{" "}
                                       {group.created_at
-                                        ? new Date(group.created_at).toLocaleString()
+                                        ? new Date(
+                                            group.created_at,
+                                          ).toLocaleString()
                                         : "-"}
                                     </p>
                                   </div>
@@ -760,13 +827,16 @@ export default function ApplicationDetail() {
                                     <p className="text-xs font-medium text-muted-foreground">
                                       Request Reason
                                     </p>
-                                    <p className="mt-1 text-sm text-foreground">{group.reason}</p>
+                                    <p className="mt-1 text-sm text-foreground">
+                                      {group.reason}
+                                    </p>
                                   </div>
                                 )}
 
                                 {group.documents.length === 0 ? (
                                   <p className="text-sm text-muted-foreground">
-                                    No documents uploaded for this resubmission round yet.
+                                    No documents uploaded for this resubmission
+                                    round yet.
                                   </p>
                                 ) : (
                                   <div className="space-y-2">
@@ -827,7 +897,9 @@ export default function ApplicationDetail() {
                     ) : qnaError ? (
                       <p className="text-sm text-red-500">{qnaError}</p>
                     ) : allQuestions.length === 0 ? (
-                      <p className="text-sm text-muted-foreground">No questions found.</p>
+                      <p className="text-sm text-muted-foreground">
+                        No questions found.
+                      </p>
                     ) : (
                       allQuestions.map((qa, index) => (
                         <div
@@ -836,8 +908,11 @@ export default function ApplicationDetail() {
                         >
                           <div className="flex flex-wrap items-center justify-between gap-2">
                             <p className="text-xs text-muted-foreground">
-                              Request: {qa.action_request_id?.slice?.(0, 8) || "-"} •{" "}
-                              {qa.created_at ? new Date(qa.created_at).toLocaleString() : "-"}
+                              Request:{" "}
+                              {qa.action_request_id?.slice?.(0, 8) || "-"} •{" "}
+                              {qa.created_at
+                                ? new Date(qa.created_at).toLocaleString()
+                                : "-"}
                             </p>
                             <span className="text-xs font-medium">
                               {qa.status === "OPEN" ? "OPEN" : "CLOSED"}
@@ -845,7 +920,9 @@ export default function ApplicationDetail() {
                           </div>
 
                           <p className="text-sm font-medium text-foreground">
-                            <span className="mr-1.5 text-muted-foreground">Q{index + 1}.</span>
+                            <span className="mr-1.5 text-muted-foreground">
+                              Q{index + 1}.
+                            </span>
                             {qa.question_text || "-"}
                           </p>
 
@@ -887,10 +964,12 @@ export default function ApplicationDetail() {
                               className="rounded-lg border border-border p-3"
                             >
                               <p className="text-sm font-medium text-foreground">
-                                {doc?.document_name || `Requested Document ${index + 1}`}
+                                {doc?.document_name ||
+                                  `Requested Document ${index + 1}`}
                               </p>
                               <p className="text-xs text-muted-foreground">
-                                {doc?.document_desc || "Awaiting your submission"}
+                                {doc?.document_desc ||
+                                  "Awaiting your submission"}
                               </p>
                             </div>
                           ))}
@@ -927,7 +1006,10 @@ export default function ApplicationDetail() {
                     </div>
 
                     <div className="flex flex-wrap gap-3">
-                      <Button className="gap-2" onClick={() => setResubmitOpen(true)}>
+                      <Button
+                        className="gap-2"
+                        onClick={() => setResubmitOpen(true)}
+                      >
                         <Upload className="h-4 w-4" />
                         Upload Documents
                       </Button>
@@ -942,7 +1024,8 @@ export default function ApplicationDetail() {
             <Card className="border-dashed">
               <CardContent className="pt-6">
                 <p className="mb-3 text-sm text-muted-foreground">
-                  If you no longer wish to proceed, you may withdraw this application.
+                  If you no longer wish to proceed, you may withdraw this
+                  application.
                 </p>
 
                 <AlertDialog>
@@ -953,7 +1036,9 @@ export default function ApplicationDetail() {
                       disabled={isWithdrawing}
                     >
                       <Undo2 className="h-4 w-4" />
-                      {isWithdrawing ? "Withdrawing..." : "Withdraw Application"}
+                      {isWithdrawing
+                        ? "Withdrawing..."
+                        : "Withdraw Application"}
                     </Button>
                   </AlertDialogTrigger>
 
@@ -962,8 +1047,9 @@ export default function ApplicationDetail() {
                       <AlertDialogTitle>Withdraw Application?</AlertDialogTitle>
                       <AlertDialogDescription>
                         This will withdraw your application for{" "}
-                        <strong>{application?.business_name || "-"}</strong>. This action
-                        cannot be undone and you would need to start a new application.
+                        <strong>{application?.business_name || "-"}</strong>.
+                        This action cannot be undone and you would need to start
+                        a new application.
                       </AlertDialogDescription>
                     </AlertDialogHeader>
 
@@ -989,7 +1075,8 @@ export default function ApplicationDetail() {
             <Card className="border-dashed">
               <CardContent className="pt-6">
                 <p className="mb-3 text-sm text-muted-foreground">
-                  If this draft application is no longer needed, you may delete it.
+                  If this draft application is no longer needed, you may delete
+                  it.
                 </p>
 
                 <AlertDialog>
@@ -1009,8 +1096,8 @@ export default function ApplicationDetail() {
                       <AlertDialogTitle>Delete Application?</AlertDialogTitle>
                       <AlertDialogDescription>
                         This will permanently delete your draft application for{" "}
-                        <strong>{application?.business_name || "-"}</strong>. This action
-                        cannot be undone.
+                        <strong>{application?.business_name || "-"}</strong>.
+                        This action cannot be undone.
                       </AlertDialogDescription>
                     </AlertDialogHeader>
 
