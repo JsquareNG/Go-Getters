@@ -8,6 +8,7 @@ from backend.config.settings import RISK_APPETITE_SCORE_THRESHOLD
 from backend.services.application_transitions import approve_application_service, need_manual_review_service
 from backend.rules_engine.application_service import submit_application
 from backend.rules_engine.models import Company, Individual
+from datetime import datetime
 
 
 def run_review_job(application_id: str):
@@ -35,28 +36,65 @@ def run_review_job(application_id: str):
         individuals = []
 
         people = form.get("individuals", [])
+        pepDeclaration = form.get("pepDeclaration")  == "Yes"
+        sanctionsDeclaration = form.get("sanctionsDeclaration") == "Yes"
+
+
+        if isinstance(people, dict):
+            people = [people]
+        elif people is None:
+            people = []
+        elif not isinstance(people, list):
+            raise ValueError(f"form['individuals'] must be a list or dict, got {type(people).__name__}")
 
         for p in people:
             individuals.append(
                 Individual(
                     name=p.get("fullName"),
                     nationality=p.get("nationality"),
-                    ownership_pct=p.get("ownership_pct", 0),
-                    is_pep=p.get("is_pep", False),
-                    sanctions_match=p.get("sanctions_match", False),
+                    ownership_pct=p.get("ownership", 0),
+                    is_pep=pepDeclaration,
+                    sanctions_match=sanctionsDeclaration,
                     is_signatory=p.get("is_signatory",False),
                     directorships=p.get("directorships", 1)
                 )
             )
 
+        expected_volume_raw = form.get("expectedMonthlyTransactionVolume", 0)
+        try:
+            expected_volume = float(expected_volume_raw)
+        except (TypeError, ValueError):
+            expected_volume = 0
+
+        registration_date_str = form.get("registrationDate")
+
+        years_incorporated = 1  # default fallback
+
+        if registration_date_str:
+            try:
+                registration_date = datetime.strptime(registration_date_str, "%Y-%m-%d")
+                today = datetime.today()
+
+                years_incorporated = today.year - registration_date.year
+
+                # adjust if anniversary hasn't passed this year
+                if (today.month, today.day) < (registration_date.month, registration_date.day):
+                    years_incorporated -= 1
+
+                if years_incorporated < 0:
+                    years_incorporated = 0
+
+            except Exception:
+                years_incorporated = 1
+
         company = Company(
             name=form.get("businessName"),
             country=form.get("country"),
-            industry=form.get("industry"),
+            industry=form.get("businessIndustry"),
             ownership_layers=form.get("ownership_layers", 1),
             trust_structure=form.get("uses_trust_or_nominee", False),
-            expected_volume=form.get("expectedMonthlyTransactionVolume", 0),
-            years_incorporated=form.get("years_incorporated", 1),
+            expected_volume=expected_volume,
+            years_incorporated=years_incorporated,
             physical_presence=form.get("physical_presence", False),
             cross_border=form.get("cross_border", False),
             individuals=individuals,
