@@ -18,6 +18,7 @@ export const INDUSTRY_OPTIONS = [
   "Transport Equipment",
   "Furniture & Other Manufacturing",
 
+
   // Wholesale & Retail Trade
   "Wholesale Trade",
   "Retail Trade",
