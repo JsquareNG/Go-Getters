@@ -25,7 +25,7 @@ HIGH_RISK_COUNTRIES = {
 
 # Industries widely considered high risk by banks and AML regulators
 HIGH_RISK_INDUSTRIES = {
-    "Cryptocurrency Exchange",
+    "Cryptocurrency",
     "Virtual Asset Service Provider",
     "Money Services Business",
     "Remittance",

@@ -4,7 +4,8 @@ export const INDUSTRY_OPTIONS = [
   "Mining & Quarrying",
   "Utilities (Electricity, Gas, Water)",
   "Construction & Civil Engineering",
-
+  "Cryptocurrency",
+  
   // Manufacturing
   "Food & Beverages Manufacturing",
   "Textiles, Apparel & Leather",
@@ -17,6 +18,7 @@ export const INDUSTRY_OPTIONS = [
   "Electronics & Electrical Equipment",
   "Transport Equipment",
   "Furniture & Other Manufacturing",
+
 
   // Wholesale & Retail Trade
   "Wholesale Trade",
