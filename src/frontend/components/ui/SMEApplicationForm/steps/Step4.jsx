@@ -35,13 +35,13 @@ const Step4 = ({ onEdit, disabled = false }) => {
     );
   };
 
-  //   console.log(entityConfig)
+    console.log(entityConfig)
 
   const step2Config = getStepConfigById("step2"); // match your config
   const step3Config = getStepConfigById("step3"); // match your config
   const step4Config = getStepConfigById("step4"); // match your config
 
-  console.log(step2Config);
+  //   console.log(step2Config);
 
   /* ------------------------------------------------ */
   /* HELPERS */
@@ -51,59 +51,6 @@ const Step4 = ({ onEdit, disabled = false }) => {
     file
       ? `${file.name} (${(file.size / 1024).toFixed(2)} KB)`
       : "Not uploaded";
-
-  //   function getFieldsFromStep(stepConfig, stepData = {}) {
-  //     const fields = [];
-
-  //     const processFields = (fieldSet, data) => {
-  //       Object.entries(fieldSet || {}).forEach(([key, cfg]) => {
-  //         let value = data?.[key] ?? "";
-  //         let missing =
-  //           cfg.required &&
-  //           (value === "" || value === null || value === undefined);
-
-  //         // Handle conditionalFields
-  //         if (cfg.conditionalFields && value in cfg.conditionalFields) {
-  //           // Only show fields under this conditional key
-  //           const conditional = cfg.conditionalFields[value];
-  //           fields.push({
-  //             label: cfg.label,
-  //             value: value || "Not provided",
-  //             missing,
-  //           });
-  //           fields.push(...processFields(conditional, data[key] || {}));
-  //         } else if (!cfg.conditionalFields) {
-  //           // Normal field
-  //           fields.push({
-  //             label: cfg.label,
-  //             value: value || "Not provided",
-  //             missing,
-  //           });
-  //         }
-  //       });
-  //       return fields;
-  //     };
-
-  //     // Step fields
-  //     fields.push(...processFields(stepConfig.fields, stepData));
-
-  //     // Repeatable sections
-  //     Object.entries(stepConfig.repeatableSections || {}).forEach(
-  //       ([sectionKey, sectionCfg]) => {
-  //         const items = stepData?.[sectionKey] || [];
-  //         items.forEach((item, idx) => {
-  //           fields.push(
-  //             ...processFields(sectionCfg.fields, item).map((f) => ({
-  //               ...f,
-  //               label: `${sectionCfg.label} ${idx + 1} - ${f.label}`,
-  //             })),
-  //           );
-  //         });
-  //       },
-  //     );
-
-  //     return fields;
-  //   }
 
   const getFieldsFromStep = (stepConfig, stepData = {}) => {
     const fields = [];
@@ -184,65 +131,6 @@ const Step4 = ({ onEdit, disabled = false }) => {
 
     return fields;
   };
-  //   const getFieldsFromStep = (stepConfig) => {
-  //     const fields = [];
-  //     if (!stepConfig) return fields;
-
-  //     // --- Normal fields ---
-  //     Object.entries(stepConfig.fields || {}).forEach(([key, cfg]) => {
-  //       let value = data?.[key] ?? "";
-  //       const missing =
-  //         cfg.required && (value === null || value === undefined || value === "");
-  //       if (typeof value === "object" && value !== null)
-  //         value = JSON.stringify(value, null, 2);
-
-  //       fields.push({
-  //         label: cfg.label,
-  //         value: value || "Not provided",
-  //         missing,
-  //       });
-  //     });
-
-  //     // --- Repeatable sections ---
-  //     Object.entries(stepConfig.repeatableSections || {}).forEach(
-  //       ([sectionKey, sectionCfg]) => {
-  //         const items = data?.[sectionKey] || [];
-
-  //         items.forEach((item, idx) => {
-  //           Object.entries(sectionCfg.fields || {}).forEach(([fKey, fCfg]) => {
-  //             let value = item[fKey] ?? "";
-  //             const missing =
-  //               fCfg.required &&
-  //               (value === null || value === undefined || value === "");
-  //             if (value instanceof File) value = formatDocumentName(value);
-  //             else if (Array.isArray(value)) value = value.join(", ");
-  //             else if (typeof value === "object")
-  //               value = JSON.stringify(value, null, 2);
-
-  //             fields.push({
-  //               label: `${sectionCfg.label} ${idx + 1} - ${fCfg.label || fKey}`,
-  //               value: value || "Not provided",
-  //               missing,
-  //             });
-  //           });
-  //         });
-  //       },
-  //     );
-
-  //     // --- Documents ---
-  //     (stepConfig.documents || []).forEach((doc) => {
-  //       const key = generateDocKey(doc);
-  //       const file = data?.documents?.[key]?.file || data?.[key];
-  //       const missing = !file;
-  //       fields.push({
-  //         label: doc,
-  //         value: formatDocumentName(file),
-  //         missing,
-  //       });
-  //     });
-
-  //     return fields;
-  //   };
 
   /* ------------------------------------------------ */
   /* REVIEW FIELDS */
@@ -306,18 +194,6 @@ const Step4 = ({ onEdit, disabled = false }) => {
     return true;
   };
 
-  //   const basicFields = useMemo(
-  //     () => getFieldsFromStep(step2Config),
-  //     [step2Config, data],
-  //   );
-  //   const financialFields = useMemo(
-  //     () => getFieldsFromStep(step3Config),
-  //     [step3Config, data],
-  //   );
-  //   const complianceFields = useMemo(
-  //     () => getFieldsFromStep(step4Config),
-  //     [step4Config, data],
-  //   );
   const basicFields = useMemo(
     () => getFieldsFromStep(step2Config, data),
     [step2Config, data],
