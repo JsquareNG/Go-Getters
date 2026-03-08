@@ -104,7 +104,7 @@ def run_review_job(application_id: str):
 
         job.risk_score = result.get("risk_score")
         job.risk_grade = result.get("decision")
-        job.rules_triggered = result.get("triggered_checks", [])
+        job.rules_triggered = result.get("rules_triggered", [])
 
 
         decision = result.get("decision")
