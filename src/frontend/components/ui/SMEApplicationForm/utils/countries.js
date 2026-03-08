@@ -10,6 +10,6 @@ countries.registerLocale(enLocale);
 export const getAllCountries = () => {
   return Object.entries(countries.getNames("en")).map(([code, name]) => ({
     label: name,
-    value: code
+    value: name
   }));
 };

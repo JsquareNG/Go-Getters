@@ -35,9 +35,10 @@ const Step4 = ({ onEdit, disabled = false }) => {
     );
   };
 
-    console.log(entityConfig)
+  console.log(entityConfig);
 
-  const step2Config = getStepConfigById("step2"); // match your config
+  //TODO: currently id only able to retrieve normal fields, misses repeatableSections object
+  const step2Config = getStepConfigById("step2"); // match your config 
   const step3Config = getStepConfigById("step3"); // match your config
   const step4Config = getStepConfigById("step4"); // match your config
 
@@ -47,6 +48,7 @@ const Step4 = ({ onEdit, disabled = false }) => {
   /* HELPERS */
   /* ------------------------------------------------ */
 
+  //TODO: implement the file upload component here with file info
   const formatDocumentName = (file) =>
     file
       ? `${file.name} (${(file.size / 1024).toFixed(2)} KB)`
