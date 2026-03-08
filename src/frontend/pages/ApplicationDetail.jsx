@@ -62,6 +62,14 @@ const normKey = (v) => {
   return s.length ? s : null;
 };
 
+const formatBusinessType = (value) => {
+  if (!value) return "-";
+  return String(value)
+    .split("_")
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(" ");
+};
+
 export default function ApplicationDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -91,7 +99,7 @@ export default function ApplicationDetail() {
       try {
         setIsLoading(true);
         const data = await getApplicationByAppId(id);
-        setApplication(data.form_data);
+        setApplication(data);
         setError(null);
       } catch (err) {
         console.error("Error fetching application:", err);
@@ -106,6 +114,8 @@ export default function ApplicationDetail() {
 
   console.log(application);
 
+  const formData = application?.form_data || {};
+
   const currentStatus = application?.current_status || "Not started";
   const currentStatusKey = normKey(application?.current_status);
   const previousStatusKey = normKey(application?.previous_status);
@@ -115,6 +125,12 @@ export default function ApplicationDetail() {
     if (
       currentStatusKey === "draft" &&
       previousStatusKey === "requires action"
+    ) {
+      return true;
+    }
+    if (
+      currentStatusKey === "requires action" &&
+      previousStatusKey === "under review"
     ) {
       return true;
     }
@@ -281,10 +297,13 @@ export default function ApplicationDetail() {
       })
     : "-";
 
+  const individualsRaw = formData?.individuals;
   const directors = useMemo(() => {
-    const arr = application?.form_data?.directors;
-    return Array.isArray(arr) ? arr : [];
-  }, [application]);
+    if (Array.isArray(individualsRaw)) return individualsRaw;
+    if (individualsRaw && typeof individualsRaw === "object")
+      return [individualsRaw];
+    return [];
+  }, [individualsRaw]);
 
   const firstActionRequestTime = useMemo(() => {
     if (sortedActionRequestsAsc.length === 0) return null;
@@ -458,7 +477,7 @@ export default function ApplicationDetail() {
               <div>
                 <div className="flex flex-wrap items-center gap-3">
                   <h1 className="text-2xl font-bold tracking-tight text-foreground">
-                    {application?.businessName || "-"}
+                    {application?.business_name || formData?.businessName || "-"}
                   </h1>
                   <StatusBadge status={currentStatus} />
                 </div>
@@ -485,11 +504,7 @@ export default function ApplicationDetail() {
 
             {currentStatus === "Draft" && (
               <div className="flex items-center justify-center">
-                <Button
-                  // variant="destructi"
-                  onClick={() => navigate(`/application/edit/${id}/0`)}
-                  // className="text-sm-white bg-red-500 text-white"
-                >
+                <Button onClick={() => navigate(`/application/edit/${id}/0`)}>
                   Open Draft
                 </Button>
               </div>
@@ -539,7 +554,7 @@ export default function ApplicationDetail() {
                           Registration Number / UEN
                         </p>
                         <p className="text-sm font-medium text-foreground">
-                          {application.uen || "-"}
+                          {formData?.uen || "-"}
                         </p>
                       </div>
 
@@ -548,7 +563,9 @@ export default function ApplicationDetail() {
                           Name of Corporation
                         </p>
                         <p className="text-sm font-medium text-foreground">
-                          {application.businessName || "-"}
+                          {application?.business_name ||
+                            formData?.businessName ||
+                            "-"}
                         </p>
                       </div>
 
@@ -557,7 +574,7 @@ export default function ApplicationDetail() {
                           Incorporation Date
                         </p>
                         <p className="text-sm font-medium text-foreground">
-                          {application.registrationDate || "-"}
+                          {formData?.registrationDate || "-"}
                         </p>
                       </div>
 
@@ -566,17 +583,9 @@ export default function ApplicationDetail() {
                           Business Type
                         </p>
                         <p className="text-sm font-medium text-foreground">
-                          {/* {application.businessType || "-"} */}
-                          {application.businessType
-                            ? application.businessType
-                                .split("_")
-                                .map(
-                                  (word) =>
-                                    word.charAt(0).toUpperCase() +
-                                    word.slice(1),
-                                )
-                                .join(" ")
-                            : "-"}
+                          {formatBusinessType(
+                            application?.business_type || formData?.businessType,
+                          )}
                         </p>
                       </div>
 
@@ -585,7 +594,7 @@ export default function ApplicationDetail() {
                           Industry
                         </p>
                         <p className="text-sm font-medium text-foreground">
-                          {application.businessIndustry || "-"}
+                          {formData?.businessIndustry || "-"}
                         </p>
                       </div>
 
@@ -594,7 +603,7 @@ export default function ApplicationDetail() {
                           Status
                         </p>
                         <p className="text-sm font-medium text-foreground">
-                          {application.businessStatus || "-"}
+                          {formData?.businessStatus || "-"}
                         </p>
                       </div>
 
@@ -603,7 +612,7 @@ export default function ApplicationDetail() {
                           Employee Count
                         </p>
                         <p className="text-sm font-medium text-foreground">
-                          {application.employeeCount || "-"}
+                          {formData?.employeeCount || "-"}
                         </p>
                       </div>
 
@@ -612,7 +621,87 @@ export default function ApplicationDetail() {
                           Annual Revenue
                         </p>
                         <p className="text-sm font-medium text-foreground">
-                          $ {application.annualRevenue || "-"}
+                          ${formData?.annualRevenue || "-"}
+                        </p>
+                      </div>
+
+                      <div>
+                        <p className="text-xs text-muted-foreground">
+                          Email
+                        </p>
+                        <p className="text-sm font-medium text-foreground">
+                          {formData?.email || "-"}
+                        </p>
+                      </div>
+
+                      <div>
+                        <p className="text-xs text-muted-foreground">
+                          Phone
+                        </p>
+                        <p className="text-sm font-medium text-foreground">
+                          {formData?.phone || "-"}
+                        </p>
+                      </div>
+
+                      <div>
+                        <p className="text-xs text-muted-foreground">
+                          Account Currency
+                        </p>
+                        <p className="text-sm font-medium text-foreground">
+                          {formData?.accountCurrency || "-"}
+                        </p>
+                      </div>
+
+                      <div>
+                        <p className="text-xs text-muted-foreground">
+                          Bank Account Number
+                        </p>
+                        <p className="text-sm font-medium text-foreground">
+                          {formData?.bankAccountNumber || "-"}
+                        </p>
+                      </div>
+
+                      <div>
+                        <p className="text-xs text-muted-foreground">
+                          SWIFT / BIC
+                        </p>
+                        <p className="text-sm font-medium text-foreground">
+                          {formData?.swiftBic || "-"}
+                        </p>
+                      </div>
+
+                      <div>
+                        <p className="text-xs text-muted-foreground">
+                          Source of Funds
+                        </p>
+                        <p className="text-sm font-medium text-foreground">
+                          {formData?.sourceOfFunds || "-"}
+                        </p>
+                      </div>
+
+                      <div>
+                        <p className="text-xs text-muted-foreground">
+                          Expected Monthly Transaction Volume
+                        </p>
+                        <p className="text-sm font-medium text-foreground">
+                          {formData?.expectedMonthlyTransactionVolume || "-"}
+                        </p>
+                      </div>
+
+                      <div>
+                        <p className="text-xs text-muted-foreground">
+                          Expected Transaction Countries
+                        </p>
+                        <p className="text-sm font-medium text-foreground">
+                          {Array.isArray(
+                            formData?.expectedCountriesOfTransactionActivity,
+                          ) &&
+                          formData.expectedCountriesOfTransactionActivity.length >
+                            0
+                            ? formData.expectedCountriesOfTransactionActivity.join(
+                                ", ",
+                              )
+                            : "-"}
                         </p>
                       </div>
                     </div>
@@ -626,13 +715,10 @@ export default function ApplicationDetail() {
                       Registered Address
                     </h4>
                     <p className="text-sm font-medium text-foreground">
-                      {application.registeredAddress || "-"}
+                      {formData?.registeredAddress || "-"}
                     </p>
-                    {/* <p className="text-sm text-muted-foreground">
-                      {application.city || "-"}, {application.postalCode || "-"}
-                    </p> */}
                     <p className="text-sm text-muted-foreground">
-                      {application.country || "-"}
+                      {application?.business_country || formData?.country || "-"}
                     </p>
                   </div>
 
@@ -641,12 +727,12 @@ export default function ApplicationDetail() {
                   <div>
                     <h4 className="mb-3 flex items-center gap-2 text-sm font-semibold text-muted-foreground">
                       <User className="h-4 w-4" />
-                      Directors ({directors.length})
+                      Individuals ({directors.length})
                     </h4>
 
                     {directors.length === 0 ? (
                       <p className="text-sm text-muted-foreground">
-                        No directors provided.
+                        No individual details provided.
                       </p>
                     ) : (
                       <Accordion
@@ -670,10 +756,10 @@ export default function ApplicationDetail() {
                                   </div>
                                   <div>
                                     <p className="text-sm font-medium text-foreground">
-                                      {d?.fullName || `Director ${idx + 1}`}
+                                      {d?.fullName || `Individual ${idx + 1}`}
                                     </p>
                                     <p className="text-xs text-muted-foreground">
-                                      {d?.idNumber || "-"}
+                                      {d?.idNumber || "-"} • {d?.role || "-"}
                                     </p>
                                   </div>
                                 </div>
@@ -681,18 +767,85 @@ export default function ApplicationDetail() {
 
                               <AccordionContent>
                                 <div className="grid grid-cols-1 gap-3 pl-10 pt-1 md:grid-cols-2">
-                                  <div className="flex items-center gap-2">
-                                    <Mail className="h-3.5 w-3.5 text-muted-foreground" />
-                                    <span className="text-sm text-foreground">
-                                      {d?.email || "-"}
-                                    </span>
+                                  <div>
+                                    <p className="text-xs text-muted-foreground">
+                                      Position
+                                    </p>
+                                    <p className="text-sm text-foreground">
+                                      {d?.position || "-"}
+                                    </p>
                                   </div>
 
-                                  <div className="flex items-center gap-2">
-                                    <Phone className="h-3.5 w-3.5 text-muted-foreground" />
-                                    <span className="text-sm text-foreground">
-                                      {d?.phone || "-"}
-                                    </span>
+                                  <div>
+                                    <p className="text-xs text-muted-foreground">
+                                      Ownership
+                                    </p>
+                                    <p className="text-sm text-foreground">
+                                      {d?.ownership || "-"}
+                                    </p>
+                                  </div>
+
+                                  <div>
+                                    <p className="text-xs text-muted-foreground">
+                                      Nationality
+                                    </p>
+                                    <p className="text-sm text-foreground">
+                                      {d?.nationality || "-"}
+                                    </p>
+                                  </div>
+
+                                  <div>
+                                    <p className="text-xs text-muted-foreground">
+                                      Date of Birth
+                                    </p>
+                                    <p className="text-sm text-foreground">
+                                      {d?.dateOfBirth || "-"}
+                                    </p>
+                                  </div>
+
+                                  <div>
+                                    <p className="text-xs text-muted-foreground">
+                                      Residential Address
+                                    </p>
+                                    <p className="text-sm text-foreground">
+                                      {d?.residentialAddress || "-"}
+                                    </p>
+                                  </div>
+
+                                  <div>
+                                    <p className="text-xs text-muted-foreground">
+                                      Relationship
+                                    </p>
+                                    <p className="text-sm text-foreground">
+                                      {d?.relationship || "-"}
+                                    </p>
+                                  </div>
+
+                                  <div>
+                                    <p className="text-xs text-muted-foreground">
+                                      PEP Declaration
+                                    </p>
+                                    <p className="text-sm text-foreground">
+                                      {d?.pepDeclaration || "-"}
+                                    </p>
+                                  </div>
+
+                                  <div>
+                                    <p className="text-xs text-muted-foreground">
+                                      FATCA Declaration
+                                    </p>
+                                    <p className="text-sm text-foreground">
+                                      {d?.fatcaDeclaration || "-"}
+                                    </p>
+                                  </div>
+
+                                  <div>
+                                    <p className="text-xs text-muted-foreground">
+                                      Sanctions Declaration
+                                    </p>
+                                    <p className="text-sm text-foreground">
+                                      {d?.sanctionsDeclaration || "-"}
+                                    </p>
                                   </div>
                                 </div>
                               </AccordionContent>
@@ -1064,9 +1217,13 @@ export default function ApplicationDetail() {
                       <AlertDialogTitle>Withdraw Application?</AlertDialogTitle>
                       <AlertDialogDescription>
                         This will withdraw your application for{" "}
-                        <strong>{application?.business_name || "-"}</strong>.
-                        This action cannot be undone and you would need to start
-                        a new application.
+                        <strong>
+                          {application?.business_name ||
+                            formData?.businessName ||
+                            "-"}
+                        </strong>
+                        . This action cannot be undone and you would need to
+                        start a new application.
                       </AlertDialogDescription>
                     </AlertDialogHeader>
 
@@ -1113,8 +1270,12 @@ export default function ApplicationDetail() {
                       <AlertDialogTitle>Delete Application?</AlertDialogTitle>
                       <AlertDialogDescription>
                         This will permanently delete your draft application for{" "}
-                        <strong>{application?.business_name || "-"}</strong>.
-                        This action cannot be undone.
+                        <strong>
+                          {application?.business_name ||
+                            formData?.businessName ||
+                            "-"}
+                        </strong>
+                        . This action cannot be undone.
                       </AlertDialogDescription>
                     </AlertDialogHeader>
 
