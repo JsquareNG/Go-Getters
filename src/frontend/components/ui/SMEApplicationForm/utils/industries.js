@@ -4,7 +4,7 @@ export const INDUSTRY_OPTIONS = [
   "Mining & Quarrying",
   "Utilities (Electricity, Gas, Water)",
   "Construction & Civil Engineering",
-
+//
   // Manufacturing
   "Food & Beverages Manufacturing",
   "Textiles, Apparel & Leather",
