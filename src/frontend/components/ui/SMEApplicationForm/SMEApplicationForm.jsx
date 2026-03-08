@@ -62,49 +62,17 @@ const SMEApplicationForm = () => {
   const clampedStep = isNaN(routeStepNumber)
     ? 0
     : Math.max(0, Math.min(4, routeStepNumber));
-  const isViewOnly =
-    routeMode === "view" ||
-    currentApp?.status ===
-      "Submitted"; /* ------------------------------------------------ */
+  const isViewOnly = routeMode === "view" || currentApp?.status === "Submitted";
 
-  // console.log("Step props", { isViewOnly, formData });
-  // console.log("form data: ", formData);
+  // --- Edit functionality ---
+  const handleEditStep = (step) => {
+    navigate(`/application/edit/${appId}/${step}`);
+  };
+
+  /* ------------------------------------------------ */
   /* REDUX FIELD UPDATE */
   /* ------------------------------------------------ */
 
-  // helper function to set nested value in formData based on field path (e.g. for document upload")
-  // function setNestedValue(obj, path, value) {
-  //   const keys = path.split(".");
-  //   const lastKey = keys.pop();
-  //   let curr = { ...obj };
-  //   let ref = curr;
-
-  //   for (const key of keys) {
-  //     // create nested object if undefined
-  //     ref[key] = ref[key] ? { ...ref[key] } : {};
-  //     ref = ref[key];
-  //   }
-
-  //   ref[lastKey] = value;
-  //   return curr;
-  // }
-
-  // const handleFieldChange = (fieldPath, value) => {
-  //   if (!fieldPath) {
-  //     console.error("Invalid fieldPath:", fieldPath);
-  //     return;
-  //   }
-
-  //   dispatch(updateField({ fieldPath, value }));
-  // };
-  // const handleFieldChange = (field, value) => {
-  //   if (!field) {
-  //     console.error("Invalid field:", field);
-  //     return;
-  //   }
-
-  //   dispatch(updateField({ field, value })); // <-- must be "field", not "fieldPath"
-  // };
   const handleFieldChange = (fieldPath, value) => {
     if (!fieldPath) return;
     dispatch(updateField({ field: fieldPath, value }));
@@ -393,79 +361,6 @@ const SMEApplicationForm = () => {
 
     return individual;
   };
-  // const mapIndividuals = (data) => {
-  //   const individuals = [];
-
-  //   switch (data.businessType) {
-  //     case "sole_proprietorship":
-  //       ina
-  //     case "general_partnership":
-  //       (data.partners || []).forEach((p) => {
-  //         individuals.push({
-  //           ...p,
-  //           role: "Partner",
-  //           ownership: p.ownership || null,
-  //         });
-  //       });
-  //       break;
-
-  //     case "limited_partnership":
-  //       (data.generalPartners || []).forEach((gp) => {
-  //         individuals.push({
-  //           ...gp,
-  //           role: "General Partner",
-  //           ownership: gp.ownership || null,
-  //         });
-  //       });
-  //       (data.limitedPartners || []).forEach((lp) => {
-  //         individuals.push({
-  //           ...lp,
-  //           role: "Limited Partner",
-  //           ownership: lp.ownership || null,
-  //         });
-  //       });
-  //       break;
-
-  //     case "llp":
-  //       (data.partners || []).forEach((p) => {
-  //         individuals.push({
-  //           ...p,
-  //           role: "Partner",
-  //           ownership: p.ownership || null,
-  //         });
-  //       });
-  //       (data.managers || []).forEach((m) => {
-  //         individuals.push({
-  //           ...m,
-  //           role: "Manager",
-  //           ownership: null,
-  //         });
-  //       });
-  //       break;
-
-  //     case "private_limited":
-  //       (data.directors || []).forEach((d) => {
-  //         individuals.push({
-  //           ...d,
-  //           role: "Director",
-  //           ownership: null,
-  //         });
-  //       });
-  //       (data.shareholders || []).forEach((s) => {
-  //         individuals.push({
-  //           ...s,
-  //           role: "Shareholder",
-  //           ownership: s.sharePercentage || null,
-  //         });
-  //       });
-  //       break;
-
-  //     default:
-  //       break;
-  //   }
-
-  //   return individuals;
-  // };
 
   const buildFormPayload = (data) => {
     // shallow copy top-level fields
@@ -497,59 +392,6 @@ const SMEApplicationForm = () => {
     return payload;
   };
 
-  // const buildFormPayload = (formData, config, entityType) => {
-  //   // top-level copy of formData
-  //   const payload = { ...formData };
-  //   const individuals = {};
-
-  //   // Find all repeatable section keys from config
-  //   const entityConfig = config.entities[entityType];
-  //   const repeatableKeys = Object.values(entityConfig.steps || [])
-  //     .map((step) => step.repeatableSections || {})
-  //     .reduce((acc, sectionObj) => ({ ...acc, ...sectionObj }), {});
-
-  //   Object.keys(repeatableKeys).forEach((key) => {
-  //     if (formData[key]) {
-  //       individuals[key] = formData[key]; // wrap repeatable sections
-  //       delete payload[key]; // remove from top-level
-  //     }
-  //   });
-
-  //   // Business type-specific rules
-  //   switch (entityType) {
-  //     case "sole_proprietorship":
-  //       payload.ownership = "100%";
-  //       break;
-
-  //     case "general_partnership":
-  //       if (individuals.partners) {
-  //         Object.values(individuals.partners).forEach((partner) => {
-  //           if (!partner.profitSharingRatio) partner.profitSharingRatio = 50;
-  //         });
-  //       }
-  //       break;
-
-  //     case "limited_partnership":
-  //       if (individuals.generalPartners) {
-  //         Object.values(individuals.generalPartners).forEach(
-  //           (gp) => (gp.sharePercentage = gp.sharePercentage || 60),
-  //         );
-  //       }
-  //       if (individuals.limitedPartners) {
-  //         Object.values(individuals.limitedPartners).forEach(
-  //           (lp) => (lp.sharePercentage = lp.sharePercentage || 40),
-  //         );
-  //       }
-  //       break;
-
-  //     case "private_limited":
-  //       // Example: could auto-detect UBOs here if sharePercentage >= 25
-  //       break;
-  //   }
-
-  //   return { ...payload, individuals };
-  // };
-
   /* ------------------------------------------------ */
   /* SAVE DRAFT */
   /* ------------------------------------------------ */
@@ -563,38 +405,6 @@ const SMEApplicationForm = () => {
         SINGAPORE_CONFIG2,
         formData.businessType,
       );
-      // const cleanData = {};
-      // const flatten = (obj) => {
-      //   if (!obj || typeof obj !== "object") return;
-      //   Object.entries(obj).forEach(([key, value]) => {
-      //     if (key === "null" || value === null || value === undefined) return;
-      //     if (
-      //       typeof value === "object" &&
-      //       !Array.isArray(value) &&
-      //       !(value instanceof File)
-      //     ) {
-      //       flatten(value);
-      //     } else {
-      //       cleanData[key] = value === "" ? null : value;
-      //     }
-      //   });
-      // };
-      // flatten(formData);
-
-      // console.log("Cleaned data before saving draft:", cleanData); // debug log
-
-      // Validate
-      // const { isValid, errors } = validateFormData(cleanData);
-      // if (!isValid) {
-      //   console.log("Validation errors:", errors);
-      //   toast({
-      //     title: "Cannot Save Draft",
-      //     description:
-      //       "Some fields have validation errors. Please check and fix them.",
-      //     variant: "destructive",
-      //   });
-      //   return;
-      // }
 
       const normalizedData = {
         ...cleanData,
@@ -602,7 +412,7 @@ const SMEApplicationForm = () => {
         businessType: cleanData.businessType || cleanData.business_type || "",
         country: cleanData.country || cleanData.business_country || "",
       };
-      console.log(cleanData);
+      // console.log(cleanData);
       const payload = {
         user_id: user.user_id,
         email: user.email,
@@ -610,7 +420,7 @@ const SMEApplicationForm = () => {
         business_name: cleanData.businessName || "",
         business_type: cleanData.businessType || "",
         business_country: cleanData.country || "",
-        form_data: { ...normalizedData},
+        form_data: { ...normalizedData },
         last_saved_step: clampedStep,
         application_id: appId !== "new" ? appId : undefined,
       };
@@ -681,7 +491,7 @@ const SMEApplicationForm = () => {
 
       dispatch(submitApplication({ appId, data: formData }));
 
-      navigat
+      navigate(`/landingpage`);
 
       toast({
         title: "Application Submitted",
@@ -734,6 +544,7 @@ const SMEApplicationForm = () => {
             {...commonProps}
             onSubmit={handleSubmitApplication}
             isSubmitting={isSubmitting}
+            onEdit={handleEditStep}
           />
         );
       default:
