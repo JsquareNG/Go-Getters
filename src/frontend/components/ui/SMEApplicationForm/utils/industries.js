@@ -1,4 +1,6 @@
 export const INDUSTRY_OPTIONS = [
+"Cryptocurrency",
+
   // Primary Industries
   "Agriculture, Forestry & Fishing",
   "Mining & Quarrying",
