@@ -10,6 +10,7 @@ from backend.database import SessionLocal
 from backend.models.application import ApplicationForm
 from backend.models.documents import Document
 from backend.services.supabase_client import supabase_admin, BUCKET
+from backend.services.audit_service import create_audit_log
 from backend.models.user import User
 from backend.api.notification import *
 from backend.api.resend import send_email
@@ -19,6 +20,8 @@ from backend.models.bellNotifications import BellNotification
 from backend.risk.review_service import run_review_job
 from backend.services.application_transitions import approve_application_service, need_manual_review_service
 from backend.models.action_requests import ActionRequest, ActionRequestItem
+from backend.models.auditTrail import AuditTrail
+from backend.models.user import User
 
 router = APIRouter(prefix="/applications", tags=["applications"])
 
@@ -46,6 +49,11 @@ def add_bell(
         from_status=from_status,
         to_status=to_status,
     ))
+
+def get_users_by_id(db: Session, userID: str):
+    user = db.query(User).filter(User.user_id == userID).first()
+
+    return f"{user.first_name} {user.last_name}"
 
 @router.get("/")
 def get_all_applications(db: Session = Depends(get_db)):
@@ -115,7 +123,6 @@ def save_application(data: dict = Body(...), db: Session = Depends(get_db)):
         business_type=form_data['businessType'],
         user_id=data["user_id"],
         form_data=form_data,
-        # last_saved_step=data['last_saved_step'],
         previous_status=None,      
         current_status="Draft"
     )
@@ -130,6 +137,21 @@ def save_application(data: dict = Body(...), db: Session = Depends(get_db)):
         to_status=new_app.current_status,
         message=f"You have successfuly saved your application as a draft."
     ))
+
+    username = get_users_by_id(db, new_app.user_id)
+
+    # Audit log: application created as draft
+    create_audit_log(
+        db=db,
+        application_id=new_app.application_id,
+        actor_id=new_app.user_id,
+        actor_type=username,
+        event_type="APPLICATION_CREATED",
+        entity_type="APPLICATION",
+        from_status=None,
+        to_status="Draft",
+        description="Application created by applicant.",
+    )
 
     db.commit()
     db.refresh(new_app)
@@ -157,26 +179,45 @@ def second_save(application_id: str, data: dict = Body(...), db: Session = Depen
 
     app.form_data = existing_form_data
 
-    curr = app.current_status
-    prev = app.previous_status
+    old_previous_status = app.previous_status
+    old_current_status = app.current_status
+    
 
     if app.has_sent:
         app.has_sent = False
 
-    if curr == "Draft":
+    if old_current_status == "Draft":
         app.current_status = "Draft"
 
-    elif curr == "Requires Action" and prev == "Under Manual Review":
+    elif old_current_status == "Requires Action" and old_previous_status == "Under Manual Review":
         app.previous_status = app.current_status
         app.current_status = "Draft"
 
-    db.add(BellNotification(
+    db.add(
+        BellNotification(
+            application_id=app.application_id,
+            recipient_id=app.user_id,
+            from_status=old_current_status,
+            to_status=app.current_status,
+            message="You have successfully saved your application as a draft."
+        )
+    )
+
+    status_changed = old_current_status != app.current_status
+
+    username = get_users_by_id(db, app.user_id)
+
+    create_audit_log(
+        db=db,
         application_id=app.application_id,
-        recipient_id=app.user_id,
-        from_status=app.previous_status,
-        to_status=app.current_status,
-        message=f"You have successfuly saved your application as a draft."
-    ))
+        actor_id=app.user_id,
+        actor_type=username,
+        event_type="APPLICATION_DRAFT_SAVED",
+        entity_type="APPLICATION",
+        from_status=old_current_status if status_changed else None,
+        to_status=app.current_status if status_changed else None,
+        description="Applicant updated the application draft."
+    )
     
     db.commit()
     db.refresh(app)
@@ -228,6 +269,47 @@ def first_submit_application(
         message="Your application has been submitted successfully and is currently under review.",
         from_status=None,
         to_status="Under Review",
+    )
+
+    username = get_users_by_id(db, new_app.user_id)
+
+    # Audit 1: application created
+    create_audit_log(
+        db=db,
+        application_id=new_app.application_id,
+        actor_id=new_app.user_id,
+        actor_type=username,
+        event_type="APPLICATION_CREATED",
+        entity_type="APPLICATION",
+        from_status=None,
+        to_status=None,
+        description="Application created by applicant."
+    )
+
+    create_audit_log(
+        db=db,
+        application_id=new_app.application_id,
+        actor_id=new_app.user_id,
+        actor_type=username,
+        event_type="APPLICATION_SUBMITTED",
+        entity_type="APPLICATION",
+        from_status="Draft",
+        to_status="Submitted",
+        description="Application submitted for bank review."
+    )
+
+
+    # Audit 2: application submitted
+    create_audit_log(
+        db=db,
+        application_id=new_app.application_id,
+        actor_id=new_app.user_id,
+        actor_type=username,
+        event_type="APPLICATION_SUBMITTED",
+        entity_type="APPLICATION",
+        from_status=None,
+        to_status="Under Review",
+        description="Application is queued for automated compliance screening."
     )
 
     print("[firstSubmit] created app", new_app.application_id)
@@ -551,6 +633,9 @@ def second_submit(
     emails_queued = {"user": False, "staff": False}
     email_notes = []
 
+    username = get_users_by_id(db, app.user_id)
+
+
     # -----------------------------
     # CASE A: First submit (Draft -> Under Review)
     # user can edit ANY application fields
@@ -561,6 +646,13 @@ def second_submit(
         app.previous_status = app.current_status
         app.current_status = "Under Review"
 
+        review_job = ReviewJobs(
+        application_id=app.application_id,
+        status="QUEUED"
+    )
+
+        db.add(review_job)
+
         add_bell(
             db=db,
             appId=app.application_id,
@@ -568,6 +660,31 @@ def second_submit(
             message="Your application has been submitted successfully and is currently under review.",
             from_status=app.previous_status,
             to_status=app.current_status,
+        )
+
+        create_audit_log(
+            db=db,
+            application_id=app.application_id,
+            actor_id=app.user_id,
+            actor_type=username,
+            event_type="APPLICATION_SUBMITTED",
+            entity_type="APPLICATION",
+            from_status="Draft",
+            to_status="Submitted",
+            description="Application submitted for bank review."
+        )
+
+        # Optional system event for queueing review
+        create_audit_log(
+            db=db,
+            application_id=app.application_id,
+            actor_id=None,
+            actor_type="SYSTEM",
+            event_type="REVIEW_JOB_QUEUED",
+            entity_type="REVIEW_JOB",
+            from_status=None,
+            to_status="Under Review",
+            description="Application is queued for automated compliance screening."
         )
 
          # ✅ ADD THIS (same as firstSubmit)
@@ -588,12 +705,14 @@ def second_submit(
     # user cannot edit application fields; only submit required info (answers etc.)
     # -----------------------------
     elif (curr == "Requires Action" and prev == "Under Manual Review") or (curr == "Draft" and prev == "Requires Action"):
+        old_status = app.current_status
+        
         # ✅ Close open action request + update answers
         closed_ar = close_open_action_request_and_update_answers(db, app.application_id, data)
         if not closed_ar:
             # your choice: either error out, or allow but log note
             email_notes.append("No OPEN action request found to close for this application.")
-
+        
         # Move app back to manual review
         app.previous_status = app.current_status
         app.current_status = "Under Manual Review"
@@ -616,6 +735,18 @@ def second_submit(
                 from_status=app.previous_status,
                 to_status=app.current_status,
             )
+
+        create_audit_log(
+            db=db,
+            application_id=app.application_id,
+            actor_id=app.user_id,
+            actor_type=username,
+            event_type="APPLICATION_RESUBMITTED",
+            entity_type="APPLICATION",
+            from_status=old_status,
+            to_status="Under Manual Review",
+            description="Applicant has submitted the requested additional information.",
+        )
 
         # user email
         if user_email:
@@ -649,52 +780,6 @@ def second_submit(
         "emails_queued": emails_queued,
         "email_notes": email_notes,
     }
-
-def pick_least_loaded_staff_id(db: Session) -> str | None:
-    # 1) Compute each staff's load (NO LOCKS here)
-    active_counts_sq = (
-        select(
-            ApplicationForm.reviewer_id.label("rid"),
-            func.count(ApplicationForm.application_id).label("cnt"),
-        )
-        .where(
-            ApplicationForm.reviewer_id.isnot(None),
-            ApplicationForm.current_status.notin_(EXCLUDED_STATUSES),
-        )
-        .group_by(ApplicationForm.reviewer_id)
-        .subquery()
-    )
-
-    staff_loads = db.execute(
-        select(
-            User.user_id,
-            func.coalesce(active_counts_sq.c.cnt, 0).label("load"),
-        )
-        .select_from(User)
-        .outerjoin(active_counts_sq, active_counts_sq.c.rid == User.user_id)
-        .where(User.user_role == "STAFF")
-        .order_by(func.coalesce(active_counts_sq.c.cnt, 0).asc())
-    ).all()
-
-    if not staff_loads:
-        return None
-
-    min_load = staff_loads[0].load
-    candidates = [row.user_id for row in staff_loads if row.load == min_load]
-
-    if not candidates:
-        return None
-
-    # 2) Lock ONE candidate staff row (LOCK QUERY touches ONLY "user" table)
-    chosen = db.execute(
-        select(User.user_id)
-        .where(User.user_id.in_(candidates))
-        .order_by(func.random())
-        .with_for_update(skip_locked=True)
-        .limit(1)
-    ).scalar_one_or_none()
-
-    return chosen
 
 @router.put("/needManualReview/{application_id}")
 def need_manual_review(
@@ -809,6 +894,8 @@ def reject_application(
     if reason is None or str(reason).strip() == "":
         raise HTTPException(status_code=400, detail="reason is required when rejecting")
 
+    old_status = app.current_status
+
     # Status update
     app.previous_status = app.current_status
     app.current_status = "Rejected"
@@ -821,6 +908,20 @@ def reject_application(
         to_status="Rejected",
         message="Your application has been rejected."
     ))
+
+    username = get_users_by_id(db, app.reviewer_id)
+
+    create_audit_log(
+        db=db,
+        application_id=app.application_id,
+        actor_id=app.reviewer_id,
+        actor_type=f" {username} (Reviewer)",
+        event_type="APPLICATION_REJECTED",
+        entity_type="APPLICATION",
+        from_status=old_status,
+        to_status="Rejected",
+        description="Application rejected following manual compliance review."
+    )
 
     # Persist first
     db.commit()
@@ -889,6 +990,8 @@ def require_action(
     requested_docs = data.get("documents") or []
     requested_qns = data.get("questions") or []
 
+    old_status = app.current_status
+
     if app.has_sent:
         app.has_sent = False
         
@@ -937,6 +1040,20 @@ def require_action(
         to_status=app.current_status ,
         message=f"This application requires additional documents from you. Please upload them."
     ))
+
+    username = get_users_by_id(db, app.reviewer_id)
+
+    create_audit_log(
+        db=db,
+        application_id=app.application_id,
+        actor_id=app.reviewer_id,
+        actor_type=f"{username} (Reviewer)",
+        event_type="APPLICATION_ESCALATED",
+        entity_type="APPLICATION",
+        from_status=old_status,
+        to_status="Requires Action",
+        description="Reviewer requested additional documentation from the applicant."
+    )
     
     # Persist first
     db.commit()
@@ -998,6 +1115,8 @@ def withdraw_application(
 
     if not app:
         raise HTTPException(status_code=404, detail="Application not found")
+    
+    old_status = app.current_status
 
     # Status update
     app.previous_status = app.current_status
@@ -1047,6 +1166,20 @@ def withdraw_application(
             to_status=app.current_status,
             message=f"SME User has withdrawn their application for {app.business_name}."
         ))
+
+    username = get_users_by_id(db, app.user_id)
+
+    create_audit_log(
+        db=db,
+        application_id=app.application_id,
+        actor_id=app.user_id,
+        actor_type=username,
+        event_type="APPLICATION_WITHDRAWN",
+        entity_type="APPLICATION",
+        from_status=old_status,
+        to_status="Withdrawn",
+        description="Application withdrawn by applicant."
+    )
 
     db.commit()
 
