@@ -12,7 +12,7 @@ def get_audit_trail_by_application(application_id: str, db: Session = Depends(ge
     logs = (
         db.query(AuditTrail)
         .filter(AuditTrail.application_id == application_id)
-        .order_by(AuditTrail.created_at.asc())
+        .order_by(AuditTrail.created_at.asc(), AuditTrail.audit_id.asc())
         .all()
     )
 
