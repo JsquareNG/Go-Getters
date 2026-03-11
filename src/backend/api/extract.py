@@ -1,8 +1,9 @@
 from fastapi import APIRouter, UploadFile, File, HTTPException
 
 # services
-from backend.services.document_ai import extract_acra_data_with_tables
+from backend.services.acra_extractor import extract_acra_data_with_tables
 from backend.services.id_verification.orchestrator import extract_and_validate
+# from backend.services.indo_nib_extractor import extract_indo_nib_profile
 
 router = APIRouter(prefix="/extract", tags=["OCR Extraction"])
 
