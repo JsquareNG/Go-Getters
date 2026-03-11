@@ -4,7 +4,6 @@
  */
 
 export { default as SMEApplicationForm } from "./SMEApplicationForm";
-export { useSMEApplicationForm } from "./hooks/useSMEApplicationForm";
 export {
   VALIDATION_RULES,
   validateField,

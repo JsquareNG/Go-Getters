@@ -1,19 +1,7 @@
 import { createSlice, createSelector } from "@reduxjs/toolkit";
-import { v4 as uuidv4 } from "uuid";
+// import { v4 as uuidv4 } from "uuid";
 
 // --- HELPER FUNCTION TO UPDATE NESTED FIELDS IN AN IMMUTABLE WAY ---
-// export const setIn = (obj, path, value) => {
-//   const keys = path.split(".");
-//   const lastKey = keys.pop();
-//   let ref = obj;
-
-//   keys.forEach((key) => {
-//     if (!ref[key] || typeof ref[key] !== "object") ref[key] = {};
-//     ref = ref[key];
-//   });
-
-//   ref[lastKey] = value;
-// };
 export const setIn = (obj, path, value) => {
   if (!path || typeof path !== "string") {
     throw new Error("Invalid path: " + path);
@@ -60,36 +48,43 @@ const applicationFormSlice = createSlice({
         lastModified: new Date().toISOString(),
       };
     },
-
-    // Start brand new application
     startNewApplication: (state) => {
-      // const id = "new";
-
-      const hasSubmitted = Object.values(state.drafts).some(
-        (d) => d.status === "Submitted",
-      );
-      if (hasSubmitted) {
-        console.warn("User already has a submitted application.");
-        return; // do not create new draft
-      }
-
-      const id = uuidv4(); // unique ID per draft, else will create one draft one submission
-      state.currentApplicationId = id;
+      state.currentApplicationId = null; // backend will create ID
       state.currentMode = "edit";
       state.currentStep = 0;
       state.hasUnsavedChanges = false;
 
-      // Reset all previous drafts
       state.drafts = {};
-
-      if (!state.drafts[id]) {
-        state.drafts[id] = {
-          formData: {},
-          status: "Draft",
-          lastModified: new Date().toISOString(),
-        };
-      }
     },
+    // Start brand new application
+    // startNewApplication: (state) => {
+    //   // const id = "new";
+
+    //   const hasSubmitted = Object.values(state.drafts).some(
+    //     (d) => d.status === "Submitted",
+    //   );
+    //   if (hasSubmitted) {
+    //     console.warn("User already has a submitted application.");
+    //     return; // do not create new draft
+    //   }
+
+    //   // const id = uuidv4(); // unique ID per draft, else will create one draft one submission
+    //   // state.currentApplicationId = id;
+    //   state.currentMode = "edit";
+    //   state.currentStep = 0;
+    //   state.hasUnsavedChanges = false;
+
+    //   // Reset all previous drafts
+    //   state.drafts = {};
+
+    //   if (!state.drafts[id]) {
+    //     state.drafts[id] = {
+    //       formData: {},
+    //       status: "Draft",
+    //       lastModified: new Date().toISOString(),
+    //     };
+    //   }
+    // },
     resetForm: (state) => {
       state.drafts = {};
       state.currentApplicationId = null;
@@ -97,73 +92,6 @@ const applicationFormSlice = createSlice({
       state.currentMode = "edit";
       state.hasUnsavedChanges = false;
     },
-    // Update single field (safe for controlled inputs)
-    // updateField: (state, action) => {
-    //   const { field, value } = action.payload;
-    //   if (!field) return;
-
-    //   const keys = field.split(".");
-    //   const lastKey = keys.pop();
-
-    //   let newFormData = { ...state.formData }; // shallow copy
-    //   let ref = newFormData;
-
-    //   keys.forEach((key) => {
-    //     ref[key] = ref[key] ? { ...ref[key] } : {};
-    //     ref = ref[key];
-    //   });
-
-    //   ref[lastKey] = value; // set the final key
-    //   state.formData = newFormData; // replace state with new object
-    // },
-    // updateField: (state, action) => {
-    //   const { field, value } = action.payload;
-    //   state.formData = {
-    //     ...state.formData,
-    //     [field]: value,
-    //   };
-    //     console.log("Redux formData updated:", state.formData);
-
-    // },
-
-    // updateField: (state, action) => {
-    //   const { field, value } = action.payload;
-    //   const appId = state.currentApplicationId;
-
-    //   // validation: ensure application exists
-    //   if (!appId) return;
-
-    //   // validation: prevent invalid field paths
-    //   if (!field || typeof field !== "string") {
-    //     console.error("updateField: Invalid field path ->", field);
-    //     return;
-    //   }
-
-    //   // validation: ensure draft exists for current application
-    //   if (!state.drafts[appId]) {
-    //     state.drafts[appId] = {
-    //       formData: {},
-    //       status: "Draft",
-    //       lastModified: new Date().toISOString(),
-    //     };
-    //   }
-
-    //   const draft = state.drafts[appId];
-
-    //   // safely update nested paths
-    //   try {
-    //     setIn(draft.formData, field, value);
-    //   } catch (err) {
-    //     console.error("updateField failed:", field, value, err);
-    //     return;
-    //   }
-
-    //   state.drafts[appId].lastModified = new Date().toISOString();
-    //   state.hasUnsavedChanges = true;
-
-    //   console.log("Redux formData updated:", state.drafts[appId].formData);
-    // },
-
     updateField: (state, action) => {
       const { field, value } = action.payload;
       const appId = state.currentApplicationId;

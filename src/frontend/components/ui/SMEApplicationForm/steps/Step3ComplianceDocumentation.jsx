@@ -2,8 +2,7 @@ import React, { useMemo } from "react";
 import FormFieldGroup from "../components/FormFieldGroup";
 import FileUploadField from "../components/FileUploadField";
 import { generateDocKey } from "../utils/formHelpers";
-import SINGAPORE_CONFIG from "../config/singaporeConfig";
-import SINGAPORE_CONFIG2 from "../config/updatedSingaporeConfig";
+import { SINGAPORE_CONFIG, INDONESIA_CONFIG } from "../config";
 
 /**
  * Step3ComplianceDocumentation component
@@ -14,9 +13,15 @@ const Step3ComplianceDocumentation = ({
   onFieldChange,
   disabled = false,
 }) => {
-  // ---- dynamic field config from Singapore config ----
+  const CONFIG_MAP = {
+    SG: SINGAPORE_CONFIG,
+    ID: INDONESIA_CONFIG,
+  };
+
+  const activeConfig = CONFIG_MAP[data?.country] || SINGAPORE_CONFIG;
+
   const { complianceFieldsConfig, requiredDocuments } = useMemo(() => {
-    const entity = SINGAPORE_CONFIG2.entities[data?.businessType] || {};
+    const entity = activeConfig.entities[data?.businessType] || {};
     const step4 = entity.steps?.find((s) => s.id === "step4") || {};
 
     // Compliance fields
@@ -30,7 +35,7 @@ const Step3ComplianceDocumentation = ({
     });
 
     return { complianceFieldsConfig: fields, requiredDocuments: docsObj };
-  }, [data?.businessType]);
+  }, [data?.businessType, data?.country]);
 
   // ---- Helper for nested fields ----
   // const handleFieldChange = (name, value) => {
@@ -70,7 +75,7 @@ const Step3ComplianceDocumentation = ({
   //   });
   // };
 
-   const handleDocumentChange = (fieldPath, file) => {
+  const handleDocumentChange = (fieldPath, file) => {
     if (!fieldPath) {
       console.error("Invalid document field:", fieldPath);
       return;
@@ -171,9 +176,7 @@ const Step3ComplianceDocumentation = ({
 
   return (
     <div>
-      <h2 className="text-2xl font-bold mb-6 text-gray-900">
-        Documentation
-      </h2>
+      <h2 className="text-2xl font-bold mb-6 text-gray-900">Documentation</h2>
 
       {/* Compliance Fields */}
       {/* {Object.entries(complianceFieldsConfig).map(([fieldKey, fieldCfg]) => {

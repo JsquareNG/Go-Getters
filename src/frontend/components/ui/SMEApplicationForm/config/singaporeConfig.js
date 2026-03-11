@@ -6,18 +6,24 @@
 //////////////////////////
 //HELPER FIELD SETS //
 //////////////////////////
-import { getAllCountries } from "../utils/countries";
+import { COUNTRIES, NATIONALITIES } from "../utils/countries";
+import { INDUSTRY_OPTIONS } from "../utils/industries";
+
+const YES_NO_OPTIONS = ["Yes", "No"].map((opt) => ({
+  label: opt,
+  value: opt,
+}));
 
 function getBasicBusinessFields() {
   return {
     businessName: { type: "text", label: "Business Name", required: true },
-    // businessIndustry: {
-    //   type: "checkbox",
-    //   label: "Business Industry",
-    //   required: true,
-    //   option: INDUSTRY_OPTIONS,
-    //   placeholder: "Select your industry",
-    // },
+    businessIndustry: {
+      type: "select",
+      label: "Business Industry",
+      required: true,
+      options: INDUSTRY_OPTIONS,
+      placeholder: "Select your industry",
+    },
     uen: { type: "text", label: "UEN / Registration Number", required: true },
     registrationDate: {
       type: "date",
@@ -39,14 +45,23 @@ function getIndividualFields() {
   return {
     fullName: { type: "text", label: "Full Name", required: true },
     idNumber: { type: "text", label: "NRIC / Passport Number", required: true },
-    nationality: { type: "text", label: "Nationality", required: true },
+    nationality: {
+      type: "select",
+      label: "Nationality",
+      required: true,
+      options: NATIONALITIES,
+    },
     residentialAddress: {
       type: "textarea",
       label: "Residential Address",
       required: true,
     },
     dateOfBirth: { type: "date", label: "Date of Birth", required: true },
-    idDocument: {type: "file", label: "National ID / Passport", required: true}
+    idDocument: {
+      type: "file",
+      label: "National ID / Passport Document",
+      required: true,
+    },
   };
 }
 
@@ -65,7 +80,11 @@ function getCoreFinancialFields() {
     },
     annualRevenue: { type: "number", label: "Annual Revenue", required: true },
     taxResidency: {
-      country: { type: "text", label: "Country of Tax Residency" },
+      country: {
+        type: "select",
+        label: "Country of Tax Residency",
+        options: COUNTRIES(),
+      },
       tin: { type: "text", label: "TIN" },
     },
     expectedCountriesOfTransactionActivity: {
@@ -74,7 +93,7 @@ function getCoreFinancialFields() {
       required: true,
       placeholder:
         "Please select the countries where your business expects to send or receive payments.",
-      option: getAllCountries(),
+      options: COUNTRIES(),
     },
     expectedMonthlyTransactionVolume: {
       type: "number",
@@ -94,10 +113,14 @@ function getComplianceDeclarations() {
     pepDeclaration: {
       type: "select",
       label: "Politically Exposed Person (PEP)",
-      options: ["Yes", "No"],
+      options: YES_NO_OPTIONS,
       conditionalFields: {
         Yes: {
-          country: { type: "text", label: "Country" },
+          country: {
+            type: "select",
+            label: "Country",
+            options: COUNTRIES(),
+          },
           position: { type: "text", label: "Position Held" },
           relationship: { type: "text", label: "Relationship Type" },
           period: { type: "text", label: "Period" },
@@ -107,7 +130,7 @@ function getComplianceDeclarations() {
     sanctionsDeclaration: {
       type: "select",
       label: "Subject to Sanctions",
-      options: ["Yes", "No"],
+      options: YES_NO_OPTIONS,
       conditionalFields: {
         Yes: { details: { type: "textarea", label: "Provide Details" } },
       },
@@ -115,7 +138,7 @@ function getComplianceDeclarations() {
     fatcaDeclaration: {
       type: "select",
       label: "U.S. Citizen / Tax Resident",
-      options: ["Yes", "No"],
+      options: YES_NO_OPTIONS,
     },
   };
 }
@@ -149,7 +172,10 @@ const SINGAPORE_CONFIG = {
               label: "Owner",
               min: 1,
               max: 1,
-              fields: { ...getIndividualFields() },
+              fields: {
+                ...getIndividualFields(),
+                ...getComplianceDeclarations(),
+              },
             },
           },
         },
@@ -160,13 +186,25 @@ const SINGAPORE_CONFIG = {
         },
         {
           id: "step4",
-          label: "Compliance & Documents",
-          fields: { ...getComplianceDeclarations() },
-          documents: [
-            // "Owner ID",
-            "Proof of Business Address",
-            "Bank Statement (Last 3 months)",
-          ],
+          label: "Documents",
+          fields: {
+            proofOfBusinessAddress: {
+              type: "file",
+              label: "Proof of Business Address",
+              required: true,
+            },
+            bankStatement: {
+              type: "file",
+              label: "Bank Statement (Last 3 months)",
+              required: true,
+            },
+          },
+          //   fields: { ...getComplianceDeclarations() },
+          //   documents: [
+          //     // "Owner ID",
+          //     "Proof of Business Address",
+          //     "Bank Statement (Last 3 months)",
+          //   ],
         },
       ],
     },
@@ -182,7 +220,10 @@ const SINGAPORE_CONFIG = {
             partners: {
               label: "Partner",
               min: 2,
-              fields: { ...getIndividualFields() },
+              fields: {
+                ...getIndividualFields(),
+                ...getComplianceDeclarations(),
+              },
             },
           },
         },
@@ -211,14 +252,33 @@ const SINGAPORE_CONFIG = {
         },
         {
           id: "step4",
-          label: "Compliance & Documents",
-          fields: { ...getComplianceDeclarations() },
-          documents: [
-            "IDs of ALL partners",
-            "Partnership Agreement",
-            "Proof of Business Address",
-            "Bank Statement",
-          ],
+          label: "Documents",
+          // Optional: additional files per partnership, if needed
+          repeatableSections: {
+            partnershipDocuments: {
+              label: "Partnership Documents",
+              min: 1,
+              fields: {
+                partnershipAgreement: {
+                  type: "file",
+                  label: "Partnership Agreement",
+                  required: true,
+                },
+                proofOfBusinessAddress: {
+                  type: "file",
+                  label: "Proof of Business Address",
+                  required: true,
+                },
+              },
+            },
+          },
+          //   fields: { ...getComplianceDeclarations() },
+          //   documents: [
+          //     "IDs of ALL partners",
+          //     "Partnership Agreement",
+          //     "Proof of Business Address",
+          //     "Bank Statement",
+          //   ],
         },
       ],
     },
@@ -234,12 +294,18 @@ const SINGAPORE_CONFIG = {
             generalPartners: {
               label: "General Partner",
               min: 1,
-              fields: { ...getIndividualFields() },
+              fields: {
+                ...getIndividualFields(),
+                ...getComplianceDeclarations(),
+              },
             },
             limitedPartners: {
               label: "Limited Partner",
               min: 0,
-              fields: { ...getIndividualFields() },
+              fields: {
+                ...getIndividualFields(),
+                ...getComplianceDeclarations(),
+              },
             },
           },
         },
@@ -262,14 +328,31 @@ const SINGAPORE_CONFIG = {
         },
         {
           id: "step4",
-          label: "Compliance & Documents",
-          fields: { ...getComplianceDeclarations() },
-          documents: [
-            "IDs of GP and LP",
-            "LP Agreement",
-            "Proof of Address",
-            "Bank Statement",
-          ],
+          label: "Documents",
+          //   fields: { ...getComplianceDeclarations() },
+          fields: {
+            LPAgreement: {
+              type: "file",
+              label: "LP Agreement",
+              required: true,
+            },
+            proofOfBusinessAddress: {
+              type: "file",
+              label: "Proof of Business Address",
+              required: true,
+            },
+            bankStatement: {
+              type: "file",
+              label: "Bank Statement (Last 3 months)",
+              required: true,
+            },
+          },
+          //   documents: [
+          //     "IDs of GP and LP",
+          //     "LP Agreement",
+          //     "Proof of Address",
+          //     "Bank Statement",
+          //   ],
         },
       ],
     },
@@ -282,6 +365,13 @@ const SINGAPORE_CONFIG = {
           label: "Basic Information",
           fields: {
             llpName: { type: "text", label: "LLP Name", required: true },
+            businessIndustry: {
+              type: "checkbox",
+              label: "Business Industry",
+              required: true,
+              option: INDUSTRY_OPTIONS,
+              placeholder: "Select your industry",
+            },
             uen: { type: "text", label: "UEN", required: true },
             registrationDate: {
               type: "date",
@@ -300,7 +390,10 @@ const SINGAPORE_CONFIG = {
             partners: {
               label: "Partner",
               min: 1,
-              fields: { ...getIndividualFields() },
+              fields: {
+                ...getIndividualFields(),
+                ...getComplianceDeclarations(),
+              },
             },
             managers: {
               label: "Manager",
@@ -313,6 +406,7 @@ const SINGAPORE_CONFIG = {
                   required: true,
                   validation: { rule: "must_include", value: "Singapore" },
                 },
+                ...getComplianceDeclarations(),
               },
             },
           },
@@ -342,15 +436,37 @@ const SINGAPORE_CONFIG = {
         },
         {
           id: "step4",
-          label: "Compliance & Documents",
-          fields: { ...getComplianceDeclarations() },
-          documents: [
-            "ACRA Business Profile",
-            "IDs of Partners",
-            "LLP Resolution",
-            "Proof of Address",
-            "Bank Statement",
-          ],
+          label: "Documents",
+          //   fields: { ...getComplianceDeclarations() },
+          fields: {
+            ACRABusinessProfile: {
+              type: "file",
+              label: "ACRA Business Profile",
+              required: true,
+            },
+            LLPResolution: {
+              type: "file",
+              label: "LLP Resolution",
+              required: true,
+            },
+            proofOfAddress: {
+              type: "file",
+              label: "Proof of Business Address",
+              required: true,
+            },
+            bankStatement: {
+              type: "file",
+              label: "Bank Statement (Last 3 months)",
+              required: true,
+            },
+          },
+          //   documents: [
+          //     "ACRA Business Profile",
+          //     "IDs of Partners",
+          //     "LLP Resolution",
+          //     "Proof of Address",
+          //     "Bank Statement",
+          //   ],
         },
       ],
     },
@@ -368,6 +484,13 @@ const SINGAPORE_CONFIG = {
               label: "Company Name",
               required: true,
             },
+            // businessIndustry: {
+            //   type: "checkbox",
+            //   label: "Business Industry",
+            //   required: true,
+            //   option: INDUSTRY_OPTIONS,
+            //   placeholder: "Select your industry",
+            // },
             uen: { type: "text", label: "UEN", required: true },
             incorporationDate: {
               type: "date",
@@ -384,6 +507,13 @@ const SINGAPORE_CONFIG = {
               label: "Registered Address",
               required: true,
             },
+            businessIndustry: {
+              type: "checkbox",
+              label: "Business Industry",
+              required: true,
+              option: INDUSTRY_OPTIONS,
+              placeholder: "Select your industry",
+            },
             email: { type: "email", label: "Email", required: true },
             phone: { type: "text", label: "Phone", required: true },
           },
@@ -391,7 +521,10 @@ const SINGAPORE_CONFIG = {
             directors: {
               label: "Director",
               min: 1,
-              fields: { ...getIndividualFields() },
+              fields: {
+                ...getIndividualFields(),
+                ...getComplianceDeclarations(),
+              },
             },
             shareholders: {
               label: "Shareholder",
@@ -399,20 +532,84 @@ const SINGAPORE_CONFIG = {
               fields: {
                 shareholderType: {
                   type: "select",
-                  label: "Type",
+                  label: "Shareholder Type",
                   options: ["Individual", "Corporate"],
                   required: true,
                 },
-                name: { type: "text", label: "Name", required: true },
-                idOrRegistrationNumber: {
-                  type: "text",
-                  label: "ID / Registration Number",
+                conditionalFields: {
+                  Individual: {
+                    name: { type: "text", label: "Name", required: true },
+                    idNumber: {
+                      type: "text",
+                      label: "NRIC / Passport Number",
+                      required: true,
+                    },
+                    idDocument: {
+                      type: "file",
+                      label: "National ID / Passport Document",
+                      required: false,
+                    },
+                    sharePercentage: {
+                      type: "number",
+                      label: "Share Percentage",
+                      required: true,
+                    },
+                  },
+                  Corporate: {
+                    name: { type: "text", label: "Name", required: true },
+                    idOrRegistrationNumber: {
+                      type: "text",
+                      label: "UEN / Registration Number",
+                    },
+                    idDocument: {
+                      type: "file",
+                      label: "UEN / Registration Number Document",
+                      required: false,
+                    },
+                    sharePercentage: {
+                      type: "number",
+                      label: "Share Percentage",
+                      required: true,
+                    },
+                  },
                 },
-                sharePercentage: {
-                  type: "number",
-                  label: "Share Percentage",
+                ...getComplianceDeclarations(),
+              },
+            },
+            // --- UBO conditional field ---
+            ultimateBeneficialOwner: {
+              type: "conditional",
+              label: "Ultimate Beneficial Owner (UBO)",
+              description:
+                "Auto-detected if shareholding ≥25%. Requires full KYC. Manual add allowed for control through other means.",
+              condition: (shareholder) => shareholder.sharePercentage >= 25,
+              fields: {
+                uboName: {
+                  type: "text",
+                  label: "UBO Full Name",
                   required: true,
                 },
+                uboIdDocument: {
+                  type: "file",
+                  label: "UBO ID / Passport",
+                  required: true,
+                },
+                uboResidentialAddress: {
+                  type: "textarea",
+                  label: "UBO Residential Address",
+                  required: true,
+                },
+                uboNationality: {
+                  type: "text",
+                  label: "UBO Nationality",
+                  required: true,
+                },
+                uboDateOfBirth: {
+                  type: "date",
+                  label: "UBO Date of Birth",
+                  required: true,
+                },
+                ...getComplianceDeclarations(),
               },
             },
           },
@@ -427,27 +624,50 @@ const SINGAPORE_CONFIG = {
               label: "Expected Transaction Size",
             },
             countriesTransactingWith: {
-              type: "textarea",
+              type: "checkbox",
               label: "Countries Transacting With",
+              option: COUNTRIES(),
             },
           },
         },
         {
           id: "step4",
-          label: "Compliance Documentation",
-          fields: { ...getComplianceDeclarations() },
-          documents: [
-            "ACRA Business Profile",
-            "Board Resolution",
-            // "IDs of Directors",
-            // "IDs of UBOs (≥25%)",
-            "Proof of Business Address",
-            "Bank Statements (3 months)",
-          ],
+          label: "Documents",
+          //   fields: { ...getComplianceDeclarations() },
+          fields: {
+            ACRABusinessProfile: {
+              type: "file",
+              label: "ACRA Business Profile",
+              required: true,
+            },
+            boardResolution: {
+              type: "file",
+              label: "Board Resolution",
+              required: true,
+            },
+            proofOfBusinessAddress: {
+              type: "file",
+              label: "Proof of Business Address",
+              required: true,
+            },
+            bankStatement: {
+              type: "file",
+              label: "Bank Statement (Last 3 months)",
+              required: true,
+            },
+          },
+          //   documents: [
+          //     "ACRA Business Profile",
+          //     "Board Resolution",
+          //     // "IDs of Directors",
+          //     // "IDs of UBOs (≥25%)",
+          //     "Proof of Business Address",
+          //     "Bank Statements (3 months)",
+          //   ],
         },
       ],
     },
   },
 };
 
-export default SINGAPORE_CONFIG;
+export { SINGAPORE_CONFIG };

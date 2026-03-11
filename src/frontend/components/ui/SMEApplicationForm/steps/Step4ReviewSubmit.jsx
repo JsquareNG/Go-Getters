@@ -2,8 +2,7 @@ import React, { useMemo } from "react";
 import { useSelector, useDispatch } from "react-redux";
 import { CheckCircle2, AlertCircle } from "lucide-react";
 import { generateDocKey } from "../utils/formHelpers";
-import SINGAPORE_CONFIG from "../config/singaporeConfig";
-import SINGAPORE_CONFIG2 from "../config/updatedSingaporeConfig";
+import { SINGAPORE_CONFIG } from "../config";
 
 import {
   selectFormData,
@@ -24,7 +23,7 @@ const Step4ReviewSubmit = ({ onEdit, disabled = false }) => {
 
   // ---- Entity and step configs ----
   const entityConfig = useMemo(
-    () => SINGAPORE_CONFIG2.entities[data?.businessType] || {},
+    () => SINGAPORE_CONFIG.entities[data?.businessType] || {},
     [data?.businessType],
   );
 

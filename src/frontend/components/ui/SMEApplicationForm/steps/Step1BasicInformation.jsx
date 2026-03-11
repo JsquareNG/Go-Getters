@@ -1,8 +1,7 @@
 import React, { useMemo, useRef, useState } from "react";
 import FormFieldGroup from "../components/FormFieldGroup";
 import FileUploadField from "../components/FileUploadField";
-// import SINGAPORE_CONFIG from "../config/singaporeConfig";
-import SINGAPORE_CONFIG2 from "../config/updatedSingaporeConfig";
+import { SINGAPORE_CONFIG, INDONESIA_CONFIG } from "../config";
 // import { extractFieldsFromStep, resolveConditionalFields, isFieldVisible } from "../utils/extractFields";
 
 const ACRA_WITH_TABLES_ENDPOINT =
@@ -16,14 +15,17 @@ const Step1BasicInformation = ({ data, onFieldChange, disabled = false }) => {
   const [acraError, setAcraError] = useState("");
   const [acraSuccessMsg, setAcraSuccessMsg] = useState("");
 
+  const CONFIG_MAP = {
+    SG: SINGAPORE_CONFIG,
+    ID: INDONESIA_CONFIG,
+  };
+
+  const activeConfig = CONFIG_MAP[data?.country] || SINGAPORE_CONFIG;
+
   // ---- dynamic config from singaporeConfig ----
   const { basicFieldsConfig, repeatableSectionsConfig } = useMemo(() => {
-    const entity = SINGAPORE_CONFIG2.entities[data?.businessType] || {};
-    // const entity = SINGAPORE_CONFIG2?.entities?.[data?.businessType] || {};
+    const entity = activeConfig?.entities[data?.businessType] || {};
     const step2 = entity.steps?.find((s) => s.id === "step2") || {};
-    // const step2 = Array.isArray(entity.steps)
-    //   ? entity.steps.find((s) => s.id === "step2")
-    //   : {};
 
     const basicFields = {};
     const repeatableSections = {};
@@ -51,7 +53,7 @@ const Step1BasicInformation = ({ data, onFieldChange, disabled = false }) => {
       basicFieldsConfig: basicFields,
       repeatableSectionsConfig: repeatableSections,
     };
-  }, [data?.businessType]);
+  }, [data?.businessType, data?.country]);
 
   // ---- ACRA Upload Handlers ----
   const handleChooseAcra = () => fileRef.current?.click();
@@ -163,7 +165,7 @@ const Step1BasicInformation = ({ data, onFieldChange, disabled = false }) => {
       if (isoDate) setIfEmpty("registrationDate", isoDate);
       const mappedStatus = normalizeStatus(
         // kv["status of business"] || kv["status of company"],
-        kv["status"]
+        kv["status"],
       );
       if (mappedStatus) setIfEmpty("businessStatus", mappedStatus);
       setIfEmpty("uen", kv["uen"]);

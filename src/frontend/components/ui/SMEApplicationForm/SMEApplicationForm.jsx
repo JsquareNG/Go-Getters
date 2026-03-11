@@ -8,9 +8,8 @@ import Step0Brief from "./steps/Step0Brief";
 import Step1BasicInformation from "./steps/Step1BasicInformation";
 import Step2FinancialDetails from "./steps/Step2FinancialDetails";
 import Step3ComplianceDocumentation from "./steps/Step3ComplianceDocumentation";
-import Step4ReviewSubmit from "./steps/Step4ReviewSubmit";
 import Step4 from "./steps/Step4";
-import SINGAPORE_CONFIG2 from "./config/updatedSingaporeConfig";
+import { SINGAPORE_CONFIG } from "./config";
 
 import { useToast } from "@/hooks/use-toast";
 import { useNavigate, useParams } from "react-router-dom";
@@ -195,7 +194,7 @@ const SMEApplicationForm = () => {
     const businessType = data.businessType;
     if (!businessType) return [];
 
-    const steps = SINGAPORE_CONFIG2.entities[businessType]?.steps || [];
+    const steps = SINGAPORE_CONFIG.entities[businessType]?.steps || [];
     const requiredFields = [];
 
     steps.forEach((step) => {
@@ -346,7 +345,7 @@ const SMEApplicationForm = () => {
 
         // Only store actual values from conditional fields if user said "Yes"
         const configFields =
-          SINGAPORE_CONFIG2.entities.sole_proprietorship.steps[0]
+          SINGAPORE_CONFIG.entities.sole_proprietorship.steps[0]
             .repeatableSections.owners.fields[decl]?.conditionalFields;
 
         if (configFields?.[data[decl]]) {
@@ -402,7 +401,7 @@ const SMEApplicationForm = () => {
       // const cleanData = buildFormPayload(formData);
       const cleanData = buildFormPayload(
         formData,
-        SINGAPORE_CONFIG2,
+        SINGAPORE_CONFIG,
         formData.businessType,
       );
 
@@ -472,7 +471,7 @@ const SMEApplicationForm = () => {
       // const cleanData = buildFormPayload(formData);
       const cleanData = buildFormPayload(
         formData,
-        SINGAPORE_CONFIG2,
+        SINGAPORE_CONFIG,
         formData.businessType,
       );
       const payload = {

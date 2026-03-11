@@ -1,9 +1,8 @@
 import React, { useMemo } from "react";
 import { useSelector } from "react-redux";
 import { CheckCircle2, AlertCircle } from "lucide-react";
-
 import { generateDocKey } from "../utils/formHelpers";
-import SINGAPORE_CONFIG2 from "../config/updatedSingaporeConfig";
+import { SINGAPORE_CONFIG, INDONESIA_CONFIG } from "../config";
 
 import {
   selectFormData,
@@ -21,9 +20,16 @@ const Step4 = ({ onEdit, disabled = false }) => {
   /* ------------------------------------------------ */
   /* ENTITY CONFIG */
   /* ------------------------------------------------ */
+  const CONFIG_MAP = {
+    SG: SINGAPORE_CONFIG,
+    ID: INDONESIA_CONFIG,
+  };
+
+  const activeConfig = CONFIG_MAP[data?.country] || SINGAPORE_CONFIG;
+
   const entityConfig = useMemo(
-    () => SINGAPORE_CONFIG2.entities[data?.businessType] || {},
-    [data?.businessType],
+    () => activeConfig.entities[data?.businessType] || {},
+    [data?.businessType, data?.country],
   );
   const getStepConfigById = (id) => {
     return (
@@ -38,7 +44,7 @@ const Step4 = ({ onEdit, disabled = false }) => {
   console.log(entityConfig);
 
   //TODO: currently id only able to retrieve normal fields, misses repeatableSections object
-  const step2Config = getStepConfigById("step2"); // match your config 
+  const step2Config = getStepConfigById("step2"); // match your config
   const step3Config = getStepConfigById("step3"); // match your config
   const step4Config = getStepConfigById("step4"); // match your config
 
