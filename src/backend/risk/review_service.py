@@ -1,6 +1,5 @@
 from sqlalchemy.orm import Session
 from backend.database import SessionLocal
-from backend.models.application import ApplicationForm
 from backend.models.reviewJobs import ReviewJobs
 from backend.risk.rules_engine import build_default_engine
 from sqlalchemy import text
@@ -9,7 +8,8 @@ from backend.services.application_transitions import approve_application_service
 from backend.rules_engine.application_service import submit_application
 from backend.rules_engine.models import Company, Individual
 from datetime import datetime
-
+from backend.services.audit_service import create_audit_log
+from backend.models.application import ApplicationForm
 
 def run_review_job(application_id: str):
     print("[run_review_job] START", application_id)
@@ -29,6 +29,20 @@ def run_review_job(application_id: str):
 
         # 🔄 Mark job as running
         job.status = "RUNNING"
+
+        create_audit_log(
+            db=db,
+            application_id=application_id,
+            actor_id=None,
+            actor_type="System",
+            event_type="REVIEW_JOB_STARTED",
+            entity_type="REVIEW_JOB",
+            entity_id=job.job_id,
+            from_status="QUEUED",
+            to_status="RUNNING",
+            description="System initiated automated compliance screening",
+        )
+
         db.commit()
 
         form = app.form_data or {}
@@ -110,6 +124,19 @@ def run_review_job(application_id: str):
         decision = result.get("decision")
 
         if decision == "Simplified CDD":
+            create_audit_log(
+                db=db,
+                application_id=application_id,
+                actor_id=None,
+                actor_type="SYSTEM",
+                event_type="REVIEW_JOB_COMPLETED",
+                entity_type="REVIEW_JOB",
+                entity_id=job.job_id,
+                from_status="RUNNING",
+                to_status="COMPLETED",
+                description="Automated review process completed."
+            )
+            
             approve_application_service(
                 db=db,
                 background_tasks=None,
@@ -118,6 +145,19 @@ def run_review_job(application_id: str):
                 send_email_now=True,
             )
         else:
+            create_audit_log(
+                db=db,
+                application_id=application_id,
+                actor_id=None,
+                actor_type="SYSTEM",
+                event_type="REVIEW_JOB_COMPLETED",
+                entity_type="REVIEW_JOB",
+                entity_id=job.job_id,
+                from_status="RUNNING",
+                to_status="COMPLETED",
+                description="Automated review process completed."
+            )
+
             need_manual_review_service(
                 db=db,
                 background_tasks=None,
@@ -127,6 +167,8 @@ def run_review_job(application_id: str):
 
         job.status = "COMPLETED"
         job.completed_at = text("(now() AT TIME ZONE 'Asia/Singapore')")
+
+        
 
         db.commit()
 
