@@ -9,7 +9,7 @@ import Step1BasicInformation from "./steps/Step1BasicInformation";
 import Step2FinancialDetails from "./steps/Step2FinancialDetails";
 import Step3ComplianceDocumentation from "./steps/Step3ComplianceDocumentation";
 import Step4 from "./steps/Step4";
-import { SINGAPORE_CONFIG } from "./config";
+import { SINGAPORE_CONFIG, INDONESIA_CONFIG } from "./config";
 
 import { useToast } from "@/hooks/use-toast";
 import { useNavigate, useParams } from "react-router-dom";
@@ -62,6 +62,13 @@ const SMEApplicationForm = () => {
     ? 0
     : Math.max(0, Math.min(4, routeStepNumber));
   const isViewOnly = routeMode === "view" || currentApp?.status === "Submitted";
+
+  const CONFIG_MAP = {
+    SG: SINGAPORE_CONFIG,
+    ID: INDONESIA_CONFIG,
+  };
+
+  const activeConfig = CONFIG_MAP[formData?.country] || SINGAPORE_CONFIG;
 
   // --- Edit functionality ---
   const handleEditStep = (step) => {
@@ -194,7 +201,7 @@ const SMEApplicationForm = () => {
     const businessType = data.businessType;
     if (!businessType) return [];
 
-    const steps = SINGAPORE_CONFIG.entities[businessType]?.steps || [];
+    const steps = activeConfig.entities[businessType]?.steps || [];
     const requiredFields = [];
 
     steps.forEach((step) => {
@@ -345,7 +352,7 @@ const SMEApplicationForm = () => {
 
         // Only store actual values from conditional fields if user said "Yes"
         const configFields =
-          SINGAPORE_CONFIG.entities.sole_proprietorship.steps[0]
+          activeConfig.entities.sole_proprietorship.steps[0]
             .repeatableSections.owners.fields[decl]?.conditionalFields;
 
         if (configFields?.[data[decl]]) {
@@ -401,7 +408,7 @@ const SMEApplicationForm = () => {
       // const cleanData = buildFormPayload(formData);
       const cleanData = buildFormPayload(
         formData,
-        SINGAPORE_CONFIG,
+        activeConfig,
         formData.businessType,
       );
 
@@ -471,7 +478,7 @@ const SMEApplicationForm = () => {
       // const cleanData = buildFormPayload(formData);
       const cleanData = buildFormPayload(
         formData,
-        SINGAPORE_CONFIG,
+        activeConfig,
         formData.businessType,
       );
       const payload = {
@@ -484,6 +491,7 @@ const SMEApplicationForm = () => {
         form_data: cleanData,
         last_saved_step: clampedStep,
         application_id: appId !== "new" ? appId : undefined,
+        // documents: []
       };
 
       await submitApplicationApi(payload);
