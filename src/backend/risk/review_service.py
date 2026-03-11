@@ -38,8 +38,8 @@ def run_review_job(application_id: str):
             event_type="REVIEW_JOB_STARTED",
             entity_type="REVIEW_JOB",
             entity_id=job.job_id,
-            from_status="QUEUED",
-            to_status="RUNNING",
+            from_status=app.previous_status,
+            to_status=app.current_status,
             description="System initiated automated compliance screening",
         )
 
@@ -132,8 +132,8 @@ def run_review_job(application_id: str):
                 event_type="REVIEW_JOB_COMPLETED",
                 entity_type="REVIEW_JOB",
                 entity_id=job.job_id,
-                from_status="RUNNING",
-                to_status="COMPLETED",
+                from_status=app.current_status,
+                to_status="Completed",
                 description="Automated review process completed."
             )
             
@@ -153,7 +153,7 @@ def run_review_job(application_id: str):
                 event_type="REVIEW_JOB_COMPLETED",
                 entity_type="REVIEW_JOB",
                 entity_id=job.job_id,
-                from_status="RUNNING",
+                from_status=app.current_status,
                 to_status="COMPLETED",
                 description="Automated review process completed."
             )

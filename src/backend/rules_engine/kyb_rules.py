@@ -7,7 +7,6 @@ from backend.rules_engine.config import (
 
 
 def evaluate_company(company):
-
     score = 0
     triggers = []
 

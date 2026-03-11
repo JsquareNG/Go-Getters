@@ -763,7 +763,6 @@ def second_submit(
             emails_queued["staff"] = True
         else:
             email_notes.append("Missing staff/reviewer email; staff email not queued.")
-
     else:
         raise HTTPException(
             status_code=400,
