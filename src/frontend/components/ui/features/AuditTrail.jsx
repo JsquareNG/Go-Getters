@@ -1,20 +1,18 @@
 import { useMemo } from "react";
 import { format } from "date-fns";
-import { History, User } from "lucide-react";
-import { Card, CardContent, CardHeader, CardTitle } from "../primitives/Card";
+import { User } from "lucide-react";
+import { Card, CardContent, CardHeader } from "../primitives/Card";
 import { StatusBadge } from "@/components/ui";
 
 export function AuditTrail({ entries = [] }) {
   const sortedEntries = useMemo(() => {
-    return [...entries].sort(
-      (a, b) =>
-        new Date(b?.created_at || 0).getTime() -
-        new Date(a?.created_at || 0).getTime(),
-    );
-  }, [entries]);
+  return [...entries].sort((a, b) => {
+    return (b?.audit_id ?? 0) - (a?.audit_id ?? 0);
+  });
+}, [entries]);
 
   const getBadgeStatus = (entry) => {
-    return entry?.to_status || entry?.event_type || "Updated";
+    return entry?.to_status || null;
   };
 
   const getActorLabel = (entry) => {
@@ -33,12 +31,7 @@ export function AuditTrail({ entries = [] }) {
 
   return (
     <Card>
-      <CardHeader className="pb-3">
-        {/* <CardTitle className="flex items-center gap-2 text-base">
-          <History className="h-4 w-4 text-muted-foreground" />
-          Audit Trail
-        </CardTitle> */}
-      </CardHeader>
+      <CardHeader className="pb-3" />
 
       <CardContent className="pt-0">
         {sortedEntries.length === 0 ? (
@@ -49,10 +42,9 @@ export function AuditTrail({ entries = [] }) {
           <div className="space-y-0">
             {sortedEntries.map((entry, index) => (
               <div
-                key={`${entry.application_id}-${entry.created_at}-${index}`}
+                key={entry.audit_id ?? `${entry.application_id}-${index}`}
                 className="relative flex gap-3"
               >
-                {/* Timeline */}
                 <div className="flex flex-col items-center">
                   <div className="mt-2 h-2 w-2 shrink-0 rounded-full bg-slate-500/50" />
                   {index < sortedEntries.length - 1 && (
@@ -60,16 +52,17 @@ export function AuditTrail({ entries = [] }) {
                   )}
                 </div>
 
-                {/* Content */}
                 <div className="min-w-0 flex-1 pb-4">
-                  <div className="mb-1 flex flex-wrap items-center gap-1.5">
-                    <StatusBadge
-                      status={getBadgeStatus(entry)}
-                      className="px-1.5 py-0 text-[10px]"
-                    />
-                  </div>
+                  {getBadgeStatus(entry) && (
+                    <div className="mb-1 flex flex-wrap items-center gap-1.5">
+                      <StatusBadge
+                        status={getBadgeStatus(entry)}
+                        className="px-1.5 py-0 text-[10px]"
+                      />
+                    </div>
+                  )}
 
-                  <p className="text-xs leading-relaxed text-foreground font-medium">
+                  <p className="text-xs font-medium leading-relaxed text-foreground">
                     {getDescription(entry)}
                   </p>
 
