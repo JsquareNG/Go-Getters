@@ -1,18 +1,12 @@
 import uuid
-from sqlalchemy import Column, String, DateTime, ForeignKey, text
+from sqlalchemy import Column, String, DateTime, ForeignKey, text, Integer
 from sqlalchemy.dialects.postgresql import JSONB
 from backend.database import Base
 
 class AuditTrail(Base):
     __tablename__ = "audit_trail"
 
-    audit_id = Column(
-        String(36),
-        primary_key=True,
-        nullable=False,
-        default=lambda: str(uuid.uuid4()),
-        unique=True,
-    )
+    audit_id = Column(Integer, primary_key=True, autoincrement=True)
 
     application_id = Column(
         String(8),
