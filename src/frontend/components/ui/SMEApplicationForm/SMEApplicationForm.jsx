@@ -29,8 +29,12 @@ import {
 
 import {
   submitApplicationApi,
+  secondSubmit,
   saveApplicationDraftApi,
+  // uploadDocument,
 } from "@/api/applicationApi";
+
+import {uploadDocumentApi} from "@/api/documentApi"
 
 const STEP_LABELS = [
   "To Get Started",
@@ -161,41 +165,41 @@ const SMEApplicationForm = () => {
   // NOTE: CURRENTLY NOT IN USE
   // console.log(formData);
 
-  const validateFormData = (data) => {
-    const errors = {};
+  // const validateFormData = (data) => {
+  //   const errors = {};
 
-    // Required fields
-    if (!data.businessName || data.businessName.trim() === "") {
-      errors.businessName = "Business name is required";
-    }
-    if (!data.businessType || data.businessType.trim() === "") {
-      errors.businessType = "Business type is required";
-    }
-    if (!data.country || data.country.trim() === "") {
-      errors.country = "Country is required";
-    }
-    if (!data.email || data.email.trim() === "") {
-      errors.email = "Email is required";
-    } else if (!/^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}$/i.test(data.email)) {
-      errors.email = "Email is invalid";
-    }
-    if (!data.phone || data.phone.trim() === "") {
-      errors.phone = "Phone number is required";
-    } else if (!/^\d{6,15}$/.test(data.phone)) {
-      errors.phone = "Phone number must be 6-15 digits";
-    }
+  //   // Required fields
+  //   if (!data.businessName || data.businessName.trim() === "") {
+  //     errors.businessName = "Business name is required";
+  //   }
+  //   if (!data.businessType || data.businessType.trim() === "") {
+  //     errors.businessType = "Business type is required";
+  //   }
+  //   if (!data.country || data.country.trim() === "") {
+  //     errors.country = "Country is required";
+  //   }
+  //   if (!data.email || data.email.trim() === "") {
+  //     errors.email = "Email is required";
+  //   } else if (!/^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}$/i.test(data.email)) {
+  //     errors.email = "Email is invalid";
+  //   }
+  //   if (!data.phone || data.phone.trim() === "") {
+  //     errors.phone = "Phone number is required";
+  //   } else if (!/^\d{6,15}$/.test(data.phone)) {
+  //     errors.phone = "Phone number must be 6-15 digits";
+  //   }
 
-    // Numeric fields
-    if (data.expectedMonthlyTransactionVolume) {
-      const value = Number(data.expectedMonthlyTransactionVolume);
-      if (isNaN(value) || value < 0) {
-        errors.expectedMonthlyTransactionVolume =
-          "Expected monthly transaction volume must be a positive number";
-      }
-    }
+  //   // Numeric fields
+  //   if (data.expectedMonthlyTransactionVolume) {
+  //     const value = Number(data.expectedMonthlyTransactionVolume);
+  //     if (isNaN(value) || value < 0) {
+  //       errors.expectedMonthlyTransactionVolume =
+  //         "Expected monthly transaction volume must be a positive number";
+  //     }
+  //   }
 
-    return { isValid: Object.keys(errors).length === 0, errors };
-  };
+  //   return { isValid: Object.keys(errors).length === 0, errors };
+  // };
 
   const getRequiredFields = (data) => {
     const businessType = data.businessType;
@@ -266,80 +270,160 @@ const SMEApplicationForm = () => {
     return false;
   };
 
+  function mapRepeatableSection(sectionData, sectionConfig) {
+    return sectionData.map((item) => {
+      const mapped = {};
+      Object.entries(sectionConfig.fields).forEach(([key, def]) => {
+        if (item[key] !== undefined) mapped[key] = item[key];
+
+        if (def.conditionalFields && item[key]) {
+          Object.entries(def.conditionalFields[item[key]] || {}).forEach(
+            ([ck, cd]) => {
+              mapped[ck] = item[ck] ?? null;
+            },
+          );
+        }
+      });
+      return mapped;
+    });
+  }
+
   /**
    * Recursively traverses the formData object
    * Returns an array of all keys/paths where type === "file"
    * Also supports conditional and repeatable sections
    */
-  function extractFileFields(config, path = []) {
-    let files = [];
+  // function extractFileFields(config, path = []) {
+  //   let files = [];
 
-    for (const key in config) {
-      const field = config[key];
+  //   for (const key in config) {
+  //     const field = config[key];
 
-      if (!field) continue;
+  //     if (!field) continue;
 
-      // Standard file field
-      if (field.type === "file") {
-        files.push({ path: [...path, key], field });
-      }
+  //     // Standard file field
+  //     if (field.type === "file") {
+  //       files.push({ path: [...path, key], field });
+  //     }
 
-      // Conditional fields (e.g., UBO, conditionalFields)
-      if (field.conditionalFields) {
-        for (const condKey in field.conditionalFields) {
-          files.push(
-            ...extractFileFields(field.conditionalFields[condKey], [
-              ...path,
-              key,
-              condKey,
-            ]),
-          );
-        }
-      }
+  //     // Conditional fields (e.g., UBO, conditionalFields)
+  //     if (field.conditionalFields) {
+  //       for (const condKey in field.conditionalFields) {
+  //         files.push(
+  //           ...extractFileFields(field.conditionalFields[condKey], [
+  //             ...path,
+  //             key,
+  //             condKey,
+  //           ]),
+  //         );
+  //       }
+  //     }
 
-      // Repeatable sections
-      if (field.fields && typeof field.fields === "object") {
-        files.push(...extractFileFields(field.fields, [...path, key]));
-      }
-    }
+  //     // Repeatable sections
+  //     if (field.fields && typeof field.fields === "object") {
+  //       files.push(...extractFileFields(field.fields, [...path, key]));
+  //     }
+  //   }
 
-    return files;
-  }
+  //   return files;
+  // }
 
-  const extractFiles = (obj) => {
-    if (!obj || typeof obj !== "object") return obj;
+  // const extractFiles = (obj) => {
+  //   if (!obj || typeof obj !== "object") return obj;
 
-    // If it's a File itself
-    if (obj instanceof File) return obj;
+  //   // If it's a File itself
+  //   if (obj instanceof File) return obj;
 
-    // If it's the { file, progress } structure
-    if ("file" in obj && obj.file instanceof File) return obj.file;
+  //   // If it's the { file, progress } structure
+  //   if ("file" in obj && obj.file instanceof File) return obj.file;
 
-    // Arrays: map recursively
-    if (Array.isArray(obj)) return obj.map(extractFiles);
+  //   // Arrays: map recursively
+  //   if (Array.isArray(obj)) return obj.map(extractFiles);
 
-    // Objects: recurse
-    const result = {};
-    Object.entries(obj).forEach(([key, value]) => {
-      result[key] = extractFiles(value);
-    });
+  //   // Objects: recurse
+  //   const result = {};
+  //   Object.entries(obj).forEach(([key, value]) => {
+  //     result[key] = extractFiles(value);
+  //   });
 
-    return result;
-  };
+  //   return result;
+  // };
+
+  // const mapIndividuals = (data) => {
+  //   // const individual = {
+  //   //   fullName: data.fullName || null,
+  //   //   idNumber: data.idNumber || null,
+  //   //   nationality: data.nationality || null,
+  //   //   residentialAddress: data.residentialAddress || null,
+  //   //   dateOfBirth: data.dateOfBirth || null,
+  //   //   idDocument: data.idDocument || null,
+  //   //   role: "Owner",
+  //   //   ownership: "100%",
+  //   // };
+  //     const individual = {};
+  //     const fields = [
+  //       "fullName",
+  //       "idNumber",
+  //       "nationality",
+  //       "residentialAddress",
+  //       "dateOfBirth",
+  //       "idDocument",
+  //     ];
+  //     fields.forEach((f) => {
+  //       if (data[f]) individual[f] = data[f];
+  //     });
+
+  //     // add declarations if they exist
+  //     return individual;
+  // };
+
+  //   // List of declarations
+  //   const declarations = [
+  //     "pepDeclaration",
+  //     "sanctionsDeclaration",
+  //     "fatcaDeclaration",
+  //   ];
+
+  //   declarations.forEach((decl) => {
+  //     if (data[decl]) {
+  //       individual[decl] = data[decl]; // store the user's input ("Yes" or "No")
+
+  //       // Only store actual values from conditional fields if user said "Yes"
+  //       const configFields =
+  //         activeConfig.entities.sole_proprietorship.steps[0].repeatableSections
+  //           .owners.fields[decl]?.conditionalFields;
+
+  //       if (configFields?.[data[decl]]) {
+  //         // Only copy the **values**, not the field definitions
+  //         Object.keys(configFields[data[decl]]).forEach((key) => {
+  //           // Use value from data if exists, else null
+  //           individual[key] = data[key] ?? null;
+  //         });
+  //       }
+  //     }
+  //   });
+
+  //   return individual;
+  // };
 
   const mapIndividuals = (data) => {
-    const individual = {
-      fullName: data.fullName || null,
-      idNumber: data.idNumber || null,
-      nationality: data.nationality || null,
-      residentialAddress: data.residentialAddress || null,
-      dateOfBirth: data.dateOfBirth || null,
-      idDocument: data.idDocument || null,
-      role: "Owner",
-      ownership: "100%",
-    };
+    const individual = {};
 
-    // List of declarations
+    const fields = [
+      "fullName",
+      "idNumber",
+      "nationality",
+      "residentialAddress",
+      "dateOfBirth",
+      "idDocument",
+    ];
+
+    fields.forEach((f) => {
+      if (data[f] !== undefined && data[f] !== null) {
+        individual[f] = data[f];
+      }
+    });
+
     const declarations = [
       "pepDeclaration",
       "sanctionsDeclaration",
@@ -348,17 +432,14 @@ const SMEApplicationForm = () => {
 
     declarations.forEach((decl) => {
       if (data[decl]) {
-        individual[decl] = data[decl]; // store the user's input ("Yes" or "No")
+        individual[decl] = data[decl];
 
-        // Only store actual values from conditional fields if user said "Yes"
         const configFields =
-          activeConfig.entities.sole_proprietorship.steps[0]
-            .repeatableSections.owners.fields[decl]?.conditionalFields;
+          activeConfig.entities?.sole_proprietorship?.steps?.[0]
+            ?.repeatableSections?.owners?.fields?.[decl]?.conditionalFields;
 
         if (configFields?.[data[decl]]) {
-          // Only copy the **values**, not the field definitions
           Object.keys(configFields[data[decl]]).forEach((key) => {
-            // Use value from data if exists, else null
             individual[key] = data[key] ?? null;
           });
         }
@@ -366,6 +447,41 @@ const SMEApplicationForm = () => {
     });
 
     return individual;
+  };
+
+  const hasIncompleteFields = (data) => {
+    const requiredFields = getRequiredFields(data);
+
+    for (const field of requiredFields) {
+      if (
+        data[field] === null ||
+        data[field] === undefined ||
+        data[field] === ""
+      ) {
+        return true;
+      }
+    }
+
+    const individuals = mapIndividuals(data);
+
+    for (const field in individuals) {
+      if (
+        individuals[field] === null ||
+        individuals[field] === undefined ||
+        individuals[field] === ""
+      ) {
+        return true;
+      }
+    }
+
+    if (data.documents) {
+      for (const docType in data.documents) {
+        const files = data.documents[docType];
+        if (!files || files.length === 0) return true;
+      }
+    }
+
+    return false;
   };
 
   const buildFormPayload = (data) => {
@@ -441,10 +557,6 @@ const SMEApplicationForm = () => {
       // Update Redux with saved draft
       dispatch(saveDraftAction({ appId: savedAppId, data: formData }));
 
-      // dispatch(
-      //   saveDraftAction({ appId: res.application_id || appId, data: formData }),
-      // );
-
       toast({
         title: "Draft Saved",
         description: "Your draft has been saved successfully.",
@@ -481,6 +593,42 @@ const SMEApplicationForm = () => {
         activeConfig,
         formData.businessType,
       );
+
+      // Extract all document fields
+      // Here, formData.documents is expected to have the shape: { [docType]: File[] }
+      const documents = [];
+      if (formData.documents) {
+        Object.entries(formData.documents).forEach(([docType, files]) => {
+          if (Array.isArray(files)) {
+            files.forEach((file) => {
+              if (file instanceof File) {
+                documents.push({
+                  document_type: docType,
+                  filename: file.name,
+                  mime_type: file.type || "application/octet-stream",
+                });
+              }
+            });
+          }
+        });
+      }
+
+      // Upload each document first
+      for (const doc of documents) {
+        const fileArray = formData.documents[doc.document_type] || [];
+        for (const file of fileArray) {
+          await uploadDocumentApi({
+            applicationId: appId,
+            documentType: doc.document_type,
+            file,
+            onProgress: (pct) => {
+              // optional: you can track progress here
+              console.log(`Uploading ${doc.filename}: ${pct}%`);
+            },
+          });
+        }
+      }
+
       const payload = {
         user_id: user.user_id,
         email: user.email,
@@ -494,16 +642,27 @@ const SMEApplicationForm = () => {
         // documents: []
       };
 
-      await submitApplicationApi(payload);
+      // 5Conditional API call
+      let returnedAppId = appId;
+      if (!appId || appId === "new") {
+        // First submission
+        const res = await submitApplicationApi(payload); // firstSubmit
+        returnedAppId = res.application_id; // update appId from response
+      } else {
+        // Already saved draft, second submission
+        await secondSubmit(appId, payload); // secondSubmit/applicationId
+      }
 
-      dispatch(submitApplication({ appId, data: formData }));
+      // await submitApplicationApi(payload);
 
-      navigate(`/landingpage`);
+      dispatch(submitApplication({ appId: returnedAppId, data: formData }));
 
       toast({
         title: "Application Submitted",
         description: "Your application has been submitted.",
       });
+
+      navigate(`/landingpage`);
     } catch (err) {
       toast({
         title: "Submission Failed",
@@ -626,10 +785,14 @@ const SMEApplicationForm = () => {
                         </Button>
                       ) : (
                         // Last step: show Submit only if all fields are filled
-                        !hasNullFields(formData) && (
+                        // !hasNullFields(formData) && (
+                        !hasIncompleteFields(formData) && (
                           <Button
                             onClick={handleSubmitApplication}
-                            disabled={isSubmitting}
+                            // disabled={isSubmitting}
+                            disabled={
+                              isSubmitting || hasIncompleteFields(formData)
+                            }
                             // variant="destructive"
                           >
                             Submit
