@@ -9,8 +9,6 @@ import {
   Upload,
   User,
   MapPin,
-  Mail,
-  Phone,
   FileQuestion,
   CheckCircle2,
   XCircle,
@@ -44,8 +42,10 @@ import {
   getQnA,
   getReviewJob,
 } from "@/api/applicationApi";
+import { getAuditTrail } from "@/api/auditTrailApi";
 import { allDocuments, downloadDocuments } from "./../api/documentApi";
 import RequestDocumentsDialog from "../components/ui/features/RequestDocumentsDialog";
+import { AuditTrail } from "../components/ui/features/AuditTrail";
 
 const formatBusinessType = (value) => {
   if (!value) return "-";
@@ -75,6 +75,10 @@ export default function ApplicationReviewDetail() {
   const [actionRequestsData, setActionRequestsData] = useState(null);
   const [qnaLoading, setQnaLoading] = useState(false);
   const [qnaError, setQnaError] = useState(null);
+
+  const [auditEntries, setAuditEntries] = useState([]);
+  const [auditLoading, setAuditLoading] = useState(false);
+  const [auditError, setAuditError] = useState(null);
 
   const [requestDocsOpen, setRequestDocsOpen] = useState(false);
 
@@ -147,7 +151,7 @@ export default function ApplicationReviewDetail() {
           err?.response?.data?.detail ||
             err?.response?.data?.message ||
             err?.message ||
-            "Could not retrieve risk assessment."
+            "Could not retrieve risk assessment.",
         );
         setRules(null);
       } finally {
@@ -184,7 +188,7 @@ export default function ApplicationReviewDetail() {
           err?.response?.data?.detail ||
             err?.response?.data?.message ||
             err?.message ||
-            "Could not retrieve questions & answers."
+            "Could not retrieve questions & answers.",
         );
         setActionRequestsData(null);
       } finally {
@@ -193,6 +197,43 @@ export default function ApplicationReviewDetail() {
     };
 
     if (id && application) fetchQnA();
+  }, [id, application]);
+
+  // -----------------------------
+  // Fetch Audit Trail
+  // -----------------------------
+  useEffect(() => {
+    const fetchAuditTrail = async () => {
+      try {
+        setAuditLoading(true);
+        setAuditError(null);
+
+        const appIdToUse = application?.application_id || application?.id || id;
+        if (!appIdToUse) return;
+
+        const data = await getAuditTrail(appIdToUse);
+        setAuditEntries(Array.isArray(data) ? data : []);
+      } catch (err) {
+        console.error("Error fetching audit trail:", {
+          message: err?.message,
+          status: err?.response?.status,
+          data: err?.response?.data,
+          url: err?.config?.url,
+        });
+
+        setAuditError(
+          err?.response?.data?.detail ||
+            err?.response?.data?.message ||
+            err?.message ||
+            "Could not retrieve audit trail.",
+        );
+        setAuditEntries([]);
+      } finally {
+        setAuditLoading(false);
+      }
+    };
+
+    if (id && application) fetchAuditTrail();
   }, [id, application]);
 
   // -----------------------------
@@ -430,7 +471,9 @@ export default function ApplicationReviewDetail() {
       await approveApplication(appIdToUse, reason.trim());
 
       toast.success("Application Approved", {
-        description: `${application?.business_name || formData?.businessName || "Application"} has been approved.`,
+        description: `${
+          application?.business_name || formData?.businessName || "Application"
+        } has been approved.`,
       });
 
       navigate("/staff-landingpage");
@@ -459,7 +502,9 @@ export default function ApplicationReviewDetail() {
       await rejectApplication(appIdToUse, reason.trim());
 
       toast.success("Application Rejected", {
-        description: `${application?.business_name || formData?.businessName || "Application"} has been rejected.`,
+        description: `${
+          application?.business_name || formData?.businessName || "Application"
+        } has been rejected.`,
       });
 
       navigate("/staff-landingpage");
@@ -557,6 +602,9 @@ export default function ApplicationReviewDetail() {
                   </TabsTrigger>
                   <TabsTrigger value="qna" className="text-xs sm:text-sm">
                     Questions & Answers
+                  </TabsTrigger>
+                  <TabsTrigger value="audit" className="text-xs sm:text-sm">
+                    Audit Trail
                   </TabsTrigger>
                   {currentStatus === "Requires Action" && actionReason && (
                     <TabsTrigger value="response" className="text-xs sm:text-sm">
@@ -973,7 +1021,7 @@ export default function ApplicationReviewDetail() {
                           <Badge className="border bg-muted text-foreground">
                             {resubmissionGroups.reduce(
                               (sum, group) => sum + group.documents.length,
-                              0
+                              0,
                             )}{" "}
                             file(s)
                           </Badge>
@@ -1113,6 +1161,16 @@ export default function ApplicationReviewDetail() {
                       ))
                     )}
                   </div>
+                </TabsContent>
+
+                <TabsContent value="audit" className="mt-0">
+                  {auditLoading ? (
+                    <p className="text-sm text-muted-foreground">Loading audit trail...</p>
+                  ) : auditError ? (
+                    <p className="text-sm text-red-500">{auditError}</p>
+                  ) : (
+                    <AuditTrail entries={auditEntries} />
+                  )}
                 </TabsContent>
 
                 {currentStatus === "Requires Action" && actionReason && (
