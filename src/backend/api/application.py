@@ -307,7 +307,7 @@ def first_submit_application(
         actor_type=username,
         event_type="APPLICATION_SUBMITTED",
         entity_type="APPLICATION",
-        from_status=None,
+        from_status="Submitted",
         to_status="Under Review",
         description="Application is queued for automated compliance screening."
     )
@@ -682,7 +682,7 @@ def second_submit(
             actor_type="SYSTEM",
             event_type="REVIEW_JOB_QUEUED",
             entity_type="REVIEW_JOB",
-            from_status=None,
+            from_status="Submitted",
             to_status="Under Review",
             description="Application is queued for automated compliance screening."
         )
@@ -802,7 +802,6 @@ def need_manual_review(
         "emails_queued": emails_queued,
         "email_notes": email_notes,
     }
-
 
 # User discarding their draft application
 @router.delete("/delete/{application_id}")

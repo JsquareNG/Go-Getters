@@ -19,6 +19,7 @@ def get_audit_trail_by_application(application_id: str, db: Session = Depends(ge
     return [
         {
             "application_id": log.application_id,
+            "audit_id": log.audit_id,
             "actor_id": log.actor_id,
             "actor_type": log.actor_type,
             "event_type": log.event_type,
