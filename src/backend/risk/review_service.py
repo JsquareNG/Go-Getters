@@ -1,6 +1,5 @@
 from sqlalchemy.orm import Session
 from backend.database import SessionLocal
-from backend.models.application import ApplicationForm
 from backend.models.reviewJobs import ReviewJobs
 from backend.risk.rules_engine import build_default_engine
 from sqlalchemy import text
@@ -8,7 +7,9 @@ from backend.config.settings import RISK_APPETITE_SCORE_THRESHOLD
 from backend.services.application_transitions import approve_application_service, need_manual_review_service
 from backend.rules_engine.application_service import submit_application
 from backend.rules_engine.models import Company, Individual
-
+from datetime import datetime
+from backend.services.audit_service import create_audit_log
+from backend.models.application import ApplicationForm
 
 def run_review_job(application_id: str):
     print("[run_review_job] START", application_id)
@@ -28,6 +29,20 @@ def run_review_job(application_id: str):
 
         # 🔄 Mark job as running
         job.status = "RUNNING"
+
+        create_audit_log(
+            db=db,
+            application_id=application_id,
+            actor_id=None,
+            actor_type="System",
+            event_type="REVIEW_JOB_STARTED",
+            entity_type="REVIEW_JOB",
+            entity_id=job.job_id,
+            from_status=app.previous_status,
+            to_status=app.current_status,
+            description="System initiated automated compliance screening",
+        )
+
         db.commit()
 
         form = app.form_data or {}
@@ -35,28 +50,65 @@ def run_review_job(application_id: str):
         individuals = []
 
         people = form.get("individuals", [])
+        pepDeclaration = form.get("pepDeclaration")  == "Yes"
+        sanctionsDeclaration = form.get("sanctionsDeclaration") == "Yes"
+
+
+        if isinstance(people, dict):
+            people = [people]
+        elif people is None:
+            people = []
+        elif not isinstance(people, list):
+            raise ValueError(f"form['individuals'] must be a list or dict, got {type(people).__name__}")
 
         for p in people:
             individuals.append(
                 Individual(
                     name=p.get("fullName"),
                     nationality=p.get("nationality"),
-                    ownership_pct=p.get("ownership_pct", 0),
-                    is_pep=p.get("is_pep", False),
-                    sanctions_match=p.get("sanctions_match", False),
+                    ownership_pct=p.get("ownership", 0),
+                    is_pep=pepDeclaration,
+                    sanctions_match=sanctionsDeclaration,
                     is_signatory=p.get("is_signatory",False),
                     directorships=p.get("directorships", 1)
                 )
             )
 
+        expected_volume_raw = form.get("expectedMonthlyTransactionVolume", 0)
+        try:
+            expected_volume = float(expected_volume_raw)
+        except (TypeError, ValueError):
+            expected_volume = 0
+
+        registration_date_str = form.get("registrationDate")
+
+        years_incorporated = 1  # default fallback
+
+        if registration_date_str:
+            try:
+                registration_date = datetime.strptime(registration_date_str, "%Y-%m-%d")
+                today = datetime.today()
+
+                years_incorporated = today.year - registration_date.year
+
+                # adjust if anniversary hasn't passed this year
+                if (today.month, today.day) < (registration_date.month, registration_date.day):
+                    years_incorporated -= 1
+
+                if years_incorporated < 0:
+                    years_incorporated = 0
+
+            except Exception:
+                years_incorporated = 1
+
         company = Company(
             name=form.get("businessName"),
             country=form.get("country"),
-            industry=form.get("industry"),
+            industry=form.get("businessIndustry"),
             ownership_layers=form.get("ownership_layers", 1),
             trust_structure=form.get("uses_trust_or_nominee", False),
-            expected_volume=form.get("expectedMonthlyTransactionVolume", 0),
-            years_incorporated=form.get("years_incorporated", 1),
+            expected_volume=expected_volume,
+            years_incorporated=years_incorporated,
             physical_presence=form.get("physical_presence", False),
             cross_border=form.get("cross_border", False),
             individuals=individuals,
@@ -66,12 +118,25 @@ def run_review_job(application_id: str):
 
         job.risk_score = result.get("risk_score")
         job.risk_grade = result.get("decision")
-        job.rules_triggered = result.get("triggered_checks", [])
+        job.rules_triggered = result.get("rules_triggered", [])
 
 
         decision = result.get("decision")
 
         if decision == "Simplified CDD":
+            create_audit_log(
+                db=db,
+                application_id=application_id,
+                actor_id=None,
+                actor_type="SYSTEM",
+                event_type="REVIEW_JOB_COMPLETED",
+                entity_type="REVIEW_JOB",
+                entity_id=job.job_id,
+                from_status=app.current_status,
+                to_status="Completed",
+                description="Automated review process completed."
+            )
+            
             approve_application_service(
                 db=db,
                 background_tasks=None,
@@ -80,6 +145,19 @@ def run_review_job(application_id: str):
                 send_email_now=True,
             )
         else:
+            create_audit_log(
+                db=db,
+                application_id=application_id,
+                actor_id=None,
+                actor_type="SYSTEM",
+                event_type="REVIEW_JOB_COMPLETED",
+                entity_type="REVIEW_JOB",
+                entity_id=job.job_id,
+                from_status=app.current_status,
+                to_status="COMPLETED",
+                description="Automated review process completed."
+            )
+
             need_manual_review_service(
                 db=db,
                 background_tasks=None,
@@ -89,6 +167,8 @@ def run_review_job(application_id: str):
 
         job.status = "COMPLETED"
         job.completed_at = text("(now() AT TIME ZONE 'Asia/Singapore')")
+
+        
 
         db.commit()
 

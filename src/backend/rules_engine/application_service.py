@@ -15,3 +15,5 @@ def submit_application(company):
 
     for r in result["rules_triggered"]:
         print(f"{r['code']} - {r['description']}")
+
+    return result
