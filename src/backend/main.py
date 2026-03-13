@@ -16,8 +16,6 @@ from backend.api.bellNotification import router as application_bellNotifications
 from backend.api.reviewJobs import router as review_jobs
 
 from backend.api.extract import router as extract_router
-from backend.api.document_ai import router as docai_router
-from backend.api.id_verification import router as idv_router
 from backend.api.auditTrail import router as audit_router
 
 from backend.api.liveness import router as liveness_router
@@ -76,8 +74,6 @@ app.include_router(review_jobs)
 
 app.include_router(extract_router)
 
-app.include_router(docai_router)
-app.include_router(idv_router)
 app.include_router(audit_router)
 
 app.include_router(liveness_router)

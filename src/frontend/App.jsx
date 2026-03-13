@@ -11,8 +11,6 @@ import StaffLandingPage from "./pages/StaffLandingPage";
 import ApplicationReviewDetail from "./pages/ApplicationReviewDetail";
 import Dashboard from "./pages/Dashboard";
 import AdminConfigPage from "./pages/AdminConfigPage";
-// import TestDocumentMulti from "./pages/TestDocument";
-// import ViewSubmittedApplication from "./pages/OneDocument";
 import { Toaster } from "./components/ui/primitives/Toaster";
 
 import { useSelector } from "react-redux";
