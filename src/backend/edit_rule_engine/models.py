@@ -4,7 +4,6 @@ from typing import List
 
 @dataclass
 class Individual:
-
     name: str
     nationality: str
     is_pep: bool
@@ -15,7 +14,6 @@ class Individual:
 
 @dataclass
 class Company:
-
     name: str
     country: str
     entity_type: str
@@ -26,7 +24,6 @@ class Company:
     expected_tx_volume: float
 
     ownership_layers: int
-
     transaction_countries: List[str]
 
     individuals: List[Individual]
@@ -36,6 +33,6 @@ class Company:
     address_proof: bool
     bank_statements: bool
 
-    # indonesia specific
+    # indonesia
     nib_present: bool
     npwp_present: bool

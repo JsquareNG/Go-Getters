@@ -1,79 +1,94 @@
-from backend.rules_engine.models import Company, Individual
-from backend.rules_engine.application_service import submit_application
+from models import Company, Individual
+from application_service import submit_application
 
-
-# TEST 1 — Low Risk SME (Expected: Simplified CDD)
-def test_low_risk_sme():
-
-    owner = Individual(
-        name="Tan Wei Ming",
-        nationality="Singapore",
-        ownership_pct=80,
-        is_pep=False,
-        sanctions_match=False,
-        is_signatory=True,
-        directorships=1
-    )
-
-    company = Company(
-        name="Sunrise Retail Pte Ltd",
-        country="Singapore",
-        industry="Retail",
-        ownership_layers=1,
-        trust_structure=False,
-        expected_volume=200000,
-        years_incorporated=5,
-        physical_presence=True,
-        cross_border=False,
-        individuals=[owner]
-    )
-
-
-    submit_application(company)
-
-
-
-# TEST 2 — High Risk SME (Expected: Enhanced Due Diligence)
-def test_high_risk_sme():
-
-    ubo = Individual(
-        name="John Doe",
-        nationality="Iran",  # FATF blacklist
-        ownership_pct=60,
-        is_pep=False,
-        sanctions_match=False,
-        is_signatory=True,
-        directorships=7
-    )
-
+def test_indonesia_sme():
     director = Individual(
-        name="Jane Smith",
-        nationality="Singapore",
-        ownership_pct=10,
+        name="Budi Santoso",
+        nationality="Indonesia",
         is_pep=False,
-        sanctions_match=False,
-        is_signatory=True,
-        directorships=3
+        sanctions_declared=False,
+        tax_residency="Indonesia",
+        fatca_us_person=False
     )
-
     company = Company(
-        name="Global Crypto Trading Ltd",
-        country="Singapore",
-        industry="Cryptocurrency Exchange",
-        ownership_layers=4,
-        trust_structure=True,
-        expected_volume=12000000,
-        years_incorporated=0,
-        physical_presence=False,
-        cross_border=True,
-        individuals=[ubo, director]
+        name="IndoCrypto",
+        entity_type="PT",
+        country="Indonesia",
+        registration_year=2024,
+        industry="Cryptocurrency",
+        annual_revenue=500_000,
+        expected_tx_volume=6_000_000,
+        ownership_layers=3,
+        transaction_countries=["Indonesia","Singapore","US"],
+        individuals=[director],
+        acra_profile=False,
+        address_proof=False,
+        bank_statements=False,
+        nib_present=False,
+        npwp_present=True
     )
-
-    
     submit_application(company)
 
+def test_singapore_sme():
+    director = Individual(
+        name="Tan Wei",
+        nationality="Singapore",
+        is_pep=True,
+        sanctions_declared=False,
+        tax_residency="Singapore",
+        fatca_us_person=False
+    )
+    company = Company(
+        name="SG FinTech",
+        entity_type="PTE_LTD",
+        country="Singapore",
+        registration_year=2022,
+        industry="Online Gaming",
+        annual_revenue=1_200_000,
+        expected_tx_volume=2_000_000,
+        ownership_layers=2,
+        transaction_countries=["Singapore","Malaysia"],
+        individuals=[director],
+        acra_profile=True,
+        address_proof=True,
+        bank_statements=True,
+        nib_present=False,
+        npwp_present=False
+    )
 
+def test_singapore_sme_low():
+    director = Individual(
+        name="John",
+        nationality="Singapore",
+        is_pep=False,
+        sanctions_declared=False,
+        tax_residency="Singapore",
+        fatca_us_person=False
+    )
+    company = Company(
+        name="SG Cook",
+        entity_type="PTE_LTD",
+        country="Singapore",
+        registration_year=2002,
+        industry="Food & Beverage",
+        annual_revenue=1_200_000,
+        expected_tx_volume=200_000,
+        ownership_layers=1,
+        transaction_countries=["Singapore","Malaysia"],
+        individuals=[director],
+        acra_profile=True,
+        address_proof=True,
+        bank_statements=True,
+        nib_present=False,
+        npwp_present=False
+    )
+    submit_application(company)
 
+# <-- This is the key part
 if __name__ == "__main__":
-    test_low_risk_sme()
-    test_high_risk_sme()
+    print("=== Testing Indonesia SME ===")
+    test_indonesia_sme()
+
+    print("\n=== Testing Singapore SME ===")
+    test_singapore_sme()
+    test_singapore_sme_low()

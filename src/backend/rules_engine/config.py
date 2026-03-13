@@ -1,57 +1,82 @@
 # config.py
 
 # FATF High-Risk Jurisdictions (Call for Action)
-# Banks normally trigger immediate Enhanced Due Diligence
 FATF_BLACKLIST = {
     "Iran",
     "North Korea",
     "Myanmar"
 }
 
-# FATF Jurisdictions Under Increased Monitoring ("Grey List")
-# These are countries with AML/CFT deficiencies requiring enhanced monitoring
+# FATF Jurisdictions Under Increased Monitoring
 HIGH_RISK_COUNTRIES = {
+    "Algeria",
+    "Angola",
     "Bolivia",
     "Bulgaria",
+    "Cameroon",
+    "Côte d'Ivoire",
+    "Democratic Republic of the Congo",
+    "Haiti",
     "Kenya",
     "Kuwait",
     "Lao PDR",
     "Lebanon",
+    "Monaco",
+    "Namibia",
+    "Nepal",
+    "Papua New Guinea",
     "South Sudan",
     "Syria",
-    "Yemen",
-    "Israel"
+    "Venezuela",
+    "Vietnam",
+    "British Virgin Islands",
+    "Yemen"
 }
 
-# Industries widely considered high risk by banks and AML regulators
 HIGH_RISK_INDUSTRIES = {
     "Cryptocurrency",
-    "Virtual Asset Service Provider",
-    "Money Services Business",
+    "Virtual Asset",
+    "Money Services",
     "Remittance",
     "Foreign Exchange",
     "Gambling",
     "Casino",
     "Online Gaming",
-    "Precious Metals Trading",
-    "Precious Stones Trading",
-    "Arms Trading",
-    "Adult Entertainment"
+    "Trading",
 }
 
-# Risk scoring thresholds used by the rule engine
 SIMPLIFIED_THRESHOLD = 30
 STANDARD_THRESHOLD = 60
 
-# Expected transaction volume thresholds (example realistic SME banking values)
-HIGH_TX_VOLUME_THRESHOLD = 1_000_000
-VERY_HIGH_TX_VOLUME_THRESHOLD = 10_000_000
 
-# Ownership complexity thresholds
-MAX_SIMPLE_OWNERSHIP_LAYERS = 2
+TX_VOLUME_RISK_TABLE = [
+    (0, 1_000_000, 10),
+    (1_000_000, 5_000_000, 30),
+    (5_000_000, 10_000_000, 50),
+    (10_000_000, float("inf"), 70)
+]
 
-# Directorship threshold
-MULTIPLE_DIRECTORSHIP_THRESHOLD = 5
+COMPANY_AGE_RISK_TABLE = [
+    (0, 1, 40),
+    (1, 3, 25),
+    (3, 10, 10),
+    (10, float("inf"), 0)
+]
 
-# Newly incorporated company threshold
-NEW_COMPANY_THRESHOLD_YEARS = 1
+OWNERSHIP_LAYER_RISK_TABLE = [
+    (0, 2, 5),
+    (3, 4, 25),
+    (5, float("inf"), 50)
+]
+
+DIRECTOR_COUNT_RISK_TABLE = [
+    (3, 5, 10),
+    (6, float("inf"), 25)
+]
+
+TRANSACTION_COUNTRY_COUNT_TABLE = [
+    (0, 2, 5),
+    (3, 5, 10),
+    (6, 10, 25),
+    (11, float("inf"), 40)
+]
