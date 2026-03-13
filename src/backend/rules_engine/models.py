@@ -4,24 +4,38 @@ from typing import List
 
 @dataclass
 class Individual:
+
     name: str
     nationality: str
-    ownership_pct: float
     is_pep: bool
-    sanctions_match: bool
-    is_signatory: bool
-    directorships: int
+    sanctions_declared: bool
+    tax_residency: str
+    fatca_us_person: bool
 
 
 @dataclass
 class Company:
+
     name: str
     country: str
+    entity_type: str
+    registration_year: int
     industry: str
+
+    annual_revenue: float
+    expected_tx_volume: float
+
     ownership_layers: int
-    trust_structure: bool
-    expected_volume: float
-    years_incorporated: int
-    physical_presence: bool
-    cross_border: bool
+
+    transaction_countries: List[str]
+
     individuals: List[Individual]
+
+    # documents
+    acra_profile: bool
+    address_proof: bool
+    bank_statements: bool
+
+    # indonesia specific
+    nib_present: bool
+    npwp_present: bool
