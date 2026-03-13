@@ -1,5 +1,5 @@
-from rules_engine.rule_loader import load_rules
-from rules_engine.rule_executor import evaluate_rules
+from rules.rule_loader import load_rules
+from rules.rule_executor import evaluate_rules
 from config import SIMPLIFIED_THRESHOLD, STANDARD_THRESHOLD
 
 GENERAL_RULES = load_rules("rules_config/general_rules.json")
