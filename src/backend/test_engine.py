@@ -1,64 +1,74 @@
-# test_engine.py
+from models import Company, Individual
+from rule_engine import evaluate_company
 
-from models import Individual, Company
-from application_service import submit_application
-
-
-def test_high_risk_sme():
-    ubo = Individual(
-        name="John Doe",
-        nationality="CountryX",
-        ownership_pct=60,
-        is_pep=False,
-        has_adverse_media=False
-    )
-
+def test_indonesia_sme():
     director = Individual(
-        name="Jane Tan",
-        nationality="Singapore",
-        ownership_pct=10,
+        name="Budi Santoso",
+        nationality="Indonesia",
         is_pep=False,
-        has_adverse_media=False
+        sanctions_declared=False,
+        tax_residency="Indonesia",
+        fatca_us_person=False
     )
-
     company = Company(
-        name="ABC Fintech Pte Ltd",
-        country="Singapore",
-        industry="Crypto",
+        name="IndoCrypto",
+        entity_type="PT",
+        country="Indonesia",
+        registration_year=2024,
+        industry="Cryptocurrency",
+        annual_revenue=500_000,
+        expected_tx_volume=6_000_000,
         ownership_layers=3,
-        uses_trust_or_nominee=True,
-        expected_monthly_volume=5_000_000,
-        individuals=[ubo, director]
+        transaction_countries=["Indonesia","Singapore","US"],
+        individuals=[director],
+        acra_profile=False,
+        address_proof=False,
+        bank_statements=False,
+        nib_present=False,
+        npwp_present=True
     )
+    result = evaluate_company(company)
+    print(f"Risk Score: {result['risk_score']}")
+    print("Triggered Rules:")
+    for r in result["triggered_rules"]:
+        print(f"- {r['code']}: {r['description']} (+{r['score']})")
 
-    submit_application(company)
-
-
-def test_low_risk_sme():
-    owner = Individual(
-        name="Ah Beng",
+def test_singapore_sme():
+    director = Individual(
+        name="Tan Wei",
         nationality="Singapore",
-        ownership_pct=100,
-        is_pep=False,
-        has_adverse_media=False
+        is_pep=True,
+        sanctions_declared=False,
+        tax_residency="Singapore",
+        fatca_us_person=False
     )
-
     company = Company(
-        name="Happy Kopitiam Pte Ltd",
+        name="SG FinTech",
+        entity_type="PTE_LTD",
         country="Singapore",
-        industry="F&B",
-        ownership_layers=1,
-        uses_trust_or_nominee=False,
-        expected_monthly_volume=50_000,
-        individuals=[owner]
+        registration_year=2022,
+        industry="Online Gaming",
+        annual_revenue=1_200_000,
+        expected_tx_volume=2_000_000,
+        ownership_layers=2,
+        transaction_countries=["Singapore","Malaysia"],
+        individuals=[director],
+        acra_profile=True,
+        address_proof=True,
+        bank_statements=True,
+        nib_present=False,
+        npwp_present=False
     )
+    result = evaluate_company(company)
+    print(f"Risk Score: {result['risk_score']}")
+    print("Triggered Rules:")
+    for r in result["triggered_rules"]:
+        print(f"- {r['code']}: {r['description']} (+{r['score']})")
 
-    submit_application(company)
-
-
+# <-- This is the key part
 if __name__ == "__main__":
-    print("\n=== TEST 1: High-Risk SME ===")
-    test_high_risk_sme()
+    print("=== Testing Indonesia SME ===")
+    test_indonesia_sme()
 
-    print("\n=== TEST 2: Low-Risk SME ===")
-    test_low_risk_sme()
+    print("\n=== Testing Singapore SME ===")
+    test_singapore_sme()

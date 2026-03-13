@@ -1,17 +1,18 @@
-# application_service.py
-
-from models import Company
-from rule_engine import determine_due_diligence
+from rule_engine import run_engine
 
 
-def submit_application(company: Company):
-    print(f"\n📨 SME Application Submitted: {company.name}")
+def submit_application(company):
 
-    result = determine_due_diligence(company)
+    result = run_engine(company)
 
-    print("🔍 KYC / KYB Rule Engine Result")
-    print(f"Risk Score : {result['risk_score']}")
-    print(f"Decision   : {result['decision']}")
-    print(f"Reason     : {result['reason']}")
+    print("\nApplication Result")
+    print("----------------------")
+    print("Company:", company.name)
+    print("Country:", company.country)
+    print("Risk Score:", result["risk_score"])
+    print("Decision:", result["decision"])
 
-    return result
+    print("\nTriggered Rules:")
+
+    for r in result["rules_triggered"]:
+        print(f"{r['code']} - {r['description']}")

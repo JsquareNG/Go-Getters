@@ -1,34 +1,49 @@
+# engine.py
 
-from models import Company
-from kyb_rules import score_company_risk
-from kyc_rules import score_individual_risk
-from config import SIMPLIFIED_CDD_THRESHOLD, STANDARD_CDD_THRESHOLD
+from general_rules import evaluate_general_rules
+from singapore_rules import evaluate_singapore_rules
+from indonesia_rules import evaluate_indonesia_rules
+from kyc_rules import evaluate_kyc_rules
+from config import SIMPLIFIED_THRESHOLD, STANDARD_THRESHOLD
 
 
-def determine_due_diligence(company: Company) -> dict:
-    total_risk = score_company_risk(company)
+def evaluate_company(company):
 
-    # Immediate EDD triggers
+    total_score = 0
+    triggered_rules = []
+
+    # --- KYB: general rules ---
+    score, rules = evaluate_general_rules(company)
+    total_score += score
+    triggered_rules.extend(rules)
+
+    # --- KYB: country-specific rules ---
+    if company.country == "Singapore":
+        score, rules = evaluate_singapore_rules(company)
+        total_score += score
+        triggered_rules.extend(rules)
+
+    elif company.country == "Indonesia":
+        score, rules = evaluate_indonesia_rules(company)
+        total_score += score
+        triggered_rules.extend(rules)
+
+    # --- KYC: individual rules ---
     for person in company.individuals:
-        if person.is_pep or person.has_adverse_media:
-            return {
-                "risk_score": total_risk,
-                "decision": "Enhanced Due Diligence (EDD)",
-                "reason": "PEP or adverse media detected"
-            }
+        score, rules = evaluate_kyc_rules(person)
+        total_score += score
+        triggered_rules.extend(rules)
 
-        total_risk += score_individual_risk(person)
-
-    # Risk-based decision
-    if total_risk < SIMPLIFIED_CDD_THRESHOLD:
-        decision = "Simplified CDD"
-    elif total_risk <= STANDARD_CDD_THRESHOLD:
-        decision = "Standard CDD"
+    # --- Risk Decision Layer ---
+    if total_score < SIMPLIFIED_THRESHOLD:
+        risk_decision = "Simplified CDD"
+    elif total_score < STANDARD_THRESHOLD:
+        risk_decision = "Standard CDD"
     else:
-        decision = "Enhanced Due Diligence (EDD)"
+        risk_decision = "Enhanced Due Diligence (EDD)"
 
     return {
-        "risk_score": total_risk,
-        "decision": decision,
-        "reason": "Risk-based assessment"
+        "risk_score": total_score,
+        "risk_decision": risk_decision,
+        "triggered_rules": triggered_rules
     }
