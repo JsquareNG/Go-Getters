@@ -28,10 +28,15 @@ def test_indonesia_sme():
         npwp_present=True
     )
     result = evaluate_company(company)
-    print(f"Risk Score: {result['risk_score']}")
-    print("Triggered Rules:")
+    print("Company:", company.name)
+    print("Country:", company.country)
+    print("Risk Score:", result["risk_score"])
+    print("Decision:", result["risk_decision"])
+
+    print("\nTriggered Rules:")
+
     for r in result["triggered_rules"]:
-        print(f"- {r['code']}: {r['description']} (+{r['score']})")
+        print(f"{r['code']} - {r['description']}")
 
 def test_singapore_sme():
     director = Individual(
@@ -60,10 +65,16 @@ def test_singapore_sme():
         npwp_present=False
     )
     result = evaluate_company(company)
-    print(f"Risk Score: {result['risk_score']}")
-    print("Triggered Rules:")
+
+    print("Company:", company.name)
+    print("Country:", company.country)
+    print("Risk Score:", result["risk_score"])
+    print("Decision:", result["risk_decision"])
+
+    print("\nTriggered Rules:")
+
     for r in result["triggered_rules"]:
-        print(f"- {r['code']}: {r['description']} (+{r['score']})")
+        print(f"{r['code']} - {r['description']}")
 
 # <-- This is the key part
 if __name__ == "__main__":

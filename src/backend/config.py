@@ -42,9 +42,7 @@ HIGH_RISK_INDUSTRIES = {
     "Gambling",
     "Casino",
     "Online Gaming",
-    "Precious Metals Trading",
-    "Precious Stones Trading",
-    "Arms Trading"
+    "Trading",
 }
 
 SIMPLIFIED_THRESHOLD = 30
