@@ -55,6 +55,33 @@ def test_singapore_sme():
         nib_present=False,
         npwp_present=False
     )
+
+def test_singapore_sme_low():
+    director = Individual(
+        name="John",
+        nationality="Singapore",
+        is_pep=False,
+        sanctions_declared=False,
+        tax_residency="Singapore",
+        fatca_us_person=False
+    )
+    company = Company(
+        name="SG Cook",
+        entity_type="PTE_LTD",
+        country="Singapore",
+        registration_year=2002,
+        industry="Food & Beverage",
+        annual_revenue=1_200_000,
+        expected_tx_volume=200_000,
+        ownership_layers=1,
+        transaction_countries=["Singapore","Malaysia"],
+        individuals=[director],
+        acra_profile=True,
+        address_proof=True,
+        bank_statements=True,
+        nib_present=False,
+        npwp_present=False
+    )
     submit_application(company)
 
 # <-- This is the key part
@@ -64,3 +91,4 @@ if __name__ == "__main__":
 
     print("\n=== Testing Singapore SME ===")
     test_singapore_sme()
+    test_singapore_sme_low()

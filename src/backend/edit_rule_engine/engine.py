@@ -1,0 +1,61 @@
+from rules_engine.rule_loader import load_rules
+from rules_engine.rule_executor import evaluate_rules
+from config import SIMPLIFIED_THRESHOLD, STANDARD_THRESHOLD
+
+GENERAL_RULES = load_rules("rules_config/general_rules.json")
+SG_RULES = load_rules("rules_config/singapore_rules.json")
+ID_RULES = load_rules("rules_config/indonesia_rules.json")
+KYC_RULES = load_rules("rules_config/kyc_rules.json")
+
+
+def evaluate_company(company):
+
+    total_score = 0
+    triggered_rules = []
+
+    # General KYB rules
+    score, rules = evaluate_rules(company, GENERAL_RULES)
+    total_score += score
+    triggered_rules.extend(rules)
+
+    # Country rules
+    if company.country == "Singapore":
+
+        score, rules = evaluate_rules(company, SG_RULES)
+
+    elif company.country == "Indonesia":
+
+        score, rules = evaluate_rules(company, ID_RULES)
+
+    else:
+        score, rules = (0, [])
+
+    total_score += score
+    triggered_rules.extend(rules)
+
+    # KYC rules for individuals
+    for person in company.individuals:
+
+        score, rules = evaluate_rules(person, KYC_RULES)
+
+        total_score += score
+        triggered_rules.extend(rules)
+
+    # Risk Decision
+    if total_score < SIMPLIFIED_THRESHOLD:
+
+        decision = "Simplified CDD"
+
+    elif total_score < STANDARD_THRESHOLD:
+
+        decision = "Standard CDD"
+
+    else:
+
+        decision = "Enhanced Due Diligence"
+
+    return {
+        "risk_score": total_score,
+        "decision": decision,
+        "triggered_rules": triggered_rules
+    }

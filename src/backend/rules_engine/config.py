@@ -70,7 +70,6 @@ OWNERSHIP_LAYER_RISK_TABLE = [
 ]
 
 DIRECTOR_COUNT_RISK_TABLE = [
-    (1, 2, 5),
     (3, 5, 10),
     (6, float("inf"), 25)
 ]

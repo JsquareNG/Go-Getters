@@ -3,7 +3,7 @@
 from general_rules import evaluate_general_rules
 from singapore_rules import evaluate_singapore_rules
 from indonesia_rules import evaluate_indonesia_rules
-from kyc_rules import evaluate_individual
+from kyc_rules import evaluate_kyc_rules
 from config import SIMPLIFIED_THRESHOLD, STANDARD_THRESHOLD
 
 
@@ -30,7 +30,7 @@ def evaluate_company(company):
 
     # --- KYC: individual rules ---
     for person in company.individuals:
-        score, rules = evaluate_individual(person)
+        score, rules = evaluate_kyc_rules(person)
         total_score += score
         triggered_rules.extend(rules)
 
