@@ -18,8 +18,6 @@ from backend.api.reviewJobs import router as review_jobs
 from backend.api.extract import router as extract_router
 from backend.api.auditTrail import router as audit_router
 
-from backend.api.liveness import router as liveness_router
-from backend.api.face_match import router as face_match_router
 from backend.api.didit_session import router as didit_session_router
 
 import os
@@ -76,6 +74,4 @@ app.include_router(extract_router)
 
 app.include_router(audit_router)
 
-app.include_router(liveness_router)
-app.include_router(face_match_router)
 app.include_router(didit_session_router)

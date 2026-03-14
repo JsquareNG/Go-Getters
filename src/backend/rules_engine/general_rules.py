@@ -1,6 +1,6 @@
 from datetime import datetime
-from config import *
-from utils import calculate_range_score
+from backend.rules_engine.config import *
+from backend.rules_engine.utils import calculate_range_score
 
 
 def evaluate_general_rules(company):

@@ -1,10 +1,10 @@
 # engine.py
 
-from general_rules import evaluate_general_rules
-from singapore_rules import evaluate_singapore_rules
-from indonesia_rules import evaluate_indonesia_rules
-from kyc_rules import evaluate_kyc_rules
-from config import SIMPLIFIED_THRESHOLD, STANDARD_THRESHOLD
+from backend.rules_engine.general_rules import evaluate_general_rules
+from backend.rules_engine.singapore_rules import evaluate_singapore_rules
+from backend.rules_engine.indonesia_rules import evaluate_indonesia_rules
+from backend.rules_engine.kyc_rules import evaluate_kyc_rules
+from backend.rules_engine.config import SIMPLIFIED_THRESHOLD, STANDARD_THRESHOLD
 
 
 def evaluate_company(company):
