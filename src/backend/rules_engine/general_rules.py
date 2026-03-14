@@ -1,5 +1,5 @@
 from datetime import datetime
-from config import *
+from backend.rules_engine.config import *
 from utils import calculate_range_score
 
 

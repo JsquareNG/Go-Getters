@@ -2,6 +2,7 @@ import React from "react";
 import { Plus, ChevronDown, ChevronUp } from "lucide-react";
 
 const CATEGORY_TABS = [
+  { key: "BASIC", label: "Basic Compliance" },
   { key: "KYC", label: "Know Your Customer" },
   { key: "KYB", label: "Know Your Business" },
 ];

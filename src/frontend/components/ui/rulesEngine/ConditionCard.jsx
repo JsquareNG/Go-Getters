@@ -1,6 +1,7 @@
 import React from "react";
 import { Trash2, Plus } from "lucide-react";
 import Toggle from "./common/Toggle";
+import FieldError from "./common/FieldError";
 
 const FIELD_OPTIONS = [
   { value: "years_incorporated", label: "years_incorporated", kind: "number" },
@@ -41,8 +42,41 @@ function getRuleFlowMode(conditions = []) {
   return second.uiConnector === "AND" ? "AND" : "BRANCH";
 }
 
-function getFieldMeta(fieldName) {
-  return FIELD_OPTIONS.find((item) => item.value === fieldName) || null;
+function getFieldMeta(fieldName, condition = null) {
+  const found = FIELD_OPTIONS.find((item) => item.value === fieldName);
+  if (found) return found;
+
+  if (fieldName) {
+    const operator = (condition?.operator || "").toUpperCase();
+    const valueType = (condition?.value_type || "").toUpperCase();
+
+    if (operator === "IS_TRUE" || valueType === "BOOLEAN") {
+      return {
+        value: fieldName,
+        label: fieldName,
+        kind: "boolean",
+        isLegacy: true,
+      };
+    }
+
+    if (operator === "IN_LIST" || valueType === "LIST") {
+      return {
+        value: fieldName,
+        label: fieldName,
+        kind: "list",
+        isLegacy: true,
+      };
+    }
+
+    return {
+      value: fieldName,
+      label: fieldName,
+      kind: "number",
+      isLegacy: true,
+    };
+  }
+
+  return null;
 }
 
 export default function ConditionCard({
@@ -55,6 +89,7 @@ export default function ConditionCard({
   onToggleConditionActive,
   onRemoveCondition,
   onAddCondition,
+  conditionErrors = {},
 }) {
   const conditionKey = getConditionKey(condition);
   const ruleFlowMode = getRuleFlowMode(allConditions);
@@ -65,11 +100,12 @@ export default function ConditionCard({
   const isElse = condition.branchType === "ELSE";
   const isAndRow = !isFirst && condition.uiConnector === "AND";
   const isBranchRow = !isFirst && condition.uiConnector !== "AND";
+  const isExistingCondition = !condition.isNew;
 
   const effectiveFieldName =
     isBranchRow ? firstFieldName || condition.field_name : condition.field_name;
 
-  const fieldMeta = getFieldMeta(effectiveFieldName);
+  const fieldMeta = getFieldMeta(effectiveFieldName, condition);
   const isNumeric = fieldMeta?.kind === "number";
   const isBoolean = fieldMeta?.kind === "boolean";
   const isList = fieldMeta?.kind === "list";
@@ -116,13 +152,9 @@ export default function ConditionCard({
       (item) =>
         getConditionKey(item) !== conditionKey &&
         item.field_name &&
-        item.uiConnector === "AND"
+        (item.uiConnector === "AND" || item === firstCondition)
     )
     .map((item) => item.field_name);
-
-  if (firstFieldName && getConditionKey(firstCondition) !== conditionKey) {
-    usedFieldNamesByOtherConditions.push(firstFieldName);
-  }
 
   const andFieldOptions = FIELD_OPTIONS.filter(
     (option) =>
@@ -169,79 +201,97 @@ export default function ConditionCard({
           </button>
         </div>
 
-        <div className="rounded-lg bg-gray-50 px-3 py-3">
-          <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-            <div className="flex flex-1 flex-wrap items-center gap-2 text-sm text-gray-700">
+        <div className="space-y-3 rounded-lg bg-gray-50 px-3 py-3">
+          <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+            <div className="flex flex-1 flex-wrap items-start gap-2 text-sm text-gray-700">
               {!isElse && (
                 <>
-                  {isFirst ? (
-                    <select
-                      value={condition.field_name || ""}
-                      onChange={(e) =>
-                        onConditionFieldChange(
-                          conditionKey,
-                          "field_name",
-                          e.target.value
-                        )
-                      }
-                      className="rounded-lg border border-gray-300 bg-white px-3 py-2 outline-none focus:border-gray-900"
-                    >
-                      {FIELD_OPTIONS.map((option) => (
-                        <option key={option.value} value={option.value}>
-                          {option.label}
-                        </option>
-                      ))}
-                    </select>
-                  ) : isAndRow ? (
-                    <select
-                      value={condition.field_name || ""}
-                      onChange={(e) =>
-                        onConditionFieldChange(
-                          conditionKey,
-                          "field_name",
-                          e.target.value
-                        )
-                      }
-                      className="rounded-lg border border-gray-300 bg-white px-3 py-2 outline-none focus:border-gray-900"
-                    >
-                      <option value="">Select Field Name</option>
-                      {andFieldOptions.map((option) => (
-                        <option key={option.value} value={option.value}>
-                          {option.label}
-                        </option>
-                      ))}
-                    </select>
-                  ) : (
-                    <span className="rounded-md bg-gray-100 px-3 py-2 font-medium text-gray-800">
-                      {effectiveFieldName}
-                    </span>
-                  )}
+                  <div>
+                    {isFirst ? (
+                      isExistingCondition ? (
+                        <span className="inline-block rounded-md bg-gray-100 px-3 py-2 font-medium text-gray-800">
+                          {condition.field_name}
+                        </span>
+                      ) : (
+                        <select
+                          value={condition.field_name || ""}
+                          onChange={(e) =>
+                            onConditionFieldChange(
+                              conditionKey,
+                              "field_name",
+                              e.target.value
+                            )
+                          }
+                          className="rounded-lg border border-gray-300 bg-white px-3 py-2 outline-none focus:border-gray-900"
+                        >
+                          {FIELD_OPTIONS.map((option) => (
+                            <option key={option.value} value={option.value}>
+                              {option.label}
+                            </option>
+                          ))}
+                        </select>
+                      )
+                    ) : isAndRow ? (
+                      isExistingCondition ? (
+                        <span className="inline-block rounded-md bg-gray-100 px-3 py-2 font-medium text-gray-800">
+                          {condition.field_name}
+                        </span>
+                      ) : (
+                        <select
+                          value={condition.field_name || ""}
+                          onChange={(e) =>
+                            onConditionFieldChange(
+                              conditionKey,
+                              "field_name",
+                              e.target.value
+                            )
+                          }
+                          className="rounded-lg border border-gray-300 bg-white px-3 py-2 outline-none focus:border-gray-900"
+                        >
+                          <option value="">Select Field Name</option>
+                          {andFieldOptions.map((option) => (
+                            <option key={option.value} value={option.value}>
+                              {option.label}
+                            </option>
+                          ))}
+                        </select>
+                      )
+                    ) : (
+                      <span className="inline-block rounded-md bg-gray-100 px-3 py-2 font-medium text-gray-800">
+                        {effectiveFieldName}
+                      </span>
+                    )}
+                    <FieldError message={conditionErrors.field_name} />
+                  </div>
 
                   {isList ? (
                     <>
-                      <span>is in</span>
-                      <select
-                        value={condition.list_name || ""}
-                        onChange={(e) =>
-                          onConditionFieldChange(
-                            conditionKey,
-                            "list_name",
-                            e.target.value
-                          )
-                        }
-                        className="rounded-lg border border-gray-300 bg-white px-3 py-2 outline-none focus:border-gray-900"
-                      >
-                        <option value="">Select List</option>
-                        {LIST_OPTIONS.map((option) => (
-                          <option key={option.value} value={option.value}>
-                            {option.label}
-                          </option>
-                        ))}
-                      </select>
+                      <span className="pt-2">is in</span>
+                      <div>
+                        <select
+                          value={condition.list_name || ""}
+                          onChange={(e) =>
+                            onConditionFieldChange(
+                              conditionKey,
+                              "list_name",
+                              e.target.value
+                            )
+                          }
+                          className="rounded-lg border border-gray-300 bg-white px-3 py-2 outline-none focus:border-gray-900"
+                        >
+                          <option value="">Select List</option>
+                          {LIST_OPTIONS.map((option) => (
+                            <option key={option.value} value={option.value}>
+                              {option.label}
+                            </option>
+                          ))}
+                        </select>
+                        <FieldError message={conditionErrors.list_name} />
+                      </div>
                     </>
                   ) : isBoolean ? (
                     <>
-                      <span>is</span>
+                      <span className="pt-2">is</span>
                       <select
                         value={String(condition.boolean_value)}
                         onChange={(e) =>
@@ -259,7 +309,7 @@ export default function ConditionCard({
                     </>
                   ) : isNumeric ? (
                     <>
-                      <span>is</span>
+                      <span className="pt-2">is</span>
                       <select
                         value={condition.operator || ""}
                         onChange={(e) =>
@@ -280,36 +330,44 @@ export default function ConditionCard({
                         ))}
                       </select>
 
-                      <input
-                        type="number"
-                        value={condition.numeric_value ?? ""}
-                        onChange={(e) =>
-                          onConditionFieldChange(
-                            conditionKey,
-                            "numeric_value",
-                            e.target.value
-                          )
-                        }
-                        className="w-28 rounded-lg border border-gray-300 bg-white px-3 py-2 outline-none focus:border-gray-900"
-                        placeholder="Value"
-                        disabled={!effectiveFieldName}
-                      />
+                      <div>
+                        <input
+                          type="number"
+                          value={condition.numeric_value ?? ""}
+                          onChange={(e) =>
+                            onConditionFieldChange(
+                              conditionKey,
+                              "numeric_value",
+                              e.target.value
+                            )
+                          }
+                          className="w-28 rounded-lg border border-gray-300 bg-white px-3 py-2 outline-none focus:border-gray-900"
+                          placeholder="Value"
+                          disabled={!effectiveFieldName}
+                        />
+                        <FieldError message={conditionErrors.numeric_value} />
+                      </div>
                     </>
                   ) : null}
                 </>
               )}
 
-              <span>{isElse ? "then score +" : "then risk score +"}</span>
+              <span className="pt-2">
+                {isElse ? "then score +" : "then risk score +"}
+              </span>
 
-              <input
-                type="number"
-                value={condition.score ?? ""}
-                onChange={(e) =>
-                  onConditionFieldChange(conditionKey, "score", e.target.value)
-                }
-                className="w-24 rounded-lg border border-gray-300 bg-white px-3 py-2 outline-none focus:border-gray-900"
-                placeholder="Score"
-              />
+              <div>
+                <input
+                  type="number"
+                  value={condition.score ?? ""}
+                  onChange={(e) =>
+                    onConditionFieldChange(conditionKey, "score", e.target.value)
+                  }
+                  className="w-24 rounded-lg border border-gray-300 bg-white px-3 py-2 outline-none focus:border-gray-900"
+                  placeholder="Score"
+                />
+                <FieldError message={conditionErrors.score} />
+              </div>
             </div>
 
             <div className="flex items-center gap-12">
@@ -328,6 +386,26 @@ export default function ConditionCard({
                 onChange={() => onToggleConditionActive(conditionKey)}
               />
             </div>
+          </div>
+
+          <div>
+            <label className="mb-1 block text-xs font-medium uppercase tracking-wide text-gray-500">
+              Trigger Description
+            </label>
+            <textarea
+              value={condition.trigger_description || ""}
+              onChange={(e) =>
+                onConditionFieldChange(
+                  conditionKey,
+                  "trigger_description",
+                  e.target.value
+                )
+              }
+              rows={3}
+              className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm outline-none focus:border-gray-900"
+              placeholder="Indicate the rule trigger description shown to bank staff, such as what went wrong or why this rule was triggered."
+            />
+            <FieldError message={conditionErrors.trigger_description} />
           </div>
         </div>
       </div>

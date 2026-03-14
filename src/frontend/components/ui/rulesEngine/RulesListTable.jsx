@@ -1,24 +1,55 @@
 import React from "react";
-import { Plus } from "lucide-react";
-import ConditionCard from "./ConditionCard";
 import RuleTableRow from "./RuleTableRow";
 import RuleConditionsPanel from "./RuleConditionsPanel";
 
-function getFieldMeta(fieldName) {
-  const FIELD_OPTIONS = [
-    { value: "years_incorporated", label: "years_incorporated", kind: "number" },
-    { value: "ownership_pct", label: "ownership_pct", kind: "number" },
-    { value: "is_signatory", label: "is_signatory", kind: "boolean" },
-    {
-      value: "country_of_incorporation",
-      label: "country_of_incorporation",
-      kind: "list",
-    },
-    { value: "business_country", label: "business_country", kind: "list" },
-    { value: "industry", label: "industry", kind: "list" },
-  ];
+const FIELD_OPTIONS = [
+  { value: "years_incorporated", label: "years_incorporated", kind: "number" },
+  { value: "ownership_pct", label: "ownership_pct", kind: "number" },
+  { value: "is_signatory", label: "is_signatory", kind: "boolean" },
+  {
+    value: "country_of_incorporation",
+    label: "country_of_incorporation",
+    kind: "list",
+  },
+  { value: "business_country", label: "business_country", kind: "list" },
+  { value: "industry", label: "industry", kind: "list" },
+];
 
-  return FIELD_OPTIONS.find((item) => item.value === fieldName) || null;
+function getFieldMeta(fieldName, condition = null) {
+  const found = FIELD_OPTIONS.find((item) => item.value === fieldName);
+  if (found) return found;
+
+  if (fieldName) {
+    const operator = (condition?.operator || "").toUpperCase();
+    const valueType = (condition?.value_type || "").toUpperCase();
+
+    if (operator === "IS_TRUE" || valueType === "BOOLEAN") {
+      return {
+        value: fieldName,
+        label: fieldName,
+        kind: "boolean",
+        isLegacy: true,
+      };
+    }
+
+    if (operator === "IN_LIST" || valueType === "LIST") {
+      return {
+        value: fieldName,
+        label: fieldName,
+        kind: "list",
+        isLegacy: true,
+      };
+    }
+
+    return {
+      value: fieldName,
+      label: fieldName,
+      kind: "number",
+      isLegacy: true,
+    };
+  }
+
+  return null;
 }
 
 function getDefaultOperatorForField(fieldName, branchType = "ELSE_IF") {
@@ -76,6 +107,17 @@ function getRuleFlowMode(conditions = []) {
   return second.uiConnector === "AND" ? "AND" : "BRANCH";
 }
 
+function getUsedAndFieldNames(conditions = [], excludeConditionKey = null) {
+  return conditions
+    .filter(
+      (condition, index) =>
+        condition.field_name &&
+        (index === 0 || condition.uiConnector === "AND") &&
+        getConditionKey(condition) !== excludeConditionKey
+    )
+    .map((condition) => condition.field_name);
+}
+
 export default function RulesListTable({
   rows,
   loading,
@@ -84,6 +126,7 @@ export default function RulesListTable({
   onRulesChange,
   onRemoveNewRule,
   bottomRef,
+  validationErrors,
 }) {
   const handleToggleRuleActive = (ruleKey) => {
     const nextRows = rows.map((rule) => {
@@ -267,7 +310,7 @@ export default function RulesListTable({
             return condition;
           }
 
-          const meta = getFieldMeta(nextField);
+          const meta = getFieldMeta(nextField, condition);
 
           return {
             ...condition,
@@ -362,10 +405,7 @@ export default function RulesListTable({
       );
 
       if (targetIndex === -1) return rule;
-
-      if (value === "ELSE" && targetIndex !== conditions.length - 1) {
-        return rule;
-      }
+      if (value === "ELSE" && targetIndex !== conditions.length - 1) return rule;
 
       const firstFieldName = conditions[0]?.field_name || "";
 
@@ -458,17 +498,6 @@ export default function RulesListTable({
     );
   }
 
-  function getUsedAndFieldNames(conditions = [], excludeConditionKey = null) {
-    return conditions
-      .filter(
-        (condition, index) =>
-          condition.field_name &&
-          (index === 0 || condition.uiConnector === "AND") &&
-          getConditionKey(condition) !== excludeConditionKey
-      )
-      .map((condition) => condition.field_name);
-  }
-
   return (
     <div className="overflow-hidden rounded-xl border border-gray-200">
       <div className="max-h-[620px] overflow-x-auto overflow-y-auto">
@@ -478,7 +507,7 @@ export default function RulesListTable({
               <th className="w-14 px-4 py-3 font-medium"></th>
               <th className="px-4 py-3 font-medium">Rule Code</th>
               <th className="px-4 py-3 font-medium">Rule Name</th>
-              <th className="px-4 py-3 font-medium">Description</th>
+              <th className="min-w-[320px] px-4 py-3 font-medium">Description</th>
               <th className="px-4 py-3 font-medium">Status</th>
               <th className="px-4 py-3 font-medium text-center">Active</th>
               <th className="px-4 py-3 font-medium text-center">Action</th>
@@ -501,6 +530,7 @@ export default function RulesListTable({
                     onRuleFieldChange={handleRuleFieldChange}
                     onToggleRuleActive={handleToggleRuleActive}
                     onRemoveNewRule={onRemoveNewRule}
+                    ruleErrors={validationErrors?.rules?.[rowKey] || {}}
                   />
 
                   {expanded && (
@@ -512,6 +542,8 @@ export default function RulesListTable({
                       onConditionFieldChange={handleConditionFieldChange}
                       onToggleConditionActive={handleToggleConditionActive}
                       onRemoveCondition={handleRemoveCondition}
+                      ruleErrors={validationErrors?.rules?.[rowKey] || {}}
+                      conditionErrors={validationErrors?.conditions || {}}
                     />
                   )}
                 </React.Fragment>

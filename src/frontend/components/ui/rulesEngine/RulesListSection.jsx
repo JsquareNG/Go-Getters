@@ -7,6 +7,10 @@ import {
   getRiskRulesByCategory,
   saveRiskRuleChanges,
 } from "../../../api/riskRuleApi";
+import {
+  validateRulesListRows,
+  hasValidationErrors,
+} from "./ruleValidation";
 
 const FIELD_OPTIONS = [
   { value: "years_incorporated", label: "years_incorporated", kind: "number" },
@@ -23,20 +27,51 @@ const FIELD_OPTIONS = [
 
 const NUMERIC_OPERATOR_CODES = new Set(["EQ", "NE", "GT", "GTE", "LT", "LTE"]);
 
-function getFieldMeta(fieldName) {
-  return (
-    FIELD_OPTIONS.find((item) => item.value === fieldName) || FIELD_OPTIONS[0]
-  );
+function getFieldMeta(fieldName, condition = null) {
+  const found = FIELD_OPTIONS.find((item) => item.value === fieldName);
+  if (found) return found;
+
+  if (fieldName) {
+    const operator = (condition?.operator || "").toUpperCase();
+    const valueType = (condition?.value_type || "").toUpperCase();
+
+    if (operator === "IS_TRUE" || valueType === "BOOLEAN") {
+      return {
+        value: fieldName,
+        label: fieldName,
+        kind: "boolean",
+        isLegacy: true,
+      };
+    }
+
+    if (operator === "IN_LIST" || valueType === "LIST") {
+      return {
+        value: fieldName,
+        label: fieldName,
+        kind: "list",
+        isLegacy: true,
+      };
+    }
+
+    return {
+      value: fieldName,
+      label: fieldName,
+      kind: "number",
+      isLegacy: true,
+    };
+  }
+
+  return null;
 }
 
 function getValueTypeForCondition(condition) {
   const branchType = condition.branchType || "ELSE_IF";
   if (branchType === "ELSE") return "NONE";
 
-  const meta = getFieldMeta(condition.field_name);
+  const meta = getFieldMeta(condition.field_name, condition);
 
-  if (meta.kind === "boolean") return "BOOLEAN";
-  if (meta.kind === "list") return "LIST";
+  if (meta?.kind === "boolean") return "BOOLEAN";
+  if (meta?.kind === "list") return "LIST";
   return "NUMBER";
 }
 
@@ -309,73 +344,6 @@ function buildSavePayload(serverRows, workingRows) {
   return { rules, conditions, creates, new_conditions };
 }
 
-function validateWorkingRows(workingRows) {
-  for (const rule of workingRows) {
-    if (!(rule.rule_code || "").trim()) {
-      return "Rule code is required.";
-    }
-
-    if (!(rule.rule_name || "").trim()) {
-      return "Rule name is required.";
-    }
-
-    if (!(rule.conditions || []).length) {
-      return `Rule ${
-        rule.rule_code || rule.rule_name || ""
-      } must have at least one condition.`;
-    }
-
-    for (const condition of rule.conditions || []) {
-      if (condition.branchType !== "ELSE") {
-        if (!condition.field_name) {
-          return `Each condition must have a field name.`;
-        }
-
-        const fieldMeta = getFieldMeta(condition.field_name);
-
-        if (fieldMeta.kind === "number") {
-          if (
-            !NUMERIC_OPERATOR_CODES.has(
-              (condition.operator || "").toUpperCase()
-            )
-          ) {
-            return `Numeric conditions must use a valid comparison operator.`;
-          }
-
-          if (
-            condition.numeric_value === "" ||
-            condition.numeric_value === null
-          ) {
-            return `Numeric conditions must have a value.`;
-          }
-        }
-
-        if (fieldMeta.kind === "list") {
-          if ((condition.operator || "").toUpperCase() !== "IN_LIST") {
-            return `List-based conditions must use IN_LIST.`;
-          }
-
-          if (!(condition.list_name || "").trim()) {
-            return `List-based conditions must select a config list.`;
-          }
-        }
-
-        if (fieldMeta.kind === "boolean") {
-          if ((condition.operator || "").toUpperCase() !== "IS_TRUE") {
-            return `Boolean conditions must use the boolean operator.`;
-          }
-        }
-      }
-
-      if (condition.score === "" || condition.score === null) {
-        return `Each condition must have a risk score.`;
-      }
-    }
-  }
-
-  return "";
-}
-
 export default function RulesListSection() {
   const [activeCategory, setActiveCategory] = useState("KYC");
   const [serverRows, setServerRows] = useState([]);
@@ -385,6 +353,10 @@ export default function RulesListSection() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+  const [validationErrors, setValidationErrors] = useState({
+    rules: {},
+    conditions: {},
+  });
   const bottomRef = useRef(null);
 
   const [confirmState, setConfirmState] = useState({
@@ -404,10 +376,12 @@ export default function RulesListSection() {
       setServerRows(normalized);
       setWorkingRows(deepCloneRules(normalized));
       setExpandedRuleIds({});
+      setValidationErrors(validateRulesListRows(normalized));
     } catch (err) {
       setServerRows([]);
       setWorkingRows([]);
       setExpandedRuleIds({});
+      setValidationErrors({ rules: {}, conditions: {} });
       setError(err?.response?.data?.detail || "Failed to load rules.");
     } finally {
       setLoading(false);
@@ -498,8 +472,8 @@ export default function RulesListSection() {
   const handleAddRule = () => {
     const tempId = `new-rule-${Date.now()}-${Math.random()}`;
 
-    setWorkingRows((prev) => [
-      ...prev,
+    const nextRows = [
+      ...workingRows,
       {
         rule_id: null,
         __tempId: tempId,
@@ -513,13 +487,14 @@ export default function RulesListSection() {
         isNew: true,
         conditions: [],
       },
-    ]);
+    ];
 
+    setWorkingRows(nextRows);
     setExpandedRuleIds((prev) => ({
       ...prev,
       [tempId]: true,
     }));
-
+    setValidationErrors(validateRulesListRows(nextRows));
     setSuccess("");
     setError("");
 
@@ -534,16 +509,17 @@ export default function RulesListSection() {
   const handleRemoveNewRule = (targetRule) => {
     if (!targetRule.isNew) return;
 
-    setWorkingRows((prev) =>
-      prev.filter((rule) => rule.__tempId !== targetRule.__tempId)
+    const nextRows = workingRows.filter(
+      (rule) => rule.__tempId !== targetRule.__tempId
     );
 
+    setWorkingRows(nextRows);
     setExpandedRuleIds((prev) => {
       const next = { ...prev };
       delete next[targetRule.__tempId];
       return next;
     });
-
+    setValidationErrors(validateRulesListRows(nextRows));
     setSuccess("");
     setError("");
   };
@@ -569,13 +545,16 @@ export default function RulesListSection() {
 
   const handleRulesChange = (nextRows) => {
     setWorkingRows(nextRows);
+    setValidationErrors(validateRulesListRows(nextRows));
     setSuccess("");
     setError("");
   };
 
   const performResetLocalChanges = () => {
-    setWorkingRows(deepCloneRules(serverRows));
+    const resetRows = deepCloneRules(serverRows);
+    setWorkingRows(resetRows);
     setExpandedRuleIds({});
+    setValidationErrors(validateRulesListRows(resetRows));
     setSuccess("");
     setError("");
   };
@@ -643,10 +622,11 @@ export default function RulesListSection() {
   };
 
   const handleSaveButtonClick = () => {
-    const validationMessage = validateWorkingRows(workingRows);
+    const nextValidationErrors = validateRulesListRows(workingRows);
+    setValidationErrors(nextValidationErrors);
 
-    if (validationMessage) {
-      setError(validationMessage);
+    if (hasValidationErrors(nextValidationErrors)) {
+      setError("Please resolve the validation errors before saving.");
       setSuccess("");
       return;
     }
@@ -697,6 +677,7 @@ export default function RulesListSection() {
           onRulesChange={handleRulesChange}
           onRemoveNewRule={handleRemoveNewRule}
           bottomRef={bottomRef}
+          validationErrors={validationErrors}
         />
 
         <RulesListFooterActions

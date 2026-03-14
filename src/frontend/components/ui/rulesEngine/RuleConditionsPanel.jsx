@@ -1,6 +1,7 @@
 import React from "react";
 import { Plus } from "lucide-react";
 import ConditionCard from "./ConditionCard";
+import FieldError from "./common/FieldError";
 
 function getConditionKey(condition) {
   return condition.condition_id ?? condition.__tempId;
@@ -14,12 +15,16 @@ export default function RuleConditionsPanel({
   onConditionFieldChange,
   onToggleConditionActive,
   onRemoveCondition,
+  ruleErrors = {},
+  conditionErrors = {},
 }) {
   return (
     <tr className="bg-gray-50">
       <td colSpan={7} className="px-4 py-4">
         <div className="space-y-3">
           <div className="text-sm font-semibold text-gray-800">Conditions</div>
+
+          <FieldError message={ruleErrors.conditions} />
 
           {!conditions.length ? (
             <div className="flex justify-center py-6">
@@ -48,6 +53,9 @@ export default function RuleConditionsPanel({
                     onRemoveCondition(rowKey, conditionKey)
                   }
                   onAddCondition={() => onAddCondition(rowKey)}
+                  conditionErrors={
+                    conditionErrors[getConditionKey(condition)] || {}
+                  }
                 />
               ))}
             </div>

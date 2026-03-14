@@ -1,4 +1,4 @@
-from rule_engine import evaluate_company
+from backend.rules_engine.kyb_rules import evaluate_company
 
 
 def submit_application(company):

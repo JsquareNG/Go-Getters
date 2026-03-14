@@ -15,6 +15,7 @@ from backend.models.auditTrail import AuditTrail
 from backend.models.risk_config_list import RiskConfigList
 from backend.models.risk_rule import RiskRule
 from backend.models.risk_rule_condition import RiskRuleCondition
+from backend.models.liveness_detection import LivenessDetection
 
 from alembic import context
 

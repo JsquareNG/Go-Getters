@@ -1,6 +1,7 @@
 import React from "react";
 import { ChevronDown, ChevronRight, Trash2 } from "lucide-react";
 import Toggle from "./common/Toggle";
+import FieldError from "./common/FieldError";
 
 export default function RuleTableRow({
   row,
@@ -10,6 +11,7 @@ export default function RuleTableRow({
   onRuleFieldChange,
   onToggleRuleActive,
   onRemoveNewRule,
+  ruleErrors = {},
 }) {
   return (
     <tr className={`align-top ${row.isNew ? "bg-blue-50/40" : ""}`}>
@@ -28,51 +30,60 @@ export default function RuleTableRow({
       </td>
 
       <td className="px-4 py-3 font-medium text-gray-900">
-        {row.isNew ? (
-          <input
-            type="text"
-            value={row.rule_code}
-            onChange={(e) =>
-              onRuleFieldChange(rowKey, "rule_code", e.target.value.toUpperCase())
-            }
-            className="w-full rounded-lg border border-gray-300 px-3 py-2 outline-none focus:border-gray-900"
-            placeholder="Enter Rule Code"
-          />
-        ) : (
-          row.rule_code
-        )}
+        <div>
+          {row.isNew ? (
+            <input
+              type="text"
+              value={row.rule_code}
+              onChange={(e) =>
+                onRuleFieldChange(
+                  rowKey,
+                  "rule_code",
+                  e.target.value.toUpperCase()
+                )
+              }
+              className="w-full rounded-lg border border-gray-300 px-3 py-2 outline-none focus:border-gray-900"
+              placeholder="Enter Rule Code"
+            />
+          ) : (
+            <span>{row.rule_code}</span>
+          )}
+          <FieldError message={ruleErrors.rule_code} />
+        </div>
       </td>
 
       <td className="px-4 py-3 text-gray-800">
-        {row.isNew ? (
-          <input
-            type="text"
-            value={row.rule_name}
-            onChange={(e) =>
-              onRuleFieldChange(rowKey, "rule_name", e.target.value)
-            }
-            className="w-full rounded-lg border border-gray-300 px-3 py-2 outline-none focus:border-gray-900"
-            placeholder="Enter Rule Name"
-          />
-        ) : (
-          row.rule_name
-        )}
+        <div>
+          {row.isNew ? (
+            <input
+              type="text"
+              value={row.rule_name}
+              onChange={(e) =>
+                onRuleFieldChange(rowKey, "rule_name", e.target.value)
+              }
+              className="w-full rounded-lg border border-gray-300 px-3 py-2 outline-none focus:border-gray-900"
+              placeholder="Enter Rule Name"
+            />
+          ) : (
+            <span>{row.rule_name}</span>
+          )}
+          <FieldError message={ruleErrors.rule_name} />
+        </div>
       </td>
 
-      <td className="px-4 py-3 text-gray-600">
-        {row.isNew ? (
-          <input
-            type="text"
-            value={row.description}
+      <td className="min-w-[320px] px-4 py-3 text-gray-600">
+        <div>
+          <textarea
+            value={row.description || ""}
             onChange={(e) =>
               onRuleFieldChange(rowKey, "description", e.target.value)
             }
-            className="w-full rounded-lg border border-gray-300 px-3 py-2 outline-none focus:border-gray-900"
+            rows={2}
+            className="w-full resize-none rounded-lg border border-gray-300 bg-white px-3 py-2 outline-none focus:border-gray-900"
             placeholder="Enter Description"
           />
-        ) : (
-          row.description || "—"
-        )}
+          <FieldError message={ruleErrors.description} />
+        </div>
       </td>
 
       <td className="px-4 py-3">

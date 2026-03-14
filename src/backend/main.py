@@ -17,11 +17,12 @@ from backend.api.bellNotification import router as application_bellNotifications
 from backend.api.reviewJobs import router as review_jobs
 
 from backend.api.extract import router as extract_router
-from backend.api.document_ai import router as docai_router
-from backend.api.id_verification import router as idv_router
+# from backend.api.document_ai import router as docai_router
+# from backend.api.id_verification import router as idv_router
 from backend.api.auditTrail import router as audit_router
 from backend.api.risk_config_list import router as risk_list_router
 from backend.api.risk_rule import router as risk_rule_router
+from backend.api.liveness_detection import router as live_detection_router
 
 import os
 from pathlib import Path
@@ -75,9 +76,10 @@ app.include_router(review_jobs)
 
 app.include_router(extract_router)
 
-app.include_router(docai_router)
-app.include_router(idv_router)
+# app.include_router(docai_router)
+# app.include_router(idv_router)
 app.include_router(audit_router)
 app.include_router(risk_list_router)
 app.include_router(risk_rule_router)
 
+app.include_router(live_detection_router)

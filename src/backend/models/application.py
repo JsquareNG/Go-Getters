@@ -36,6 +36,13 @@ class ApplicationForm(Base):
         passive_deletes=True,
     )
 
+    liveness_detections = relationship(
+        "LivenessDetection",
+        back_populates="application",
+        cascade="all, delete-orphan",
+        passive_deletes=True
+    )
+
     # 8-digit application id, auto-generated in DB
     application_id = Column(
         String(8),
