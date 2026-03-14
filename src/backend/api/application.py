@@ -22,6 +22,7 @@ from backend.services.application_transitions import approve_application_service
 from backend.models.action_requests import ActionRequest, ActionRequestItem
 from backend.models.auditTrail import AuditTrail
 from backend.models.user import User
+from backend.models.liveness_detection import LivenessDetection
 
 router = APIRouter(prefix="/applications", tags=["applications"])
 
@@ -152,6 +153,16 @@ def save_application(data: dict = Body(...), db: Session = Depends(get_db)):
         to_status="Draft",
         description="Application created by applicant.",
     )
+
+    provider_session_id = data.get("provider_session_id")
+
+    liveness_row = (
+        db.query(LivenessDetection)
+        .filter(LivenessDetection.provider_session_id == provider_session_id)
+        .first()
+    )
+
+    liveness_row.application_id = new_app.application_id
 
     db.commit()
     db.refresh(new_app)
@@ -298,7 +309,6 @@ def first_submit_application(
         description="Application submitted for bank review."
     )
 
-
     # Audit 2: application submitted
     create_audit_log(
         db=db,
@@ -313,6 +323,16 @@ def first_submit_application(
     )
 
     print("[firstSubmit] created app", new_app.application_id)
+
+    provider_session_id = data.get("provider_session_id")
+
+    liveness_row = (
+        db.query(LivenessDetection)
+        .filter(LivenessDetection.provider_session_id == provider_session_id)
+        .first()
+    )
+
+    liveness_row.application_id = new_app.application_id
 
     db.commit()
     db.refresh(new_app)

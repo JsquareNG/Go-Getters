@@ -11,6 +11,9 @@ import StaffLandingPage from "./pages/StaffLandingPage";
 import ApplicationReviewDetail from "./pages/ApplicationReviewDetail";
 import Dashboard from "./pages/Dashboard";
 import AdminConfigPage from "./pages/AdminConfigPage";
+import RulesEngineConfiguration from "./pages/RulesEngineConfiguration";
+// import TestDocumentMulti from "./pages/TestDocument";
+// import ViewSubmittedApplication from "./pages/OneDocument";
 import { Toaster } from "./components/ui/primitives/Toaster";
 
 import { useSelector } from "react-redux";
@@ -143,6 +146,17 @@ export default function App() {
             <RequireRole role="STAFF">
               <LandingLayout>
                 <AdminConfigPage />
+              </LandingLayout>
+            </RequireRole>
+          }
+        />
+
+        <Route
+          path="/rules-engine-configuration"
+          element={
+            <RequireRole role="STAFF">
+              <LandingLayout>
+                <RulesEngineConfiguration />
               </LandingLayout>
             </RequireRole>
           }
