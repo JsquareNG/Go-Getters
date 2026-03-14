@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useCallback } from "react";
 import { Button } from "../primitives/Button";
 import { Card, CardContent } from "../primitives/Card";
 import FormStepper from "./components/FormStepper";
@@ -31,11 +31,11 @@ import {
 } from "@/store/applicationFormSlice";
 
 import {
-  submitApplicationApi,
+  // submitApplicationApi,
+  submitSmeApplicationApi,
   secondSubmit,
   saveApplicationDraftApi,
   getApplicationByAppId,
-  // uploadDocument,
 } from "@/api/applicationApi";
 
 import { uploadDocumentApi } from "@/api/documentApi";
@@ -55,7 +55,7 @@ const SMEApplicationForm = () => {
   const formData = useSelector(selectFormData);
   const user = useSelector(selectUser);
   const currentApp = useSelector(selectCurrentApplication);
-  const currentMode = useSelector(selectCurrentMode);
+  // const currentMode = useSelector(selectCurrentMode);
   const currentStepFromRedux = useSelector(selectCurrentStep);
 
   const { appId, step: routeStep } = useParams();
@@ -75,13 +75,12 @@ const SMEApplicationForm = () => {
     SG: SINGAPORE_CONFIG,
     ID: INDONESIA_CONFIG,
   };
-
   const activeConfig = CONFIG_MAP[formData?.country] || SINGAPORE_CONFIG;
 
   // --- Edit functionality ---
-  const handleEditStep = (step) => {
-    navigate(`/application/edit/${appId}/${step}`);
-  };
+  // const handleEditStep = (step) => {
+  //   navigate(`/application/edit/${appId}/${step}`);
+  // };
 
   /* ------------------------------------------------ */
   /* LOAD APPLICATION FROM API */
@@ -116,15 +115,6 @@ const SMEApplicationForm = () => {
   }, [appId, dispatch]);
 
   /* ------------------------------------------------ */
-  /* REDUX FIELD UPDATE */
-  /* ------------------------------------------------ */
-
-  const handleFieldChange = (fieldPath, value) => {
-    if (!fieldPath) return;
-    dispatch(updateField({ field: fieldPath, value }));
-  };
-
-  /* ------------------------------------------------ */
   /* SYNC ROUTE STEP -> REDUX STEP */
   /* ------------------------------------------------ */
   useEffect(() => {
@@ -134,209 +124,425 @@ const SMEApplicationForm = () => {
   }, [clampedStep, currentStepFromRedux, dispatch]);
 
   /* ------------------------------------------------ */
+  /* REDUX FIELD UPDATE */
+  /* ------------------------------------------------ */
+
+  // const handleFieldChange = (fieldPath, value) => {
+  //   if (!fieldPath) return;
+  //   dispatch(updateField({ field: fieldPath, value }));
+  // };
+
+  const handleFieldChange = useCallback(
+    (fieldPath, value) => {
+      if (!fieldPath) return;
+      dispatch(updateField({ field: fieldPath, value }));
+    },
+    [dispatch],
+  );
+
+  /* ------------------------------------------------ */
   /* POPULATE PREVIOUS DRAFT INTO FORM */
   /* ------------------------------------------------ */
 
-  useEffect(() => {
-    if (!currentApp?.formData) return;
-    if (Object.keys(formData || {}).length > 0) return;
+  // useEffect(() => {
+  //   if (!currentApp?.formData) return;
+  //   if (Object.keys(formData || {}).length > 0) return;
 
-    const cleanData = {};
+  //   const cleanData = {};
 
-    function flatten(obj) {
-      if (!obj || typeof obj !== "object") return;
+  //   function flatten(obj) {
+  //     if (!obj || typeof obj !== "object") return;
 
-      Object.entries(obj).forEach(([key, value]) => {
-        if (value instanceof File) {
-          cleanData[key] = value;
-        } else if (Array.isArray(value)) {
-          cleanData[key] = value.map((v) =>
-            typeof v === "object" ? { ...v } : v,
-          );
-        } else if (typeof value === "object" && value !== null) {
-          flatten(value);
-        } else {
-          cleanData[key] = value === "" ? null : value;
-        }
-      });
-    }
+  //     Object.entries(obj).forEach(([key, value]) => {
+  //       if (value instanceof File) {
+  //         cleanData[key] = value;
+  //       } else if (Array.isArray(value)) {
+  //         cleanData[key] = value.map((v) =>
+  //           typeof v === "object" ? { ...v } : v,
+  //         );
+  //       } else if (typeof value === "object" && value !== null) {
+  //         flatten(value);
+  //       } else {
+  //         cleanData[key] = value === "" ? null : value;
+  //       }
+  //     });
+  //   }
 
-    flatten(currentApp.formData);
+  //   flatten(currentApp.formData);
 
-    if ("null" in cleanData) delete cleanData.null;
+  //   if ("null" in cleanData) delete cleanData.null;
 
-    Object.entries(cleanData).forEach(([key, value]) => {
-      dispatch(updateField({ field: key, value }));
+  //   Object.entries(cleanData).forEach(([key, value]) => {
+  //     dispatch(updateField({ field: key, value }));
+  //   });
+
+  //   console.log("Draft loaded:", cleanData);
+  // }, [currentApp, dispatch]);
+
+  /** -------------------------
+   * Map repeatable sections or individuals dynamically
+   * ------------------------- */
+  const mapRepeatableData = (data, config) => {
+    const mapped = {};
+    if (!config?.steps) return mapped;
+
+    config.steps.forEach((step) => {
+      const repeatableSections = step.repeatableSections || {};
+      Object.entries(repeatableSections).forEach(
+        ([sectionKey, sectionConfig]) => {
+          if (Array.isArray(data[sectionKey])) {
+            mapped[sectionKey] = data[sectionKey].map((item) => {
+              const obj = {};
+              Object.entries(sectionConfig.fields).forEach(
+                ([fKey, fConfig]) => {
+                  obj[fKey] = item[fKey] ?? null;
+                  if (fConfig.conditionalFields && item[fKey]) {
+                    Object.entries(
+                      fConfig.conditionalFields[item[fKey]] || {},
+                    ).forEach(([ck, cd]) => {
+                      obj[ck] = item[ck] ?? null;
+                    });
+                  }
+                },
+              );
+              return obj;
+            });
+          }
+        },
+      );
     });
 
-    console.log("Draft loaded:", cleanData);
-  }, [currentApp, dispatch]);
+    return mapped;
+  };
 
-  // useEffect(() => {
-  //   if (currentApp?.formData && Object.keys(formData).length === 0) {
-  //     const cleanData = {};
+  // const getRequiredFields = (data) => {
+  //   const businessType = data.businessType;
+  //   if (!businessType) return [];
 
-  //     function flatten(obj) {
-  //       if (!obj || typeof obj !== "object") return;
-  //       Object.entries(obj).forEach(([key, value]) => {
-  //         if (value instanceof File) {
-  //           cleanData[key] = value; // keep File as is
-  //         } else if (Array.isArray(value)) {
-  //           // preserve arrays as arrays, do not flatten into indices
-  //           cleanData[key] = value.map((v) =>
-  //             typeof v === "object" ? { ...v } : v,
-  //           );
-  //         } else if (typeof value === "object" && value !== null) {
-  //           flatten(value);
-  //         } else {
-  //           cleanData[key] = value === "" ? null : value;
-  //         }
-  //       });
-  //     }
+  //   const steps = activeConfig.entities[businessType]?.steps || [];
+  //   const requiredFields = [];
 
-  //     flatten(currentApp.formData);
+  //   steps.forEach((step) => {
+  //     const fields = step.fields || {};
+  //     Object.entries(fields).forEach(([key, fieldDef]) => {
+  //       if (fieldDef.required) requiredFields.push(key);
 
-  //     // remove top-level null key if exists
-  //     if ("null" in cleanData) delete cleanData.null;
-
-  //     // dispatch all cleaned fields
-  //     Object.entries(cleanData).forEach(([key, value]) => {
-  //       handleFieldChange(key, value);
+  //       // Handle conditional fields
+  //       if (fieldDef.conditionalFields && data[key]) {
+  //         Object.entries(fieldDef.conditionalFields[data[key]] || {}).forEach(
+  //           ([cKey, cDef]) => {
+  //             if (cDef.required) requiredFields.push(cKey);
+  //           },
+  //         );
+  //       }
   //     });
 
-  //     console.log("Cleaned and flattened draft loaded:", cleanData);
-  //   }
-  // }, [currentApp, formData]);
+  // HELPERS **
+  // Repeatable sections (like owners/partners)
+  //     const repeatableSections = step.repeatableSections || {};
+  //     Object.values(repeatableSections).forEach((section) => {
+  //       Object.entries(section.fields || {}).forEach(([key, fieldDef]) => {
+  //         if (fieldDef.required) requiredFields.push(key);
 
-  /**
-   * Validate SME application form data
-   * Returns { isValid: boolean, errors: Record<string, string> }
-   */
-  // NOTE: CURRENTLY NOT IN USE
-  // console.log(formData);
+  //         // Handle conditional fields
+  //         if (fieldDef.conditionalFields && data[key]) {
+  //           Object.entries(fieldDef.conditionalFields[data[key]] || {}).forEach(
+  //             ([cKey, cDef]) => {
+  //               if (cDef.required) requiredFields.push(cKey);
+  //             },
+  //           );
+  //         }
+  //       });
+  //     });
+  //   });
 
-  // const validateFormData = (data) => {
-  //   const errors = {};
-
-  //   // Required fields
-  //   if (!data.businessName || data.businessName.trim() === "") {
-  //     errors.businessName = "Business name is required";
-  //   }
-  //   if (!data.businessType || data.businessType.trim() === "") {
-  //     errors.businessType = "Business type is required";
-  //   }
-  //   if (!data.country || data.country.trim() === "") {
-  //     errors.country = "Country is required";
-  //   }
-  //   if (!data.email || data.email.trim() === "") {
-  //     errors.email = "Email is required";
-  //   } else if (!/^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}$/i.test(data.email)) {
-  //     errors.email = "Email is invalid";
-  //   }
-  //   if (!data.phone || data.phone.trim() === "") {
-  //     errors.phone = "Phone number is required";
-  //   } else if (!/^\d{6,15}$/.test(data.phone)) {
-  //     errors.phone = "Phone number must be 6-15 digits";
-  //   }
-
-  //   // Numeric fields
-  //   if (data.expectedMonthlyTransactionVolume) {
-  //     const value = Number(data.expectedMonthlyTransactionVolume);
-  //     if (isNaN(value) || value < 0) {
-  //       errors.expectedMonthlyTransactionVolume =
-  //         "Expected monthly transaction volume must be a positive number";
-  //     }
-  //   }
-
-  //   return { isValid: Object.keys(errors).length === 0, errors };
+  //   return requiredFields;
   // };
 
-  const getRequiredFields = (data) => {
+  /** -------------------------
+   * Extract files recursively
+   * ------------------------- */
+  const extractFiles = (obj) => {
+    if (!obj || typeof obj !== "object") return obj;
+    if (obj instanceof File) return obj;
+    if ("file" in obj && obj.file instanceof File) return obj.file;
+    if (Array.isArray(obj)) return obj.map(extractFiles);
+
+    return Object.fromEntries(
+      Object.entries(obj).map(([k, v]) => [k, extractFiles(v)]),
+    );
+  };
+
+  // --------------------------
+  // Build individuals dynamically based on selected business type
+  // --------------------------
+  const mapIndividualsDynamic = (data, activeConfig) => {
+  const individuals = [];
+  const businessType = data.businessType;
+
+  if (!businessType || !activeConfig?.entities[businessType]) return individuals;
+
+  const entityConfig = activeConfig.entities[businessType];
+
+  // Gather all repeatable sections across steps
+  const repeatableSections = {};
+  entityConfig.steps.forEach((step) => {
+    Object.assign(repeatableSections, step.repeatableSections || {});
+  });
+
+  // Step 1: Create a default individual from all fields in repeatable sections
+  const defaultIndividual = {};
+
+  Object.entries(repeatableSections).forEach(([sectionKey, sectionConfig]) => {
+    Object.keys(sectionConfig.fields || {}).forEach((fKey) => {
+      defaultIndividual[fKey] = data[fKey] ?? null;
+    });
+    defaultIndividual.role = sectionKey; // set role based on section
+  });
+
+  // Step 2: Add common top-level individual fields if they exist in config or standard
+  const baseFields = ["fullName", "idNumber", "nationality", "residentialAddress", "dateOfBirth", "idDocument"];
+  baseFields.forEach((key) => {
+    if (!(key in defaultIndividual)) defaultIndividual[key] = data[key] ?? null;
+  });
+
+  individuals.push(defaultIndividual);
+
+  // Step 3: Map actual repeatable arrays if they exist in data
+  Object.entries(repeatableSections).forEach(([sectionKey, sectionConfig]) => {
+    if (Array.isArray(data[sectionKey])) {
+      data[sectionKey].forEach((item) => {
+        const individual = {};
+        Object.keys(sectionConfig.fields || {}).forEach((fKey) => {
+          individual[fKey] = item[fKey] ?? null;
+
+          // Handle conditional fields
+          const fConfig = sectionConfig.fields[fKey];
+          if (fConfig?.conditionalFields && item[fKey]) {
+            Object.entries(fConfig.conditionalFields[item[fKey]] || {}).forEach(
+              ([ck]) => (individual[ck] = item[ck] ?? null)
+            );
+          }
+        });
+        individual.role = sectionKey;
+        individuals.push(individual);
+      });
+    }
+  });
+
+  return individuals;
+};
+
+  // --------------------------
+  // Build payload for draft or submit
+  // --------------------------
+  const buildDynamicPayload = (formData, activeConfig) => {
+    const normalizedData = { ...formData };
+
+    // Flatten if form_data exists (avoid nested form_data loops)
+    if (formData.form_data) {
+      Object.assign(normalizedData, formData.form_data);
+      delete normalizedData.form_data;
+    }
+
+    // Build individuals
+    const individuals = mapIndividualsDynamic(normalizedData, activeConfig);
+
+    // Build payload
+    const payload = {
+      ...normalizedData,
+      business_type:
+        normalizedData.businessType || normalizedData.business_type || null,
+      business_country:
+        normalizedData.country || normalizedData.business_country || null,
+      individuals: individuals.map((ind) => extractFiles(ind)), // extract files if any
+    };
+
+    // Remove keys that are now under individuals
+    const keysToRemove = [];
+    individuals.forEach((ind) =>
+      Object.keys(ind).forEach((k) => keysToRemove.push(k)),
+    );
+    keysToRemove.forEach((k) => delete payload[k]);
+
+    return payload;
+  };
+
+  // /** -------------------------
+  //  * Map owners, partners, directors, shareholders into individuals[]
+  //  * ------------------------- */
+  // const mapIndividuals = (data, entityConfig) => {
+  //   const individuals = [];
+
+  //   if (!entityConfig?.steps) return individuals;
+
+  //   entityConfig.steps.forEach((step) => {
+  //     const repeatableSections = step.repeatableSections || {};
+
+  //     Object.entries(repeatableSections).forEach(
+  //       ([sectionKey, sectionConfig]) => {
+  //         if (Array.isArray(data[sectionKey])) {
+  //           data[sectionKey].forEach((item) => {
+  //             const individual = {};
+  //             Object.entries(sectionConfig.fields).forEach(
+  //               ([fKey, fConfig]) => {
+  //                 individual[fKey] = item[fKey] ?? null;
+
+  //                 // Handle conditional fields
+  //                 if (fConfig.conditionalFields && item[fKey]) {
+  //                   Object.entries(
+  //                     fConfig.conditionalFields[item[fKey]] || {},
+  //                   ).forEach(([ck, cd]) => {
+  //                     individual[ck] = item[ck] ?? null;
+  //                   });
+  //                 }
+  //               },
+  //             );
+
+  //             // Add a role to identify type (owner, director, shareholder)
+  //             individual.role = sectionKey;
+
+  //             individuals.push(individual);
+  //           });
+  //         }
+  //       },
+  //     );
+  //   });
+
+  //   return individuals;
+  // };
+
+  // // /** -------------------------
+  // //  * Build dynamic payload for draft/submit
+  // //  * ------------------------- */
+  // // const buildPayload = (data) => {
+  // //   const payload = { ...data };
+  // //   const repeatableData = mapRepeatableData(
+  // //     data,
+  // //     activeConfig.entities[data.businessType],
+  // //   );
+  // //   Object.keys(repeatableData).forEach((k) => {
+  // //     payload[k] = extractFiles(repeatableData[k]);
+  // //   });
+  // //   return payload;
+  // // };
+
+  // /** -------------------------
+  //  * Build payload dynamically for draft/submit
+  //  * ------------------------- */
+  // const buildPayload = (data) => {
+  //   const businessType = data.businessType;
+  //   const entityConfig = activeConfig.entities[businessType];
+
+  //   // Extract repeatable sections into individuals[]
+  //   const individuals = mapIndividuals(data, entityConfig);
+
+  //   // Extract all files recursively
+  //   const cleanData = { ...data };
+  //   [
+  //     "owners",
+  //     "partners",
+  //     "directors",
+  //     "shareholders",
+  //     "generalPartners",
+  //     "limitedPartners",
+  //     "managers",
+  //   ].forEach((key) => delete cleanData[key]); // remove top-level repeatables
+
+  //   const payload = {
+  //     ...cleanData,
+  //     individuals: extractFiles(individuals),
+  //   };
+
+  //   return payload;
+  // };
+
+  /** -------------------------
+   * Check incomplete fields dynamically
+   * ------------------------- */
+  const hasIncompleteFields = (data) => {
     const businessType = data.businessType;
-    if (!businessType) return [];
+    if (!businessType) return true;
 
     const steps = activeConfig.entities[businessType]?.steps || [];
-    const requiredFields = [];
+    let incomplete = false;
 
     steps.forEach((step) => {
-      const fields = step.fields || {};
-      Object.entries(fields).forEach(([key, fieldDef]) => {
-        if (fieldDef.required) requiredFields.push(key);
+      Object.entries(step.fields || {}).forEach(([key, fieldDef]) => {
+        if (fieldDef.required && !data[key]) incomplete = true;
 
-        // Handle conditional fields
+        // Conditional fields
         if (fieldDef.conditionalFields && data[key]) {
           Object.entries(fieldDef.conditionalFields[data[key]] || {}).forEach(
-            ([cKey, cDef]) => {
-              if (cDef.required) requiredFields.push(cKey);
+            ([ck, cd]) => {
+              if (cd.required && !data[ck]) incomplete = true;
             },
           );
         }
       });
 
-      // HELPERS **
-      // Repeatable sections (like owners/partners)
       const repeatableSections = step.repeatableSections || {};
       Object.values(repeatableSections).forEach((section) => {
-        Object.entries(section.fields || {}).forEach(([key, fieldDef]) => {
-          if (fieldDef.required) requiredFields.push(key);
-
-          // Handle conditional fields
-          if (fieldDef.conditionalFields && data[key]) {
-            Object.entries(fieldDef.conditionalFields[data[key]] || {}).forEach(
-              ([cKey, cDef]) => {
-                if (cDef.required) requiredFields.push(cKey);
-              },
-            );
-          }
+        (data[section.key] || []).forEach((item) => {
+          Object.entries(section.fields || {}).forEach(([k, fDef]) => {
+            if (fDef.required && !item[k]) incomplete = true;
+            if (fDef.conditionalFields && item[k]) {
+              Object.entries(fDef.conditionalFields[item[k]] || {}).forEach(
+                ([ck, cd]) => {
+                  if (cd.required && !item[ck]) incomplete = true;
+                },
+              );
+            }
+          });
         });
       });
     });
 
-    return requiredFields;
+    return incomplete;
   };
 
-  const hasNullFields = (data) => {
-    const requiredFields = getRequiredFields(data);
+  // const hasNullFields = (data) => {
+  //   const requiredFields = getRequiredFields(data);
 
-    for (const field of requiredFields) {
-      if (
-        data[field] === null ||
-        data[field] === undefined ||
-        data[field] === ""
-      ) {
-        return true;
-      }
-    }
+  //   for (const field of requiredFields) {
+  //     if (
+  //       data[field] === null ||
+  //       data[field] === undefined ||
+  //       data[field] === ""
+  //     ) {
+  //       return true;
+  //     }
+  //   }
 
-    // Check repeatable sections/individuals
-    const individuals = mapIndividuals(data);
-    const individualFields = Object.keys(individuals);
-    for (const field of individualFields) {
-      if (individuals[field] === null || individuals[field] === undefined) {
-        return true;
-      }
-    }
+  //   // Check repeatable sections/individuals
+  //   const individuals = mapIndividuals(data);
+  //   const individualFields = Object.keys(individuals);
+  //   for (const field of individualFields) {
+  //     if (individuals[field] === null || individuals[field] === undefined) {
+  //       return true;
+  //     }
+  //   }
 
-    return false;
-  };
+  //   return false;
+  // };
 
-  function mapRepeatableSection(sectionData, sectionConfig) {
-    return sectionData.map((item) => {
-      const mapped = {};
-      Object.entries(sectionConfig.fields).forEach(([key, def]) => {
-        if (item[key] !== undefined) mapped[key] = item[key];
+  // function mapRepeatableSection(sectionData, sectionConfig) {
+  //   return sectionData.map((item) => {
+  //     const mapped = {};
+  //     Object.entries(sectionConfig.fields).forEach(([key, def]) => {
+  //       if (item[key] !== undefined) mapped[key] = item[key];
 
-        if (def.conditionalFields && item[key]) {
-          Object.entries(def.conditionalFields[item[key]] || {}).forEach(
-            ([ck, cd]) => {
-              mapped[ck] = item[ck] ?? null;
-            },
-          );
-        }
-      });
-      return mapped;
-    });
-  }
+  //       if (def.conditionalFields && item[key]) {
+  //         Object.entries(def.conditionalFields[item[key]] || {}).forEach(
+  //           ([ck, cd]) => {
+  //             mapped[ck] = item[ck] ?? null;
+  //           },
+  //         );
+  //       }
+  //     });
+  //     return mapped;
+  //   });
+  // }
 
   /**
    * Recursively traverses the formData object
@@ -378,26 +584,26 @@ const SMEApplicationForm = () => {
   //   return files;
   // }
 
-  const extractFiles = (obj) => {
-    if (!obj || typeof obj !== "object") return obj;
+  // const extractFiles = (obj) => {
+  //   if (!obj || typeof obj !== "object") return obj;
 
-    // If it's a File itself
-    if (obj instanceof File) return obj;
+  //   // If it's a File itself
+  //   if (obj instanceof File) return obj;
 
-    // If it's the { file, progress } structure
-    if ("file" in obj && obj.file instanceof File) return obj.file;
+  //   // If it's the { file, progress } structure
+  //   if ("file" in obj && obj.file instanceof File) return obj.file;
 
-    // Arrays: map recursively
-    if (Array.isArray(obj)) return obj.map(extractFiles);
+  //   // Arrays: map recursively
+  //   if (Array.isArray(obj)) return obj.map(extractFiles);
 
-    // Objects: recurse
-    const result = {};
-    Object.entries(obj).forEach(([key, value]) => {
-      result[key] = extractFiles(value);
-    });
+  //   // Objects: recurse
+  //   const result = {};
+  //   Object.entries(obj).forEach(([key, value]) => {
+  //     result[key] = extractFiles(value);
+  //   });
 
-    return result;
-  };
+  //   return result;
+  // };
 
   // const mapIndividuals = (data) => {
   //   // const individual = {
@@ -456,113 +662,113 @@ const SMEApplicationForm = () => {
   //   return individual;
   // };
 
-  const mapIndividuals = (data) => {
-    const individual = {};
+  // const mapIndividuals = (data) => {
+  //   const individual = {};
 
-    const fields = [
-      "fullName",
-      "idNumber",
-      "nationality",
-      "residentialAddress",
-      "dateOfBirth",
-      "idDocument",
-    ];
+  //   const fields = [
+  //     "fullName",
+  //     "idNumber",
+  //     "nationality",
+  //     "residentialAddress",
+  //     "dateOfBirth",
+  //     "idDocument",
+  //   ];
 
-    fields.forEach((f) => {
-      if (data[f] !== undefined && data[f] !== null) {
-        individual[f] = data[f];
-      }
-    });
+  //   fields.forEach((f) => {
+  //     if (data[f] !== undefined && data[f] !== null) {
+  //       individual[f] = data[f];
+  //     }
+  //   });
 
-    const declarations = [
-      "pepDeclaration",
-      "sanctionsDeclaration",
-      "fatcaDeclaration",
-    ];
+  //   const declarations = [
+  //     "pepDeclaration",
+  //     "sanctionsDeclaration",
+  //     "fatcaDeclaration",
+  //   ];
 
-    declarations.forEach((decl) => {
-      if (data[decl]) {
-        individual[decl] = data[decl];
+  //   declarations.forEach((decl) => {
+  //     if (data[decl]) {
+  //       individual[decl] = data[decl];
 
-        const configFields =
-          activeConfig.entities?.sole_proprietorship?.steps?.[0]
-            ?.repeatableSections?.owners?.fields?.[decl]?.conditionalFields;
+  //       const configFields =
+  //         activeConfig.entities?.sole_proprietorship?.steps?.[0]
+  //           ?.repeatableSections?.owners?.fields?.[decl]?.conditionalFields;
 
-        if (configFields?.[data[decl]]) {
-          Object.keys(configFields[data[decl]]).forEach((key) => {
-            individual[key] = data[key] ?? null;
-          });
-        }
-      }
-    });
+  //       if (configFields?.[data[decl]]) {
+  //         Object.keys(configFields[data[decl]]).forEach((key) => {
+  //           individual[key] = data[key] ?? null;
+  //         });
+  //       }
+  //     }
+  //   });
 
-    return individual;
-  };
+  //   return individual;
+  // };
 
-  const hasIncompleteFields = (data) => {
-    const requiredFields = getRequiredFields(data);
+  // const hasIncompleteFields = (data) => {
+  //   const requiredFields = getRequiredFields(data);
 
-    for (const field of requiredFields) {
-      if (
-        data[field] === null ||
-        data[field] === undefined ||
-        data[field] === ""
-      ) {
-        return true;
-      }
-    }
+  //   for (const field of requiredFields) {
+  //     if (
+  //       data[field] === null ||
+  //       data[field] === undefined ||
+  //       data[field] === ""
+  //     ) {
+  //       return true;
+  //     }
+  //   }
 
-    const individuals = mapIndividuals(data);
+  //   const individuals = mapIndividuals(data);
 
-    for (const field in individuals) {
-      if (
-        individuals[field] === null ||
-        individuals[field] === undefined ||
-        individuals[field] === ""
-      ) {
-        return true;
-      }
-    }
+  //   for (const field in individuals) {
+  //     if (
+  //       individuals[field] === null ||
+  //       individuals[field] === undefined ||
+  //       individuals[field] === ""
+  //     ) {
+  //       return true;
+  //     }
+  //   }
 
-    if (data.documents) {
-      for (const docType in data.documents) {
-        const files = data.documents[docType];
-        if (!files || files.length === 0) return true;
-      }
-    }
+  //   if (data.documents) {
+  //     for (const docType in data.documents) {
+  //       const files = data.documents[docType];
+  //       if (!files || files.length === 0) return true;
+  //     }
+  //   }
 
-    return false;
-  };
+  //   return false;
+  // };
 
-  const buildFormPayload = (data) => {
-    // shallow copy top-level fields
-    const payload = { ...data };
+  // const buildFormPayload = (data) => {
+  //   // shallow copy top-level fields
+  //   const payload = { ...data };
 
-    // Map individuals n extrcat files
-    const individuals = mapIndividuals(data);
-    payload.individuals = extractFiles(individuals);
+  //   // Map individuals n extrcat files
+  //   const individuals = mapIndividuals(data);
+  //   payload.individuals = extractFiles(individuals);
 
-    // Remove top-level fields that are now under individuals
-    [
-      "fullName",
-      "idNumber",
-      "nationality",
-      "residentialAddress",
-      "dateOfBirth",
-      "idDocument",
-      "pepDeclaration",
-      "sanctionsDeclaration",
-      "fatcaDeclaration",
-      "partners",
-      "managers",
-      "generalPartners",
-      "limitedPartners",
-      "directors",
-      "shareholders",
-    ].forEach((key) => delete payload[key]);
+  //   // Remove top-level fields that are now under individuals
+  //   [
+  //     "fullName",
+  //     "idNumber",
+  //     "nationality",
+  //     "residentialAddress",
+  //     "dateOfBirth",
+  //     "idDocument",
+  //     "pepDeclaration",
+  //     "sanctionsDeclaration",
+  //     "fatcaDeclaration",
+  //     "partners",
+  //     "managers",
+  //     "generalPartners",
+  //     "limitedPartners",
+  //     "directors",
+  //     "shareholders",
+  //   ].forEach((key) => delete payload[key]);
 
-    return payload;
-  };
+  //   return payload;
+  // };
 
   /* ------------------------------------------------ */
   /* SAVE DRAFT */
@@ -570,50 +776,101 @@ const SMEApplicationForm = () => {
   const handleSaveDraft = async () => {
     try {
       // Keep track of uploaded documents per user
+      // const documents = formData.documents || {};
+      // const normalizedDocuments = {};
+
+      // Object.entries(documents).forEach(([docType, files]) => {
+      //   normalizedDocuments[docType] = files.map((file) => ({
+      //     name: file.name,
+      //     type: file.type,
+      //     size: file.size,
+      //     lastModified: file.lastModified,
+      //     // keep File object in memory for later submission
+      //     fileObject: file,
+      //   }));
+      // });
+
+      // Upload documents first
       const documents = formData.documents || {};
-      const normalizedDocuments = {};
+      for (const [docType, files] of Object.entries(documents)) {
+        for (const file of files) {
+          if (file instanceof File) {
+            await uploadDocumentApi({
+              applicationId: appId !== "new" ? appId : undefined,
+              documentType: docType,
+              file,
+            });
+          }
+        }
+      }
 
-      Object.entries(documents).forEach(([docType, files]) => {
-        normalizedDocuments[docType] = files.map((file) => ({
-          name: file.name,
-          type: file.type,
-          size: file.size,
-          lastModified: file.lastModified,
-          // keep File object in memory for later submission
-          fileObject: file,
-        }));
-      });
+      // for (const [docType, files] of Object.entries(documents)) {
+      //   for (const file of files) {
+      //     if (file instanceof File) {
+      //       await uploadDocumentApi({
+      //         applicationId: appId !== "new" ? appId : undefined,
+      //         documentType: docType,
+      //         file,
+      //         onProgress: (pct) =>
+      //           console.log(`Uploading ${file.name}: ${pct}%`),
+      //       });
+      //     }
+      //   }
+      // }
 
+      // Save draft
       // const cleanData = buildFormPayload(formData);
-      const cleanData = buildFormPayload(
-        formData,
-        activeConfig,
-        formData.businessType,
-      );
+      // const cleanData = buildFormPayload(
+      //   formData,
+      //   activeConfig,
+      //   formData.businessType,
+      // );
 
-      const normalizedData = {
-        ...cleanData,
-        businessName: cleanData.businessName || cleanData.business_name || "",
-        businessType: cleanData.businessType || cleanData.business_type || "",
-        country: cleanData.country || cleanData.business_country || "",
-      };
-      // console.log(cleanData);
+      // const normalizedData = {
+      //   ...cleanData,
+      //   businessName: cleanData.businessName || cleanData.business_name || "",
+      //   businessType: cleanData.businessType || cleanData.business_type || "",
+      //   country: cleanData.country || cleanData.business_country || "",
+      // };
+      // console.log("In SME Application Form, clean data: ", cleanData);
+      // const payload = {
+      //   user_id: user.user_id,
+      //   email: user.email,
+      //   firstName: user.firstName,
+      //   business_name: cleanData.businessName || "",
+      //   business_type: cleanData.businessType || "",
+      //   business_country: cleanData.country || "",
+      //   form_data: { ...normalizedData },
+      //   // formData: cleanData,
+      //   // documents: normalizedDocuments,
+      //   last_saved_step: clampedStep,
+      //   application_id: appId !== "new" ? appId : undefined,
+      // };
+
       const payload = {
         user_id: user.user_id,
         email: user.email,
         firstName: user.firstName,
-        business_name: cleanData.businessName || "",
-        business_type: cleanData.businessType || "",
-        business_country: cleanData.country || "",
-        form_data: { ...normalizedData },
-        documents: normalizedDocuments,
+        business_name: formData.businessName || "",
+        business_type: formData.businessType || "",
+        business_country: formData.country || "",
+        form_data: buildDynamicPayload(formData, activeConfig),
+        // form_data: buildPayload(formData), // <-- individuals included here
         last_saved_step: clampedStep,
         application_id: appId !== "new" ? appId : undefined,
       };
 
-      console.log("Saving application draft payload:", payload); // debug log
+      // console.log("Saving application draft payload:", payload); // debug log
 
       const res = await saveApplicationDraftApi(payload);
+
+      // await saveApplicationDraftApi({
+      //   user_id: user.user_id,
+      //   email: user.email,
+      //   firstName: user.firstName,
+      //   application_id: appId !== "new" ? appId : undefined,
+      //   form_data: buildFormPayload(formData),
+      // });
       const savedAppId = res.application_id || appId;
 
       // Update Redux
@@ -625,14 +882,6 @@ const SMEApplicationForm = () => {
           replace: true,
         });
       }
-
-      // const res = await saveApplicationDraftApi(payload);
-
-      // // Always get returned application_id (new or existing)
-      // const savedAppId = res.application_id || appId;
-
-      // // Update Redux with saved draft
-      // dispatch(saveDraftAction({ appId: savedAppId, data: formData }));
 
       toast({
         title: "Draft Saved",
@@ -653,84 +902,88 @@ const SMEApplicationForm = () => {
   const handleSubmitApplication = async () => {
     setIsSubmitting(true);
     try {
-      // const { isValid, errors } = validateFormData(formData);
-      // if (!isValid) {
-      //   toast({
-      //     title: "Cannot Submit",
-      //     description: "Please fix validation errors before submitting.",
-      //     variant: "destructive",
-      //   });
-      //   console.log("Submit validation errors:", errors);
-      //   return;
-      // }
-
-      // const cleanData = buildFormPayload(formData);
-      const cleanData = buildFormPayload(
-        formData,
-        activeConfig,
-        formData.businessType,
-      );
+      // const cleanData = buildFormPayload(
+      //   formData,
+      //   activeConfig,
+      //   formData.businessType,
+      // );
 
       // Extract all document fields
       // Here, formData.documents is expected to have the shape: { [docType]: File[] }
-      const documents = [];
-      if (formData.documents) {
-        Object.entries(formData.documents).forEach(([docType, files]) => {
-          if (Array.isArray(files)) {
-            files.forEach((file) => {
-              if (file instanceof File) {
-                documents.push({
-                  document_type: docType,
-                  filename: file.name,
-                  mime_type: file.type || "application/octet-stream",
-                });
-              }
-            });
-          }
-        });
-      }
+      // const documents = [];
+      // if (formData.documents) {
+      //   Object.entries(formData.documents).forEach(([docType, files]) => {
+      //     if (Array.isArray(files)) {
+      //       files.forEach((file) => {
+      //         if (file instanceof File) {
+      //           documents.push({
+      //             document_type: docType,
+      //             filename: file.name,
+      //             mime_type: file.type || "application/octet-stream",
+      //           });
+      //         }
+      //       });
+      //     }
+      //   });
+      // }
 
       // Upload each document first
-      for (const doc of documents) {
-        const fileArray = formData.documents[doc.document_type] || [];
-        for (const file of fileArray) {
-          await uploadDocumentApi({
-            applicationId: appId,
-            documentType: doc.document_type,
-            file,
-            onProgress: (pct) => {
-              // optional: you can track progress here
-              console.log(`Uploading ${doc.filename}: ${pct}%`);
-            },
-          });
-        }
-      }
+      // for (const doc of documents) {
+      //   const fileArray = formData.documents[doc.document_type] || [];
+      //   for (const file of fileArray) {
+      //     await uploadDocumentApi({
+      //       applicationId: appId,
+      //       documentType: doc.document_type,
+      //       file,
+      //       onProgress: (pct) => {
+      //         // optional: you can track progress here
+      //         console.log(`Uploading ${doc.filename}: ${pct}%`);
+      //       },
+      //     });
+      //   }
+      // }
 
       const payload = {
         user_id: user.user_id,
         email: user.email,
         firstName: user.firstName,
-        business_name: cleanData.businessName || "",
-        business_type: cleanData.businessType || "",
-        business_country: cleanData.country || "",
-        form_data: cleanData,
+        business_name: formData.businessName || "",
+        business_type: formData.businessType || "",
+        business_country: formData.country || "",
+        // form_data: buildPayload(formData),
+        form_data: buildDynamicPayload(formData, activeConfig),
+
         last_saved_step: clampedStep,
         application_id: appId !== "new" ? appId : undefined,
-        // documents: []
       };
+
+      // const payload = {
+      //   user_id: user.user_id,
+      //   email: user.email,
+      //   firstName: user.firstName,
+      //   business_name: cleanData.businessName || "",
+      //   business_type: cleanData.businessType || "",
+      //   business_country: cleanData.country || "",
+      //   form_data: cleanData,
+      //   last_saved_step: clampedStep,
+      //   application_id: appId !== "new" ? appId : undefined,
+      // documents: []
+      // };
 
       // 5Conditional API call
       let returnedAppId = appId;
-      if (!appId || appId === "new") {
-        // First submission
-        const res = await submitApplicationApi(payload); // firstSubmit
-        returnedAppId = res.application_id; // update appId from response
-      } else {
-        // Already saved draft, second submission
-        await secondSubmit(appId, payload); // secondSubmit/applicationId
-      }
-
-      // await submitApplicationApi(payload);
+      // if (!appId || appId === "new") {
+      //   // First submission
+      //   const res = await submitApplicationApi(payload); // firstSubmit
+      //   returnedAppId = res.application_id; // update appId from response
+      // } else {
+      //   // Already saved draft, second submission
+      //   await secondSubmit(appId, payload);
+      // }
+      await submitSmeApplicationApi({
+        application_id: appId !== "new" ? appId : undefined,
+        form_data: payload,
+      });
 
       dispatch(submitApplication({ appId: returnedAppId, data: formData }));
 
@@ -778,11 +1031,6 @@ const SMEApplicationForm = () => {
         );
       case 4:
         return (
-          // <Step4ReviewSubmit
-          //   {...commonProps}
-          //   onSubmit={handleSubmitApplication}
-          //   isSubmitting={isSubmitting}
-          // />
           <Step4
             {...commonProps}
             onSubmit={handleSubmitApplication}

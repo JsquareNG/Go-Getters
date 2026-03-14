@@ -1,5 +1,4 @@
 import { createSlice, createSelector } from "@reduxjs/toolkit";
-// import { v4 as uuidv4 } from "uuid";
 
 // --- HELPER FUNCTION TO UPDATE NESTED FIELDS IN AN IMMUTABLE WAY ---
 export const setIn = (obj, path, value) => {
@@ -56,35 +55,6 @@ const applicationFormSlice = createSlice({
 
       state.drafts = {};
     },
-    // Start brand new application
-    // startNewApplication: (state) => {
-    //   // const id = "new";
-
-    //   const hasSubmitted = Object.values(state.drafts).some(
-    //     (d) => d.status === "Submitted",
-    //   );
-    //   if (hasSubmitted) {
-    //     console.warn("User already has a submitted application.");
-    //     return; // do not create new draft
-    //   }
-
-    //   // const id = uuidv4(); // unique ID per draft, else will create one draft one submission
-    //   // state.currentApplicationId = id;
-    //   state.currentMode = "edit";
-    //   state.currentStep = 0;
-    //   state.hasUnsavedChanges = false;
-
-    //   // Reset all previous drafts
-    //   state.drafts = {};
-
-    //   if (!state.drafts[id]) {
-    //     state.drafts[id] = {
-    //       formData: {},
-    //       status: "Draft",
-    //       lastModified: new Date().toISOString(),
-    //     };
-    //   }
-    // },
     resetForm: (state) => {
       state.drafts = {};
       state.currentApplicationId = null;
@@ -115,21 +85,6 @@ const applicationFormSlice = createSlice({
       state.drafts[appId].lastModified = new Date().toISOString();
       state.hasUnsavedChanges = true;
     },
-
-    // applicationFormSlice.js
-    // updateField: (state, action) => {
-    //   const { field, value } = action.payload;
-    //   const keys = field.split("."); // split nested path
-    //   let curr = state.formData;
-
-    //   for (let i = 0; i < keys.length - 1; i++) {
-    //     const key = keys[i];
-    //     if (!(key in curr)) curr[key] = {}; // create nested object if missing
-    //     curr = curr[key];
-    //   }
-
-    //   curr[keys[keys.length - 1]] = value; // set the final value
-    // },
 
     // Bulk update (useful when loading multiple fields)
     updateFormData: (state, action) => {
@@ -251,9 +206,6 @@ export const selectStepCompletion = createSelector(
     // Example: mark step complete if fields exist
     return {
       0: !!formData.country && !!formData.businessType,
-      // 1: !!formData.basicFields,
-      // 2: !!formData.financialFields,
-      // 3: !!formData.complianceFields,
       1: !!formData.step1_basic_info, // check actual step keys
       2: !!formData.step2_financial,
       3: !!formData.step3_compliance,
