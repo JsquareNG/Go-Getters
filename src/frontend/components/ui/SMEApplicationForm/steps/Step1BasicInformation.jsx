@@ -1,6 +1,7 @@
 import React, { useMemo, useRef, useState } from "react";
 import FormFieldGroup from "../components/FormFieldGroup";
 import FileUploadField from "../components/FileUploadField";
+import {Button} from "@/components/ui"
 import { SINGAPORE_CONFIG, INDONESIA_CONFIG } from "../config";
 // import { extractFieldsFromStep, resolveConditionalFields, isFieldVisible } from "../utils/extractFields";
 
@@ -486,6 +487,12 @@ const Step1BasicInformation = ({ data, onFieldChange, disabled = false }) => {
           )}
         </div>
       ))}
+
+      {/* button to trigger face detector */}
+      <Button className="gap-2">
+        {/* <Plus className="h-4 w-4" /> */}
+        Trigger Face Detector
+      </Button>
     </div>
   );
 };

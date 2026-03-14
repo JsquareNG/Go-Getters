@@ -25,16 +25,20 @@ import {
   saveDraft as saveDraftAction,
   submitApplication,
   updateField,
+  loadApplication,
+  resetForm,
+  startNewApplication,
 } from "@/store/applicationFormSlice";
 
 import {
   submitApplicationApi,
   secondSubmit,
   saveApplicationDraftApi,
+  getApplicationByAppId,
   // uploadDocument,
 } from "@/api/applicationApi";
 
-import {uploadDocumentApi} from "@/api/documentApi"
+import { uploadDocumentApi } from "@/api/documentApi";
 
 const STEP_LABELS = [
   "To Get Started",
@@ -80,6 +84,38 @@ const SMEApplicationForm = () => {
   };
 
   /* ------------------------------------------------ */
+  /* LOAD APPLICATION FROM API */
+  /* ------------------------------------------------ */
+
+  useEffect(() => {
+    const initApplication = async () => {
+      try {
+        if (!appId || appId === "new") {
+          dispatch(resetForm());
+          dispatch(startNewApplication());
+          return;
+        }
+
+        const app = await getApplicationByAppId(appId);
+
+        dispatch(
+          loadApplication({
+            applicationId: app.application_id || app.id,
+            formData: app?.form_data || {},
+            status: app?.current_status || "Draft",
+          }),
+        );
+      } catch (err) {
+        console.error("Failed to load application", err);
+        dispatch(resetForm());
+        dispatch(startNewApplication());
+      }
+    };
+
+    initApplication();
+  }, [appId, dispatch]);
+
+  /* ------------------------------------------------ */
   /* REDUX FIELD UPDATE */
   /* ------------------------------------------------ */
 
@@ -98,65 +134,79 @@ const SMEApplicationForm = () => {
   }, [clampedStep, currentStepFromRedux, dispatch]);
 
   /* ------------------------------------------------ */
-  /* POPULATE PREVIOUS DRAFT */
+  /* POPULATE PREVIOUS DRAFT INTO FORM */
   /* ------------------------------------------------ */
 
   useEffect(() => {
-    if (currentApp?.formData && Object.keys(formData).length === 0) {
-      const cleanData = {};
+    if (!currentApp?.formData) return;
+    if (Object.keys(formData || {}).length > 0) return;
 
-      // function flatten(obj) {
-      //   if (!obj || typeof obj !== "object") return;
-      //   Object.entries(obj).forEach(([key, value]) => {
-      //     if (key === "null") {
-      //       // skip recursion into "null" objects
-      //       return;
-      //     } else if (value !== undefined && value !== null) {
-      //       // preserve nested objects only if not arrays or File objects
-      //       if (
-      //         typeof value === "object" &&
-      //         !Array.isArray(value) &&
-      //         !(value instanceof File)
-      //       ) {
-      //         flatten(value);
-      //       } else {
-      //         cleanData[key] = value === "" ? null : value; // normalize empty string
-      //       }
-      //     }
-      //   });
-      // }
+    const cleanData = {};
 
-      function flatten(obj) {
-        if (!obj || typeof obj !== "object") return;
-        Object.entries(obj).forEach(([key, value]) => {
-          if (value instanceof File) {
-            cleanData[key] = value; // keep File as is
-          } else if (Array.isArray(value)) {
-            // preserve arrays as arrays, do not flatten into indices
-            cleanData[key] = value.map((v) =>
-              typeof v === "object" ? { ...v } : v,
-            );
-          } else if (typeof value === "object" && value !== null) {
-            flatten(value);
-          } else {
-            cleanData[key] = value === "" ? null : value;
-          }
-        });
-      }
+    function flatten(obj) {
+      if (!obj || typeof obj !== "object") return;
 
-      flatten(currentApp.formData);
-
-      // remove top-level null key if exists
-      if ("null" in cleanData) delete cleanData.null;
-
-      // dispatch all cleaned fields
-      Object.entries(cleanData).forEach(([key, value]) => {
-        handleFieldChange(key, value);
+      Object.entries(obj).forEach(([key, value]) => {
+        if (value instanceof File) {
+          cleanData[key] = value;
+        } else if (Array.isArray(value)) {
+          cleanData[key] = value.map((v) =>
+            typeof v === "object" ? { ...v } : v,
+          );
+        } else if (typeof value === "object" && value !== null) {
+          flatten(value);
+        } else {
+          cleanData[key] = value === "" ? null : value;
+        }
       });
-
-      console.log("Cleaned and flattened draft loaded:", cleanData);
     }
-  }, [currentApp, formData]);
+
+    flatten(currentApp.formData);
+
+    if ("null" in cleanData) delete cleanData.null;
+
+    Object.entries(cleanData).forEach(([key, value]) => {
+      dispatch(updateField({ field: key, value }));
+    });
+
+    console.log("Draft loaded:", cleanData);
+  }, [currentApp, dispatch]);
+
+  // useEffect(() => {
+  //   if (currentApp?.formData && Object.keys(formData).length === 0) {
+  //     const cleanData = {};
+
+  //     function flatten(obj) {
+  //       if (!obj || typeof obj !== "object") return;
+  //       Object.entries(obj).forEach(([key, value]) => {
+  //         if (value instanceof File) {
+  //           cleanData[key] = value; // keep File as is
+  //         } else if (Array.isArray(value)) {
+  //           // preserve arrays as arrays, do not flatten into indices
+  //           cleanData[key] = value.map((v) =>
+  //             typeof v === "object" ? { ...v } : v,
+  //           );
+  //         } else if (typeof value === "object" && value !== null) {
+  //           flatten(value);
+  //         } else {
+  //           cleanData[key] = value === "" ? null : value;
+  //         }
+  //       });
+  //     }
+
+  //     flatten(currentApp.formData);
+
+  //     // remove top-level null key if exists
+  //     if ("null" in cleanData) delete cleanData.null;
+
+  //     // dispatch all cleaned fields
+  //     Object.entries(cleanData).forEach(([key, value]) => {
+  //       handleFieldChange(key, value);
+  //     });
+
+  //     console.log("Cleaned and flattened draft loaded:", cleanData);
+  //   }
+  // }, [currentApp, formData]);
 
   /**
    * Validate SME application form data
@@ -328,26 +378,26 @@ const SMEApplicationForm = () => {
   //   return files;
   // }
 
-  // const extractFiles = (obj) => {
-  //   if (!obj || typeof obj !== "object") return obj;
+  const extractFiles = (obj) => {
+    if (!obj || typeof obj !== "object") return obj;
 
-  //   // If it's a File itself
-  //   if (obj instanceof File) return obj;
+    // If it's a File itself
+    if (obj instanceof File) return obj;
 
-  //   // If it's the { file, progress } structure
-  //   if ("file" in obj && obj.file instanceof File) return obj.file;
+    // If it's the { file, progress } structure
+    if ("file" in obj && obj.file instanceof File) return obj.file;
 
-  //   // Arrays: map recursively
-  //   if (Array.isArray(obj)) return obj.map(extractFiles);
+    // Arrays: map recursively
+    if (Array.isArray(obj)) return obj.map(extractFiles);
 
-  //   // Objects: recurse
-  //   const result = {};
-  //   Object.entries(obj).forEach(([key, value]) => {
-  //     result[key] = extractFiles(value);
-  //   });
+    // Objects: recurse
+    const result = {};
+    Object.entries(obj).forEach(([key, value]) => {
+      result[key] = extractFiles(value);
+    });
 
-  //   return result;
-  // };
+    return result;
+  };
 
   // const mapIndividuals = (data) => {
   //   // const individual = {
@@ -519,7 +569,20 @@ const SMEApplicationForm = () => {
   /* ------------------------------------------------ */
   const handleSaveDraft = async () => {
     try {
-      // Flatten formData before validating
+      // Keep track of uploaded documents per user
+      const documents = formData.documents || {};
+      const normalizedDocuments = {};
+
+      Object.entries(documents).forEach(([docType, files]) => {
+        normalizedDocuments[docType] = files.map((file) => ({
+          name: file.name,
+          type: file.type,
+          size: file.size,
+          lastModified: file.lastModified,
+          // keep File object in memory for later submission
+          fileObject: file,
+        }));
+      });
 
       // const cleanData = buildFormPayload(formData);
       const cleanData = buildFormPayload(
@@ -543,6 +606,7 @@ const SMEApplicationForm = () => {
         business_type: cleanData.businessType || "",
         business_country: cleanData.country || "",
         form_data: { ...normalizedData },
+        documents: normalizedDocuments,
         last_saved_step: clampedStep,
         application_id: appId !== "new" ? appId : undefined,
       };
@@ -550,12 +614,25 @@ const SMEApplicationForm = () => {
       console.log("Saving application draft payload:", payload); // debug log
 
       const res = await saveApplicationDraftApi(payload);
-
-      // Always get returned application_id (new or existing)
       const savedAppId = res.application_id || appId;
 
-      // Update Redux with saved draft
+      // Update Redux
       dispatch(saveDraftAction({ appId: savedAppId, data: formData }));
+
+      // Update URL to reflect the actual application_id
+      if (appId === "new" && savedAppId) {
+        navigate(`/application/edit/${savedAppId}/${clampedStep}`, {
+          replace: true,
+        });
+      }
+
+      // const res = await saveApplicationDraftApi(payload);
+
+      // // Always get returned application_id (new or existing)
+      // const savedAppId = res.application_id || appId;
+
+      // // Update Redux with saved draft
+      // dispatch(saveDraftAction({ appId: savedAppId, data: formData }));
 
       toast({
         title: "Draft Saved",
