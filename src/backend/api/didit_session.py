@@ -15,9 +15,11 @@ DIDIT_WORKFLOW_ID = os.getenv("DIDIT_WORKFLOW_ID")
 DIDIT_CREATE_SESSION_URL = "https://verification.didit.me/v3/session/"
 
 
+# UPDATED: added callback_url
 class CreateSessionRequest(BaseModel):
     application_id: str | None = None
     user_id: str | None = None
+    callback_url: str | None = None
 
 
 @router.post("/create-session")
@@ -33,16 +35,15 @@ def create_didit_session(payload: CreateSessionRequest):
         "accept": "application/json",
     }
 
+    # UPDATED: callback now dynamic
     body = {
         "workflow_id": DIDIT_WORKFLOW_ID,
-        "callback": "http://localhost:5173/didit-callback"
+        "callback": payload.callback_url or "http://localhost:5173/application/edit/new/1"
     }
 
-    # application_id is now OPTIONAL
     if payload.application_id:
         body["vendor_data"] = payload.application_id
 
-    # user_id optional too, only include if needed later
     if payload.user_id:
         body["metadata"] = {
             "user_id": payload.user_id
@@ -112,7 +113,5 @@ async def didit_webhook(request: Request):
 
     print("Session:", session_id)
     print("Verification status:", status)
-
-    # Later you can update DB here using provider_session_id / session_id
 
     return {"ok": True}

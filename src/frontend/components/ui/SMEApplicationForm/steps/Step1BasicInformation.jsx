@@ -1,9 +1,15 @@
-import React, { useMemo, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
+import { ArrowRight, ShieldCheck } from "lucide-react";
 import FormFieldGroup from "../components/FormFieldGroup";
 import FileUploadField from "../components/FileUploadField";
 // import SINGAPORE_CONFIG from "../config/singaporeConfig";
 import SINGAPORE_CONFIG2 from "../config/updatedSingaporeConfig";
 // import { extractFieldsFromStep, resolveConditionalFields, isFieldVisible } from "../utils/extractFields";
+import { Card, CardContent } from "../../primitives/Card";
+import { Button } from "../../primitives/Button";
+import { Badge } from "../../primitives/Badge";
+import { Separator } from "../../primitives/Separator";
+import { livenessDetectionApi } from "../../../../api/livenessDetectionApi";
 
 const ACRA_WITH_TABLES_ENDPOINT =
   "http://127.0.0.1:8000/document-ai/extract-acra-bizprofile";
@@ -15,6 +21,16 @@ const Step1BasicInformation = ({ data, onFieldChange, disabled = false }) => {
   const [acraUploading, setAcraUploading] = useState(false);
   const [acraError, setAcraError] = useState("");
   const [acraSuccessMsg, setAcraSuccessMsg] = useState("");
+
+  const [kycStatus, setKycStatus] = useState("idle");
+  const [kycLoading, setKycLoading] = useState(false);
+  const [kycSessionId, setKycSessionId] = useState("");
+  const [kycOverallStatus, setKycOverallStatus] = useState("");
+  const [kycFaceMatchScore, setKycFaceMatchScore] = useState(null);
+  const [kycLivenessScore, setKycLivenessScore] = useState(null);
+  const [kycIdVerificationStatus, setKycIdVerificationStatus] = useState("");
+  const [kycFaceMatchStatus, setKycFaceMatchStatus] = useState("");
+  const [kycLivenessStatus, setKycLivenessStatus] = useState("");
 
   // ---- dynamic config from singaporeConfig ----
   const { basicFieldsConfig, repeatableSectionsConfig } = useMemo(() => {
@@ -177,6 +193,174 @@ const Step1BasicInformation = ({ data, onFieldChange, disabled = false }) => {
       setAcraUploading(false);
     }
   };
+
+  const handleStartKyc = async () => {
+    console.log("Start KYC button clicked");
+
+    setKycLoading(true);
+
+    try {
+      const applicationId =
+        data?.application_id ||
+        data?.applicationId ||
+        data?.appId ||
+        "";
+
+      const callbackUrl = window.location.href.split("?")[0];
+
+      const payload = applicationId
+        ? {
+            application_id: applicationId,
+            callback_url: callbackUrl,
+          }
+        : {
+            callback_url: callbackUrl,
+          };
+
+      console.log("KYC payload being sent:", payload);
+
+      const response = await fetch(
+        "http://127.0.0.1:8000/didit/create-session",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(payload),
+        }
+      );
+
+      console.log("Backend response status:", response.status);
+
+      const result = await response.json();
+      console.log("Backend response data:", result);
+
+      setKycSessionId(result.session_id || "");
+
+      if (result.verification_url) {
+        setKycStatus("pending");
+        window.location.href = result.verification_url;
+      } else {
+        alert("No verification_url returned. Check console and backend logs.");
+        setKycStatus("idle");
+      }
+    } catch (error) {
+      console.error("Start KYC frontend error:", error);
+      setKycStatus("idle");
+    } finally {
+      setKycLoading(false);
+    }
+  };
+
+  const mapDiditToPayload = (diditData) => {
+    const idv = diditData?.id_verifications?.[0] || {};
+    const live = diditData?.liveness_checks?.[0] || {};
+    const face = diditData?.face_matches?.[0] || {};
+
+    const riskFlags = [
+      ...(idv?.warnings || []).map((w) => w.risk).filter(Boolean),
+      ...(live?.warnings || []).map((w) => w.risk).filter(Boolean),
+      ...(face?.warnings || []).map((w) => w.risk).filter(Boolean),
+    ];
+
+    const uniqueRiskFlags = [...new Set(riskFlags)];
+
+    const documentNumber = idv?.document_number || "";
+    const documentNumberMasked =
+      documentNumber.length >= 6
+        ? `${documentNumber.slice(0, 5)}***${documentNumber.slice(-1)}`
+        : documentNumber;
+
+    return {
+      application_id: diditData?.vendor_data || null,
+      provider: "didit",
+      provider_session_id: diditData?.session_id || null,
+      provider_session_number: diditData?.session_number || null,
+      workflow_id: diditData?.workflow_id || null,
+      provider_session_url: diditData?.session_url || null,
+      overall_status: diditData?.status || null,
+      manual_review_required: diditData?.status === "Declined",
+
+      full_name: idv?.full_name || null,
+      document_type: idv?.document_type || null,
+      document_number: documentNumber || null,
+      document_number_masked: documentNumberMasked || null,
+      date_of_birth: idv?.date_of_birth || null,
+      gender: idv?.gender || null,
+      issuing_state_code: idv?.issuing_state || null,
+      formatted_address: idv?.formatted_address || null,
+
+      id_verification_status: idv?.status || null,
+      liveness_status: live?.status || null,
+      liveness_score: live?.score || null,
+      face_match_status: face?.status || null,
+      face_match_score: face?.score || null,
+
+      has_duplicate_identity_hit: uniqueRiskFlags.includes("POSSIBLE_DUPLICATED_USER"),
+      has_duplicate_face_hit: uniqueRiskFlags.includes("POSSIBLE_DUPLICATED_FACE"),
+
+      risk_flags: uniqueRiskFlags,
+
+      images: {
+        portrait_image_url: idv?.portrait_image || null,
+        front_image_url: idv?.front_image || null,
+        back_image_url: idv?.back_image || null,
+        full_front_pdf_url: idv?.full_front_image || null,
+        full_back_pdf_url: idv?.full_back_image || null,
+        liveness_reference_image_url: live?.reference_image || null,
+        liveness_video_url: live?.video_url || null,
+        face_match_source_image_url: face?.source_image || null,
+        face_match_target_image_url: face?.target_image || null,
+      },
+
+      created_at: diditData?.created_at || null,
+    };
+  };
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const verificationSessionId = params.get("verificationSessionId");
+    const returnedStatus = params.get("status");
+
+    if (!verificationSessionId) return;
+
+    const processDiditReturn = async () => {
+      try {
+        setKycLoading(true);
+        setKycSessionId(verificationSessionId);
+
+        const response = await fetch(
+          `http://127.0.0.1:8000/didit/session/${verificationSessionId}/decision`
+        );
+
+        const diditData = await response.json();
+        console.log("Didit decision:", diditData);
+
+        const idv = diditData?.id_verifications?.[0] || {};
+        const live = diditData?.liveness_checks?.[0] || {};
+        const face = diditData?.face_matches?.[0] || {};
+
+        setKycOverallStatus(diditData?.status || returnedStatus || "");
+        setKycIdVerificationStatus(idv?.status || "");
+        setKycLivenessStatus(live?.status || "");
+        setKycLivenessScore(live?.score ?? null);
+        setKycFaceMatchStatus(face?.status || "");
+        setKycFaceMatchScore(face?.score ?? null);
+        setKycStatus("completed");
+
+        const payload = mapDiditToPayload(diditData);
+        await livenessDetectionApi(payload);
+
+        window.history.replaceState({}, document.title, window.location.pathname);
+      } catch (error) {
+        console.error("Error processing Didit return:", error);
+      } finally {
+        setKycLoading(false);
+      }
+    };
+
+    processDiditReturn();
+  }, []);
 
   const handleFieldChange = (name, value) => {
     if (!name || typeof name !== "string") {
@@ -370,6 +554,105 @@ const Step1BasicInformation = ({ data, onFieldChange, disabled = false }) => {
       <h2 className="text-2xl font-bold mb-6 text-gray-900">
         Basic Information
       </h2>
+
+      {/* KYC Verification Card */}
+      <Card className={`mb-6 border-2 transition-colors ${
+        kycStatus === "completed"
+          ? "border-[hsl(var(--status-approved))]/30 bg-[hsl(var(--status-approved))]/5"
+          : kycStatus === "pending"
+            ? "border-[hsl(var(--status-in-review))]/30 bg-[hsl(var(--status-in-review))]/5"
+            : "border-border"
+      }`}>
+        <CardContent className="p-6">
+          <div className="flex items-start justify-between gap-4">
+            <div className="flex items-start gap-4">
+              <div className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-xl transition-colors ${
+                kycStatus === "completed"
+                  ? "bg-[hsl(var(--status-approved))]/15"
+                  : kycStatus === "pending"
+                    ? "bg-[hsl(var(--status-in-review))]/15"
+                    : "bg-primary/10"
+              }`}>
+                <ShieldCheck className={`h-6 w-6 ${
+                  kycStatus === "completed"
+                    ? "text-[hsl(var(--status-approved))]"
+                    : kycStatus === "pending"
+                      ? "text-[hsl(var(--status-in-review))]"
+                      : "text-primary"
+                }`} />
+              </div>
+
+              <div>
+                <h3 className="font-semibold text-foreground text-sm">
+                  Identity Verification (KYC)
+                </h3>
+                <p className="text-sm text-muted-foreground mt-1">
+                  {kycStatus === "completed"
+                    ? "Verification completed successfully. Review the returned KYC results below."
+                    : kycStatus === "pending"
+                      ? "Verification is in progress. Waiting for the applicant to complete the process."
+                      : "The applicant must complete identity verification before the application can proceed. This includes document verification, liveness check, and face matching."
+                  }
+                </p>
+
+                {kycStatus !== "idle" && (
+                  <Badge
+                    className="mt-3"
+                    variant={kycStatus === "completed" ? "default" : "secondary"}
+                  >
+                    {kycStatus === "completed" ? "Completed" : "In Progress"}
+                  </Badge>
+                )}
+
+                {kycStatus === "completed" && (
+                  <div className="mt-3 space-y-1 text-xs text-muted-foreground">
+                    <p><span className="font-medium text-foreground">Overall Status:</span> {kycOverallStatus || "N/A"}</p>
+                    <p><span className="font-medium text-foreground">ID Verification:</span> {kycIdVerificationStatus || "N/A"}</p>
+                    <p><span className="font-medium text-foreground">Liveness:</span> {kycLivenessStatus || "N/A"}</p>
+                    <p><span className="font-medium text-foreground">Liveness Score:</span> {kycLivenessScore ?? "N/A"}</p>
+                    <p><span className="font-medium text-foreground">Face Match:</span> {kycFaceMatchStatus || "N/A"}</p>
+                    <p><span className="font-medium text-foreground">Similarity Score:</span> {kycFaceMatchScore ?? "N/A"}</p>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div className="shrink-0">
+              {kycStatus === "idle" && (
+                <Button
+                  type="button"
+                  onClick={handleStartKyc}
+                  className="gap-2 bg-red-600"
+                  disabled={disabled || kycLoading}
+                >
+                  <ShieldCheck className="h-4 w-4" />
+                  {kycLoading ? "Creating session..." : "Start Verification"}
+                </Button>
+              )}
+
+              {kycStatus === "pending" && (
+                <Button type="button" variant="outline" disabled className="gap-2">
+                  Verifying...
+                </Button>
+              )}
+
+              {kycStatus === "completed" && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="gap-2"
+                  disabled
+                >
+                  Continue
+                  <ArrowRight className="h-4 w-4" />
+                </Button>
+              )}
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      <Separator className="my-8" />
 
       {/* ACRA Autofill */}
       {data?.country === "SG" && (
