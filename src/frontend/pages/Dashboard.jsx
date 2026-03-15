@@ -10,6 +10,10 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
+  Tabs,
+  TabsList,
+  TabsTrigger,
+  TabsContent,
 } from "@/components/ui";
 import { mockKPIData } from "../data/mockData";
 import { supabase } from "../data/supabaseClient"; // your Supabase client
@@ -24,6 +28,12 @@ import {
   Tooltip,
   ResponsiveContainer,
   Cell,
+  LabelList,
+  PieChart,
+  Pie,
+  ScatterChart,
+  Scatter,
+  Legend
 } from "recharts";
 import {
   Clock,
@@ -36,84 +46,340 @@ import {
 
 const Dashboard = () => {
   const [timeRange, setTimeRange] = useState("monthly");
-  const [conversionRates, setConversionRates] = useState(null);
-  const [applicationsByCountry, setApplicationsByCountry] = useState(null);
+  const [applications,setApplications] = useState([]);
+  const [stpRate,setStpRate] = useState(0);
+
+  const [applicationsByStatus,setApplicationsByStatus] = useState([]);
+  const [manualReviewData,setManualReviewData] = useState([]);
+
+  const [applicationsByCountry,setApplicationsByCountry] = useState([]);
+  const [applicationsByBusinessType,setApplicationsByBusinessType] = useState([]);
+  const [conversionRates,setConversionRates] = useState([]);
+  const [monthlyApplications,setMonthlyApplications] = useState([]);
+
+  const [riskGrades,setRiskGrades] = useState([]);
+  const [riskScoreBuckets,setRiskScoreBuckets] = useState([]);
+  const [riskRules,setRiskRules] = useState([]);
+  const [riskScatter,setRiskScatter] = useState([]);
 
   // KPI mock data (keep your existing mock for other KPIs)
-  const {
-    averageOnboardingDuration,
-    stpRate,
-    documentErrorRate,
-    dropOffRate,
-    falsePositiveRate,
-  } = mockKPIData;
-
-  // Onboarding trend (existing)
-  const onboardingTrendData = averageOnboardingDuration.trend.map(
-    (value, index) => ({
-      name: `Week ${index + 1}`,
-      value,
-    }),
-  );
-
-  const stpByProductData = stpRate.byProduct;
-  const funnelData = dropOffRate.funnel;
-  const falsePositiveTrendData = falsePositiveRate.trend.map((value, index) => ({
-    name: `Week ${index + 1}`,
-    value,
-  }));
-
-  const improvementPercentage = Math.round(
-    ((averageOnboardingDuration.previous - averageOnboardingDuration.current) /
-      averageOnboardingDuration.previous) *
-      100,
-  );
-
-  const errorReduction = documentErrorRate.previous - documentErrorRate.current;
+ 
 
   // Fetch Conversion Rates & Applications by Country
   useEffect(() => {
-    const fetchData = async () => {
-      // Conversion Rates
-      const { data: applications, error } = await supabase
-        .from("application_form")
-        .select("current_status, previous_status, business_country");
+  const fetchData = async () => {
 
-      if (error) {
-        console.error(error);
-        return;
+    // Fetch applications
+    const { data: applications, error } = await supabase
+      .from("application_form")
+      .select("*");
+
+    if (error) {
+      console.error(error);
+      return;
+    }
+
+    // Fetch risk jobs
+    const { data: reviewJobs, error: riskError } = await supabase
+      .from("reviewJobs")
+      .select("*");
+
+    if (riskError) {
+      console.error(riskError);
+    }
+
+    setApplications(applications);
+
+    /* ===============================
+       STP RATE
+    =============================== */
+
+    const autoApproved = applications.filter(
+      a => a.previous_status !== "Under Review" &&
+           a.current_status === "Approved"
+    );
+
+    const stpRate = (autoApproved.length / applications.length) * 100;
+    setStpRate(stpRate);
+
+
+    /* ===============================
+       APPLICATIONS BY STATUS
+    =============================== */
+
+    const statusCounts = {};
+
+    applications.forEach(app => {
+      const status = app.current_status;
+      statusCounts[status] = (statusCounts[status] || 0) + 1;
+    });
+
+    const statusData = Object.entries(statusCounts).map(([name,value]) => ({
+      name,
+      value
+    }));
+
+    setApplicationsByStatus(statusData);
+
+
+    /* ===============================
+       MANUAL REVIEW LOAD
+    =============================== */
+
+    const manual = applications.filter(
+      a => a.previous_status === "Under Review"
+    ).length;
+
+    const auto = applications.length - manual;
+
+    setManualReviewData([
+      { name:"Manual Review", value:manual },
+      { name:"Auto Processing", value:auto }
+    ]);
+
+
+    /* ===============================
+       APPLICATIONS BY COUNTRY
+    =============================== */
+
+    const countryCounts = {};
+
+    applications.forEach(app => {
+      const country = app.business_country || "Unknown";
+      countryCounts[country] = (countryCounts[country] || 0) + 1;
+    });
+
+    const countryData = Object.entries(countryCounts).map(([name,value]) => ({
+      name,
+      value
+    }));
+
+    setApplicationsByCountry(countryData);
+
+
+    /* ===============================
+       CONVERSION RATE BY BUSINESS TYPE
+    =============================== */
+
+    const grouped = {};
+
+    applications.forEach(app => {
+
+      const type = app.business_type || "Unknown";
+
+      if(!grouped[type]){
+        grouped[type] = {
+          autoTotal:0,
+          autoApproved:0,
+          manualTotal:0,
+          manualApproved:0
+        }
       }
 
-      const neverManual = applications.filter(
-        (d) => d.previous_status !== "Under Review"
-      );
-      const manual = applications.filter(
-        (d) => d.previous_status === "Under Review"
-      );
+      if(app.previous_status === "Under Review"){
 
-      const calcRate = (arr) =>
-        arr.length === 0
-          ? 0
-          : (arr.filter((d) => d.current_status === "Approved").length /
-              arr.length) *
-            100;
+        grouped[type].manualTotal++
 
-      setConversionRates({
-        neverManualRate: calcRate(neverManual),
-        manualRate: calcRate(manual),
+        if(app.current_status === "Approved"){
+          grouped[type].manualApproved++
+        }
+
+      } else {
+
+        grouped[type].autoTotal++
+
+        if(app.current_status === "Approved"){
+          grouped[type].autoApproved++
+        }
+
+      }
+
+    });
+
+    const conversionData = Object.keys(grouped).map(type => ({
+
+      business_type:type,
+
+      autoRate:
+        grouped[type].autoTotal === 0
+        ? 0
+        : (grouped[type].autoApproved / grouped[type].autoTotal) * 100,
+
+      manualRate:
+        grouped[type].manualTotal === 0
+        ? 0
+        : (grouped[type].manualApproved / grouped[type].manualTotal) * 100
+
+    }));
+
+    setConversionRates(conversionData);
+
+
+    /* ===============================
+       APPLICATIONS BY BUSINESS TYPE
+    =============================== */
+
+    const typeCounts = {};
+
+    applications.forEach(app => {
+      const type = app.business_type || "Unknown";
+      typeCounts[type] = (typeCounts[type] || 0) + 1;
+    });
+
+    const typeData = Object.entries(typeCounts).map(([name,value]) => ({
+      name,
+      value
+    }));
+
+    setApplicationsByBusinessType(typeData);
+
+
+    /* ===============================
+       MONTHLY APPLICATION TREND
+    =============================== */
+
+    const monthCounts = {};
+
+    applications.forEach(app => {
+
+      const date = new Date(app.created_at);
+      const month = date.toLocaleString("default",{month:"short"});
+
+      monthCounts[month] = (monthCounts[month] || 0) + 1;
+
+    });
+
+    const monthData = Object.entries(monthCounts).map(([month,value]) => ({
+      month,
+      value
+    }));
+
+    setMonthlyApplications(monthData);
+
+
+    /* ===============================
+       RISK GRADE DISTRIBUTION
+    =============================== */
+
+    if(reviewJobs){
+
+      const gradeCounts = {};
+
+      reviewJobs.forEach(job => {
+
+        const grade = job.risk_grade || "Unknown";
+
+        gradeCounts[grade] = (gradeCounts[grade] || 0) + 1;
+
       });
 
-      // Applications by country
-      const counts = applications.reduce((acc, curr) => {
-        const country = curr.business_country;
-        acc[country] = (acc[country] || 0) + 1;
-        return acc;
-      }, {});
-      setApplicationsByCountry(counts);
-    };
+      const gradeData = Object.entries(gradeCounts).map(([name,value]) => ({
+        name,
+        value
+      }));
 
-    fetchData();
-  }, []);
+      setRiskGrades(gradeData);
+
+
+      /* ===============================
+         RISK SCORE DISTRIBUTION
+      =============================== */
+
+      const buckets = {
+        "0-20":0,
+        "21-40":0,
+        "41-60":0,
+        "61-80":0,
+        "81-100":0
+      };
+
+      reviewJobs.forEach(job => {
+
+        const score = job.risk_score || 0;
+
+        if(score <=20) buckets["0-20"]++
+        else if(score <=40) buckets["21-40"]++
+        else if(score <=60) buckets["41-60"]++
+        else if(score <=80) buckets["61-80"]++
+        else buckets["81-100"]++
+
+      });
+
+      const bucketData = Object.entries(buckets).map(([range,count])=>({
+        range,
+        count
+      }));
+
+      setRiskScoreBuckets(bucketData);
+
+
+      /* ===============================
+         TOP TRIGGERED RULES
+      =============================== */
+
+      const ruleCounts = {};
+
+      reviewJobs.forEach(job => {
+
+        if (!job.rules_triggered) return;
+
+        let rules = [];
+
+        try {
+          rules = typeof job.rules_triggered === "string"
+            ? JSON.parse(job.rules_triggered)
+            : job.rules_triggered;
+        } catch (err) {
+          console.error("Invalid rules_triggered JSON:", err);
+          return;
+        }
+
+        rules.forEach(rule => {
+
+          const name = rule.description;
+
+          if (!name) return;
+
+          ruleCounts[name] = (ruleCounts[name] || 0) + 1;
+
+        });
+
+      });
+
+      const ruleData = Object.entries(ruleCounts)
+        .map(([name, count]) => ({
+          name,
+          count
+        }))
+        .sort((a, b) => b.count - a.count); // highest first
+
+      setRiskRules(ruleData);
+
+
+      /* ===============================
+         RISK SCORE VS APPROVAL
+      =============================== */
+
+      const scatterData = reviewJobs.map(job => {
+
+        const app = applications.find(a => a.application_id === job.application_id);
+
+        return {
+          risk_score: job.risk_score,
+          approval: app?.current_status === "Approved" ? 1 : 0
+        }
+
+      });
+
+      setRiskScatter(scatterData);
+
+    }
+
+  };
+
+  fetchData();
+
+}, []);
 
   return (
     <div className="min-h-screen bg-background">
@@ -141,306 +407,319 @@ const Dashboard = () => {
           </Select>
         </div>
 
-        {/* KPI Cards */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 mb-8">
-          <KPICard
-            title="Avg. Onboarding Time"
-            value={averageOnboardingDuration.current}
-            suffix="days"
-            change={improvementPercentage}
-            changeLabel="vs previous"
-            trend="down"
-            trendPositive={true}
-            icon={<Clock className="h-5 w-5" />}
-          />
-          <KPICard
-            title="STP Rate"
-            value={stpRate.current}
-            suffix="%"
-            change={8}
-            changeLabel="improvement"
-            trend="up"
-            trendPositive={true}
-            icon={<Zap className="h-5 w-5" />}
-          />
-          <KPICard
-            title="Doc Error Rate"
-            value={documentErrorRate.current}
-            suffix="%"
-            change={errorReduction}
-            changeLabel="reduction"
-            trend="down"
-            trendPositive={true}
-            icon={<FileWarning className="h-5 w-5" />}
-          />
-          <KPICard
-            title="Drop-Off Rate"
-            value={dropOffRate.current}
-            suffix="%"
-            change={12}
-            changeLabel="reduction"
-            trend="down"
-            trendPositive={true}
-            icon={<TrendingDown className="h-5 w-5" />}
-          />
-          <KPICard
-            title="False Positive Rate"
-            value={falsePositiveRate.current}
-            suffix="%"
-            change={14}
-            changeLabel="reduction"
-            trend="down"
-            trendPositive={true}
-            icon={<AlertTriangle className="h-5 w-5" />}
-          />
-        </div>
+       <Tabs defaultValue="tab1">
 
-        {/* Charts Row 1 */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-          {/* Conversion Rate Chart */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Zap className="h-5 w-5 text-accent" />
-                Conversion Rate
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="h-[300px] flex items-center justify-center text-xl font-bold">
-                {conversionRates
-                  ? `Never Manual: ${conversionRates.neverManualRate.toFixed(
-                      1
-                    )}% | Manual: ${conversionRates.manualRate.toFixed(1)}%`
-                  : "Loading..."}
-              </div>
-            </CardContent>
-          </Card>
+          <TabsList className="mb-6">
+            <TabsTrigger value="tab1">Overview</TabsTrigger>
+            <TabsTrigger value="tab2">Applications</TabsTrigger>
+            <TabsTrigger value="tab3">Risk</TabsTrigger>
+          </TabsList>
 
-          {/* Applications by Country Chart */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Clock className="h-5 w-5 text-accent" />
-                Applications by Country
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="h-[300px]">
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart
-                    data={applicationsByCountry
-                      ? Object.entries(applicationsByCountry).map(([key, value]) => ({
-                          name: key,
-                          value,
-                        }))
-                      : []}
-                  >
-                    <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
-                    <XAxis dataKey="name" className="text-xs" />
-                    <YAxis className="text-xs" />
-                    <Tooltip />
-                    <Bar dataKey="value" fill="hsl(var(--accent))" radius={[4, 4, 0, 0]} />
-                  </BarChart>
-                </ResponsiveContainer>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
+          {/* TAB 1 */}
+          <TabsContent value="tab1">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
 
-        {/* Charts Row 2 */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-          {/* Drop-off Funnel */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Target className="h-5 w-5 text-accent" />
-                Application Drop-off Funnel
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-3">
-                {funnelData.map((stage) => {
-                  const widthPercentage =
-                    (stage.count / funnelData[0].count) * 100;
-                  return (
-                    <div key={stage.stage} className="space-y-1">
-                      <div className="flex justify-between text-sm">
-                        <span className="font-medium">{stage.stage}</span>
-                        <span className="text-muted-foreground">
-                          {stage.count} ({widthPercentage.toFixed(0)}%)
-                          {stage.dropOff > 0 && (
-                            <span className="text-status-error ml-2">
-                              -{stage.dropOff}%
-                            </span>
-                          )}
-                        </span>
-                      </div>
-                      <div className="h-8 bg-secondary rounded-md overflow-hidden">
-                        <div
-                          className="h-full bg-accent transition-all duration-500"
-                          style={{ width: `${widthPercentage}%` }}
-                        />
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
+              {/* Total Applications */}
+              <Card>
+                <CardHeader>
+                  <CardTitle>Total Applications</CardTitle>
+                </CardHeader>
+                <CardContent className="text-4xl font-bold text-center">
+                  {applications?.length || 0}
+                </CardContent>
+              </Card>
 
-              <div className="mt-4 p-4 bg-secondary rounded-lg">
-                <p className="text-sm">
-                  <span className="font-medium">Biggest drop-off:</span>{" "}
-                  Document Upload stage (-15%)
-                </p>
-              </div>
-            </CardContent>
-          </Card>
+              {/* STP Rate */}
+              <Card>
+                <CardHeader>
+                  <CardTitle>STP Rate</CardTitle>
+                </CardHeader>
+                <CardContent className="text-4xl font-bold text-center">
+                  {stpRate?.toFixed(1)}%
+                </CardContent>
+              </Card>
 
-          {/* False Positive Trend */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <AlertTriangle className="h-5 w-5 text-accent" />
-                False Positive Rate Trend
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="h-[280px]">
-                <ResponsiveContainer width="100%" height="100%">
-                  <LineChart data={falsePositiveTrendData}>
-                    <CartesianGrid
-                      strokeDasharray="3 3"
-                      className="stroke-border"
-                    />
-                    <XAxis dataKey="name" className="text-xs" />
-                    <YAxis className="text-xs" domain={[0, 50]} />
-                    <Tooltip
-                      contentStyle={{
-                        backgroundColor: "hsl(var(--card))",
-                        border: "1px solid hsl(var(--border))",
-                        borderRadius: "8px",
-                      }}
-                      formatter={(value) => [
-                        `${value}%`,
-                        "False Positive Rate",
-                      ]}
-                    />
-                    <Line
-                      type="monotone"
-                      dataKey="value"
-                      stroke="hsl(var(--status-warning))"
-                      strokeWidth={3}
-                      dot={{
-                        fill: "hsl(var(--status-warning))",
-                        strokeWidth: 2,
-                      }}
-                    />
-                  </LineChart>
-                </ResponsiveContainer>
-              </div>
+              {/* Applications by Status */}
+              <Card>
+                <CardHeader>
+                  <CardTitle>Applications by Status</CardTitle>
+                </CardHeader>
 
-              <div className="mt-4 p-4 bg-status-success/10 border border-status-success/20 rounded-lg">
-                <p className="text-sm text-status-success font-medium">
-                  Rule efficiency improved: False positives reduced from 38% to
-                  24%
-                </p>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
+                <CardContent className="h-[300px]">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={applicationsByStatus}>
+                      <CartesianGrid strokeDasharray="3 3" />
+                      <XAxis dataKey="name" />
+                      <YAxis />
+                      <Tooltip />
+                      <Bar dataKey="value">
+                        <LabelList dataKey="value" position="top"/>
+                      </Bar>
+                    </BarChart>
+                  </ResponsiveContainer>
+                </CardContent>
+              </Card>
 
-        {/* Before/After Comparison */}
-        <Card>
-          <CardHeader>
-            <CardTitle>
-              Performance Comparison: Before vs After Improvements
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-              <div className="text-center p-4 bg-secondary rounded-lg">
-                <p className="text-sm text-muted-foreground mb-2">
-                  Onboarding Duration
-                </p>
-                <div className="flex items-center justify-center gap-4">
-                  <div>
-                    <p className="text-2xl font-bold text-muted-foreground line-through">
-                      {averageOnboardingDuration.previous}d
-                    </p>
-                    <p className="text-xs text-muted-foreground">Before</p>
-                  </div>
-                  <span className="text-status-success text-xl">→</span>
-                  <div>
-                    <p className="text-2xl font-bold text-status-success">
-                      {averageOnboardingDuration.current}d
-                    </p>
-                    <p className="text-xs text-status-success">After</p>
-                  </div>
-                </div>
-              </div>
+              {/* Manual Review Load */}
+              <Card>
+                <CardHeader>
+                  <CardTitle>Manual Review Load</CardTitle>
+                </CardHeader>
 
-              <div className="text-center p-4 bg-secondary rounded-lg">
-                <p className="text-sm text-muted-foreground mb-2">
-                  Document Error Rate
-                </p>
-                <div className="flex items-center justify-center gap-4">
-                  <div>
-                    <p className="text-2xl font-bold text-muted-foreground line-through">
-                      {documentErrorRate.previous}%
-                    </p>
-                    <p className="text-xs text-muted-foreground">Before</p>
-                  </div>
-                  <span className="text-status-success text-xl">→</span>
-                  <div>
-                    <p className="text-2xl font-bold text-status-success">
-                      {documentErrorRate.current}%
-                    </p>
-                    <p className="text-xs text-status-success">After</p>
-                  </div>
-                </div>
-              </div>
+                <CardContent className="h-[300px]">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <PieChart>
+                      <Pie
+                        data={manualReviewData}
+                        dataKey="value"
+                        nameKey="name"
+                        outerRadius={100}
+                        label={({ name, percent }) =>
+                          `${name}: ${(percent * 100).toFixed(0)}%`
+                        }
+                      >
+                        {manualReviewData.map((entry, index) => (
+                          <Cell
+                            key={`cell-${index}`}
+                            fill={
+                              entry.name === "Manual Review"
+                                ? "hsl(var(--status-warning))"
+                                : "hsl(var(--status-success))"
+                            }
+                          />
+                        ))}
+                      </Pie>
 
-              <div className="text-center p-4 bg-secondary rounded-lg">
-                <p className="text-sm text-muted-foreground mb-2">STP Rate</p>
-                <div className="flex items-center justify-center gap-4">
-                  <div>
-                    <p className="text-2xl font-bold text-muted-foreground line-through">
-                      64%
-                    </p>
-                    <p className="text-xs text-muted-foreground">Before</p>
-                  </div>
-                  <span className="text-status-success text-xl">→</span>
-                  <div>
-                    <p className="text-2xl font-bold text-status-success">
-                      {stpRate.current}%
-                    </p>
-                    <p className="text-xs text-status-success">After</p>
-                  </div>
-                </div>
-              </div>
-
-              <div className="text-center p-4 bg-secondary rounded-lg">
-                <p className="text-sm text-muted-foreground mb-2">
-                  False Positive Rate
-                </p>
-                <div className="flex items-center justify-center gap-4">
-                  <div>
-                    <p className="text-2xl font-bold text-muted-foreground line-through">
-                      38%
-                    </p>
-                    <p className="text-xs text-muted-foreground">Before</p>
-                  </div>
-                  <span className="text-status-success text-xl">→</span>
-                  <div>
-                    <p className="text-2xl font-bold text-status-success">
-                      {falsePositiveRate.current}%
-                    </p>
-                    <p className="text-xs text-status-success">After</p>
-                  </div>
-                </div>
-              </div>
+                      <Tooltip />
+                      <Legend verticalAlign="bottom" height={36} />
+                    </PieChart>
+                  </ResponsiveContainer>
+                </CardContent>
+              </Card>
             </div>
-          </CardContent>
-        </Card>
+          </TabsContent>
+
+
+          {/* TAB 2 */}
+          <TabsContent value="tab2">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+
+              {/* Applications by Country */}
+              <Card>
+                <CardHeader>
+                  <CardTitle>Applications by Country</CardTitle>
+                </CardHeader>
+
+                <CardContent className="h-[300px]">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={applicationsByCountry}>
+                      <CartesianGrid strokeDasharray="3 3"/>
+                      <XAxis dataKey="name"/>
+                      <YAxis/>
+                      <Tooltip/>
+                      <Bar dataKey="value">
+                        <LabelList dataKey="value" position="top"/>
+                      </Bar>
+                    </BarChart>
+                  </ResponsiveContainer>
+                </CardContent>
+              </Card>
+
+
+              {/* Conversion Rate by Business Type */}
+              <Card>
+                <CardHeader>
+                  <CardTitle>Conversion Rate by Business Type</CardTitle>
+                </CardHeader>
+
+                <CardContent className="h-[300px]">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={conversionRates}>
+                      <CartesianGrid strokeDasharray="3 3"/>
+
+                      <XAxis
+                        dataKey="business_type"
+                        tickFormatter={(v) =>
+                          v.replaceAll("_"," ").replace(/\b\w/g,c=>c.toUpperCase())
+                        }
+                      />
+
+                      <YAxis domain={[0,100]}/>
+
+                      <Tooltip formatter={(v)=>`${v.toFixed(1)}%`} />
+
+                      <Bar dataKey="autoRate" name="Auto Approved">
+                        <LabelList
+                          dataKey="autoRate"
+                          formatter={(v)=>`${v.toFixed(1)}%`}
+                          position="top"
+                        />
+                      </Bar>
+
+                      <Bar dataKey="manualRate" name="Manual Review">
+                        <LabelList
+                          dataKey="manualRate"
+                          formatter={(v)=>`${v.toFixed(1)}%`}
+                          position="top"
+                        />
+                      </Bar>
+
+                    </BarChart>
+                  </ResponsiveContainer>
+                </CardContent>
+              </Card>
+
+
+              {/* Applications by Business Type */}
+              <Card>
+                <CardHeader>
+                  <CardTitle>Applications by Business Type</CardTitle>
+                </CardHeader>
+
+                <CardContent className="h-[300px]">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <PieChart>
+                      <Pie
+                        data={applicationsByBusinessType}
+                        dataKey="value"
+                        nameKey="name"
+                        outerRadius={100}
+                        label
+                      />
+                      <Tooltip/>
+                    </PieChart>
+                  </ResponsiveContainer>
+                </CardContent>
+              </Card>
+
+
+              {/* Monthly Applications */}
+              <Card>
+                <CardHeader>
+                  <CardTitle>Applications Trend</CardTitle>
+                </CardHeader>
+
+                <CardContent className="h-[300px]">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <LineChart data={monthlyApplications}>
+                      <CartesianGrid strokeDasharray="3 3"/>
+                      <XAxis dataKey="month"/>
+                      <YAxis/>
+                      <Tooltip/>
+                      <Line dataKey="value" strokeWidth={3}/>
+                    </LineChart>
+                  </ResponsiveContainer>
+                </CardContent>
+              </Card>
+
+            </div>
+          </TabsContent>
+
+
+          {/* TAB 3 */}
+          <TabsContent value="tab3">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+
+              {/* Risk Grade Distribution */}
+              <Card>
+                <CardHeader>
+                  <CardTitle>Risk Grade Distribution</CardTitle>
+                </CardHeader>
+
+                <CardContent className="h-[300px]">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <PieChart>
+                      <Pie
+                        data={riskGrades}
+                        dataKey="value"
+                        nameKey="name"
+                        outerRadius={100}
+                        label
+                      />
+                      <Tooltip/>
+                    </PieChart>
+                  </ResponsiveContainer>
+                </CardContent>
+              </Card>
+
+
+              {/* Risk Score Distribution */}
+              <Card>
+                <CardHeader>
+                  <CardTitle>Risk Score Distribution</CardTitle>
+                </CardHeader>
+
+                <CardContent className="h-[300px]">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={riskScoreBuckets}>
+                      <CartesianGrid strokeDasharray="3 3"/>
+                      <XAxis dataKey="range"/>
+                      <YAxis/>
+                      <Tooltip/>
+                      <Bar dataKey="count">
+                        <LabelList dataKey="count" position="top"/>
+                      </Bar>
+                    </BarChart>
+                  </ResponsiveContainer>
+                </CardContent>
+              </Card>
+
+
+              {/* Top Risk Rules */}
+              <Card>
+                <CardHeader>
+                  <CardTitle>Top Triggered Risk Rules</CardTitle>
+                </CardHeader>
+
+                <CardContent className="h-[300px]">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={riskRules}>
+                      <CartesianGrid strokeDasharray="3 3" />
+
+                      <XAxis
+                        dataKey="name"
+                        interval={0}
+                        angle={-20}
+                        textAnchor="end"
+                      />
+
+                      <YAxis />
+
+                      <Tooltip />
+
+                      <Bar dataKey="count">
+                        <LabelList dataKey="count" position="top" />
+                      </Bar>
+
+                    </BarChart>
+                  </ResponsiveContainer>
+                </CardContent>
+              </Card>
+
+
+              {/* Risk Score vs Approval */}
+              <Card>
+                <CardHeader>
+                  <CardTitle>Risk Score vs Approval</CardTitle>
+                </CardHeader>
+
+                <CardContent className="h-[300px]">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <ScatterChart>
+                      <CartesianGrid/>
+                      <XAxis dataKey="risk_score"/>
+                      <YAxis dataKey="approval"/>
+                      <Tooltip/>
+                      <Scatter data={riskScatter}/>
+                    </ScatterChart>
+                  </ResponsiveContainer>
+                </CardContent>
+              </Card>
+
+            </div>
+          </TabsContent>
+
+        </Tabs>
       </main>
     </div>
   );
