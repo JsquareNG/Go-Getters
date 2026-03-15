@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState,useEffect  } from "react";
 import {
   KPICard,
   Card,
@@ -12,6 +12,7 @@ import {
   SelectValue,
 } from "@/components/ui";
 import { mockKPIData } from "../data/mockData";
+import { supabase } from "../data/supabaseClient"; // your Supabase client
 import {
   LineChart,
   Line,
@@ -35,6 +36,10 @@ import {
 
 const Dashboard = () => {
   const [timeRange, setTimeRange] = useState("monthly");
+  const [conversionRates, setConversionRates] = useState(null);
+  const [applicationsByCountry, setApplicationsByCountry] = useState(null);
+
+  // KPI mock data (keep your existing mock for other KPIs)
   const {
     averageOnboardingDuration,
     stpRate,
@@ -43,7 +48,7 @@ const Dashboard = () => {
     falsePositiveRate,
   } = mockKPIData;
 
-  // Chart data
+  // Onboarding trend (existing)
   const onboardingTrendData = averageOnboardingDuration.trend.map(
     (value, index) => ({
       name: `Week ${index + 1}`,
@@ -53,13 +58,10 @@ const Dashboard = () => {
 
   const stpByProductData = stpRate.byProduct;
   const funnelData = dropOffRate.funnel;
-
-  const falsePositiveTrendData = falsePositiveRate.trend.map(
-    (value, index) => ({
-      name: `Week ${index + 1}`,
-      value,
-    }),
-  );
+  const falsePositiveTrendData = falsePositiveRate.trend.map((value, index) => ({
+    name: `Week ${index + 1}`,
+    value,
+  }));
 
   const improvementPercentage = Math.round(
     ((averageOnboardingDuration.previous - averageOnboardingDuration.current) /
@@ -68,6 +70,50 @@ const Dashboard = () => {
   );
 
   const errorReduction = documentErrorRate.previous - documentErrorRate.current;
+
+  // Fetch Conversion Rates & Applications by Country
+  useEffect(() => {
+    const fetchData = async () => {
+      // Conversion Rates
+      const { data: applications, error } = await supabase
+        .from("application_form")
+        .select("current_status, previous_status, business_country");
+
+      if (error) {
+        console.error(error);
+        return;
+      }
+
+      const neverManual = applications.filter(
+        (d) => d.previous_status !== "Under Review"
+      );
+      const manual = applications.filter(
+        (d) => d.previous_status === "Under Review"
+      );
+
+      const calcRate = (arr) =>
+        arr.length === 0
+          ? 0
+          : (arr.filter((d) => d.current_status === "Approved").length /
+              arr.length) *
+            100;
+
+      setConversionRates({
+        neverManualRate: calcRate(neverManual),
+        manualRate: calcRate(manual),
+      });
+
+      // Applications by country
+      const counts = applications.reduce((acc, curr) => {
+        const country = curr.business_country;
+        acc[country] = (acc[country] || 0) + 1;
+        return acc;
+      }, {});
+      setApplicationsByCountry(counts);
+    };
+
+    fetchData();
+  }, []);
 
   return (
     <div className="min-h-screen bg-background">
@@ -151,115 +197,51 @@ const Dashboard = () => {
 
         {/* Charts Row 1 */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-          {/* Onboarding Duration Trend */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Clock className="h-5 w-5 text-accent" />
-                Onboarding Duration Trend
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="h-[300px]">
-                <ResponsiveContainer width="100%" height="100%">
-                  <LineChart data={onboardingTrendData}>
-                    <CartesianGrid
-                      strokeDasharray="3 3"
-                      className="stroke-border"
-                    />
-                    <XAxis dataKey="name" className="text-xs" />
-                    <YAxis className="text-xs" />
-                    <Tooltip
-                      contentStyle={{
-                        backgroundColor: "hsl(var(--card))",
-                        border: "1px solid hsl(var(--border))",
-                        borderRadius: "8px",
-                      }}
-                    />
-                    <Line
-                      type="monotone"
-                      dataKey="value"
-                      stroke="hsl(var(--accent))"
-                      strokeWidth={3}
-                      dot={{ fill: "hsl(var(--accent))", strokeWidth: 2 }}
-                    />
-                  </LineChart>
-                </ResponsiveContainer>
-              </div>
-
-              <div className="mt-4 p-4 bg-status-success/10 border border-status-success/20 rounded-lg">
-                <p className="text-sm text-status-success font-medium">
-                  ↓ {improvementPercentage}% improvement from{" "}
-                  {averageOnboardingDuration.previous} days to{" "}
-                  {averageOnboardingDuration.current} days
-                </p>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* STP Rate by Product */}
+          {/* Conversion Rate Chart */}
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Zap className="h-5 w-5 text-accent" />
-                STP Rate by Product
+                Conversion Rate
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="h-[300px] flex items-center justify-center text-xl font-bold">
+                {conversionRates
+                  ? `Never Manual: ${conversionRates.neverManualRate.toFixed(
+                      1
+                    )}% | Manual: ${conversionRates.manualRate.toFixed(1)}%`
+                  : "Loading..."}
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Applications by Country Chart */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Clock className="h-5 w-5 text-accent" />
+                Applications by Country
               </CardTitle>
             </CardHeader>
             <CardContent>
               <div className="h-[300px]">
                 <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={stpByProductData} layout="vertical">
-                    <CartesianGrid
-                      strokeDasharray="3 3"
-                      className="stroke-border"
-                    />
-                    <XAxis
-                      type="number"
-                      domain={[0, 100]}
-                      className="text-xs"
-                    />
-                    <YAxis
-                      dataKey="name"
-                      type="category"
-                      width={120}
-                      className="text-xs"
-                    />
-                    <Tooltip
-                      contentStyle={{
-                        backgroundColor: "hsl(var(--card))",
-                        border: "1px solid hsl(var(--border))",
-                        borderRadius: "8px",
-                      }}
-                      formatter={(value) => [`${value}%`, "STP Rate"]}
-                    />
-                    <Bar dataKey="value" radius={[0, 4, 4, 0]}>
-                      {stpByProductData.map((entry, index) => (
-                        <Cell
-                          key={`cell-${index}`}
-                          fill={
-                            entry.value >= 70
-                              ? "hsl(var(--status-success))"
-                              : entry.value >= 50
-                                ? "hsl(var(--status-warning))"
-                                : "hsl(var(--status-error))"
-                          }
-                        />
-                      ))}
-                    </Bar>
+                  <BarChart
+                    data={applicationsByCountry
+                      ? Object.entries(applicationsByCountry).map(([key, value]) => ({
+                          name: key,
+                          value,
+                        }))
+                      : []}
+                  >
+                    <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
+                    <XAxis dataKey="name" className="text-xs" />
+                    <YAxis className="text-xs" />
+                    <Tooltip />
+                    <Bar dataKey="value" fill="hsl(var(--accent))" radius={[4, 4, 0, 0]} />
                   </BarChart>
                 </ResponsiveContainer>
-              </div>
-
-              <div className="mt-4 flex items-center gap-4 text-xs">
-                <span className="flex items-center gap-1">
-                  <span className="h-3 w-3 rounded bg-status-success" /> ≥70%
-                </span>
-                <span className="flex items-center gap-1">
-                  <span className="h-3 w-3 rounded bg-status-warning" /> 50-69%
-                </span>
-                <span className="flex items-center gap-1">
-                  <span className="h-3 w-3 rounded bg-status-error" /> &lt;50%
-                </span>
               </div>
             </CardContent>
           </Card>
