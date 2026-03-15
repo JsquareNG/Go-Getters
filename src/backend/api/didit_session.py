@@ -16,7 +16,7 @@ DIDIT_CREATE_SESSION_URL = "https://verification.didit.me/v3/session/"
 
 
 class CreateSessionRequest(BaseModel):
-    application_id: str
+    application_id: str | None = None
     user_id: str | None = None
 
 
@@ -35,18 +35,28 @@ def create_didit_session(payload: CreateSessionRequest):
 
     body = {
         "workflow_id": DIDIT_WORKFLOW_ID,
-        "vendor_data": payload.application_id,
         "callback": "http://localhost:5173/didit-callback"
     }
 
+    # application_id is now OPTIONAL
+    if payload.application_id:
+        body["vendor_data"] = payload.application_id
+
+    # user_id optional too, only include if needed later
+    if payload.user_id:
+        body["metadata"] = {
+            "user_id": payload.user_id
+        }
+
     try:
         response = requests.post(
-            "https://verification.didit.me/v3/session/",
+            DIDIT_CREATE_SESSION_URL,
             headers=headers,
             json=body,
             timeout=30,
         )
 
+        print("Didit create-session request body:", body)
         print("Didit response status:", response.status_code)
         print("Didit response text:", response.text)
 
@@ -61,9 +71,13 @@ def create_didit_session(payload: CreateSessionRequest):
             "raw": data,
         }
 
+    except HTTPException:
+        raise
+
     except Exception as e:
         print("Create session error:", str(e))
         raise HTTPException(status_code=500, detail=str(e))
+
 
 @router.get("/session/{session_id}/decision")
 def get_session_decision(session_id: str):
@@ -78,10 +92,14 @@ def get_session_decision(session_id: str):
     url = f"https://verification.didit.me/v3/session/{session_id}/decision/"
     response = requests.get(url, headers=headers, timeout=30)
 
+    print("Didit decision status:", response.status_code)
+    print("Didit decision text:", response.text)
+
     if response.status_code != 200:
         raise HTTPException(status_code=response.status_code, detail=response.text)
 
     return response.json()
+
 
 @router.post("/webhook")
 async def didit_webhook(request: Request):
@@ -89,14 +107,12 @@ async def didit_webhook(request: Request):
 
     print("Didit webhook received:", payload)
 
-    # Example: extract important info
     session_id = payload.get("session_id")
     status = payload.get("status")
 
     print("Session:", session_id)
     print("Verification status:", status)
 
-    # Later you could update your DB here
-    # update_application_status(session_id, status)
+    # Later you can update DB here using provider_session_id / session_id
 
     return {"ok": True}

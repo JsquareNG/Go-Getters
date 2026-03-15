@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 
 export default function DiditKycTest() {
-  const [applicationId, setApplicationId] = useState("APP-0001");
+  const [applicationId, setApplicationId] = useState("");
   const [sessionId, setSessionId] = useState("");
   const [verificationUrl, setVerificationUrl] = useState("");
   const [result, setResult] = useState(null);
@@ -9,19 +9,28 @@ export default function DiditKycTest() {
 
   const startVerification = async () => {
     console.log("Start button clicked");
+
     setLoading(true);
     setResult(null);
 
     try {
-      const response = await fetch("http://127.0.0.1:8000/didit/create-session", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          application_id: applicationId,
-        }),
-      });
+      // application_id becomes OPTIONAL
+      const payload = applicationId
+        ? { application_id: applicationId }
+        : {};
+
+      console.log("Payload being sent:", payload);
+
+      const response = await fetch(
+        "http://127.0.0.1:8000/didit/create-session",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(payload),
+        }
+      );
 
       console.log("Backend response status:", response.status);
 
@@ -37,6 +46,7 @@ export default function DiditKycTest() {
       } else {
         alert("No verification_url returned. Check console and backend logs.");
       }
+
     } catch (error) {
       console.error("Frontend error:", error);
       setResult({ error: error.message });
@@ -55,9 +65,15 @@ export default function DiditKycTest() {
       const response = await fetch(
         `http://127.0.0.1:8000/didit/session/${sessionId}/decision`
       );
+
       const data = await response.json();
+
+      console.log("Decision data:", data);
+
       setResult(data);
+
     } catch (error) {
+      console.error("Check result error:", error);
       setResult({ error: error.message });
     }
   };
@@ -67,9 +83,10 @@ export default function DiditKycTest() {
       <h2>Didit NRIC + Video Liveness Test</h2>
 
       <div style={{ marginBottom: "12px" }}>
-        <label>Application ID</label>
+        <label>Application ID (Optional)</label>
         <br />
         <input
+          placeholder="Leave empty if no application yet"
           value={applicationId}
           onChange={(e) => setApplicationId(e.target.value)}
           style={{ padding: "8px", width: "280px" }}
@@ -90,8 +107,17 @@ export default function DiditKycTest() {
 
       {verificationUrl && (
         <div style={{ marginTop: "16px" }}>
-          <p>Session ID: {sessionId}</p>
-          <pre style={{ background: "#f4f4f4", padding: "12px" }}>
+          <p>
+            <strong>Session ID:</strong> {sessionId}
+          </p>
+
+          <pre
+            style={{
+              background: "#f4f4f4",
+              padding: "12px",
+              borderRadius: "8px",
+            }}
+          >
             {verificationUrl}
           </pre>
         </div>
@@ -100,6 +126,7 @@ export default function DiditKycTest() {
       {result && (
         <div style={{ marginTop: "20px" }}>
           <h3>Result</h3>
+
           <pre
             style={{
               background: "#f4f4f4",

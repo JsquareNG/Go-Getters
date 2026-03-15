@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { livenessDetectionApi } from "../api/livenessDetectionApi";
 
 export default function DiditCallback() {
@@ -7,6 +7,8 @@ export default function DiditCallback() {
   const [decision, setDecision] = useState(null);
   const [savedResult, setSavedResult] = useState(null);
   const [loading, setLoading] = useState(true);
+
+  const hasRunRef = useRef(false);
 
   const mapDiditToPayload = (diditData) => {
     const idv = diditData?.id_verifications?.[0] || {};
@@ -74,6 +76,9 @@ export default function DiditCallback() {
   };
 
   useEffect(() => {
+    if (hasRunRef.current) return;
+    hasRunRef.current = true;
+
     const params = new URLSearchParams(window.location.search);
 
     const verificationSessionId = params.get("verificationSessionId");
@@ -85,6 +90,27 @@ export default function DiditCallback() {
     const processDiditResult = async () => {
       try {
         if (!verificationSessionId) {
+          setSavedResult({ error: "No verificationSessionId found in callback URL" });
+          setLoading(false);
+          return;
+        }
+
+        const storageKey = `didit_saved_${verificationSessionId}`;
+
+        // Prevent duplicate POST on refresh / revisit / StrictMode
+        const alreadySaved = sessionStorage.getItem(storageKey);
+        if (alreadySaved === "true") {
+          console.log("This Didit session was already saved before:", verificationSessionId);
+
+          const response = await fetch(
+            `http://127.0.0.1:8000/didit/session/${verificationSessionId}/decision`
+          );
+          const diditData = await response.json();
+
+          setDecision(diditData);
+          setSavedResult({
+            message: "KYC result was already saved previously. Skipped duplicate save."
+          });
           setLoading(false);
           return;
         }
@@ -97,7 +123,7 @@ export default function DiditCallback() {
 
         setDecision(diditData);
 
-        // 2. map raw Didit JSON into your DB payload format
+        // 2. map raw Didit JSON into DB payload
         const payload = mapDiditToPayload(diditData);
         console.log("Mapped payload to save:", payload);
 
@@ -106,8 +132,14 @@ export default function DiditCallback() {
         console.log("Saved DB response:", saved);
 
         setSavedResult(saved);
+
+        // Mark as saved so refresh / second render won't repost
+        sessionStorage.setItem(storageKey, "true");
       } catch (err) {
-        setSavedResult({ error: err.message });
+        console.error("Didit callback error:", err);
+        setSavedResult({
+          error: err?.response?.data || err.message || "Unknown error"
+        });
       } finally {
         setLoading(false);
       }

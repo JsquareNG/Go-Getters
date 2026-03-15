@@ -44,3 +44,4 @@ export { AlertDialog,
   AlertDialogDescription,
   AlertDialogAction,
   AlertDialogCancel } from "./AlertDialog"
+export { KycVerificationCard } from "./kycVerificationCard"

@@ -44,8 +44,10 @@ import {
 } from "@/api/applicationApi";
 import { getAuditTrail } from "@/api/auditTrailApi";
 import { allDocuments, downloadDocuments } from "./../api/documentApi";
+import { getKYCdetails } from "@/api/livenessDetectionApi";
 import RequestDocumentsDialog from "../components/ui/features/RequestDocumentsDialog";
 import { AuditTrail } from "../components/ui/features/AuditTrail";
+import { KycVerificationCard } from "../components/ui/features/kycVerificationCard";
 
 const formatBusinessType = (value) => {
   if (!value) return "-";
@@ -53,6 +55,17 @@ const formatBusinessType = (value) => {
     .split("_")
     .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
     .join(" ");
+};
+
+const formatBool = (value) => {
+  if (value === true) return "Yes";
+  if (value === false) return "No";
+  return "-";
+};
+
+const formatValue = (value) => {
+  if (value === null || value === undefined || value === "") return "-";
+  return value;
 };
 
 export default function ApplicationReviewDetail() {
@@ -71,6 +84,10 @@ export default function ApplicationReviewDetail() {
 
   const [riskLoading, setRiskLoading] = useState(false);
   const [riskError, setRiskError] = useState(null);
+
+  const [kycDetails, setKycDetails] = useState(null);
+  const [kycLoading, setKycLoading] = useState(false);
+  const [kycError, setKycError] = useState(null);
 
   const [actionRequestsData, setActionRequestsData] = useState(null);
   const [qnaLoading, setQnaLoading] = useState(false);
@@ -126,7 +143,7 @@ export default function ApplicationReviewDetail() {
   }, [id]);
 
   // -----------------------------
-  // Fetch Risk Assessment via getReviewJob
+  // Fetch Risk Assessment
   // -----------------------------
   useEffect(() => {
     const fetchReviewJob = async () => {
@@ -163,7 +180,44 @@ export default function ApplicationReviewDetail() {
   }, [id, application]);
 
   // -----------------------------
-  // Fetch Action Requests (QnA) via getQnA
+  // Fetch KYC Details by Application ID
+  // -----------------------------
+  useEffect(() => {
+    const fetchKycDetails = async () => {
+      try {
+        setKycLoading(true);
+        setKycError(null);
+
+        const appIdToUse = application?.application_id || application?.id || id;
+        if (!appIdToUse) return;
+
+        const data = await getKYCdetails(appIdToUse);
+        setKycDetails(data && typeof data === "object" ? data : null);
+      } catch (err) {
+        console.error("Error fetching KYC details:", {
+          message: err?.message,
+          status: err?.response?.status,
+          data: err?.response?.data,
+          url: err?.config?.url,
+        });
+
+        setKycError(
+          err?.response?.data?.detail ||
+            err?.response?.data?.message ||
+            err?.message ||
+            "Could not retrieve KYC details.",
+        );
+        setKycDetails(null);
+      } finally {
+        setKycLoading(false);
+      }
+    };
+
+    if (id && application) fetchKycDetails();
+  }, [id, application]);
+
+  // -----------------------------
+  // Fetch Action Requests (QnA)
   // -----------------------------
   useEffect(() => {
     const fetchQnA = async () => {
@@ -391,6 +445,8 @@ export default function ApplicationReviewDetail() {
     });
   }, [documents, sortedActionRequestsAsc]);
 
+  const shouldShowKycBanner = !!kycDetails && !kycLoading && !kycError;
+
   // -----------------------------
   // Handlers
   // -----------------------------
@@ -566,9 +622,7 @@ export default function ApplicationReviewDetail() {
                   </h1>
                   <StatusBadge status={currentStatus} />
                 </div>
-                <p className="mt-1 text-muted-foreground">
-                  Application ID: {appDisplayId}
-                </p>
+                <p className="mt-1 text-muted-foreground">Application ID: {appDisplayId}</p>
 
                 <div className="mt-2 flex flex-wrap items-center gap-3">
                   <span className="flex items-center gap-1.5 text-sm text-muted-foreground">
@@ -586,7 +640,23 @@ export default function ApplicationReviewDetail() {
           </div>
         </div>
 
-        <div className="pb-20">
+        <div className="space-y-6 pb-20">
+          {kycLoading ? (
+            <Card>
+              <CardContent className="py-4">
+                <p className="text-sm text-muted-foreground">Loading KYC details...</p>
+              </CardContent>
+            </Card>
+          ) : kycError ? (
+            <Card>
+              <CardContent className="py-4">
+                <p className="text-sm text-red-500">{kycError}</p>
+              </CardContent>
+            </Card>
+          ) : shouldShowKycBanner ? (
+            <KycVerificationCard kyc={kycDetails} />
+          ) : null}
+
           <Card>
             <Tabs defaultValue="overview" className="w-full">
               <CardHeader className="pb-3">
@@ -624,9 +694,7 @@ export default function ApplicationReviewDetail() {
                     <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
                       <div>
                         <p className="text-xs text-muted-foreground">Registration Number / UEN</p>
-                        <p className="text-sm font-medium text-foreground">
-                          {formData?.uen || "-"}
-                        </p>
+                        <p className="text-sm font-medium text-foreground">{formData?.uen || "-"}</p>
                       </div>
                       <div>
                         <p className="text-xs text-muted-foreground">Business Name</p>
@@ -672,15 +740,11 @@ export default function ApplicationReviewDetail() {
                       </div>
                       <div>
                         <p className="text-xs text-muted-foreground">Email</p>
-                        <p className="text-sm font-medium text-foreground">
-                          {formData?.email || "-"}
-                        </p>
+                        <p className="text-sm font-medium text-foreground">{formData?.email || "-"}</p>
                       </div>
                       <div>
                         <p className="text-xs text-muted-foreground">Phone</p>
-                        <p className="text-sm font-medium text-foreground">
-                          {formData?.phone || "-"}
-                        </p>
+                        <p className="text-sm font-medium text-foreground">{formData?.phone || "-"}</p>
                       </div>
                       <div>
                         <p className="text-xs text-muted-foreground">Account Currency</p>
