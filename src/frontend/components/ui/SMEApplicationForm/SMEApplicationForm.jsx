@@ -18,7 +18,6 @@ import { useDispatch, useSelector } from "react-redux";
 import { selectUser } from "@/store/authSlice";
 import {
   selectCurrentApplication,
-  selectCurrentMode,
   selectFormData,
   selectCurrentStep,
   setCurrentStep,
@@ -31,9 +30,7 @@ import {
 } from "@/store/applicationFormSlice";
 
 import {
-  // submitApplicationApi,
   submitSmeApplicationApi,
-  secondSubmit,
   saveApplicationDraftApi,
   getApplicationByAppId,
 } from "@/api/applicationApi";
@@ -55,7 +52,6 @@ const SMEApplicationForm = () => {
   const formData = useSelector(selectFormData);
   const user = useSelector(selectUser);
   const currentApp = useSelector(selectCurrentApplication);
-  // const currentMode = useSelector(selectCurrentMode);
   const currentStepFromRedux = useSelector(selectCurrentStep);
 
   const { appId, step: routeStep } = useParams();
@@ -82,6 +78,9 @@ const SMEApplicationForm = () => {
     navigate(`/application/edit/${appId}/${step}`);
   };
 
+  useEffect(() => {
+  console.log("FORM DATA UPDATED", formData);
+}, [formData]);
   /* ------------------------------------------------ */
   /* LOAD APPLICATION FROM API */
   /* ------------------------------------------------ */
@@ -189,61 +188,74 @@ const SMEApplicationForm = () => {
   // Build individuals dynamically based on selected business type
   // --------------------------
   const mapIndividualsDynamic = (data, activeConfig) => {
-  const individuals = [];
-  const businessType = data.businessType;
+    const individuals = [];
+    const businessType = data.businessType;
 
-  if (!businessType || !activeConfig?.entities[businessType]) return individuals;
+    if (!businessType || !activeConfig?.entities[businessType])
+      return individuals;
 
-  const entityConfig = activeConfig.entities[businessType];
+    const entityConfig = activeConfig.entities[businessType];
 
-  // Gather all repeatable sections across steps
-  const repeatableSections = {};
-  entityConfig.steps.forEach((step) => {
-    Object.assign(repeatableSections, step.repeatableSections || {});
-  });
-
-  // Step 1: Create a default individual from all fields in repeatable sections
-  const defaultIndividual = {};
-
-  Object.entries(repeatableSections).forEach(([sectionKey, sectionConfig]) => {
-    Object.keys(sectionConfig.fields || {}).forEach((fKey) => {
-      defaultIndividual[fKey] = data[fKey] ?? null;
+    // Gather all repeatable sections across steps
+    const repeatableSections = {};
+    entityConfig.steps.forEach((step) => {
+      Object.assign(repeatableSections, step.repeatableSections || {});
     });
-    defaultIndividual.role = sectionKey; // set role based on section
-  });
 
-  // Step 2: Add common top-level individual fields if they exist in config or standard
-  const baseFields = ["fullName", "idNumber", "nationality", "residentialAddress", "dateOfBirth", "idDocument"];
-  baseFields.forEach((key) => {
-    if (!(key in defaultIndividual)) defaultIndividual[key] = data[key] ?? null;
-  });
+    // Step 1: Create a default individual from all fields in repeatable sections
+    const defaultIndividual = {};
 
-  individuals.push(defaultIndividual);
-
-  // Step 3: Map actual repeatable arrays if they exist in data
-  Object.entries(repeatableSections).forEach(([sectionKey, sectionConfig]) => {
-    if (Array.isArray(data[sectionKey])) {
-      data[sectionKey].forEach((item) => {
-        const individual = {};
+    Object.entries(repeatableSections).forEach(
+      ([sectionKey, sectionConfig]) => {
         Object.keys(sectionConfig.fields || {}).forEach((fKey) => {
-          individual[fKey] = item[fKey] ?? null;
-
-          // Handle conditional fields
-          const fConfig = sectionConfig.fields[fKey];
-          if (fConfig?.conditionalFields && item[fKey]) {
-            Object.entries(fConfig.conditionalFields[item[fKey]] || {}).forEach(
-              ([ck]) => (individual[ck] = item[ck] ?? null)
-            );
-          }
+          defaultIndividual[fKey] = data[fKey] ?? null;
         });
-        individual.role = sectionKey;
-        individuals.push(individual);
-      });
-    }
-  });
+        defaultIndividual.role = sectionKey; // set role based on section
+      },
+    );
 
-  return individuals;
-};
+    // Step 2: Add common top-level individual fields if they exist in config or standard
+    const baseFields = [
+      "fullName",
+      "idNumber",
+      "nationality",
+      "residentialAddress",
+      "dateOfBirth",
+      "idDocument",
+    ];
+    baseFields.forEach((key) => {
+      if (!(key in defaultIndividual))
+        defaultIndividual[key] = data[key] ?? null;
+    });
+
+    individuals.push(defaultIndividual);
+
+    // Step 3: Map actual repeatable arrays if they exist in data
+    Object.entries(repeatableSections).forEach(
+      ([sectionKey, sectionConfig]) => {
+        if (Array.isArray(data[sectionKey])) {
+          data[sectionKey].forEach((item) => {
+            const individual = {};
+            Object.keys(sectionConfig.fields || {}).forEach((fKey) => {
+              individual[fKey] = item[fKey] ?? null;
+
+              // Handle conditional fields
+              const fConfig = sectionConfig.fields[fKey];
+              if (fConfig?.conditionalFields && item[fKey]) {
+                Object.entries(
+                  fConfig.conditionalFields[item[fKey]] || {},
+                ).forEach(([ck]) => (individual[ck] = item[ck] ?? null));
+              }
+            });
+            individual.role = sectionKey;
+            individuals.push(individual);
+          });
+        }
+      },
+    );
+
+    return individuals;
+  };
 
   // --------------------------
   // Build payload for draft or submit
@@ -428,27 +440,74 @@ const SMEApplicationForm = () => {
   //   return result;
   // };
 
+  // Helper to flatten files in a doc object
+  const getFilesArray = (doc) => {
+    if (!doc) return [];
+    if (doc instanceof File) return [doc];
+    if (Array.isArray(doc)) return doc.flatMap(getFilesArray);
+    if (doc.file instanceof File) return [doc.file];
+    return [];
+  };
 
+  const uploadDocumentWithAutoAppId = async ({
+    applicationId,
+    user,
+    formData,
+    documentType,
+    file,
+    onProgress,
+  }) => {
+    let appId = applicationId;
+
+    // 1) Create draft if no applicationId exists
+    if (!appId) {
+      const tempPayload = {
+        user_id: user.user_id,
+        email: user.email,
+        firstName: user.firstName,
+        business_name: formData.businessName || "",
+        business_type: formData.businessType || "",
+        business_country: formData.country || "",
+        form_data: {}, // empty draft
+      };
+      const res = await saveApplicationDraftApi(tempPayload);
+      appId = res.application_id;
+      if (!appId) throw new Error("Failed to create draft application");
+    }
+
+    // 2) Upload document - base upload
+    const uploaded = await uploadDocumentApi(
+      {
+        application_id: appId,
+        document_type: documentType,
+        filename: file.name,
+        mime_type: file.type || "application/octet-stream",
+      },
+      file,
+      onProgress,
+    );
+
+    return { appId, uploaded };
+  };
 
   /* ------------------------------------------------ */
   /* SAVE DRAFT */
   /* ------------------------------------------------ */
   const handleSaveDraft = async () => {
     try {
-
       // Upload documents first
-      const documents = formData.documents || {};
-      for (const [docType, files] of Object.entries(documents)) {
-        for (const file of files) {
-          if (file instanceof File) {
-            await uploadDocumentApi({
-              applicationId: appId !== "new" ? appId : undefined,
-              documentType: docType,
-              file,
-            });
-          }
-        }
-      }
+      // const documents = formData.documents || {};
+      // for (const [docType, files] of Object.entries(documents)) {
+      //   for (const file of files) {
+      //     if (file instanceof File) {
+      //       await uploadDocumentApi({
+      //         applicationId: appId !== "new" ? appId : undefined,
+      //         documentType: docType,
+      //         file,
+      //       });
+      //     }
+      //   }
+      // }
 
       // for (const [docType, files] of Object.entries(documents)) {
       //   for (const file of files) {
@@ -460,6 +519,64 @@ const SMEApplicationForm = () => {
       //         onProgress: (pct) =>
       //           console.log(`Uploading ${file.name}: ${pct}%`),
       //       });
+      //     }
+      //   }
+      // }
+
+      // Ensure appId exists (create a draft first if new)
+      let savedAppId = appId;
+
+      // if (appId === "new") {
+      //   // Minimal draft creation to get appId
+      //   const tempPayload = {
+      //     user_id: user.user_id,
+      //     email: user.email,
+      //     firstName: user.firstName,
+      //     business_name: formData.businessName || "",
+      //     business_type: formData.businessType || "",
+      //     business_country: formData.country || "",
+      //     form_data: {}, // empty draft for now
+      //   };
+      //   const res = await saveApplicationDraftApi(tempPayload);
+      //   savedAppId = res.application_id;
+      //   if (!savedAppId) throw new Error("Failed to create draft application.");
+      // }
+
+      // Upload all documents
+      const documents = formData.documents || {};
+
+      for (const [docType, docValue] of Object.entries(documents)) {
+        const files = Array.isArray(docValue) ? docValue : [docValue];
+        for (const file of files) {
+          if (file instanceof File) {
+            const { appId: returnedAppId } = await uploadDocumentWithAutoAppId({
+              applicationId: savedAppId,
+              user,
+              formData,
+              documentType: docType,
+              file,
+              onProgress: (pct) =>
+                console.log(`Uploading ${file.name}: ${pct}%`),
+            });
+            savedAppId = returnedAppId; // update appId if first file created it
+          }
+        }
+      }
+      // for (const [docType, docValue] of Object.entries(documents)) {
+      //   const files = getFilesArray(docValue);
+      //   for (const file of files) {
+      //     try {
+      //       await uploadDocumentApi({
+      //         applicationId: savedAppId,
+      //         documentType: docType,
+      //         // file,
+      //         filename: file.name,
+      //         mime_type: file.type || "application/octet-stream",
+      //       });
+
+      //       console.log("in sme form upload of documents" )
+      //     } catch (err) {
+      //       console.error(`Failed to upload document ${docType}`, err);
       //     }
       //   }
       // }
@@ -479,8 +596,11 @@ const SMEApplicationForm = () => {
 
       // console.log("Saving application draft payload:", payload); // debug log
 
-      const res = await saveApplicationDraftApi(payload);
-      const savedAppId = res.application_id || appId;
+      // const res = await saveApplicationDraftApi(payload);
+      // const savedAppId = res.application_id || appId;
+
+      // Save the draft
+      await saveApplicationDraftApi(payload);
 
       // Update Redux
       dispatch(saveDraftAction({ appId: savedAppId, data: formData }));
@@ -511,7 +631,6 @@ const SMEApplicationForm = () => {
   const handleSubmitApplication = async () => {
     setIsSubmitting(true);
     try {
-   
       // Upload each document first
       // for (const doc of documents) {
       //   const fileArray = formData.documents[doc.document_type] || [];
@@ -527,6 +646,26 @@ const SMEApplicationForm = () => {
       //     });
       //   }
       // }
+      let savedAppId = appId;
+      const documents = formData.documents || {};
+
+      for (const [docType, docValue] of Object.entries(documents)) {
+        const files = Array.isArray(docValue) ? docValue : [docValue];
+        for (const file of files) {
+          if (file instanceof File) {
+            const { appId: returnedAppId } = await uploadDocumentWithAutoAppId({
+              applicationId: savedAppId,
+              user,
+              formData,
+              documentType: docType,
+              file,
+              onProgress: (pct) =>
+                console.log(`Uploading ${file.name}: ${pct}%`),
+            });
+            savedAppId = returnedAppId;
+          }
+        }
+      }
 
       const payload = {
         user_id: user.user_id,
@@ -543,8 +682,8 @@ const SMEApplicationForm = () => {
       };
 
       // Conditional API call
-      let returnedAppId = appId;
-    
+      // let returnedAppId = appId;
+
       await submitSmeApplicationApi({
         application_id: appId !== "new" ? appId : undefined,
         form_data: payload,

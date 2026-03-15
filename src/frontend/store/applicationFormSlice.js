@@ -64,8 +64,15 @@ const applicationFormSlice = createSlice({
     },
     updateField: (state, action) => {
       const { field, value } = action.payload;
-      const appId = state.currentApplicationId;
-      if (!appId || !field) return;
+      if (!field) return;
+
+      let appId = state.currentApplicationId;
+
+      // If no currentApplicationId, use a temporary draft key
+      if (!appId) {
+        appId = "temp_draft";
+        state.currentApplicationId = appId;
+      }
 
       if (!state.drafts[appId]) {
         state.drafts[appId] = {
@@ -76,15 +83,44 @@ const applicationFormSlice = createSlice({
       }
 
       try {
-        setIn(state.drafts[appId].formData, field, value);
+        // setIn(state.drafts[appId].formData, field, value);
+        // state.hasUnsavedChanges = true;
+        // IMPORTANT: clone formData so React detects change
+        const newFormData = { ...state.drafts[appId].formData };
+
+        setIn(newFormData, field, value);
+
+        state.drafts[appId].formData = newFormData;
+        state.drafts[appId].lastModified = new Date().toISOString();
+        state.hasUnsavedChanges = true;
       } catch (err) {
         console.error("updateField failed:", field, value, err);
-        return;
       }
-
-      state.drafts[appId].lastModified = new Date().toISOString();
-      state.hasUnsavedChanges = true;
     },
+    // updateField: (state, action) => {
+    //   const { field, value } = action.payload;
+    //   const appId = state.currentApplicationId;
+    //   if (!appId || !field) return;
+
+    //   if (!state.drafts[appId]) {
+    //     state.drafts[appId] = {
+    //       formData: {},
+    //       status: "Draft",
+    //       lastModified: new Date().toISOString(),
+    //     };
+    //   }
+
+    //   try {
+    //     setIn(state.drafts[appId].formData, field, value);
+
+    //   } catch (err) {
+    //     console.error("updateField failed:", field, value, err);
+    //     return;
+    //   }
+
+    //   state.drafts[appId].lastModified = new Date().toISOString();
+    //   state.hasUnsavedChanges = true;
+    // },
 
     // Bulk update (useful when loading multiple fields)
     updateFormData: (state, action) => {
@@ -186,14 +222,23 @@ export const selectCurrentApplication = (state) => {
   const id = state.applicationForm.currentApplicationId;
   return id ? state.applicationForm.drafts[id] : null;
 };
-export const selectFormData = createSelector(
-  (state) => state.applicationForm.currentApplicationId,
-  (state) => state.applicationForm.drafts,
-  (currentApplicationId, drafts) => {
-    if (!currentApplicationId) return {};
-    return drafts[currentApplicationId]?.formData || {};
-  },
-);
+// export const selectFormData = createSelector(
+//   (state) => state.applicationForm.currentApplicationId,
+//   (state) => state.applicationForm.drafts,
+//   (currentApplicationId, drafts) => {
+//     if (!currentApplicationId) return {};
+//     return drafts[currentApplicationId]?.formData || {};
+//   },
+// );
+export const selectFormData = (state) => {
+  const { drafts, currentApplicationId } = state.applicationForm;
+  console.log("selector appId:", currentApplicationId);
+  console.log("selector drafts:", drafts);
+
+  if (!currentApplicationId) return {};
+
+  return drafts?.[currentApplicationId]?.formData || {};
+};
 export const selectCurrentStep = (state) => state.applicationForm.currentStep;
 export const selectCurrentMode = (state) => state.applicationForm.currentMode;
 export const selectHasUnsavedChanges = (state) =>

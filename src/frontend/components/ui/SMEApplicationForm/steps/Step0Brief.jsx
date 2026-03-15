@@ -11,19 +11,19 @@ const Step0Brief = ({ data, onFieldChange, disabled = false }) => {
   const currentBusinessType = data.businessType || "";
 
   const CONFIG_MAP = {
-    SG: SINGAPORE_CONFIG,
-    ID: INDONESIA_CONFIG,
+    Singapore: SINGAPORE_CONFIG,
+    Indonesia: INDONESIA_CONFIG,
   };
 
   // Country options
   const countryOptions = [
     {
       label: SINGAPORE_CONFIG.country?.name || "Singapore",
-      value: SINGAPORE_CONFIG.country?.code || "SG",
+      value: SINGAPORE_CONFIG.country?.name || "Singapore",
     },
     {
       label: INDONESIA_CONFIG.country?.name || "Indonesia",
-      value: INDONESIA_CONFIG.country?.code || "ID",
+      value: INDONESIA_CONFIG.country?.name || "Indonesia",
     },
   ];
 
@@ -35,7 +35,6 @@ const Step0Brief = ({ data, onFieldChange, disabled = false }) => {
         value: key,
       }))
     : [];
-
 
   useEffect(() => {
     if (!currentCountry) return;
@@ -57,8 +56,7 @@ const Step0Brief = ({ data, onFieldChange, disabled = false }) => {
         fieldName="country"
         label="Country of Operation"
         value={data.country || ""}
-        onChange={(value) => onFieldChange("country", value)}
-        // onChange={onFieldChange}
+        onChange={onFieldChange}
         type="select"
         options={countryOptions}
         required
@@ -70,8 +68,7 @@ const Step0Brief = ({ data, onFieldChange, disabled = false }) => {
         fieldName="businessType"
         label="Business Type"
         value={data.businessType || ""}
-        // onChange={onFieldChange}
-        onChange={(value) => onFieldChange("businessType", value)}
+        onChange={onFieldChange}
         type="select"
         options={businessTypeOptions}
         required
