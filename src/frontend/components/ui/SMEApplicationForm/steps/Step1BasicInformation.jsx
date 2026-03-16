@@ -2,9 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import { ArrowRight, ShieldCheck } from "lucide-react";
 import FormFieldGroup from "../components/FormFieldGroup";
 import FileUploadField from "../components/FileUploadField";
-// import SINGAPORE_CONFIG from "../config/singaporeConfig";
 import SINGAPORE_CONFIG2 from "../config/updatedSingaporeConfig";
-// import { extractFieldsFromStep, resolveConditionalFields, isFieldVisible } from "../utils/extractFields";
 import { Card, CardContent } from "../../primitives/Card";
 import { Button } from "../../primitives/Button";
 import { Badge } from "../../primitives/Badge";
@@ -14,32 +12,49 @@ import { livenessDetectionApi } from "../../../../api/livenessDetectionApi";
 const ACRA_WITH_TABLES_ENDPOINT =
   "http://127.0.0.1:8000/document-ai/extract-acra-bizprofile";
 
+const DEFAULT_KYC_DATA = {
+  status: "idle",
+  loading: false,
+  sessionId: "",
+  overallStatus: "",
+  idVerificationStatus: "",
+  livenessStatus: "",
+  livenessScore: null,
+  faceMatchStatus: "",
+  faceMatchScore: null,
+};
+
 const Step1BasicInformation = ({ data, onFieldChange, disabled = false }) => {
   const fileRef = useRef(null);
+  const processedDiditSessionRef = useRef("");
 
   const [acraFile, setAcraFile] = useState(null);
   const [acraUploading, setAcraUploading] = useState(false);
   const [acraError, setAcraError] = useState("");
   const [acraSuccessMsg, setAcraSuccessMsg] = useState("");
 
-  const [kycStatus, setKycStatus] = useState("idle");
-  const [kycLoading, setKycLoading] = useState(false);
-  const [kycSessionId, setKycSessionId] = useState("");
-  const [kycOverallStatus, setKycOverallStatus] = useState("");
-  const [kycFaceMatchScore, setKycFaceMatchScore] = useState(null);
-  const [kycLivenessScore, setKycLivenessScore] = useState(null);
-  const [kycIdVerificationStatus, setKycIdVerificationStatus] = useState("");
-  const [kycFaceMatchStatus, setKycFaceMatchStatus] = useState("");
-  const [kycLivenessStatus, setKycLivenessStatus] = useState("");
+  const kycData = data?.kycData || DEFAULT_KYC_DATA;
+  const kycStatus = kycData.status || "idle";
+  const kycLoading = kycData.loading || false;
+  const kycSessionId = kycData.sessionId || "";
+  const kycOverallStatus = kycData.overallStatus || "";
+  const kycIdVerificationStatus = kycData.idVerificationStatus || "";
+  const kycLivenessStatus = kycData.livenessStatus || "";
+  const kycLivenessScore = kycData.livenessScore ?? null;
+  const kycFaceMatchStatus = kycData.faceMatchStatus || "";
+  const kycFaceMatchScore = kycData.faceMatchScore ?? null;
 
-  // ---- dynamic config from singaporeConfig ----
+  const updateKycData = (patch) => {
+    onFieldChange("kycData", {
+      ...DEFAULT_KYC_DATA,
+      ...(data?.kycData || {}),
+      ...patch,
+    });
+  };
+
   const { basicFieldsConfig, repeatableSectionsConfig } = useMemo(() => {
     const entity = SINGAPORE_CONFIG2.entities[data?.businessType] || {};
-    // const entity = SINGAPORE_CONFIG2?.entities?.[data?.businessType] || {};
     const step2 = entity.steps?.find((s) => s.id === "step2") || {};
-    // const step2 = Array.isArray(entity.steps)
-    //   ? entity.steps.find((s) => s.id === "step2")
-    //   : {};
 
     const basicFields = {};
     const repeatableSections = {};
@@ -69,7 +84,6 @@ const Step1BasicInformation = ({ data, onFieldChange, disabled = false }) => {
     };
   }, [data?.businessType]);
 
-  // ---- ACRA Upload Handlers ----
   const handleChooseAcra = () => fileRef.current?.click();
 
   const handleAcraFileChange = (e) => {
@@ -110,12 +124,9 @@ const Step1BasicInformation = ({ data, onFieldChange, disabled = false }) => {
         kv[k.toLowerCase().trim()] = rawKv[k];
       });
 
-      // const ownerName = result?.data?.owner?.owner_name || "";
-      // const ownerId = result?.data?.owner?.identification_number || "";
       const ownerName = result?.data?.data?.owners?.name || "";
       const ownerId = result?.data?.data?.owners?.id_number || "";
 
-      // ---- helpers ----
       const setIfEmpty = (key, value) => {
         if (!(key in basicFieldsConfig)) return;
         if (!value) return;
@@ -123,7 +134,7 @@ const Step1BasicInformation = ({ data, onFieldChange, disabled = false }) => {
         if (!next) return;
         const current = data?.[key] ?? "";
         if (!current || String(current).trim() === "") {
-          onFieldChange?.(key, next); // direct Redux update
+          onFieldChange?.(key, next);
         }
       };
 
@@ -164,24 +175,17 @@ const Step1BasicInformation = ({ data, onFieldChange, disabled = false }) => {
         return "";
       };
 
-      // ---- map ACRA → Redux ----
-      setIfEmpty(
-        "businessName",
-        // kv["name of business"] || kv["name of company"],
-        kv["name"],
-      );
-      // setIfEmpty("registeredAddress", kv["principal place of business"]);
+      setIfEmpty("businessName", kv["name"]);
       setIfEmpty("registeredAddress", kv["address"]);
 
       const isoDate = ddMmmYyyyToISO(
         kv["registration_date"] || kv["commencement date"],
       );
       if (isoDate) setIfEmpty("registrationDate", isoDate);
-      const mappedStatus = normalizeStatus(
-        // kv["status of business"] || kv["status of company"],
-        kv["status"]
-      );
+
+      const mappedStatus = normalizeStatus(kv["status"]);
       if (mappedStatus) setIfEmpty("businessStatus", mappedStatus);
+
       setIfEmpty("uen", kv["uen"]);
       if (ownerName) setIfEmpty("fullName", ownerName);
       if (ownerId) setIfEmpty("idNumber", ownerId);
@@ -197,7 +201,7 @@ const Step1BasicInformation = ({ data, onFieldChange, disabled = false }) => {
   const handleStartKyc = async () => {
     console.log("Start KYC button clicked");
 
-    setKycLoading(true);
+    updateKycData({ loading: true });
 
     try {
       const applicationId =
@@ -232,23 +236,33 @@ const Step1BasicInformation = ({ data, onFieldChange, disabled = false }) => {
 
       console.log("Backend response status:", response.status);
 
+      if (!response.ok) {
+        throw new Error("Failed to create Didit session.");
+      }
+
       const result = await response.json();
       console.log("Backend response data:", result);
 
-      setKycSessionId(result.session_id || "");
+      updateKycData({
+        sessionId: result.session_id || "",
+      });
 
       if (result.verification_url) {
-        setKycStatus("pending");
+        updateKycData({
+          status: "pending",
+          sessionId: result.session_id || "",
+          loading: false,
+        });
         window.location.href = result.verification_url;
       } else {
         alert("No verification_url returned. Check console and backend logs.");
-        setKycStatus("idle");
+        updateKycData({ status: "idle", loading: false });
       }
     } catch (error) {
       console.error("Start KYC frontend error:", error);
-      setKycStatus("idle");
+      updateKycData({ status: "idle", loading: false });
     } finally {
-      setKycLoading(false);
+      updateKycData({ loading: false });
     }
   };
 
@@ -323,15 +337,28 @@ const Step1BasicInformation = ({ data, onFieldChange, disabled = false }) => {
     const returnedStatus = params.get("status");
 
     if (!verificationSessionId) return;
+    if (processedDiditSessionRef.current === verificationSessionId) return;
+
+    processedDiditSessionRef.current = verificationSessionId;
+
+    window.history.replaceState({}, document.title, window.location.pathname);
 
     const processDiditReturn = async () => {
       try {
-        setKycLoading(true);
-        setKycSessionId(verificationSessionId);
+        updateKycData({
+          loading: true,
+          sessionId: verificationSessionId,
+        });
+
+        onFieldChange("provider_session_id", verificationSessionId);
 
         const response = await fetch(
           `http://127.0.0.1:8000/didit/session/${verificationSessionId}/decision`
         );
+
+        if (!response.ok) {
+          throw new Error("Failed to fetch Didit decision.");
+        }
 
         const diditData = await response.json();
         console.log("Didit decision:", diditData);
@@ -340,27 +367,29 @@ const Step1BasicInformation = ({ data, onFieldChange, disabled = false }) => {
         const live = diditData?.liveness_checks?.[0] || {};
         const face = diditData?.face_matches?.[0] || {};
 
-        setKycOverallStatus(diditData?.status || returnedStatus || "");
-        setKycIdVerificationStatus(idv?.status || "");
-        setKycLivenessStatus(live?.status || "");
-        setKycLivenessScore(live?.score ?? null);
-        setKycFaceMatchStatus(face?.status || "");
-        setKycFaceMatchScore(face?.score ?? null);
-        setKycStatus("completed");
+        updateKycData({
+          status: "completed",
+          loading: false,
+          sessionId: verificationSessionId,
+          overallStatus: diditData?.status || returnedStatus || "",
+          idVerificationStatus: idv?.status || "",
+          livenessStatus: live?.status || "",
+          livenessScore: live?.score ?? null,
+          faceMatchStatus: face?.status || "",
+          faceMatchScore: face?.score ?? null,
+        });
 
         const payload = mapDiditToPayload(diditData);
         await livenessDetectionApi(payload);
-
-        window.history.replaceState({}, document.title, window.location.pathname);
       } catch (error) {
         console.error("Error processing Didit return:", error);
       } finally {
-        setKycLoading(false);
+        updateKycData({ loading: false });
       }
     };
 
     processDiditReturn();
-  }, []);
+  }, [onFieldChange]);
 
   const handleFieldChange = (name, value) => {
     if (!name || typeof name !== "string") {
@@ -391,23 +420,6 @@ const Step1BasicInformation = ({ data, onFieldChange, disabled = false }) => {
     return newObj;
   };
 
-  // const handleDocumentChange = (fieldPath, file) => {
-  //   if (!fieldPath || !file) return;
-
-  //   // Store metadata in Redux
-  //   const fileMeta = {
-  //     fileName: file.name,
-  //     fileType: file.type,
-  //     size: file.size,
-  //     progress: 0,
-  //   };
-
-  //   const updatedData = setNestedValue(data, fieldPath, fileMeta);
-
-  //   onFieldChange("", updatedData); // Redux update
-
-  // };
-
   const handleDocumentChange = (fieldPath, file) => {
     if (!fieldPath) {
       console.error("Invalid document field:", fieldPath);
@@ -420,20 +432,17 @@ const Step1BasicInformation = ({ data, onFieldChange, disabled = false }) => {
     });
   };
 
-  //HELPER
   const getVisibleConditionalFields = (fieldCfg, value) => {
     if (!fieldCfg.conditionalFields) return {};
     return fieldCfg.conditionalFields[value] || {};
   };
 
-  // ---- Generic field renderer (recursive for nested fields) ----
   const renderField = (fieldName, fieldCfg, parentKey = null) => {
     const fullKey = parentKey ? `${parentKey}.${fieldName}` : fieldName;
     const value = parentKey
       ? data?.[parentKey]?.[fieldName]
       : data?.[fieldName];
 
-    // Nested object
     if (typeof fieldCfg === "object" && !fieldCfg.type && !fieldCfg.label) {
       return (
         <div key={fullKey} className="mb-6">
@@ -447,14 +456,12 @@ const Step1BasicInformation = ({ data, onFieldChange, disabled = false }) => {
       );
     }
 
-    // File field
     if (fieldCfg.type === "file") {
       return (
         <FileUploadField
           key={fullKey}
           fieldName={fullKey}
           label={fieldCfg.label}
-          // file={data?.[fullKey] || null} // <- must match your Redux structure
           file={getNestedValue(data, fullKey) || null}
           onChange={(file) => handleDocumentChange(fullKey, file)}
           required={fieldCfg.required || false}
@@ -466,23 +473,6 @@ const Step1BasicInformation = ({ data, onFieldChange, disabled = false }) => {
       );
     }
 
-    // // Regular field
-    // return (
-    //   <FormFieldGroup
-    //     key={fullKey}
-    //     fieldName={fullKey}
-    //     label={fieldCfg.label}
-    //     placeholder={fieldCfg.placeholder || ""}
-    //     value={value || ""}
-    //     onChange={onFieldChange}
-    //     type={fieldCfg.type || "text"}
-    //     options={fieldCfg.options || []}
-    //     required={fieldCfg.required || false}
-    //     disabled={disabled}
-    //   />
-    // );
-
-    // Regular field (text/select/etc.)
     const fieldElement = (
       <FormFieldGroup
         key={fullKey}
@@ -498,7 +488,6 @@ const Step1BasicInformation = ({ data, onFieldChange, disabled = false }) => {
       />
     );
 
-    // Render conditional fields if any
     if (fieldCfg.conditionalFields && value != null) {
       const visibleFields = getVisibleConditionalFields(fieldCfg, value);
       const conditionalElements = Object.entries(visibleFields).map(
@@ -514,40 +503,6 @@ const Step1BasicInformation = ({ data, onFieldChange, disabled = false }) => {
 
     return fieldElement;
   };
-  // ---- Helper to render a field or file field ----
-  // const renderField = (fieldName, fieldConfig) => {
-  //   if (fieldConfig.type === "file") {
-  //     return (
-  //       <FileUploadField
-  //         key={fieldName}
-  //         fieldName={fieldName}
-  //         label={fieldConfig.label}
-  //         file={data[fieldName]?.file || null}
-  //         onChange={(file) => handleDocumentChange(fieldName, {file})}
-  //         required={fieldConfig.required || false}
-  //         acceptTypes="application/pdf,image/jpeg,image/png"
-  //         placeholder={fieldConfig.placeholder || ""}
-  //         maxSize={5242880}
-  //         disabled={disabled}
-  //       />
-  //     );
-  //   }
-
-  //   return (
-  //     <FormFieldGroup
-  //       key={fieldName}
-  //       fieldName={fieldName}
-  //       label={fieldConfig.label}
-  //       placeholder={fieldConfig.placeholder || ""}
-  //       value={data[fieldName] || ""}
-  //       onChange={onFieldChange}
-  //       type={fieldConfig.type || "text"}
-  //       options={fieldConfig.options || []}
-  //       required={fieldConfig.required || false}
-  //       disabled={disabled}
-  //     />
-  //   );
-  // };
 
   return (
     <div>
@@ -555,7 +510,6 @@ const Step1BasicInformation = ({ data, onFieldChange, disabled = false }) => {
         Basic Information
       </h2>
 
-      {/* KYC Verification Card */}
       <Card className={`mb-6 border-2 transition-colors ${
         kycStatus === "completed"
           ? "border-[hsl(var(--status-approved))]/30 bg-[hsl(var(--status-approved))]/5"
@@ -654,7 +608,6 @@ const Step1BasicInformation = ({ data, onFieldChange, disabled = false }) => {
 
       <Separator className="my-8" />
 
-      {/* ACRA Autofill */}
       {data?.country === "SG" && (
         <div className="mb-6 rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
@@ -711,52 +664,10 @@ const Step1BasicInformation = ({ data, onFieldChange, disabled = false }) => {
         </div>
       )}
 
-      {/* Top-Level Fields */}
-      {/* {Object.entries(basicFieldsConfig).map(([fieldName, fieldConfig]) => (
-        <FormFieldGroup
-          key={fieldName}
-          fieldName={fieldName}
-          label={fieldConfig.label}
-          placeholder={fieldConfig.placeholder || ""}
-          value={data[fieldName] || ""}
-          onChange={onFieldChange} // Redux-only
-          type={fieldConfig.type || "text"}
-          options={fieldConfig.options || []}
-          required={fieldConfig.required || false}
-          disabled={disabled}
-        />
-      ))} */}
-
-      {/* Repeatable Sections */}
-      {/* {Object.entries(repeatableSectionsConfig).map(([sectionKey, section]) => (
-        <div key={sectionKey} className="mt-6">
-          <h3 className="text-lg font-semibold mb-3 text-gray-900">
-            {section.label}
-          </h3>
-
-          {Object.entries(section.fields).map(([fieldName, fieldConfig]) => (
-            <FormFieldGroup
-              key={fieldName}
-              fieldName={fieldName}
-              label={fieldConfig.label}
-              placeholder={fieldConfig.placeholder || ""}
-              value={data[fieldName] || ""}
-              onChange={onFieldChange} // Redux-only
-              type={fieldConfig.type || "text"}
-              options={fieldConfig.options || []}
-              required={fieldConfig.required || false}
-              disabled={disabled}
-            />
-          ))}
-        </div>
-      ))} */}
-
-      {/* Top-Level Fields */}
       {Object.entries(basicFieldsConfig).map(([fieldName, fieldConfig]) =>
         renderField(fieldName, fieldConfig),
       )}
 
-      {/* Repeatable Sections */}
       {Object.entries(repeatableSectionsConfig).map(([sectionKey, section]) => (
         <div key={sectionKey} className="mt-6">
           <h3 className="text-lg font-semibold mb-3 text-gray-900">

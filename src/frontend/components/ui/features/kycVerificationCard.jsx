@@ -55,7 +55,7 @@ function VerificationStatusIcon({ status }) {
 function OverallStatusBadge({ status }) {
   const styles = {
     Approved: "bg-emerald-500/10 text-emerald-600 border-emerald-500/20",
-    Declined: "bg-destructive/10 text-destructive border-destructive/20",
+    Declined: "bg-red-600/50 text-destructive border-destructive/20",
     Pending: "bg-amber-500/10 text-amber-600 border-amber-500/20",
   };
 
@@ -121,12 +121,25 @@ function getMediaType(url = "") {
   return "file";
 }
 
+function normalizeScoreToPercent(score) {
+  if (score === null || score === undefined || score === "") return null;
+
+  const numeric = Number(score);
+  if (Number.isNaN(numeric)) return null;
+
+  return numeric <= 1 ? numeric * 100 : numeric;
+}
+
 export function KycVerificationCard({ kyc }) {
   const [isOpen, setIsOpen] = useState(false);
 
   if (!kyc) return null;
 
   const overallStatus = normalizeStatus(kyc.overall_status);
+
+  const faceMatchPercent = normalizeScoreToPercent(kyc.face_match_score);
+  const hasLowFaceMatchWarning =
+    faceMatchPercent !== null && faceMatchPercent >= 60 && faceMatchPercent <= 70;
 
   const verificationChecks = [
     {
@@ -164,13 +177,13 @@ export function KycVerificationCard({ kyc }) {
   const isApproved = overallStatus === "Approved";
 
   const borderColor = isDeclined
-    ? "border-destructive/40"
+    ? "border-red-600"
     : isApproved
     ? "border-emerald-500/40"
     : "border-amber-500/40";
 
   const bgColor = isDeclined
-    ? "bg-destructive/5"
+    ? "bg-red-600/10"
     : isApproved
     ? "bg-emerald-500/5"
     : "bg-amber-500/5";
@@ -245,13 +258,25 @@ export function KycVerificationCard({ kyc }) {
                 ))}
               </div>
 
+              {hasLowFaceMatchWarning && (
+                <div className="mb-2 flex items-start gap-2 rounded-md border border-amber-500/20 bg-amber-500/10 p-2.5">
+                  <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-500" />
+                  <p className="text-xs text-foreground">
+                    <span className="font-medium">Face match warning.</span> The face match score is{" "}
+                    {formatScore(kyc.face_match_score)}, which passed the application form threshold,
+                    but it is still not high enough for strong confidence. Please check the KYC
+                    verification carefully.
+                  </p>
+                </div>
+              )}
+
               {Array.isArray(kyc.risk_flags) && kyc.risk_flags.length > 0 && (
                 <div className="mb-2 flex flex-wrap gap-1.5">
                   {kyc.risk_flags.map((flag, index) => (
                     <Badge
                       key={`${flag}-${index}`}
                       variant="outline"
-                      className="border-destructive/30 bg-destructive/5 text-[10px] font-mono text-destructive"
+                      className="border-destructive/30 bg-red-500/40 text-[10px] font-mono text-destructive"
                     >
                       {formatRiskFlag(flag)}
                     </Badge>
@@ -337,6 +362,15 @@ export function KycVerificationCard({ kyc }) {
                     </div>
                   )}
 
+                  {hasLowFaceMatchWarning && (
+                    <div className="flex items-center gap-2 text-xs text-amber-600">
+                      <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
+                      <span>
+                        Face match score is between 60% and 70%. Review KYC verification carefully.
+                      </span>
+                    </div>
+                  )}
+
                   {kyc.manual_review_required && (
                     <div className="mt-1 flex items-start gap-2 rounded-md bg-amber-500/10 p-2.5">
                       <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-500" />
@@ -349,7 +383,8 @@ export function KycVerificationCard({ kyc }) {
 
                   {!kyc.has_duplicate_identity_hit &&
                     !kyc.has_duplicate_face_hit &&
-                    !kyc.manual_review_required && (
+                    !kyc.manual_review_required &&
+                    !hasLowFaceMatchWarning && (
                       <p className="text-sm text-muted-foreground">No warnings found.</p>
                     )}
                 </div>
@@ -372,50 +407,13 @@ export function KycVerificationCard({ kyc }) {
                 <p className="text-sm text-muted-foreground">No KYC media files available.</p>
               ) : (
                 <>
-                  <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                    {mediaItems
-                      .filter((item) => item.type === "image")
-                      .map((item) => (
-                        <div
-                          key={item.key}
-                          className="overflow-hidden rounded-lg border border-border bg-background"
-                        >
-                          <div className="aspect-[4/3] bg-muted">
-                            <img
-                              src={item.url}
-                              alt={item.label}
-                              className="h-full w-full object-cover"
-                            />
-                          </div>
-                          <div className="space-y-2 p-3">
-                            <div className="flex items-center gap-2">
-                              <ImageIcon className="h-4 w-4 text-muted-foreground" />
-                              <p className="truncate text-sm font-medium text-foreground">
-                                {item.label}
-                              </p>
-                            </div>
-                            <Button
-                              type="button"
-                              variant="outline"
-                              size="sm"
-                              className="w-full gap-2"
-                              onClick={() => window.open(item.url, "_blank", "noopener,noreferrer")}
-                            >
-                              <Download className="h-4 w-4" />
-                              Open Image
-                            </Button>
-                          </div>
-                        </div>
-                      ))}
-                  </div>
-
                   <div className="space-y-2">
                     {mediaItems
-                      .filter((item) => item.type !== "image")
+                      .filter((item) => item.type !== "image" | item.type === "image")
                       .map((item) => (
                         <div
                           key={item.key}
-                          className="flex items-center justify-between rounded-lg border border-border bg-background p-3"
+                          className="flex items-center justify-between rounded-lg border border-border bg-slate-300/50 p-3"
                         >
                           <div className="min-w-0 flex-1">
                             <div className="flex items-center gap-2">
@@ -439,7 +437,7 @@ export function KycVerificationCard({ kyc }) {
                             type="button"
                             variant="outline"
                             size="sm"
-                            className="ml-3 gap-2"
+                            className="ml-3 gap-2 bg-slate-100"
                             onClick={() => window.open(item.url, "_blank", "noopener,noreferrer")}
                           >
                             <Download className="h-4 w-4" />
