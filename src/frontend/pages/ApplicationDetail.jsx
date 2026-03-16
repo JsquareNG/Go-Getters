@@ -8,8 +8,6 @@ import {
   Upload,
   User,
   MapPin,
-  Mail,
-  Phone,
   Download,
   Undo2,
   Trash2,
@@ -50,7 +48,9 @@ import {
 } from "./../api/applicationApi";
 import { allDocuments, downloadDocuments } from "./../api/documentApi";
 import { userInfo } from "./../api/usersApi";
+import { getAuditTrail } from "./../api/auditTrailApi";
 import { ResubmitDialog } from "../components/ui/features/ResubmitDialog";
+import { AuditTrail } from "../components/ui/features/AuditTrail";
 
 const normKey = (v) => {
   if (v == null) return null;
@@ -85,6 +85,10 @@ export default function ApplicationDetail() {
   const [actionRequestsData, setActionRequestsData] = useState(null);
   const [qnaLoading, setQnaLoading] = useState(false);
   const [qnaError, setQnaError] = useState(null);
+
+  const [auditEntries, setAuditEntries] = useState([]);
+  const [auditLoading, setAuditLoading] = useState(false);
+  const [auditError, setAuditError] = useState(null);
 
   const [resubmitOpen, setResubmitOpen] = useState(false);
   const [user, setUser] = useState(null);
@@ -222,6 +226,43 @@ export default function ApplicationDetail() {
     };
 
     if (id && application) fetchQnA();
+  }, [id, application]);
+
+  // -----------------------------
+  // Fetch Audit Trail
+  // -----------------------------
+  useEffect(() => {
+    const fetchAuditEntries = async () => {
+      try {
+        setAuditLoading(true);
+        setAuditError(null);
+
+        const appIdToUse = application?.application_id || application?.id || id;
+        if (!appIdToUse) return;
+
+        const data = await getAuditTrail(appIdToUse);
+        setAuditEntries(Array.isArray(data) ? data : []);
+      } catch (err) {
+        console.error("Error fetching audit trail:", {
+          message: err?.message,
+          status: err?.response?.status,
+          data: err?.response?.data,
+          url: err?.config?.url,
+        });
+
+        setAuditError(
+          err?.response?.data?.detail ||
+            err?.response?.data?.message ||
+            err?.message ||
+            "Could not retrieve audit trail.",
+        );
+        setAuditEntries([]);
+      } finally {
+        setAuditLoading(false);
+      }
+    };
+
+    if (id && application) fetchAuditEntries();
   }, [id, application]);
 
   // -----------------------------
@@ -537,6 +578,9 @@ export default function ApplicationDetail() {
                   <TabsTrigger value="qna" className="text-xs sm:text-sm">
                     Questions & Answers
                   </TabsTrigger>
+                  <TabsTrigger value="audit" className="text-xs sm:text-sm">
+                    Audit Trail
+                  </TabsTrigger>
                 </TabsList>
               </CardHeader>
 
@@ -626,18 +670,14 @@ export default function ApplicationDetail() {
                       </div>
 
                       <div>
-                        <p className="text-xs text-muted-foreground">
-                          Email
-                        </p>
+                        <p className="text-xs text-muted-foreground">Email</p>
                         <p className="text-sm font-medium text-foreground">
                           {formData?.email || "-"}
                         </p>
                       </div>
 
                       <div>
-                        <p className="text-xs text-muted-foreground">
-                          Phone
-                        </p>
+                        <p className="text-xs text-muted-foreground">Phone</p>
                         <p className="text-sm font-medium text-foreground">
                           {formData?.phone || "-"}
                         </p>
@@ -1105,6 +1145,18 @@ export default function ApplicationDetail() {
                       ))
                     )}
                   </div>
+                </TabsContent>
+
+                <TabsContent value="audit" className="mt-0">
+                  {auditLoading ? (
+                    <p className="text-sm text-muted-foreground">
+                      Loading audit trail...
+                    </p>
+                  ) : auditError ? (
+                    <p className="text-sm text-red-500">{auditError}</p>
+                  ) : (
+                    <AuditTrail entries={auditEntries} />
+                  )}
                 </TabsContent>
 
                 {showActionRequired && actionReason && (

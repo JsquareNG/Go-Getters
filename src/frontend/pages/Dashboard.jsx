@@ -1,467 +1,194 @@
 import { useState } from "react";
+import { format } from "date-fns";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "../components/ui/primitives/Tabs";
+import { OverviewTab } from "../components/ui/Analytics/OverviewTab";
+import { PipelineTab } from "../components/ui/Analytics/PipelineTab";
+import { ComplianceTab } from "../components/ui/Analytics/ComplianceTab";
+import { PerformanceTab } from "../components/ui/Analytics/PerformanceTab";
+import { Button } from "../components/ui/primitives/Button";
+import { Calendar } from "../components/ui/primitives/Calendar";
+import { Popover, PopoverContent, PopoverTrigger } from "../components/ui/features/Popover";
 import {
-  KPICard,
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@/components/ui";
-import { mockKPIData } from "../data/mockData";
+} from "../components/ui/primitives/Select";
 import {
-  LineChart,
-  Line,
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  ResponsiveContainer,
-  Cell,
-} from "recharts";
-import {
-  Clock,
-  Zap,
-  FileWarning,
-  TrendingDown,
-  AlertTriangle,
-  Target,
+  BarChart3,
+  GitBranch,
+  Shield,
+  Gauge,
+  Download,
+  CalendarIcon,
 } from "lucide-react";
+import { cn } from "@/lib/utils";
+import { exportAnalyticsToExcel } from "@/lib/exportExcel";
 
-const Dashboard = () => {
-  const [timeRange, setTimeRange] = useState("monthly");
-  const {
-    averageOnboardingDuration,
-    stpRate,
-    documentErrorRate,
-    dropOffRate,
-    falsePositiveRate,
-  } = mockKPIData;
+export default function Analytics() {
+  const [dateRange, setDateRange] = useState({ from: undefined, to: undefined });
+  const [preset, setPreset] = useState("last-quarter");
 
-  // Chart data
-  const onboardingTrendData = averageOnboardingDuration.trend.map(
-    (value, index) => ({
-      name: `Week ${index + 1}`,
-      value,
-    }),
-  );
+  const handlePreset = (value) => {
+    setPreset(value);
+    const now = new Date();
+    let from;
 
-  const stpByProductData = stpRate.byProduct;
-  const funnelData = dropOffRate.funnel;
+    switch (value) {
+      case "last-7":
+        from = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 7);
+        break;
+      case "last-30":
+        from = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 30);
+        break;
+      case "last-quarter":
+        from = new Date(now.getFullYear(), now.getMonth() - 3, now.getDate());
+        break;
+      case "last-year":
+        from = new Date(now.getFullYear() - 1, now.getMonth(), now.getDate());
+        break;
+      case "custom":
+        return;
+      default:
+        from = undefined;
+    }
 
-  const falsePositiveTrendData = falsePositiveRate.trend.map(
-    (value, index) => ({
-      name: `Week ${index + 1}`,
-      value,
-    }),
-  );
+    setDateRange({ from, to: now });
+  };
 
-  const improvementPercentage = Math.round(
-    ((averageOnboardingDuration.previous - averageOnboardingDuration.current) /
-      averageOnboardingDuration.previous) *
-      100,
-  );
-
-  const errorReduction = documentErrorRate.previous - documentErrorRate.current;
+  const dateLabel =
+    dateRange.from && dateRange.to
+      ? `${format(dateRange.from, "MMM d, yyyy")} – ${format(dateRange.to, "MMM d, yyyy")}`
+      : "Select date range";
 
   return (
     <div className="min-h-screen bg-background">
       <main className="container mx-auto px-6 py-12">
-        {/* Page Header */}
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-8">
+        <div className="mb-8 flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
           <div>
-            <h1 className="text-2xl font-bold text-foreground mb-2">
+            <h1 className="mb-1 text-2xl font-semibold text-foreground">
               Analytics Dashboard
             </h1>
             <p className="text-muted-foreground">
-              Monitor onboarding performance and operational efficiency
+              Monitor SME onboarding performance, compliance, and pipeline health
             </p>
           </div>
 
-          <Select value={timeRange} onValueChange={setTimeRange}>
-            <SelectTrigger className="w-[180px]">
-              <SelectValue placeholder="Select period" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="weekly">This Week</SelectItem>
-              <SelectItem value="monthly">This Month</SelectItem>
-              <SelectItem value="quarterly">This Quarter</SelectItem>
-            </SelectContent>
-          </Select>
+          <div className="flex flex-wrap items-center gap-2">
+            {/* Preset selector */}
+            <Select value={preset} onValueChange={handlePreset}>
+              <SelectTrigger className="h-9 w-[150px] text-sm">
+                <SelectValue placeholder="Period" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="last-7">Last 7 days</SelectItem>
+                <SelectItem value="last-30">Last 30 days</SelectItem>
+                <SelectItem value="last-quarter">Last quarter</SelectItem>
+                <SelectItem value="last-year">Last year</SelectItem>
+                <SelectItem value="custom">Custom range</SelectItem>
+              </SelectContent>
+            </Select>
+
+            {/* Custom date picker */}
+            {preset === "custom" && (
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className={cn(
+                      "h-9 gap-2 text-sm",
+                      !dateRange.from && "text-muted-foreground"
+                    )}
+                  >
+                    <CalendarIcon className="h-4 w-4" />
+                    {dateLabel}
+                  </Button>
+                </PopoverTrigger>
+
+                <PopoverContent className="w-auto p-0" align="end">
+                  <Calendar
+                    mode="range"
+                    selected={dateRange}
+                    onSelect={(range) =>
+                      setDateRange({
+                        from: range?.from,
+                        to: range?.to,
+                      })
+                    }
+                    numberOfMonths={2}
+                    className={cn("pointer-events-auto p-3")}
+                  />
+                </PopoverContent>
+              </Popover>
+            )}
+
+            {/* Export button */}
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-9 gap-2"
+              onClick={exportAnalyticsToExcel}
+            >
+              <Download className="h-4 w-4" />
+              Export Excel
+            </Button>
+          </div>
         </div>
 
-        {/* KPI Cards */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 mb-8">
-          <KPICard
-            title="Avg. Onboarding Time"
-            value={averageOnboardingDuration.current}
-            suffix="days"
-            change={improvementPercentage}
-            changeLabel="vs previous"
-            trend="down"
-            trendPositive={true}
-            icon={<Clock className="h-5 w-5" />}
-          />
-          <KPICard
-            title="STP Rate"
-            value={stpRate.current}
-            suffix="%"
-            change={8}
-            changeLabel="improvement"
-            trend="up"
-            trendPositive={true}
-            icon={<Zap className="h-5 w-5" />}
-          />
-          <KPICard
-            title="Doc Error Rate"
-            value={documentErrorRate.current}
-            suffix="%"
-            change={errorReduction}
-            changeLabel="reduction"
-            trend="down"
-            trendPositive={true}
-            icon={<FileWarning className="h-5 w-5" />}
-          />
-          <KPICard
-            title="Drop-Off Rate"
-            value={dropOffRate.current}
-            suffix="%"
-            change={12}
-            changeLabel="reduction"
-            trend="down"
-            trendPositive={true}
-            icon={<TrendingDown className="h-5 w-5" />}
-          />
-          <KPICard
-            title="False Positive Rate"
-            value={falsePositiveRate.current}
-            suffix="%"
-            change={14}
-            changeLabel="reduction"
-            trend="down"
-            trendPositive={true}
-            icon={<AlertTriangle className="h-5 w-5" />}
-          />
-        </div>
+        <Tabs defaultValue="overview" className="space-y-6">
+          <TabsList className="h-auto flex-wrap gap-1 bg-muted p-1">
+            <TabsTrigger
+              value="overview"
+              className="gap-2 data-[state=active]:bg-card"
+            >
+              <BarChart3 className="h-4 w-4" />
+              Overview
+            </TabsTrigger>
 
-        {/* Charts Row 1 */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-          {/* Onboarding Duration Trend */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Clock className="h-5 w-5 text-accent" />
-                Onboarding Duration Trend
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="h-[300px]">
-                <ResponsiveContainer width="100%" height="100%">
-                  <LineChart data={onboardingTrendData}>
-                    <CartesianGrid
-                      strokeDasharray="3 3"
-                      className="stroke-border"
-                    />
-                    <XAxis dataKey="name" className="text-xs" />
-                    <YAxis className="text-xs" />
-                    <Tooltip
-                      contentStyle={{
-                        backgroundColor: "hsl(var(--card))",
-                        border: "1px solid hsl(var(--border))",
-                        borderRadius: "8px",
-                      }}
-                    />
-                    <Line
-                      type="monotone"
-                      dataKey="value"
-                      stroke="hsl(var(--accent))"
-                      strokeWidth={3}
-                      dot={{ fill: "hsl(var(--accent))", strokeWidth: 2 }}
-                    />
-                  </LineChart>
-                </ResponsiveContainer>
-              </div>
+            <TabsTrigger
+              value="pipeline"
+              className="gap-2 data-[state=active]:bg-card"
+            >
+              <GitBranch className="h-4 w-4" />
+              Pipeline
+            </TabsTrigger>
 
-              <div className="mt-4 p-4 bg-status-success/10 border border-status-success/20 rounded-lg">
-                <p className="text-sm text-status-success font-medium">
-                  ↓ {improvementPercentage}% improvement from{" "}
-                  {averageOnboardingDuration.previous} days to{" "}
-                  {averageOnboardingDuration.current} days
-                </p>
-              </div>
-            </CardContent>
-          </Card>
+            <TabsTrigger
+              value="compliance"
+              className="gap-2 data-[state=active]:bg-card"
+            >
+              <Shield className="h-4 w-4" />
+              Compliance & Risk
+            </TabsTrigger>
 
-          {/* STP Rate by Product */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Zap className="h-5 w-5 text-accent" />
-                STP Rate by Product
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="h-[300px]">
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={stpByProductData} layout="vertical">
-                    <CartesianGrid
-                      strokeDasharray="3 3"
-                      className="stroke-border"
-                    />
-                    <XAxis
-                      type="number"
-                      domain={[0, 100]}
-                      className="text-xs"
-                    />
-                    <YAxis
-                      dataKey="name"
-                      type="category"
-                      width={120}
-                      className="text-xs"
-                    />
-                    <Tooltip
-                      contentStyle={{
-                        backgroundColor: "hsl(var(--card))",
-                        border: "1px solid hsl(var(--border))",
-                        borderRadius: "8px",
-                      }}
-                      formatter={(value) => [`${value}%`, "STP Rate"]}
-                    />
-                    <Bar dataKey="value" radius={[0, 4, 4, 0]}>
-                      {stpByProductData.map((entry, index) => (
-                        <Cell
-                          key={`cell-${index}`}
-                          fill={
-                            entry.value >= 70
-                              ? "hsl(var(--status-success))"
-                              : entry.value >= 50
-                                ? "hsl(var(--status-warning))"
-                                : "hsl(var(--status-error))"
-                          }
-                        />
-                      ))}
-                    </Bar>
-                  </BarChart>
-                </ResponsiveContainer>
-              </div>
+            <TabsTrigger
+              value="performance"
+              className="gap-2 data-[state=active]:bg-card"
+            >
+              <Gauge className="h-4 w-4" />
+              Performance
+            </TabsTrigger>
+          </TabsList>
 
-              <div className="mt-4 flex items-center gap-4 text-xs">
-                <span className="flex items-center gap-1">
-                  <span className="h-3 w-3 rounded bg-status-success" /> ≥70%
-                </span>
-                <span className="flex items-center gap-1">
-                  <span className="h-3 w-3 rounded bg-status-warning" /> 50-69%
-                </span>
-                <span className="flex items-center gap-1">
-                  <span className="h-3 w-3 rounded bg-status-error" /> &lt;50%
-                </span>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
+          <TabsContent value="overview">
+            <OverviewTab />
+          </TabsContent>
 
-        {/* Charts Row 2 */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-          {/* Drop-off Funnel */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Target className="h-5 w-5 text-accent" />
-                Application Drop-off Funnel
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-3">
-                {funnelData.map((stage) => {
-                  const widthPercentage =
-                    (stage.count / funnelData[0].count) * 100;
-                  return (
-                    <div key={stage.stage} className="space-y-1">
-                      <div className="flex justify-between text-sm">
-                        <span className="font-medium">{stage.stage}</span>
-                        <span className="text-muted-foreground">
-                          {stage.count} ({widthPercentage.toFixed(0)}%)
-                          {stage.dropOff > 0 && (
-                            <span className="text-status-error ml-2">
-                              -{stage.dropOff}%
-                            </span>
-                          )}
-                        </span>
-                      </div>
-                      <div className="h-8 bg-secondary rounded-md overflow-hidden">
-                        <div
-                          className="h-full bg-accent transition-all duration-500"
-                          style={{ width: `${widthPercentage}%` }}
-                        />
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
+          <TabsContent value="pipeline">
+            <PipelineTab />
+          </TabsContent>
 
-              <div className="mt-4 p-4 bg-secondary rounded-lg">
-                <p className="text-sm">
-                  <span className="font-medium">Biggest drop-off:</span>{" "}
-                  Document Upload stage (-15%)
-                </p>
-              </div>
-            </CardContent>
-          </Card>
+          <TabsContent value="compliance">
+            <ComplianceTab />
+          </TabsContent>
 
-          {/* False Positive Trend */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <AlertTriangle className="h-5 w-5 text-accent" />
-                False Positive Rate Trend
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="h-[280px]">
-                <ResponsiveContainer width="100%" height="100%">
-                  <LineChart data={falsePositiveTrendData}>
-                    <CartesianGrid
-                      strokeDasharray="3 3"
-                      className="stroke-border"
-                    />
-                    <XAxis dataKey="name" className="text-xs" />
-                    <YAxis className="text-xs" domain={[0, 50]} />
-                    <Tooltip
-                      contentStyle={{
-                        backgroundColor: "hsl(var(--card))",
-                        border: "1px solid hsl(var(--border))",
-                        borderRadius: "8px",
-                      }}
-                      formatter={(value) => [
-                        `${value}%`,
-                        "False Positive Rate",
-                      ]}
-                    />
-                    <Line
-                      type="monotone"
-                      dataKey="value"
-                      stroke="hsl(var(--status-warning))"
-                      strokeWidth={3}
-                      dot={{
-                        fill: "hsl(var(--status-warning))",
-                        strokeWidth: 2,
-                      }}
-                    />
-                  </LineChart>
-                </ResponsiveContainer>
-              </div>
-
-              <div className="mt-4 p-4 bg-status-success/10 border border-status-success/20 rounded-lg">
-                <p className="text-sm text-status-success font-medium">
-                  Rule efficiency improved: False positives reduced from 38% to
-                  24%
-                </p>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Before/After Comparison */}
-        <Card>
-          <CardHeader>
-            <CardTitle>
-              Performance Comparison: Before vs After Improvements
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-              <div className="text-center p-4 bg-secondary rounded-lg">
-                <p className="text-sm text-muted-foreground mb-2">
-                  Onboarding Duration
-                </p>
-                <div className="flex items-center justify-center gap-4">
-                  <div>
-                    <p className="text-2xl font-bold text-muted-foreground line-through">
-                      {averageOnboardingDuration.previous}d
-                    </p>
-                    <p className="text-xs text-muted-foreground">Before</p>
-                  </div>
-                  <span className="text-status-success text-xl">→</span>
-                  <div>
-                    <p className="text-2xl font-bold text-status-success">
-                      {averageOnboardingDuration.current}d
-                    </p>
-                    <p className="text-xs text-status-success">After</p>
-                  </div>
-                </div>
-              </div>
-
-              <div className="text-center p-4 bg-secondary rounded-lg">
-                <p className="text-sm text-muted-foreground mb-2">
-                  Document Error Rate
-                </p>
-                <div className="flex items-center justify-center gap-4">
-                  <div>
-                    <p className="text-2xl font-bold text-muted-foreground line-through">
-                      {documentErrorRate.previous}%
-                    </p>
-                    <p className="text-xs text-muted-foreground">Before</p>
-                  </div>
-                  <span className="text-status-success text-xl">→</span>
-                  <div>
-                    <p className="text-2xl font-bold text-status-success">
-                      {documentErrorRate.current}%
-                    </p>
-                    <p className="text-xs text-status-success">After</p>
-                  </div>
-                </div>
-              </div>
-
-              <div className="text-center p-4 bg-secondary rounded-lg">
-                <p className="text-sm text-muted-foreground mb-2">STP Rate</p>
-                <div className="flex items-center justify-center gap-4">
-                  <div>
-                    <p className="text-2xl font-bold text-muted-foreground line-through">
-                      64%
-                    </p>
-                    <p className="text-xs text-muted-foreground">Before</p>
-                  </div>
-                  <span className="text-status-success text-xl">→</span>
-                  <div>
-                    <p className="text-2xl font-bold text-status-success">
-                      {stpRate.current}%
-                    </p>
-                    <p className="text-xs text-status-success">After</p>
-                  </div>
-                </div>
-              </div>
-
-              <div className="text-center p-4 bg-secondary rounded-lg">
-                <p className="text-sm text-muted-foreground mb-2">
-                  False Positive Rate
-                </p>
-                <div className="flex items-center justify-center gap-4">
-                  <div>
-                    <p className="text-2xl font-bold text-muted-foreground line-through">
-                      38%
-                    </p>
-                    <p className="text-xs text-muted-foreground">Before</p>
-                  </div>
-                  <span className="text-status-success text-xl">→</span>
-                  <div>
-                    <p className="text-2xl font-bold text-status-success">
-                      {falsePositiveRate.current}%
-                    </p>
-                    <p className="text-xs text-status-success">After</p>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+          <TabsContent value="performance">
+            <PerformanceTab />
+          </TabsContent>
+        </Tabs>
       </main>
     </div>
   );
-};
-
-export default Dashboard;
+}

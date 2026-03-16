@@ -1,7 +1,7 @@
 from backend.rules_engine.config import (
     HIGH_RISK_COUNTRIES,
     HIGH_RISK_INDUSTRIES,
-    HIGH_TX_VOLUME_THRESHOLD,
+    TX_VOLUME_RISK_TABLE,
     FATF_BLACKLIST
 )
 
@@ -38,12 +38,12 @@ def evaluate_company(company):
             "description": "Trust or nominee ownership detected"
         })
 
-    if company.expected_volume > HIGH_TX_VOLUME_THRESHOLD:
-        score += 15
-        triggers.append({
-            "code": "R005B",
-            "description": "Expected transaction volume unusually high"
-        })
+    # if company.expected_volume > TX_VOLUME_RISK_TABLE:
+    #     score += 15
+    #     triggers.append({
+    #         "code": "R005B",
+    #         "description": "Expected transaction volume unusually high"
+    #     })
 
     if company.years_incorporated < 1:
         score += 10

@@ -11,6 +11,7 @@ import StaffLandingPage from "./pages/StaffLandingPage";
 import ApplicationReviewDetail from "./pages/ApplicationReviewDetail";
 import Dashboard from "./pages/Dashboard";
 import AdminConfigPage from "./pages/AdminConfigPage";
+import RulesEngineConfiguration from "./pages/RulesEngineConfiguration";
 // import TestDocumentMulti from "./pages/TestDocument";
 // import ViewSubmittedApplication from "./pages/OneDocument";
 import { Toaster } from "./components/ui/primitives/Toaster";
@@ -19,6 +20,8 @@ import { useSelector } from "react-redux";
 import { selectUser } from "./store/authSlice";
 import { Navigate } from "react-router-dom";
 import { SMEApplicationForm } from "./components/ui/SMEApplicationForm";
+import DiditKycTest from "./pages/test";
+import DiditCallback from "./pages/DiditCallback";
 
 // Simple route guard
 const RequireRole = ({ role, children }) => {
@@ -147,6 +150,38 @@ export default function App() {
             </RequireRole>
           }
         />
+
+        <Route
+          path="/rules-engine-configuration"
+          element={
+            <RequireRole role="STAFF">
+              <LandingLayout>
+                <RulesEngineConfiguration />
+              </LandingLayout>
+            </RequireRole>
+          }
+        />
+        <Route
+          path="/test"
+          element={
+            <RequireRole role="SME">
+              <LandingLayout>
+                <DiditKycTest />
+              </LandingLayout>
+            </RequireRole>
+          }
+        />
+        <Route
+          path="/didit-callback"
+          element={
+            <RequireRole role="SME">
+              <LandingLayout>
+                <DiditCallback />
+              </LandingLayout>
+            </RequireRole>
+          }
+        />
+        
       </Routes>
 
       {/* global toaster */}

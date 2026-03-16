@@ -36,6 +36,13 @@ class ApplicationForm(Base):
         passive_deletes=True,
     )
 
+    liveness_detections = relationship(
+        "LivenessDetection",
+        back_populates="application",
+        cascade="all, delete-orphan",
+        passive_deletes=True
+    )
+
     # 8-digit application id, auto-generated in DB
     application_id = Column(
         String(8),
@@ -57,7 +64,7 @@ class ApplicationForm(Base):
     is_open_user = Column(Boolean,nullable=False, server_default=text("false"))
     is_open_staff = Column(Boolean,nullable=False, server_default=text("false"))
     has_sent = Column(Boolean, nullable=False, default=False, server_default="false")
-    
+    provider_session_id = Column(String(255), nullable=True)
 
     # Store as SGT-naive timestamp (TIMESTAMP WITHOUT TIME ZONE)
     last_edited = Column(

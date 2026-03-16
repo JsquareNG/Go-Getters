@@ -271,6 +271,12 @@ const LandingNavBar = () => {
       to: "/accountspage",
       roles: ["SME"],
     },
+    {
+      icon: Columns3Cog,
+      label: "Rules Engine Configuration",
+      to: "/rules-engine-configuration",
+      roles: ["STAFF"],
+    },
   ];
 
   const visibleNavItems = navItems.filter((item) =>
