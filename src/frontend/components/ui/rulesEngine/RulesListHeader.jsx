@@ -7,6 +7,16 @@ const CATEGORY_TABS = [
   { key: "KYB", label: "Know Your Business" },
 ];
 
+function formatBasicCategoryLabel(category) {
+  if (!category) return "";
+
+  if (category === "SG") return "Singapore";
+  if (category === "IND") return "Indonesia";
+  if (category === "GENERAL") return "General";
+
+  return category;
+}
+
 export default function RulesListHeader({
   activeCategory,
   formattedLastRevised,
@@ -14,7 +24,26 @@ export default function RulesListHeader({
   onExpandAll,
   onCollapseAll,
   onAddRule,
+  basicComplianceCategories = [],
+  basicComplianceFilter = "",
+  onBasicComplianceFilterChange = () => {},
 }) {
+  const isBasicTab = activeCategory === "BASIC";
+
+  const title =
+    activeCategory === "KYC"
+      ? "Know Your Customer Rules"
+      : activeCategory === "KYB"
+      ? "Know Your Business Rules"
+      : "Basic Compliance Rules";
+
+  const subtitle =
+    activeCategory === "KYC"
+      ? "Manage rules used by the rules engine for KYC."
+      : activeCategory === "KYB"
+      ? "Manage rules used by the rules engine for KYB."
+      : "Manage rules used by the rules engine for Basic Compliance.";
+
   return (
     <>
       <div className="flex gap-2 border-b border-gray-200">
@@ -39,15 +68,9 @@ export default function RulesListHeader({
 
       <div className="mb-4 flex items-center justify-between gap-4">
         <div>
-          <h2 className="text-lg font-semibold text-gray-900">
-            {activeCategory === "KYC"
-              ? "Know Your Customer Rules"
-              : "Know Your Business Rules"}
-          </h2>
+          <h2 className="text-lg font-semibold text-gray-900">{title}</h2>
 
-          <p className="text-sm text-gray-500">
-            Manage rules used by the rules engine for {activeCategory}.
-          </p>
+          <p className="text-sm text-gray-500">{subtitle}</p>
 
           <p className="mt-1 text-xs text-gray-500">
             Last updated: {formattedLastRevised}
@@ -55,6 +78,20 @@ export default function RulesListHeader({
         </div>
 
         <div className="flex items-center gap-2">
+          {isBasicTab && (
+            <select
+              value={basicComplianceFilter}
+              onChange={(e) => onBasicComplianceFilterChange(e.target.value)}
+              className="rounded-xl border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 outline-none focus:border-gray-900"
+            >
+              {basicComplianceCategories.map((category) => (
+                <option key={category} value={category}>
+                  {formatBasicCategoryLabel(category)}
+                </option>
+              ))}
+            </select>
+          )}
+
           <button
             type="button"
             onClick={onExpandAll}

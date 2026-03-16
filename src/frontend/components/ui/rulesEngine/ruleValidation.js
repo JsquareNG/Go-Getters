@@ -91,6 +91,7 @@ export function validateRulesListRows(rows = []) {
       errors.conditions[conditionKey] = {
         field_name: "",
         numeric_value: "",
+        string_value: "",
         list_name: "",
         score: "",
         trigger_description: "",
@@ -102,14 +103,20 @@ export function validateRulesListRows(rows = []) {
 
       if (!isElse) {
         const operator = (condition.operator || "").toUpperCase();
+        const valueType = (condition.value_type || "").toUpperCase();
 
         if (operator === "IN_LIST") {
           if (!(condition.list_name || "").trim()) {
             errors.conditions[conditionKey].list_name =
               "Config list selection is required.";
           }
-        } else if (operator === "IS_TRUE") {
-          // no extra value validation needed
+        } else if (operator === "IS_TRUE" || operator === "IS_FALSE") {
+          // no extra value validation needed for boolean conditions
+        } else if (valueType === "STRING") {
+          if (!(condition.string_value || "").trim()) {
+            errors.conditions[conditionKey].string_value =
+              "A text value is required.";
+          }
         } else {
           if (
             condition.numeric_value === "" ||
@@ -128,7 +135,7 @@ export function validateRulesListRows(rows = []) {
         Number(condition.score) === 0
       ) {
         errors.conditions[conditionKey].score =
-          "Risk score must be greater than 0.";
+          "Value must be greater than 0.";
       }
 
       if (!(condition.trigger_description || "").trim()) {

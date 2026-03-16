@@ -117,11 +117,14 @@ def get_application_by_app_id(application_id: str, db: Session = Depends(get_db)
 def save_application(data: dict = Body(...), db: Session = Depends(get_db)):
     
     form_data = data.get("form_data", {})
+    provider_session_id = data.get("provider_session_id")
+
 
     new_app = ApplicationForm(
         business_country=form_data["country"],
         business_name=form_data['businessName'],
         business_type=form_data['businessType'],
+        provider_session_id=provider_session_id,
         user_id=data["user_id"],
         form_data=form_data,
         previous_status=None,      
@@ -154,7 +157,6 @@ def save_application(data: dict = Body(...), db: Session = Depends(get_db)):
         description="Application created by applicant.",
     )
 
-    provider_session_id = data.get("provider_session_id")
 
     liveness_row = (
         db.query(LivenessDetection)
@@ -246,7 +248,7 @@ def first_submit_application(
     db: Session = Depends(get_db),
 ):
     form_data = data.get("form_data", {})
-
+    provider_session_id = data.get("provider_session_id")
 
     business_country=form_data["country"],
     business_name=form_data['businessName'],
@@ -260,6 +262,7 @@ def first_submit_application(
         user_id=user_id,
         previous_status=None,
         current_status="Under Review",
+        provider_session_id=provider_session_id,
         form_data=form_data,
     )
 
@@ -324,7 +327,7 @@ def first_submit_application(
 
     print("[firstSubmit] created app", new_app.application_id)
 
-    provider_session_id = data.get("provider_session_id")
+    
 
     liveness_row = (
         db.query(LivenessDetection)
@@ -833,30 +836,37 @@ def delete_application(application_id: str, db: Session = Depends(get_db)):
     if not app:
         raise HTTPException(status_code=404, detail="Application not found")
 
-    # Get storage paths BEFORE deleting app (cascade will remove document rows)
-    docs = (
-        db.query(Document)
-        .filter(Document.application_id == application_id)
-        .all()
+    old_status = app.current_status
+    app.previous_status = old_status
+    app.current_status = "Deleted"
+
+    username = get_users_by_id(db, app.user_id)
+
+    add_bell(
+        db=db,
+        appId=app.application_id,
+        recipient_id=app.user_id,
+        message="You have discarded your draft application.",
+        from_status=old_status,
+        to_status="Deleted",
     )
-    paths = [d.storage_path for d in docs if getattr(d, "storage_path", None)]
 
-    # Delete from storage first (service role bypasses Storage RLS)
-    if paths:
-        try:
-            supabase_admin.storage.from_(BUCKET).remove(paths)
-        except Exception as e:
-            raise HTTPException(
-                status_code=500,
-                detail=f"Failed to delete storage objects: {str(e)}"
-            )
+    create_audit_log(
+        db=db,
+        application_id=app.application_id,
+        actor_id=app.user_id,
+        actor_type=username,
+        event_type="APPLICATION_DELETED",
+        entity_type="APPLICATION",
+        from_status=old_status,
+        to_status="Deleted",
+        description="Applicant discarded the draft application.",
+    )
 
-    # Delete DB row (cascade deletes documents)
-    db.delete(app)
     db.commit()
 
     return {
-        "message": "Application deleted successfully",
+        "message": "Application discarded successfully",
         "application_id": application_id
     }
 

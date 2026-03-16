@@ -17,21 +17,28 @@ export default function RuleConditionsPanel({
   onRemoveCondition,
   ruleErrors = {},
   conditionErrors = {},
+  showValidation = false,
 }) {
+  const conditionsError = showValidation ? ruleErrors.conditions : "";
+
   return (
     <tr className="bg-gray-50">
       <td colSpan={7} className="px-4 py-4">
         <div className="space-y-3">
           <div className="text-sm font-semibold text-gray-800">Conditions</div>
 
-          <FieldError message={ruleErrors.conditions} />
+          <FieldError message={conditionsError} />
 
           {!conditions.length ? (
             <div className="flex justify-center py-6">
               <button
                 type="button"
                 onClick={() => onAddCondition(rowKey)}
-                className="inline-flex items-center gap-2 rounded-xl border border-dashed border-gray-300 bg-white px-5 py-3 text-sm font-medium text-gray-700 hover:border-gray-400 hover:bg-gray-50"
+                className={`inline-flex items-center gap-2 rounded-xl border border-dashed px-5 py-3 text-sm font-medium ${
+                  conditionsError
+                    ? "border-red-400 bg-red-50 text-red-700"
+                    : "border-gray-300 bg-white text-gray-700 hover:border-gray-400 hover:bg-gray-50"
+                }`}
               >
                 <Plus className="h-4 w-4" />
                 Add First Condition
@@ -56,6 +63,7 @@ export default function RuleConditionsPanel({
                   conditionErrors={
                     conditionErrors[getConditionKey(condition)] || {}
                   }
+                  showValidation={showValidation}
                 />
               ))}
             </div>
