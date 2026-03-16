@@ -183,7 +183,7 @@ export function KycVerificationCard({ kyc }) {
     : "border-amber-500/40";
 
   const bgColor = isDeclined
-    ? "bg-red-600/10"
+    ? "bg-pink-100"
     : isApproved
     ? "bg-emerald-500/5"
     : "bg-amber-500/5";
@@ -276,7 +276,7 @@ export function KycVerificationCard({ kyc }) {
                     <Badge
                       key={`${flag}-${index}`}
                       variant="outline"
-                      className="border-destructive/30 bg-red-500/40 text-[10px] font-mono text-destructive"
+                      className="border-black/30 bg-orange-300/40 text-[10px] font-mono text-destructive"
                     >
                       {formatRiskFlag(flag)}
                     </Badge>
@@ -348,20 +348,6 @@ export function KycVerificationCard({ kyc }) {
                   Warnings
                 </p>
                 <div className="space-y-2">
-                  {kyc.has_duplicate_identity_hit && (
-                    <div className="flex items-center gap-2 text-xs text-destructive">
-                      <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
-                      <span>Duplicate identity detected</span>
-                    </div>
-                  )}
-
-                  {kyc.has_duplicate_face_hit && (
-                    <div className="flex items-center gap-2 text-xs text-destructive">
-                      <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
-                      <span>Duplicate face detected</span>
-                    </div>
-                  )}
-
                   {hasLowFaceMatchWarning && (
                     <div className="flex items-center gap-2 text-xs text-amber-600">
                       <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
@@ -372,7 +358,7 @@ export function KycVerificationCard({ kyc }) {
                   )}
 
                   {kyc.manual_review_required && (
-                    <div className="mt-1 flex items-start gap-2 rounded-md bg-amber-500/10 p-2.5">
+                    <div className="mt-1 flex items-start gap-2 rounded-md bg-amber-500/20 p-2.5 border border-slate-500">
                       <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-500" />
                       <p className="text-xs text-foreground">
                         <span className="font-medium">Manual review required.</span> This
@@ -380,13 +366,6 @@ export function KycVerificationCard({ kyc }) {
                       </p>
                     </div>
                   )}
-
-                  {!kyc.has_duplicate_identity_hit &&
-                    !kyc.has_duplicate_face_hit &&
-                    !kyc.manual_review_required &&
-                    !hasLowFaceMatchWarning && (
-                      <p className="text-sm text-muted-foreground">No warnings found.</p>
-                    )}
                 </div>
               </div>
             </div>
@@ -413,7 +392,7 @@ export function KycVerificationCard({ kyc }) {
                       .map((item) => (
                         <div
                           key={item.key}
-                          className="flex items-center justify-between rounded-lg border border-border bg-slate-300/50 p-3"
+                          className="flex items-center justify-between rounded-lg border border-slate-500 bg-slate-300/50 p-3"
                         >
                           <div className="min-w-0 flex-1">
                             <div className="flex items-center gap-2">

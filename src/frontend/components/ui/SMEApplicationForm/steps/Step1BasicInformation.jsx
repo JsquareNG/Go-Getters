@@ -589,7 +589,7 @@ const Step1BasicInformation = ({ data, onFieldChange, disabled = false }) => {
 
                 {kycStatus !== "idle" && (
                   <Badge
-                    className="mt-3"
+                    className="mt-3 bg-orange-500 text-white"
                     variant={isKycPassed ? "default" : "secondary"}
                   >
                     {isKycPassed
