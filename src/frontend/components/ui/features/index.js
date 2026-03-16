@@ -25,7 +25,6 @@ export {
   DropdownMenuSubTrigger,
   DropdownMenuRadioGroup,
 } from "./DropdownMenu";
-export { KPICard } from "./KPICard";
 export { TransactionRow } from "./TransactionRow";
 export { TransactionsTable } from "./TransactionsTable";
 export { FilterBar } from "./FilterBar";
@@ -45,3 +44,4 @@ export { AlertDialog,
   AlertDialogDescription,
   AlertDialogAction,
   AlertDialogCancel } from "./AlertDialog"
+export { KycVerificationCard } from "./kycVerificationCard"

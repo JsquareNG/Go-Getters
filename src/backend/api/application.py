@@ -17,7 +17,7 @@ from backend.api.resend import send_email
 from backend.database import get_db
 from backend.models.reviewJobs import ReviewJobs
 from backend.models.bellNotifications import BellNotification
-from backend.risk.review_service import run_review_job
+from backend.compliance_rules_engine.review_service import run_review_job
 from backend.services.application_transitions import approve_application_service, need_manual_review_service
 from backend.models.action_requests import ActionRequest, ActionRequestItem
 from backend.models.auditTrail import AuditTrail

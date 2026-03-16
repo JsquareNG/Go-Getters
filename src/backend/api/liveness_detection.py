@@ -5,6 +5,7 @@ from zoneinfo import ZoneInfo
 
 from backend.database import get_db
 from backend.models.liveness_detection import LivenessDetection
+from backend.services.kyc_media_service import download_upload_and_get_kyc_public_url
 
 router = APIRouter(prefix="/liveness-detection", tags=["liveness_detection"])
 
@@ -16,7 +17,6 @@ def model_to_dict(obj):
         value = getattr(obj, c.name)
 
         if c.name == "created_at" and value is not None and isinstance(value, datetime):
-            # convert aware datetime to Singapore time
             if value.tzinfo is not None:
                 value = value.astimezone(ZoneInfo("Asia/Singapore"))
 
@@ -29,8 +29,6 @@ def model_to_dict(obj):
             result[c.name] = value
 
     return result
-
-
 
 
 def parse_provider_created_at(value: str | None):
@@ -46,11 +44,16 @@ def parse_provider_created_at(value: str | None):
         )
 
 
+# =====================================================
+# GET KYC BY SESSION ID
+# =====================================================
+
 @router.get("/bySessionID/{provider_session_id}")
 def get_liveness_detection_by_session_id(
     provider_session_id: str,
     db: Session = Depends(get_db)
 ):
+
     row = (
         db.query(LivenessDetection)
         .filter(LivenessDetection.provider_session_id == provider_session_id)
@@ -63,16 +66,22 @@ def get_liveness_detection_by_session_id(
     return model_to_dict(row)
 
 
+# =====================================================
+# CREATE KYC RECORD
+# =====================================================
+
 @router.post("/createDetection")
 def create_liveness_detection(
     data: dict = Body(...),
     db: Session = Depends(get_db)
 ):
+
     provider_session_id = data.get("provider_session_id")
 
     if not provider_session_id:
         raise HTTPException(status_code=400, detail="provider_session_id is required")
 
+    # prevent duplicates
     existing = (
         db.query(LivenessDetection)
         .filter(LivenessDetection.provider_session_id == provider_session_id)
@@ -85,9 +94,55 @@ def create_liveness_detection(
             detail="A liveness detection record with this provider_session_id already exists"
         )
 
+    application_id = data.get("application_id")
     images = data.get("images") or {}
 
+    # ---------------------------------------------------
+    # IMPORTANT: choose storage reference
+    # ---------------------------------------------------
+
+    kyc_ref = application_id if application_id else provider_session_id
+
+    # ---------------------------------------------------
+    # DOWNLOAD FROM DIDIT → UPLOAD TO SUPABASE
+    # ---------------------------------------------------
+
+    converted_images = {
+        "portrait_image_url": download_upload_and_get_kyc_public_url(
+            images.get("portrait_image_url"), kyc_ref, "portrait", ".jpg"
+        ),
+        "front_image_url": download_upload_and_get_kyc_public_url(
+            images.get("front_image_url"), kyc_ref, "front", ".jpg"
+        ),
+        "back_image_url": download_upload_and_get_kyc_public_url(
+            images.get("back_image_url"), kyc_ref, "back", ".jpg"
+        ),
+        "full_front_pdf_url": download_upload_and_get_kyc_public_url(
+            images.get("full_front_pdf_url"), kyc_ref, "full_front", ".pdf"
+        ),
+        "full_back_pdf_url": download_upload_and_get_kyc_public_url(
+            images.get("full_back_pdf_url"), kyc_ref, "full_back", ".pdf"
+        ),
+        "liveness_reference_image_url": download_upload_and_get_kyc_public_url(
+            images.get("liveness_reference_image_url"), kyc_ref, "liveness_reference", ".jpg"
+        ),
+        "liveness_video_url": download_upload_and_get_kyc_public_url(
+            images.get("liveness_video_url"), kyc_ref, "liveness_video", ".mp4"
+        ),
+        "face_match_source_image_url": download_upload_and_get_kyc_public_url(
+            images.get("face_match_source_image_url"), kyc_ref, "face_match_source", ".jpg"
+        ),
+        "face_match_target_image_url": download_upload_and_get_kyc_public_url(
+            images.get("face_match_target_image_url"), kyc_ref, "face_match_target", ".jpg"
+        ),
+    }
+
+    # ---------------------------------------------------
+    # CREATE DATABASE RECORD
+    # ---------------------------------------------------
+
     new_row = LivenessDetection(
+        application_id=application_id,   # can be None
         provider=data.get("provider"),
         provider_session_id=provider_session_id,
         provider_session_number=data.get("provider_session_number"),
@@ -116,7 +171,7 @@ def create_liveness_detection(
         has_duplicate_face_hit=data.get("has_duplicate_face_hit", False),
 
         risk_flags=data.get("risk_flags") or [],
-        images=images,
+        images=converted_images,
 
         created_at=parse_provider_created_at(data.get("created_at"))
     )
@@ -131,12 +186,17 @@ def create_liveness_detection(
     }
 
 
+# =====================================================
+# LINK APPLICATION AFTER DRAFT SAVE
+# =====================================================
+
 @router.put("/bySessionID/{provider_session_id}")
 def update_liveness_detection_by_session_id(
     provider_session_id: str,
     data: dict = Body(...),
     db: Session = Depends(get_db)
 ):
+
     row = (
         db.query(LivenessDetection)
         .filter(LivenessDetection.provider_session_id == provider_session_id)
@@ -146,7 +206,6 @@ def update_liveness_detection_by_session_id(
     if not row:
         raise HTTPException(status_code=404, detail="Liveness detection record not found")
 
-    # only update fields if provided
     if "application_id" in data:
         row.application_id = data.get("application_id")
 
@@ -157,3 +216,27 @@ def update_liveness_detection_by_session_id(
         "message": "Liveness detection record updated successfully",
         "data": model_to_dict(row)
     }
+
+# =====================================================
+# GET KYC BY APPLICATION ID
+# =====================================================
+
+@router.get("/byApplicationID/{application_id}")
+def get_liveness_detection_by_application_id(
+    application_id: str,
+    db: Session = Depends(get_db)
+):
+    row = (
+        db.query(LivenessDetection)
+        .filter(LivenessDetection.application_id == application_id)
+        .order_by(LivenessDetection.id.desc())
+        .first()
+    )
+
+    if not row:
+        raise HTTPException(
+            status_code=404,
+            detail="Liveness detection record not found for this application_id"
+        )
+
+    return model_to_dict(row)

@@ -20,6 +20,8 @@ import { useSelector } from "react-redux";
 import { selectUser } from "./store/authSlice";
 import { Navigate } from "react-router-dom";
 import { SMEApplicationForm } from "./components/ui/SMEApplicationForm";
+import DiditKycTest from "./pages/test";
+import DiditCallback from "./pages/DiditCallback";
 
 // Simple route guard
 const RequireRole = ({ role, children }) => {
@@ -159,6 +161,27 @@ export default function App() {
             </RequireRole>
           }
         />
+        <Route
+          path="/test"
+          element={
+            <RequireRole role="SME">
+              <LandingLayout>
+                <DiditKycTest />
+              </LandingLayout>
+            </RequireRole>
+          }
+        />
+        <Route
+          path="/didit-callback"
+          element={
+            <RequireRole role="SME">
+              <LandingLayout>
+                <DiditCallback />
+              </LandingLayout>
+            </RequireRole>
+          }
+        />
+        
       </Routes>
 
       {/* global toaster */}

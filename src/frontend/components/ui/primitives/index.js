@@ -52,3 +52,4 @@ export {
 } from "./Toast";
 export { Toaster } from "./Toaster";
 export {Tabs, TabsContent, TabsList, TabsTrigger} from "./Tabs"
+export { Collapsible, CollapsibleTrigger, CollapsibleContent } from "./collapsible"
