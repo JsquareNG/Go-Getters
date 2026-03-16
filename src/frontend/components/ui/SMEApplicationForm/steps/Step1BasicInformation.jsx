@@ -24,9 +24,12 @@ const DEFAULT_KYC_DATA = {
   faceMatchScore: null,
 };
 
+const MIN_FACE_MATCH_SCORE = 60;
+
 const Step1BasicInformation = ({ data, onFieldChange, disabled = false }) => {
   const fileRef = useRef(null);
   const processedDiditSessionRef = useRef("");
+  const latestKycDataRef = useRef(DEFAULT_KYC_DATA);
 
   const [acraFile, setAcraFile] = useState(null);
   const [acraUploading, setAcraUploading] = useState(false);
@@ -44,10 +47,29 @@ const Step1BasicInformation = ({ data, onFieldChange, disabled = false }) => {
   const kycFaceMatchStatus = kycData.faceMatchStatus || "";
   const kycFaceMatchScore = kycData.faceMatchScore ?? null;
 
+  const numericFaceMatchScore =
+    kycFaceMatchScore === null || kycFaceMatchScore === undefined
+      ? null
+      : Number(kycFaceMatchScore);
+
+  const isKycPassed =
+    kycStatus === "completed" &&
+    numericFaceMatchScore !== null &&
+    numericFaceMatchScore >= MIN_FACE_MATCH_SCORE;
+
+  const isKycFailed =
+    kycStatus === "completed" &&
+    numericFaceMatchScore !== null &&
+    numericFaceMatchScore < MIN_FACE_MATCH_SCORE;
+
+  useEffect(() => {
+    latestKycDataRef.current = kycData;
+  }, [kycData]);
+
   const updateKycData = (patch) => {
     onFieldChange("kycData", {
       ...DEFAULT_KYC_DATA,
-      ...(data?.kycData || {}),
+      ...(latestKycDataRef.current || {}),
       ...patch,
     });
   };
@@ -100,8 +122,9 @@ const Step1BasicInformation = ({ data, onFieldChange, disabled = false }) => {
 
     if (data?.country !== "SG") return;
     if (!acraFile) return setAcraError("Please upload your ACRA PDF first.");
-    if (acraFile.type !== "application/pdf")
+    if (acraFile.type !== "application/pdf") {
       return setAcraError("Only PDF is allowed.");
+    }
 
     setAcraUploading(true);
 
@@ -118,6 +141,7 @@ const Step1BasicInformation = ({ data, onFieldChange, disabled = false }) => {
 
       const result = await res.json();
       console.log("FULL API RESPONSE:", result);
+
       const rawKv = result?.data?.data || {};
       const kv = {};
       Object.keys(rawKv).forEach((k) => {
@@ -130,8 +154,10 @@ const Step1BasicInformation = ({ data, onFieldChange, disabled = false }) => {
       const setIfEmpty = (key, value) => {
         if (!(key in basicFieldsConfig)) return;
         if (!value) return;
+
         const next = String(value).trim();
         if (!next) return;
+
         const current = data?.[key] ?? "";
         if (!current || String(current).trim() === "") {
           onFieldChange?.(key, next);
@@ -144,6 +170,7 @@ const Step1BasicInformation = ({ data, onFieldChange, disabled = false }) => {
           .trim()
           .match(/^(\d{1,2})\s+([A-Z]{3})\s+(\d{4})$/i);
         if (!m) return "";
+
         const months = {
           JAN: "01",
           FEB: "02",
@@ -158,6 +185,7 @@ const Step1BasicInformation = ({ data, onFieldChange, disabled = false }) => {
           NOV: "11",
           DEC: "12",
         };
+
         const day = m[1].padStart(2, "0");
         const mm = months[m[2].toUpperCase()];
         return `${m[3]}-${mm}-${day}`;
@@ -201,7 +229,19 @@ const Step1BasicInformation = ({ data, onFieldChange, disabled = false }) => {
   const handleStartKyc = async () => {
     console.log("Start KYC button clicked");
 
-    updateKycData({ loading: true });
+    updateKycData({
+      status: "idle",
+      loading: true,
+      sessionId: "",
+      overallStatus: "",
+      idVerificationStatus: "",
+      livenessStatus: "",
+      livenessScore: null,
+      faceMatchStatus: "",
+      faceMatchScore: null,
+    });
+
+    onFieldChange("provider_session_id", null);
 
     try {
       const applicationId =
@@ -223,16 +263,13 @@ const Step1BasicInformation = ({ data, onFieldChange, disabled = false }) => {
 
       console.log("KYC payload being sent:", payload);
 
-      const response = await fetch(
-        "http://127.0.0.1:8000/didit/create-session",
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify(payload),
-        }
-      );
+      const response = await fetch("http://127.0.0.1:8000/didit/create-session", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(payload),
+      });
 
       console.log("Backend response status:", response.status);
 
@@ -310,8 +347,12 @@ const Step1BasicInformation = ({ data, onFieldChange, disabled = false }) => {
       face_match_status: face?.status || null,
       face_match_score: face?.score || null,
 
-      has_duplicate_identity_hit: uniqueRiskFlags.includes("POSSIBLE_DUPLICATED_USER"),
-      has_duplicate_face_hit: uniqueRiskFlags.includes("POSSIBLE_DUPLICATED_FACE"),
+      has_duplicate_identity_hit: uniqueRiskFlags.includes(
+        "POSSIBLE_DUPLICATED_USER",
+      ),
+      has_duplicate_face_hit: uniqueRiskFlags.includes(
+        "POSSIBLE_DUPLICATED_FACE",
+      ),
 
       risk_flags: uniqueRiskFlags,
 
@@ -353,7 +394,7 @@ const Step1BasicInformation = ({ data, onFieldChange, disabled = false }) => {
         onFieldChange("provider_session_id", verificationSessionId);
 
         const response = await fetch(
-          `http://127.0.0.1:8000/didit/session/${verificationSessionId}/decision`
+          `http://127.0.0.1:8000/didit/session/${verificationSessionId}/decision`,
         );
 
         if (!response.ok) {
@@ -402,22 +443,6 @@ const Step1BasicInformation = ({ data, onFieldChange, disabled = false }) => {
 
   const getNestedValue = (obj, path) => {
     return path.split(".").reduce((acc, key) => acc?.[key], obj);
-  };
-
-  const setNestedValue = (obj, path, value) => {
-    const keys = path.split(".");
-    const lastKey = keys.pop();
-    const newObj = { ...obj };
-    let ref = newObj;
-
-    keys.forEach((key) => {
-      if (!ref[key]) ref[key] = {};
-      ref[key] = { ...ref[key] };
-      ref = ref[key];
-    });
-
-    ref[lastKey] = value;
-    return newObj;
   };
 
   const handleDocumentChange = (fieldPath, file) => {
@@ -510,30 +535,42 @@ const Step1BasicInformation = ({ data, onFieldChange, disabled = false }) => {
         Basic Information
       </h2>
 
-      <Card className={`mb-6 border-2 transition-colors ${
-        kycStatus === "completed"
-          ? "border-[hsl(var(--status-approved))]/30 bg-[hsl(var(--status-approved))]/5"
-          : kycStatus === "pending"
-            ? "border-[hsl(var(--status-in-review))]/30 bg-[hsl(var(--status-in-review))]/5"
-            : "border-border"
-      }`}>
+      <Card
+        className={`mb-6 border-2 transition-colors ${
+          isKycPassed
+            ? "border-[hsl(var(--status-approved))]/30 bg-[hsl(var(--status-approved))]/5"
+            : kycStatus === "pending"
+              ? "border-[hsl(var(--status-in-review))]/30 bg-[hsl(var(--status-in-review))]/5"
+              : isKycFailed
+                ? "border-red-200 bg-red-50"
+                : "border-border"
+        }`}
+      >
         <CardContent className="p-6">
           <div className="flex items-start justify-between gap-4">
             <div className="flex items-start gap-4">
-              <div className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-xl transition-colors ${
-                kycStatus === "completed"
-                  ? "bg-[hsl(var(--status-approved))]/15"
-                  : kycStatus === "pending"
-                    ? "bg-[hsl(var(--status-in-review))]/15"
-                    : "bg-primary/10"
-              }`}>
-                <ShieldCheck className={`h-6 w-6 ${
-                  kycStatus === "completed"
-                    ? "text-[hsl(var(--status-approved))]"
+              <div
+                className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-xl transition-colors ${
+                  isKycPassed
+                    ? "bg-[hsl(var(--status-approved))]/15"
                     : kycStatus === "pending"
-                      ? "text-[hsl(var(--status-in-review))]"
-                      : "text-primary"
-                }`} />
+                      ? "bg-[hsl(var(--status-in-review))]/15"
+                      : isKycFailed
+                        ? "bg-red-100"
+                        : "bg-primary/10"
+                }`}
+              >
+                <ShieldCheck
+                  className={`h-6 w-6 ${
+                    isKycPassed
+                      ? "text-[hsl(var(--status-approved))]"
+                      : kycStatus === "pending"
+                        ? "text-[hsl(var(--status-in-review))]"
+                        : isKycFailed
+                          ? "text-red-600"
+                          : "text-primary"
+                  }`}
+                />
               </div>
 
               <div>
@@ -541,31 +578,72 @@ const Step1BasicInformation = ({ data, onFieldChange, disabled = false }) => {
                   Identity Verification (KYC)
                 </h3>
                 <p className="text-sm text-muted-foreground mt-1">
-                  {kycStatus === "completed"
-                    ? "Verification completed successfully. Review the returned KYC results below."
+                  {isKycPassed
+                    ? "Verification completed successfully. You can proceed with the application."
                     : kycStatus === "pending"
                       ? "Verification is in progress. Waiting for the applicant to complete the process."
-                      : "The applicant must complete identity verification before the application can proceed. This includes document verification, liveness check, and face matching."
-                  }
+                      : isKycFailed
+                        ? "Verification was completed, but the face match score is below the required threshold. Please retry verification."
+                        : "The applicant must complete identity verification before the application can proceed. This includes document verification, liveness check, and face matching."}
                 </p>
 
                 {kycStatus !== "idle" && (
                   <Badge
                     className="mt-3"
-                    variant={kycStatus === "completed" ? "default" : "secondary"}
+                    variant={isKycPassed ? "default" : "secondary"}
                   >
-                    {kycStatus === "completed" ? "Completed" : "In Progress"}
+                    {isKycPassed
+                      ? "Completed"
+                      : kycStatus === "pending"
+                        ? "In Progress"
+                        : "Review Needed"}
                   </Badge>
                 )}
 
                 {kycStatus === "completed" && (
                   <div className="mt-3 space-y-1 text-xs text-muted-foreground">
-                    <p><span className="font-medium text-foreground">Overall Status:</span> {kycOverallStatus || "N/A"}</p>
-                    <p><span className="font-medium text-foreground">ID Verification:</span> {kycIdVerificationStatus || "N/A"}</p>
-                    <p><span className="font-medium text-foreground">Liveness:</span> {kycLivenessStatus || "N/A"}</p>
-                    <p><span className="font-medium text-foreground">Liveness Score:</span> {kycLivenessScore ?? "N/A"}</p>
-                    <p><span className="font-medium text-foreground">Face Match:</span> {kycFaceMatchStatus || "N/A"}</p>
-                    <p><span className="font-medium text-foreground">Similarity Score:</span> {kycFaceMatchScore ?? "N/A"}</p>
+                    <p>
+                      <span className="font-medium text-foreground">
+                        Overall Status:
+                      </span>{" "}
+                      {kycOverallStatus || "N/A"}
+                    </p>
+                    <p>
+                      <span className="font-medium text-foreground">
+                        ID Verification:
+                      </span>{" "}
+                      {kycIdVerificationStatus || "N/A"}
+                    </p>
+                    <p>
+                      <span className="font-medium text-foreground">
+                        Liveness:
+                      </span>{" "}
+                      {kycLivenessStatus || "N/A"}
+                    </p>
+                    <p>
+                      <span className="font-medium text-foreground">
+                        Liveness Score:
+                      </span>{" "}
+                      {kycLivenessScore ?? "N/A"}
+                    </p>
+                    <p>
+                      <span className="font-medium text-foreground">
+                        Face Match:
+                      </span>{" "}
+                      {kycFaceMatchStatus || "N/A"}
+                    </p>
+                    <p>
+                      <span className="font-medium text-foreground">
+                        Similarity Score:
+                      </span>{" "}
+                      {numericFaceMatchScore ?? "N/A"}%
+                    </p>
+
+                    {isKycFailed && (
+                      <p className="pt-2 font-medium text-red-600">
+                        Face match score must be at least {MIN_FACE_MATCH_SCORE}% before you can proceed to the next step.
+                      </p>
+                    )}
                   </div>
                 )}
               </div>
@@ -590,15 +668,27 @@ const Step1BasicInformation = ({ data, onFieldChange, disabled = false }) => {
                 </Button>
               )}
 
-              {kycStatus === "completed" && (
+              {isKycPassed && (
                 <Button
                   type="button"
                   variant="outline"
                   className="gap-2"
                   disabled
                 >
-                  Continue
+                  Verified
                   <ArrowRight className="h-4 w-4" />
+                </Button>
+              )}
+
+              {isKycFailed && (
+                <Button
+                  type="button"
+                  onClick={handleStartKyc}
+                  className="gap-2 bg-red-600"
+                  disabled={disabled || kycLoading}
+                >
+                  <ShieldCheck className="h-4 w-4" />
+                  {kycLoading ? "Creating session..." : "Retry Verification"}
                 </Button>
               )}
             </div>
