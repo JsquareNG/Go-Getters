@@ -64,6 +64,13 @@ const SMEApplicationForm = () => {
     : Math.max(0, Math.min(4, routeStepNumber));
   const isViewOnly = routeMode === "view" || currentApp?.status === "Submitted";
 
+  // KYC guard for Step 1 only
+  const kycData = formData?.kycData || {};
+  const isStep1 = clampedStep === 1;
+  const isKycCompleted = kycData?.status === "completed";
+  const faceMatchScore = Number(kycData?.faceMatchScore ?? 0);
+  const canProceedFromStep1 = isKycCompleted && faceMatchScore >= 60;
+
   // --- Edit functionality ---
   const handleEditStep = (step) => {
     navigate(`/application/edit/${appId}/${step}`);
@@ -545,6 +552,7 @@ const SMEApplicationForm = () => {
                               `/application/${routeMode}/${appId}/${clampedStep + 1}`,
                             )
                           }
+                          disabled={isStep1 && !canProceedFromStep1}
                         >
                           Next
                         </Button>
