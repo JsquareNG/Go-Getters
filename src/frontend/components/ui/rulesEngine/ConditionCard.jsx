@@ -7,6 +7,7 @@ const FIELD_OPTIONS = [
   { value: "years_incorporated", label: "years_incorporated", kind: "number" },
   { value: "ownership_pct", label: "ownership_pct", kind: "number" },
   { value: "is_signatory", label: "is_signatory", kind: "boolean" },
+  { value: "country", label: "country", kind: "string" },
   {
     value: "country_of_incorporation",
     label: "country_of_incorporation",
@@ -25,10 +26,15 @@ const NUMERIC_OPERATOR_OPTIONS = [
   { code: "LTE", symbol: "<=" },
 ];
 
+const STRING_OPERATOR_OPTIONS = [
+  { code: "EQ", symbol: "=" }
+];
+
 const LIST_OPTIONS = [
   { value: "HIGH_RISK_COUNTRIES", label: "High Risk Countries" },
   { value: "FATF_BLACKLIST", label: "FATF Blacklist" },
   { value: "HIGH_RISK_INDUSTRIES", label: "High Risk Industries" },
+  { value: "UNSUPPORTED_SG_ENTITY_TYPES", label: "Unsupported SG Entity Types" },
 ];
 
 function getConditionKey(condition) {
@@ -50,7 +56,7 @@ function getFieldMeta(fieldName, condition = null) {
     const operator = (condition?.operator || "").toUpperCase();
     const valueType = (condition?.value_type || "").toUpperCase();
 
-    if (operator === "IS_TRUE" || valueType === "BOOLEAN") {
+    if (operator === "IS_TRUE" || operator === "IS_FALSE" || valueType === "BOOLEAN") {
       return {
         value: fieldName,
         label: fieldName,
@@ -68,6 +74,15 @@ function getFieldMeta(fieldName, condition = null) {
       };
     }
 
+    if (valueType === "STRING") {
+      return {
+        value: fieldName,
+        label: fieldName,
+        kind: "string",
+        isLegacy: true,
+      };
+    }
+
     return {
       value: fieldName,
       label: fieldName,
@@ -77,6 +92,14 @@ function getFieldMeta(fieldName, condition = null) {
   }
 
   return null;
+}
+
+function inputClass(hasError, base = "") {
+  return `${base} rounded-lg border px-3 py-2 outline-none ${
+    hasError
+      ? "border-red-500 bg-red-50 focus:border-red-600"
+      : "border-gray-300 bg-white focus:border-gray-900"
+  }`;
 }
 
 export default function ConditionCard({
@@ -90,6 +113,7 @@ export default function ConditionCard({
   onRemoveCondition,
   onAddCondition,
   conditionErrors = {},
+  showValidation = false,
 }) {
   const conditionKey = getConditionKey(condition);
   const ruleFlowMode = getRuleFlowMode(allConditions);
@@ -109,10 +133,20 @@ export default function ConditionCard({
   const isNumeric = fieldMeta?.kind === "number";
   const isBoolean = fieldMeta?.kind === "boolean";
   const isList = fieldMeta?.kind === "list";
+  const isString = fieldMeta?.kind === "string";
 
   const lastConditionIsElse =
     totalConditions > 0 &&
     allConditions[totalConditions - 1]?.branchType === "ELSE";
+
+  const fieldNameError = showValidation ? conditionErrors.field_name : "";
+  const numericValueError = showValidation ? conditionErrors.numeric_value : "";
+  const stringValueError = showValidation ? conditionErrors.string_value : "";
+  const listNameError = showValidation ? conditionErrors.list_name : "";
+  const scoreError = showValidation ? conditionErrors.score : "";
+  const triggerDescriptionError = showValidation
+    ? conditionErrors.trigger_description
+    : "";
 
   let conditionTypeOptions = [];
   if (!isFirst) {
@@ -164,7 +198,19 @@ export default function ConditionCard({
 
   return (
     <div className="space-y-3">
-      <div className="rounded-xl border border-gray-200 bg-white p-4">
+      <div
+        className={`rounded-xl border bg-white p-4 ${
+          showValidation &&
+          (fieldNameError ||
+            numericValueError ||
+            stringValueError ||
+            listNameError ||
+            scoreError ||
+            triggerDescriptionError)
+            ? "border-red-200"
+            : "border-gray-200"
+        }`}
+      >
         <div className="mb-3 flex items-center justify-between gap-3">
           <div className="text-sm font-semibold text-gray-800">
             {isFirst ? (
@@ -191,14 +237,16 @@ export default function ConditionCard({
             )}
           </div>
 
-          <button
-            type="button"
-            onClick={() => onRemoveCondition(conditionKey)}
-            className="inline-flex items-center justify-center rounded-lg p-2 text-red-600 hover:bg-red-50"
-            title="Remove condition"
-          >
-            <Trash2 className="h-4 w-4" />
-          </button>
+          {condition.isNew && (
+            <button
+              type="button"
+              onClick={() => onRemoveCondition(conditionKey)}
+              className="inline-flex items-center justify-center rounded-lg p-2 text-red-600 hover:bg-red-50"
+              title="Remove condition"
+            >
+              <Trash2 className="h-4 w-4" />
+            </button>
+          )}
         </div>
 
         <div className="space-y-3 rounded-lg bg-gray-50 px-3 py-3">
@@ -209,7 +257,13 @@ export default function ConditionCard({
                   <div>
                     {isFirst ? (
                       isExistingCondition ? (
-                        <span className="inline-block rounded-md bg-gray-100 px-3 py-2 font-medium text-gray-800">
+                        <span
+                          className={`inline-block rounded-md px-3 py-2 font-medium ${
+                            fieldNameError
+                              ? "bg-red-50 text-red-700 ring-1 ring-red-200"
+                              : "bg-gray-100 text-gray-800"
+                          }`}
+                        >
                           {condition.field_name}
                         </span>
                       ) : (
@@ -222,7 +276,7 @@ export default function ConditionCard({
                               e.target.value
                             )
                           }
-                          className="rounded-lg border border-gray-300 bg-white px-3 py-2 outline-none focus:border-gray-900"
+                          className={inputClass(Boolean(fieldNameError))}
                         >
                           {FIELD_OPTIONS.map((option) => (
                             <option key={option.value} value={option.value}>
@@ -233,7 +287,13 @@ export default function ConditionCard({
                       )
                     ) : isAndRow ? (
                       isExistingCondition ? (
-                        <span className="inline-block rounded-md bg-gray-100 px-3 py-2 font-medium text-gray-800">
+                        <span
+                          className={`inline-block rounded-md px-3 py-2 font-medium ${
+                            fieldNameError
+                              ? "bg-red-50 text-red-700 ring-1 ring-red-200"
+                              : "bg-gray-100 text-gray-800"
+                          }`}
+                        >
                           {condition.field_name}
                         </span>
                       ) : (
@@ -246,7 +306,7 @@ export default function ConditionCard({
                               e.target.value
                             )
                           }
-                          className="rounded-lg border border-gray-300 bg-white px-3 py-2 outline-none focus:border-gray-900"
+                          className={inputClass(Boolean(fieldNameError))}
                         >
                           <option value="">Select Field Name</option>
                           {andFieldOptions.map((option) => (
@@ -261,7 +321,7 @@ export default function ConditionCard({
                         {effectiveFieldName}
                       </span>
                     )}
-                    <FieldError message={conditionErrors.field_name} />
+                    <FieldError message={fieldNameError} />
                   </div>
 
                   {isList ? (
@@ -277,7 +337,7 @@ export default function ConditionCard({
                               e.target.value
                             )
                           }
-                          className="rounded-lg border border-gray-300 bg-white px-3 py-2 outline-none focus:border-gray-900"
+                          className={inputClass(Boolean(listNameError))}
                         >
                           <option value="">Select List</option>
                           {LIST_OPTIONS.map((option) => (
@@ -286,7 +346,7 @@ export default function ConditionCard({
                             </option>
                           ))}
                         </select>
-                        <FieldError message={conditionErrors.list_name} />
+                        <FieldError message={listNameError} />
                       </div>
                     </>
                   ) : isBoolean ? (
@@ -307,9 +367,30 @@ export default function ConditionCard({
                         <option value="false">false</option>
                       </select>
                     </>
+                  ) : isString ? (
+                    <>
+                      <span className="pt-2 font-medium">=</span>
+
+                      <div>
+                        <input
+                          type="text"
+                          value={condition.string_value ?? ""}
+                          onChange={(e) =>
+                            onConditionFieldChange(
+                              conditionKey,
+                              "string_value",
+                              e.target.value
+                            )
+                          }
+                          className={inputClass(Boolean(stringValueError), "w-40")}
+                          placeholder="Value"
+                          disabled={!effectiveFieldName}
+                        />
+                        <FieldError message={stringValueError} />
+                      </div>
+                    </>
                   ) : isNumeric ? (
                     <>
-                      <span className="pt-2">is</span>
                       <select
                         value={condition.operator || ""}
                         onChange={(e) =>
@@ -341,11 +422,11 @@ export default function ConditionCard({
                               e.target.value
                             )
                           }
-                          className="w-28 rounded-lg border border-gray-300 bg-white px-3 py-2 outline-none focus:border-gray-900"
+                          className={inputClass(Boolean(numericValueError), "w-28")}
                           placeholder="Value"
                           disabled={!effectiveFieldName}
                         />
-                        <FieldError message={conditionErrors.numeric_value} />
+                        <FieldError message={numericValueError} />
                       </div>
                     </>
                   ) : null}
@@ -363,10 +444,10 @@ export default function ConditionCard({
                   onChange={(e) =>
                     onConditionFieldChange(conditionKey, "score", e.target.value)
                   }
-                  className="w-24 rounded-lg border border-gray-300 bg-white px-3 py-2 outline-none focus:border-gray-900"
+                  className={inputClass(Boolean(scoreError), "w-24")}
                   placeholder="Score"
                 />
-                <FieldError message={conditionErrors.score} />
+                <FieldError message={scoreError} />
               </div>
             </div>
 
@@ -402,10 +483,14 @@ export default function ConditionCard({
                 )
               }
               rows={3}
-              className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm outline-none focus:border-gray-900"
+              className={`w-full rounded-lg border px-3 py-2 text-sm outline-none ${
+                triggerDescriptionError
+                  ? "border-red-500 bg-red-50 focus:border-red-600"
+                  : "border-gray-300 bg-white focus:border-gray-900"
+              }`}
               placeholder="Indicate the rule trigger description shown to bank staff, such as what went wrong or why this rule was triggered."
             />
-            <FieldError message={conditionErrors.trigger_description} />
+            <FieldError message={triggerDescriptionError} />
           </div>
         </div>
       </div>

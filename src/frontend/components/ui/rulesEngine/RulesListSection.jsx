@@ -6,6 +6,7 @@ import ConfirmModal from "./common/ConfirmModal";
 import {
   getRiskRulesByCategory,
   saveRiskRuleChanges,
+  getBasicComplianceCategories 
 } from "../../../api/riskRuleApi";
 import {
   validateRulesListRows,
@@ -16,6 +17,7 @@ const FIELD_OPTIONS = [
   { value: "years_incorporated", label: "years_incorporated", kind: "number" },
   { value: "ownership_pct", label: "ownership_pct", kind: "number" },
   { value: "is_signatory", label: "is_signatory", kind: "boolean" },
+  { value: "country", label: "country", kind: "string" },
   {
     value: "country_of_incorporation",
     label: "country_of_incorporation",
@@ -35,7 +37,7 @@ function getFieldMeta(fieldName, condition = null) {
     const operator = (condition?.operator || "").toUpperCase();
     const valueType = (condition?.value_type || "").toUpperCase();
 
-    if (operator === "IS_TRUE" || valueType === "BOOLEAN") {
+    if (operator === "IS_TRUE" || operator === "IS_FALSE" || valueType === "BOOLEAN") {
       return {
         value: fieldName,
         label: fieldName,
@@ -44,11 +46,20 @@ function getFieldMeta(fieldName, condition = null) {
       };
     }
 
-    if (operator === "IN_LIST" || valueType === "LIST") {
+    if (operator === "IN_LIST"  || valueType === "LIST") {
       return {
         value: fieldName,
         label: fieldName,
         kind: "list",
+        isLegacy: true,
+      };
+    }
+
+    if (valueType === "STRING") {
+      return {
+        value: fieldName,
+        label: fieldName,
+        kind: "string",
         isLegacy: true,
       };
     }
@@ -72,6 +83,7 @@ function getValueTypeForCondition(condition) {
 
   if (meta?.kind === "boolean") return "BOOLEAN";
   if (meta?.kind === "list") return "LIST";
+  if (meta?.kind === "string") return "STRING";
   return "NUMBER";
 }
 
@@ -95,6 +107,7 @@ function normalizeRule(rule) {
   return {
     rule_id: rule.rule_id ?? rule.id,
     __tempId: null,
+    __clientOrder: null,
     rule_code: rule.rule_code ?? "",
     rule_name: rule.rule_name ?? "",
     category: rule.category ?? "",
@@ -186,7 +199,7 @@ function serializeConditionsForSave(conditions = []) {
       condition_id: condition.condition_id,
       condition_group: currentGroup,
       order_no: currentOrder,
-      field_name: isElse ? null : condition.field_name,
+      field_name: condition.field_name || null,
       operator: isElse ? "ELSE" : condition.operator,
       value_type: getValueTypeForCondition(condition),
       numeric_value:
@@ -195,9 +208,10 @@ function serializeConditionsForSave(conditions = []) {
         condition.numeric_value !== ""
           ? Number(condition.numeric_value)
           : null,
-      string_value: null,
+      string_value: condition.string_value,
       boolean_value:
-        !isElse && (condition.operator || "").toUpperCase() === "IS_TRUE"
+        !isElse &&
+        ["IS_TRUE", "IS_FALSE"].includes((condition.operator || "").toUpperCase())
           ? Boolean(condition.boolean_value)
           : null,
       list_name:
@@ -235,25 +249,46 @@ function areSerializedConditionsSame(a, b) {
 }
 
 function buildSavePayload(serverRows, workingRows) {
-  const rules = [];
-  const conditions = [];
-  const creates = [];
-  const new_conditions = [];
+  const payload = {
+    // Existing rules that were edited
+    rules: [],
 
+    // Existing conditions that were edited
+    conditions: [],
+
+    // Brand new rules, each with their own initial conditions
+    creates: [],
+
+    // Brand new conditions added under existing rules
+    new_conditions: [],
+  };
+
+  // Map existing server rules by rule_id for comparison
   const serverRuleMap = new Map(serverRows.map((rule) => [rule.rule_id, rule]));
 
   for (const workingRule of workingRows) {
+    // Serialize current working conditions into backend-ready format
+    // This computes:
+    // - condition_group
+    // - order_no
+    // - field_name / operator / value_type / values
     const serializedWorkingConditions = serializeConditionsForSave(
       workingRule.conditions || []
     );
 
+    // =========================================================
+    // CASE 1: BRAND NEW RULE
+    // =========================================================
+    // New rule should go into `creates`
+    // together with ALL of its conditions.
     if (workingRule.isNew) {
-      creates.push({
+      payload.creates.push({
         rule_code: (workingRule.rule_code || "").trim(),
         rule_name: (workingRule.rule_name || "").trim(),
         category: workingRule.category,
         description: (workingRule.description || "").trim(),
-        is_active: workingRule.is_active,
+        is_active: Boolean(workingRule.is_active),
+
         conditions: serializedWorkingConditions.map((condition) => ({
           condition_group: condition.condition_group,
           order_no: condition.order_no,
@@ -266,25 +301,49 @@ function buildSavePayload(serverRows, workingRows) {
           list_name: condition.list_name,
           score: condition.score,
           trigger_description: condition.trigger_description,
-          is_active: condition.is_active,
+          is_active: Boolean(condition.is_active),
         })),
       });
+
       continue;
     }
 
+    // =========================================================
+    // CASE 2: EXISTING RULE
+    // =========================================================
     const serverRule = serverRuleMap.get(workingRule.rule_id);
+
+    // safety guard
     if (!serverRule) continue;
 
-    if (!areRulesSame(workingRule, serverRule)) {
-      rules.push({
+    // ---------------------------------------------------------
+    // 2A. Check if existing RULE fields changed
+    // ---------------------------------------------------------
+    // Only push into `rules` if the actual editable rule fields changed.
+    const ruleChanged =
+      (workingRule.rule_code || "").trim() !==
+        (serverRule.rule_code || "").trim() ||
+      (workingRule.rule_name || "").trim() !==
+        (serverRule.rule_name || "").trim() ||
+      (workingRule.description || "").trim() !==
+        (serverRule.description || "").trim() ||
+      Boolean(workingRule.is_active) !== Boolean(serverRule.is_active);
+
+    if (ruleChanged) {
+      payload.rules.push({
         rule_id: workingRule.rule_id,
-        rule_code: workingRule.rule_code,
-        rule_name: workingRule.rule_name,
-        description: workingRule.description,
-        is_active: workingRule.is_active,
+        rule_code: (workingRule.rule_code || "").trim(),
+        rule_name: (workingRule.rule_name || "").trim(),
+        description: (workingRule.description || "").trim(),
+        is_active: Boolean(workingRule.is_active),
       });
     }
 
+    // ---------------------------------------------------------
+    // 2B. Compare existing CONDITIONS
+    // ---------------------------------------------------------
+    // Serialize server conditions into the same shape as working conditions
+    // so comparisons are apples-to-apples.
     const serializedServerConditions = serializeConditionsForSave(
       serverRule.conditions || []
     );
@@ -297,8 +356,11 @@ function buildSavePayload(serverRows, workingRows) {
     );
 
     for (const workingCondition of serializedWorkingConditions) {
+      // -------------------------------------------------------
+      // NEW CONDITION under EXISTING rule
+      // -------------------------------------------------------
       if (!workingCondition.condition_id) {
-        new_conditions.push({
+        payload.new_conditions.push({
           rule_id: workingRule.rule_id,
           condition_group: workingCondition.condition_group,
           order_no: workingCondition.order_no,
@@ -311,18 +373,39 @@ function buildSavePayload(serverRows, workingRows) {
           list_name: workingCondition.list_name,
           score: workingCondition.score,
           trigger_description: workingCondition.trigger_description,
-          is_active: workingCondition.is_active,
+          is_active: Boolean(workingCondition.is_active),
         });
+
         continue;
       }
 
+      // -------------------------------------------------------
+      // EXISTING CONDITION that may have been edited
+      // -------------------------------------------------------
       const serverCondition = serverConditionMap.get(
         workingCondition.condition_id
       );
+
       if (!serverCondition) continue;
 
-      if (!areSerializedConditionsSame(workingCondition, serverCondition)) {
-        conditions.push({
+      const conditionChanged =
+        workingCondition.condition_group !== serverCondition.condition_group ||
+        workingCondition.order_no !== serverCondition.order_no ||
+        workingCondition.field_name !== serverCondition.field_name ||
+        workingCondition.operator !== serverCondition.operator ||
+        workingCondition.value_type !== serverCondition.value_type ||
+        workingCondition.numeric_value !== serverCondition.numeric_value ||
+        workingCondition.string_value !== serverCondition.string_value ||
+        workingCondition.boolean_value !== serverCondition.boolean_value ||
+        workingCondition.list_name !== serverCondition.list_name ||
+        workingCondition.score !== serverCondition.score ||
+        (workingCondition.trigger_description || "") !==
+          (serverCondition.trigger_description || "") ||
+        Boolean(workingCondition.is_active) !==
+          Boolean(serverCondition.is_active);
+
+      if (conditionChanged) {
+        payload.conditions.push({
           condition_id: workingCondition.condition_id,
           condition_group: workingCondition.condition_group,
           order_no: workingCondition.order_no,
@@ -335,17 +418,17 @@ function buildSavePayload(serverRows, workingRows) {
           list_name: workingCondition.list_name,
           score: workingCondition.score,
           trigger_description: workingCondition.trigger_description,
-          is_active: workingCondition.is_active,
+          is_active: Boolean(workingCondition.is_active),
         });
       }
     }
   }
 
-  return { rules, conditions, creates, new_conditions };
+  return payload;
 }
 
 export default function RulesListSection() {
-  const [activeCategory, setActiveCategory] = useState("KYC");
+  const [activeCategory, setActiveCategory] = useState("BASIC");
   const [serverRows, setServerRows] = useState([]);
   const [workingRows, setWorkingRows] = useState([]);
   const [expandedRuleIds, setExpandedRuleIds] = useState({});
@@ -353,10 +436,13 @@ export default function RulesListSection() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
-  const [validationErrors, setValidationErrors] = useState({
+  const [showValidation, setShowValidation] = useState(false);
+  const [displayValidationErrors, setDisplayValidationErrors] = useState({
     rules: {},
     conditions: {},
   });
+  const [basicComplianceFilter, setBasicComplianceFilter] = useState("");
+  const [basicComplianceCategories, setBasicComplianceCategories] = useState([]);
   const bottomRef = useRef(null);
 
   const [confirmState, setConfirmState] = useState({
@@ -376,12 +462,14 @@ export default function RulesListSection() {
       setServerRows(normalized);
       setWorkingRows(deepCloneRules(normalized));
       setExpandedRuleIds({});
-      setValidationErrors(validateRulesListRows(normalized));
+      setDisplayValidationErrors({ rules: {}, conditions: {} });
+      setShowValidation(false);
     } catch (err) {
       setServerRows([]);
       setWorkingRows([]);
       setExpandedRuleIds({});
-      setValidationErrors({ rules: {}, conditions: {} });
+      setDisplayValidationErrors({ rules: {}, conditions: {} });
+      setShowValidation(false);
       setError(err?.response?.data?.detail || "Failed to load rules.");
     } finally {
       setLoading(false);
@@ -389,8 +477,39 @@ export default function RulesListSection() {
   };
 
   useEffect(() => {
+    if (activeCategory === "BASIC") {
+      if (basicComplianceFilter) {
+        fetchRows(basicComplianceFilter);
+      }
+      return;
+    }
+
     fetchRows(activeCategory);
+  }, [activeCategory, basicComplianceFilter]);
+
+  useEffect(() => {
+    const fetchBasicCategories = async () => {
+      try {
+        const categories = await getBasicComplianceCategories();
+        setBasicComplianceCategories(categories);
+
+        if (categories.length) {
+          setBasicComplianceFilter(categories[0]);
+        } else {
+          setBasicComplianceFilter("");
+        }
+      } catch (err) {
+        console.error("Failed to load basic compliance categories", err);
+      }
+    };
+
+    if (activeCategory === "BASIC") {
+      fetchBasicCategories();
+    }
   }, [activeCategory]);
+
+
+
 
   const hasChanges = useMemo(() => {
     const payload = buildSavePayload(serverRows, workingRows);
@@ -463,6 +582,13 @@ export default function RulesListSection() {
         return a.is_active ? -1 : 1;
       }
 
+      const aClientOrder = a.__clientOrder ?? 0;
+      const bClientOrder = b.__clientOrder ?? 0;
+
+      if (aClientOrder !== bClientOrder) {
+        return aClientOrder - bClientOrder;
+      }
+
       return (a.rule_code || "")
         .toLowerCase()
         .localeCompare((b.rule_code || "").toLowerCase());
@@ -473,28 +599,28 @@ export default function RulesListSection() {
     const tempId = `new-rule-${Date.now()}-${Math.random()}`;
 
     const nextRows = [
-      ...workingRows,
-      {
-        rule_id: null,
-        __tempId: tempId,
-        rule_code: "",
-        rule_name: "",
-        category: activeCategory,
-        description: "",
-        is_active: true,
-        created_at: null,
-        updated_at: null,
-        isNew: true,
-        conditions: [],
-      },
-    ];
+    ...workingRows,
+    {
+      rule_id: null,
+      __tempId: tempId,
+      __clientOrder: Date.now() + Math.random(),
+      rule_code: "",
+      rule_name: "",
+      category: activeCategory === "BASIC" ? basicComplianceFilter : activeCategory,
+      description: "",
+      is_active: true,
+      created_at: null,
+      updated_at: null,
+      isNew: true,
+      conditions: [],
+    },
+  ];
 
     setWorkingRows(nextRows);
     setExpandedRuleIds((prev) => ({
       ...prev,
       [tempId]: true,
     }));
-    setValidationErrors(validateRulesListRows(nextRows));
     setSuccess("");
     setError("");
 
@@ -519,7 +645,6 @@ export default function RulesListSection() {
       delete next[targetRule.__tempId];
       return next;
     });
-    setValidationErrors(validateRulesListRows(nextRows));
     setSuccess("");
     setError("");
   };
@@ -545,7 +670,6 @@ export default function RulesListSection() {
 
   const handleRulesChange = (nextRows) => {
     setWorkingRows(nextRows);
-    setValidationErrors(validateRulesListRows(nextRows));
     setSuccess("");
     setError("");
   };
@@ -554,7 +678,8 @@ export default function RulesListSection() {
     const resetRows = deepCloneRules(serverRows);
     setWorkingRows(resetRows);
     setExpandedRuleIds({});
-    setValidationErrors(validateRulesListRows(resetRows));
+    setDisplayValidationErrors({ rules: {}, conditions: {} });
+    setShowValidation(false);
     setSuccess("");
     setError("");
   };
@@ -567,6 +692,16 @@ export default function RulesListSection() {
 
       const payload = buildSavePayload(serverRows, workingRows);
 
+      console.log("SAVE PAYLOAD:", payload);
+      console.log(
+        "STRING VALUES:",
+        payload.conditions?.map((c) => ({
+          operator: c.operator,
+          value_type: c.value_type,
+          string_value: c.string_value,
+        }))
+      );
+
       if (
         !payload.rules.length &&
         !payload.conditions.length &&
@@ -578,20 +713,19 @@ export default function RulesListSection() {
       }
 
       await saveRiskRuleChanges(payload);
-      await fetchRows(activeCategory);
+
+      if (activeCategory === "BASIC") {
+        await fetchRows(basicComplianceFilter);
+      } else {
+        await fetchRows(activeCategory);
+      }
+
       setSuccess("Changes saved successfully.");
     } catch (err) {
       setError(err?.response?.data?.detail || "Failed to save changes.");
     } finally {
       setSaving(false);
     }
-  };
-
-  const openSaveConfirm = () => {
-    setConfirmState({
-      open: true,
-      action: "save",
-    });
   };
 
   const openResetConfirm = () => {
@@ -609,21 +743,22 @@ export default function RulesListSection() {
   };
 
   const handleConfirmAction = async () => {
-    if (confirmState.action === "save") {
-      closeConfirm();
-      await performSave();
-      return;
-    }
-
     if (confirmState.action === "reset") {
       performResetLocalChanges();
       closeConfirm();
+      return;
+    }
+
+    if (confirmState.action === "save") {
+      closeConfirm();
+      await performSave();
     }
   };
 
-  const handleSaveButtonClick = () => {
+  const handleSaveButtonClick = async () => {
     const nextValidationErrors = validateRulesListRows(workingRows);
-    setValidationErrors(nextValidationErrors);
+    setDisplayValidationErrors(nextValidationErrors);
+    setShowValidation(true);
 
     if (hasValidationErrors(nextValidationErrors)) {
       setError("Please resolve the validation errors before saving.");
@@ -632,19 +767,23 @@ export default function RulesListSection() {
     }
 
     if (!hasChanges) return;
-    openSaveConfirm();
+
+    setConfirmState({
+      open: true,
+      action: "save",
+    });
   };
 
-  const modalTitle =
-    confirmState.action === "save"
-      ? "Confirm Save Changes"
-      : "Confirm Revert Changes";
+  const isSaveConfirm = confirmState.action === "save";
 
-  const modalMessage =
-    confirmState.action === "save"
-      ? "Are you sure you want to save these changes? Please double-check before proceeding."
-      : "Are you sure you want to revert your unsaved changes? This action will discard your current edits.";
+  const modalTitle = isSaveConfirm
+    ? "Confirm Save Changes"
+    : "Confirm Revert Changes";
 
+  const modalMessage = isSaveConfirm
+    ? "Are you sure you want to save your changes? This will update the rules configuration."
+    : "Are you sure you want to revert your unsaved changes? This action will discard your current edits.";
+    
   return (
     <>
       <div className="space-y-4 pb-28">
@@ -655,6 +794,9 @@ export default function RulesListSection() {
           onExpandAll={handleExpandAll}
           onCollapseAll={handleCollapseAll}
           onAddRule={handleAddRule}
+          basicComplianceCategories={basicComplianceCategories}
+          basicComplianceFilter={basicComplianceFilter}
+          onBasicComplianceFilterChange={setBasicComplianceFilter}
         />
 
         {error && (
@@ -677,7 +819,8 @@ export default function RulesListSection() {
           onRulesChange={handleRulesChange}
           onRemoveNewRule={handleRemoveNewRule}
           bottomRef={bottomRef}
-          validationErrors={validationErrors}
+          validationErrors={displayValidationErrors}
+          showValidation={showValidation}
         />
 
         <RulesListFooterActions
@@ -692,12 +835,10 @@ export default function RulesListSection() {
         open={confirmState.open}
         title={modalTitle}
         message={modalMessage}
-        confirmLabel={
-          confirmState.action === "save" ? "Yes, Save" : "Yes, Revert"
-        }
+        confirmLabel={isSaveConfirm ? "Yes, Save" : "Yes, Revert"}
         cancelLabel="No"
-        type={confirmState.action === "save" ? "save" : "warning"}
-        confirmVariant={confirmState.action === "reset" ? "danger" : "primary"}
+        type={isSaveConfirm ? "save" : "warning"}
+        confirmVariant={isSaveConfirm ? "primary" : "danger"}
         onConfirm={handleConfirmAction}
         onCancel={closeConfirm}
       />

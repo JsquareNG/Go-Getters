@@ -1,12 +1,11 @@
 from sqlalchemy.orm import Session
 from backend.database import SessionLocal
 from backend.models.reviewJobs import ReviewJobs
-from backend.risk.rules_engine import build_default_engine
 from sqlalchemy import text
 from backend.config.settings import RISK_APPETITE_SCORE_THRESHOLD
 from backend.services.application_transitions import approve_application_service, need_manual_review_service
-from backend.rules_engine.application_service import submit_application
-from backend.rules_engine.models import Company, Individual
+from backend.compliance_rules_engine.application_service import submit_application
+from backend.compliance_rules_engine.models import Company, Individual
 from datetime import datetime
 from backend.services.audit_service import create_audit_log
 from backend.models.application import ApplicationForm
@@ -52,7 +51,8 @@ def run_review_job(application_id: str):
         people = form.get("individuals", [])
         pepDeclaration = form.get("pepDeclaration")  == "Yes"
         sanctionsDeclaration = form.get("sanctionsDeclaration") == "Yes"
-
+        taxResidency = form.get("tax_residency") == "Yes"
+        fatcaPerson = form.get("fatca_us_person") == "Yes"
 
         if isinstance(people, dict):
             people = [people]
@@ -66,11 +66,10 @@ def run_review_job(application_id: str):
                 Individual(
                     name=p.get("fullName"),
                     nationality=p.get("nationality"),
-                    ownership_pct=p.get("ownership", 0),
                     is_pep=pepDeclaration,
-                    sanctions_match=sanctionsDeclaration,
-                    is_signatory=p.get("is_signatory",False),
-                    directorships=p.get("directorships", 1)
+                    sanctions_declared=sanctionsDeclaration,
+                    tax_residency=taxResidency,
+                    fatca_us_person=fatcaPerson
                 )
             )
 
@@ -105,23 +104,37 @@ def run_review_job(application_id: str):
             name=form.get("businessName"),
             country=form.get("country"),
             industry=form.get("businessIndustry"),
+            entity_type=form.get("businessType"),
+
+            registration_year=years_incorporated,
+
+            annual_revenue=form.get("annual_revenue"),
+            expected_tx_volume=expected_volume,
+
             ownership_layers=form.get("ownership_layers", 1),
-            trust_structure=form.get("uses_trust_or_nominee", False),
-            expected_volume=expected_volume,
-            years_incorporated=years_incorporated,
-            physical_presence=form.get("physical_presence", False),
-            cross_border=form.get("cross_border", False),
+
+            transaction_countries=form.get("transaction_countries", []),
+
             individuals=individuals,
+
+            # documents
+            acra_profile=form.get("acra_profile", False),
+            address_proof=form.get("address_proof", False),
+            bank_statements=form.get("bank_statements", False),
+
+            # indonesia specific
+            nib_present=form.get("nib_present", False),
+            npwp_present=form.get("npwp_present", False),
         )
 
-        result = submit_application(company)
+        result = submit_application(company, db)
+
+        decision = result.get("risk_decision")
 
         job.risk_score = result.get("risk_score")
-        job.risk_grade = result.get("decision")
-        job.rules_triggered = result.get("rules_triggered", [])
+        job.risk_grade = decision
+        job.rules_triggered = result.get("triggered_rules", [])
 
-
-        decision = result.get("decision")
 
         if decision == "Simplified CDD":
             create_audit_log(

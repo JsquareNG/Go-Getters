@@ -8,6 +8,10 @@ import {
 
 const CONFIG_TABS = [
   {
+    key: "THRESHOLDS",
+    label: "Thresholds",
+    itemType: "threshold",
+  },{
     key: "HIGH_RISK_COUNTRIES",
     label: "High Risk Countries",
     itemType: "country",
@@ -21,11 +25,6 @@ const CONFIG_TABS = [
     key: "FATF_BLACKLIST",
     label: "FATF Blacklist",
     itemType: "country",
-  },
-  {
-    key: "THRESHOLDS",
-    label: "Thresholds",
-    itemType: "threshold",
   },
 ];
 
@@ -106,7 +105,7 @@ function ConfirmModal({
 }
 
 export default function ConfigListSection() {
-  const [activeTab, setActiveTab] = useState("HIGH_RISK_COUNTRIES");
+  const [activeTab, setActiveTab] = useState("THRESHOLDS");
   const [serverRows, setServerRows] = useState([]);
   const [workingRows, setWorkingRows] = useState([]);
   const [crossTabRows, setCrossTabRows] = useState([]);

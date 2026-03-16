@@ -36,6 +36,31 @@ def rule_to_dict(rule):
         "conditions": [condition_to_dict(c) for c in rule.conditions],
     }
 
+@router.get("/categories")
+def get_basic_compliance_categories(db: Session = Depends(get_db)):
+    try:
+        excluded_categories = ["KYC", "KYB"]
+
+        categories = (
+            db.query(RiskRule.category)
+            .filter(~RiskRule.category.in_(excluded_categories))
+            .distinct()
+            .order_by(RiskRule.category.asc())
+            .all()
+        )
+
+        unique_categories = [
+            row[0] for row in categories
+            if row[0] is not None and str(row[0]).strip() != ""
+        ]
+
+        return {
+            "categories": unique_categories
+        }
+
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
 @router.get("/byCategory/{category}")
 def get_rules_by_category(category: str, db: Session = Depends(get_db)):
 
@@ -70,49 +95,126 @@ def get_active_rules_by_category(category: str, db: Session = Depends(get_db)):
 @router.put("/saveChanges")
 def save_risk_rule_changes(payload: dict = Body(...), db: Session = Depends(get_db)):
     try:
-
         rule_updates = payload.get("rules", [])
         condition_updates = payload.get("conditions", [])
+        rule_creates = payload.get("creates", [])
+        new_conditions = payload.get("new_conditions", [])
+
+        touched_rules = set()
 
         # -----------------------------
-        # Update rules
+        # 1. Create brand new rules
+        # -----------------------------
+        for item in rule_creates:
+            new_rule = RiskRule(
+                rule_code=item["rule_code"].strip(),
+                rule_name=item["rule_name"].strip(),
+                category=item["category"],
+                description=(item.get("description") or "").strip(),
+                is_active=bool(item.get("is_active", True)),
+            )
+
+            db.add(new_rule)
+            db.flush()  # get new_rule.id
+
+            created_conditions = item.get("conditions", [])
+            if not created_conditions:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Rule '{new_rule.rule_code}' must have at least one condition."
+                )
+
+            for cond in created_conditions:
+                new_condition = RiskRuleCondition(
+                    rule_id=new_rule.id,
+                    condition_group=cond["condition_group"],
+                    order_no=cond["order_no"],
+                    field_name=cond.get("field_name"),
+                    operator=cond["operator"],
+                    value_type=cond["value_type"],
+                    numeric_value=cond.get("numeric_value"),
+                    string_value=cond.get("string_value"),
+                    boolean_value=cond.get("boolean_value"),
+                    list_name=cond.get("list_name"),
+                    score=cond["score"],
+                    trigger_description=(cond.get("trigger_description") or "").strip(),
+                    is_active=bool(cond.get("is_active", True)),
+                )
+                db.add(new_condition)
+
+            touched_rules.add(new_rule.id)
+
+        # -----------------------------
+        # 2. Update existing rules
         # -----------------------------
         for item in rule_updates:
-
-            rule = db.query(RiskRule).filter(RiskRule.id == item["rule_id"]).first()
+            rule = db.query(RiskRule).options(joinedload(RiskRule.conditions)).filter(
+                RiskRule.id == item["rule_id"]
+            ).first()
 
             if not rule:
                 continue
 
+            if "rule_code" in item:
+                rule.rule_code = item["rule_code"].strip()
+
             if "rule_name" in item:
-                rule.rule_name = item["rule_name"]
+                rule.rule_name = item["rule_name"].strip()
 
             if "description" in item:
-                rule.description = item["description"]
+                rule.description = (item["description"] or "").strip()
 
             if "is_active" in item:
-                rule.is_active = item["is_active"]
+                rule.is_active = bool(item["is_active"])
 
-                # If rule becomes inactive → all conditions inactive
-                if item["is_active"] is False:
+                # if rule turned inactive -> all its conditions inactive
+                if rule.is_active is False:
                     for c in rule.conditions:
                         c.is_active = False
 
-                # If rule becomes active and all conditions inactive → activate all
-                if item["is_active"] is True:
+                # if rule turned active and all conditions are inactive -> activate all
+                elif rule.is_active is True:
                     all_inactive = all(not c.is_active for c in rule.conditions)
-
                     if all_inactive:
                         for c in rule.conditions:
                             c.is_active = True
 
-        # -----------------------------
-        # Update conditions
-        # -----------------------------
-        touched_rules = set()
+            touched_rules.add(rule.id)
 
+        # -----------------------------
+        # 3. Add new conditions to existing rules
+        # -----------------------------
+        for item in new_conditions:
+            rule = db.query(RiskRule).options(joinedload(RiskRule.conditions)).filter(
+                RiskRule.id == item["rule_id"]
+            ).first()
+
+            if not rule:
+                continue
+
+            new_condition = RiskRuleCondition(
+                rule_id=rule.id,
+                condition_group=item["condition_group"],
+                order_no=item["order_no"],
+                field_name=item.get("field_name"),
+                operator=item["operator"],
+                value_type=item["value_type"],
+                numeric_value=item.get("numeric_value"),
+                string_value=item.get("string_value"),
+                boolean_value=item.get("boolean_value"),
+                list_name=item.get("list_name"),
+                score=item["score"],
+                trigger_description=(item.get("trigger_description") or "").strip(),
+                is_active=bool(item.get("is_active", True)),
+            )
+
+            db.add(new_condition)
+            touched_rules.add(rule.id)
+
+        # -----------------------------
+        # 4. Update existing conditions
+        # -----------------------------
         for item in condition_updates:
-
             condition = (
                 db.query(RiskRuleCondition)
                 .filter(RiskRuleCondition.id == item["condition_id"])
@@ -122,8 +224,20 @@ def save_risk_rule_changes(payload: dict = Body(...), db: Session = Depends(get_
             if not condition:
                 continue
 
+            if "condition_group" in item:
+                condition.condition_group = item["condition_group"]
+
+            if "order_no" in item:
+                condition.order_no = item["order_no"]
+
+            if "field_name" in item:
+                condition.field_name = item["field_name"]
+
             if "operator" in item:
                 condition.operator = item["operator"]
+
+            if "value_type" in item:
+                condition.value_type = item["value_type"]
 
             if "numeric_value" in item:
                 condition.numeric_value = item["numeric_value"]
@@ -141,18 +255,19 @@ def save_risk_rule_changes(payload: dict = Body(...), db: Session = Depends(get_
                 condition.score = item["score"]
 
             if "trigger_description" in item:
-                condition.trigger_description = item["trigger_description"]
+                condition.trigger_description = (item["trigger_description"] or "").strip()
 
             if "is_active" in item:
-                condition.is_active = item["is_active"]
+                condition.is_active = bool(item["is_active"])
 
             touched_rules.add(condition.rule_id)
 
+        db.flush()
+
         # -----------------------------
-        # Sync rule active state
+        # 5. Final sync rule active state
         # -----------------------------
         for rule_id in touched_rules:
-
             rule = (
                 db.query(RiskRule)
                 .options(joinedload(RiskRule.conditions))
@@ -163,14 +278,23 @@ def save_risk_rule_changes(payload: dict = Body(...), db: Session = Depends(get_
             if not rule:
                 continue
 
-            has_active_condition = any(c.is_active for c in rule.conditions)
+            # every rule must have at least one condition
+            if not rule.conditions:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Rule ID {rule_id} must have at least one condition."
+                )
 
+            has_active_condition = any(c.is_active for c in rule.conditions)
             rule.is_active = has_active_condition
 
         db.commit()
 
         return {"message": "Changes saved successfully"}
 
+    except HTTPException:
+        db.rollback()
+        raise
     except Exception as e:
         db.rollback()
         raise HTTPException(status_code=400, detail=str(e))
