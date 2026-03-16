@@ -833,30 +833,37 @@ def delete_application(application_id: str, db: Session = Depends(get_db)):
     if not app:
         raise HTTPException(status_code=404, detail="Application not found")
 
-    # Get storage paths BEFORE deleting app (cascade will remove document rows)
-    docs = (
-        db.query(Document)
-        .filter(Document.application_id == application_id)
-        .all()
+    old_status = app.current_status
+    app.previous_status = old_status
+    app.current_status = "Deleted"
+
+    username = get_users_by_id(db, app.user_id)
+
+    add_bell(
+        db=db,
+        appId=app.application_id,
+        recipient_id=app.user_id,
+        message="You have discarded your draft application.",
+        from_status=old_status,
+        to_status="Deleted",
     )
-    paths = [d.storage_path for d in docs if getattr(d, "storage_path", None)]
 
-    # Delete from storage first (service role bypasses Storage RLS)
-    if paths:
-        try:
-            supabase_admin.storage.from_(BUCKET).remove(paths)
-        except Exception as e:
-            raise HTTPException(
-                status_code=500,
-                detail=f"Failed to delete storage objects: {str(e)}"
-            )
+    create_audit_log(
+        db=db,
+        application_id=app.application_id,
+        actor_id=app.user_id,
+        actor_type=username,
+        event_type="APPLICATION_DELETED",
+        entity_type="APPLICATION",
+        from_status=old_status,
+        to_status="Deleted",
+        description="Applicant discarded the draft application.",
+    )
 
-    # Delete DB row (cascade deletes documents)
-    db.delete(app)
     db.commit()
 
     return {
-        "message": "Application deleted successfully",
+        "message": "Application discarded successfully",
         "application_id": application_id
     }
 

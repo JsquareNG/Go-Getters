@@ -3,6 +3,14 @@ import { ChevronDown, ChevronRight, Trash2 } from "lucide-react";
 import Toggle from "./common/Toggle";
 import FieldError from "./common/FieldError";
 
+function getErrorInputClass(hasError) {
+  return `w-full rounded-lg border px-3 py-2 outline-none ${
+    hasError
+      ? "border-red-500 bg-red-50 focus:border-red-600"
+      : "border-gray-300 bg-white focus:border-gray-900"
+  }`;
+}
+
 export default function RuleTableRow({
   row,
   rowKey,
@@ -12,7 +20,12 @@ export default function RuleTableRow({
   onToggleRuleActive,
   onRemoveNewRule,
   ruleErrors = {},
+  showValidation = false,
 }) {
+  const ruleCodeError = showValidation ? ruleErrors.rule_code : "";
+  const ruleNameError = showValidation ? ruleErrors.rule_name : "";
+  const descriptionError = showValidation ? ruleErrors.description : "";
+
   return (
     <tr className={`align-top ${row.isNew ? "bg-blue-50/40" : ""}`}>
       <td className="px-4 py-3">
@@ -42,13 +55,13 @@ export default function RuleTableRow({
                   e.target.value.toUpperCase()
                 )
               }
-              className="w-full rounded-lg border border-gray-300 px-3 py-2 outline-none focus:border-gray-900"
+              className={getErrorInputClass(Boolean(ruleCodeError))}
               placeholder="Enter Rule Code"
             />
           ) : (
             <span>{row.rule_code}</span>
           )}
-          <FieldError message={ruleErrors.rule_code} />
+          <FieldError message={ruleCodeError} />
         </div>
       </td>
 
@@ -61,13 +74,13 @@ export default function RuleTableRow({
               onChange={(e) =>
                 onRuleFieldChange(rowKey, "rule_name", e.target.value)
               }
-              className="w-full rounded-lg border border-gray-300 px-3 py-2 outline-none focus:border-gray-900"
+              className={getErrorInputClass(Boolean(ruleNameError))}
               placeholder="Enter Rule Name"
             />
           ) : (
             <span>{row.rule_name}</span>
           )}
-          <FieldError message={ruleErrors.rule_name} />
+          <FieldError message={ruleNameError} />
         </div>
       </td>
 
@@ -79,10 +92,14 @@ export default function RuleTableRow({
               onRuleFieldChange(rowKey, "description", e.target.value)
             }
             rows={2}
-            className="w-full resize-none rounded-lg border border-gray-300 bg-white px-3 py-2 outline-none focus:border-gray-900"
+            className={`w-full resize-none rounded-lg border px-3 py-2 outline-none ${
+              descriptionError
+                ? "border-red-500 bg-red-50 focus:border-red-600"
+                : "border-gray-300 bg-white focus:border-gray-900"
+            }`}
             placeholder="Enter Description"
           />
-          <FieldError message={ruleErrors.description} />
+          <FieldError message={descriptionError} />
         </div>
       </td>
 

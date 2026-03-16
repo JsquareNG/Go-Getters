@@ -36,6 +36,17 @@ def get_all_risk_config_list(db: Session = Depends(get_db)):
 
     return [to_dict(r) for r in rows]
 
+@router.get("/list-names")
+def get_unique_list_names(db: Session = Depends(get_db)):
+
+    rows = (
+        db.query(RiskConfigList.list_name)
+        .distinct()
+        .order_by(RiskConfigList.list_name.asc())
+        .all()
+    )
+
+    return [r[0] for r in rows]
 
 @router.get("/byListName/{list_name}")
 def get_risk_config_by_list_name(list_name: str, db: Session = Depends(get_db)):

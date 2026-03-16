@@ -6,6 +6,7 @@ const FIELD_OPTIONS = [
   { value: "years_incorporated", label: "years_incorporated", kind: "number" },
   { value: "ownership_pct", label: "ownership_pct", kind: "number" },
   { value: "is_signatory", label: "is_signatory", kind: "boolean" },
+  { value: "country", label: "country", kind: "string" },
   {
     value: "country_of_incorporation",
     label: "country_of_incorporation",
@@ -23,11 +24,20 @@ function getFieldMeta(fieldName, condition = null) {
     const operator = (condition?.operator || "").toUpperCase();
     const valueType = (condition?.value_type || "").toUpperCase();
 
-    if (operator === "IS_TRUE" || valueType === "BOOLEAN") {
+    if (operator === "IS_TRUE" || operator === "IS_FALSE" || valueType === "BOOLEAN") {
       return {
         value: fieldName,
         label: fieldName,
         kind: "boolean",
+        isLegacy: true,
+      };
+    }
+
+    if (valueType === "STRING") {
+      return {
+        value: fieldName,
+        label: fieldName,
+        kind: "string",
         isLegacy: true,
       };
     }
@@ -79,16 +89,30 @@ function buildEmptyCondition(isFirst = false, mode = "BRANCH", firstFieldName = 
     ? ""
     : firstFieldName || "years_incorporated";
 
+  const defaultMeta = defaultField ? getFieldMeta(defaultField) : null;
+
   return {
     condition_id: null,
     __tempId: `new-condition-${Date.now()}-${Math.random()}`,
     condition_group: isFirst ? 1 : null,
     order_no: isFirst ? 1 : null,
     field_name: defaultField,
-    operator: getDefaultOperatorForField(defaultField, isFirst ? "IF" : "ELSE_IF"),
-    value_type: defaultField ? "NUMBER" : "",
+    operator: getDefaultOperatorForField(
+      defaultField,
+      isFirst ? "IF" : "ELSE_IF"
+    ),
+    value_type:
+      defaultMeta?.kind === "boolean"
+        ? "BOOLEAN"
+        : defaultMeta?.kind === "list"
+        ? "LIST"
+        : defaultMeta?.kind === "string"
+        ? "STRING"
+        : defaultField
+        ? "NUMBER"
+        : "",
     numeric_value: "",
-    string_value: null,
+    string_value: "",
     boolean_value: true,
     list_name: "",
     score: "",
@@ -118,6 +142,108 @@ function getUsedAndFieldNames(conditions = [], excludeConditionKey = null) {
     .map((condition) => condition.field_name);
 }
 
+function isNumericOperator(operator = "") {
+  return ["EQ", "NE", "GT", "GTE", "LT", "LTE"].includes(
+    (operator || "").toUpperCase()
+  );
+}
+
+function normalizeConditionByFieldKind(condition, fieldName, branchType = "ELSE_IF") {
+  const meta = getFieldMeta(fieldName, condition);
+
+  if (!meta) {
+    return {
+      ...condition,
+      field_name: fieldName,
+      operator: "",
+      value_type: "",
+      numeric_value: "",
+      string_value: "",
+      boolean_value: true,
+      list_name: "",
+    };
+  }
+
+  if (branchType === "ELSE") {
+    return {
+      ...condition,
+      field_name: fieldName,
+      operator: "ELSE",
+    };
+  }
+
+  if (meta.kind === "number") {
+    const currentOperator = (condition.operator || "").toUpperCase();
+
+    return {
+      ...condition,
+      field_name: fieldName,
+      operator: isNumericOperator(currentOperator) ? currentOperator : "EQ",
+      value_type: "NUMBER",
+      numeric_value: condition.numeric_value ?? "",
+      string_value: "",
+      boolean_value: true,
+      list_name: "",
+    };
+  }
+
+  if (meta.kind === "boolean") {
+    const currentOperator = (condition.operator || "").toUpperCase();
+    const nextBooleanOperator =
+      currentOperator === "IS_TRUE" || currentOperator === "IS_FALSE"
+        ? currentOperator
+        : "IS_TRUE";
+
+    return {
+      ...condition,
+      field_name: fieldName,
+      operator: nextBooleanOperator,
+      value_type: "BOOLEAN",
+      numeric_value: "",
+      string_value: "",
+      list_name: "",
+      boolean_value:
+        typeof condition.boolean_value === "boolean"
+          ? condition.boolean_value
+          : nextBooleanOperator === "IS_TRUE",
+    };
+  }
+
+  if (meta.kind === "list") {
+    return {
+      ...condition,
+      field_name: fieldName,
+      operator: "IN_LIST",
+      value_type: "LIST",
+      numeric_value: "",
+      string_value: "",
+      boolean_value: null,
+      list_name: condition.list_name || "",
+    };
+  }
+
+  if (meta.kind === "string") {
+    const currentOperator = (condition.operator || "").toUpperCase();
+    const nextOperator =
+      currentOperator === "EQ" || currentOperator === "NE"
+        ? currentOperator
+        : "EQ";
+
+    return {
+      ...condition,
+      field_name: fieldName,
+      operator: nextOperator,
+      value_type: "STRING",
+      numeric_value: "",
+      string_value: condition.string_value ?? "",
+      boolean_value: null,
+      list_name: "",
+    };
+  }
+
+  return condition;
+}
+
 export default function RulesListTable({
   rows,
   loading,
@@ -127,6 +253,7 @@ export default function RulesListTable({
   onRemoveNewRule,
   bottomRef,
   validationErrors,
+  showValidation,
 }) {
   const handleToggleRuleActive = (ruleKey) => {
     const nextRows = rows.map((rule) => {
@@ -225,32 +352,39 @@ export default function RulesListTable({
         }
 
         if (flowMode === "AND") {
+          const nextFieldName =
+            condition.field_name === firstFieldName ? "" : condition.field_name;
+
+          return normalizeConditionByFieldKind(
+            {
+              ...condition,
+              uiConnector: "AND",
+              branchType: null,
+            },
+            nextFieldName,
+            "ELSE_IF"
+          );
+        }
+
+        if (condition.branchType === "ELSE") {
           return {
             ...condition,
-            uiConnector: "AND",
-            branchType: null,
-            field_name:
-              condition.field_name === firstFieldName ? "" : condition.field_name,
-            operator: getDefaultOperatorForField(
-              condition.field_name === firstFieldName ? "" : condition.field_name,
-              "ELSE_IF"
-            ),
+            uiConnector: "NEW_GROUP",
+            branchType: "ELSE",
+            field_name: firstFieldName,
+            operator: "ELSE",
           };
         }
 
-        return {
-          ...condition,
-          uiConnector: "NEW_GROUP",
-          branchType:
-            condition.branchType && condition.branchType !== "IF"
-              ? condition.branchType
-              : "ELSE_IF",
-          field_name: firstFieldName,
-          operator:
-            condition.branchType === "ELSE"
-              ? "ELSE"
-              : getDefaultOperatorForField(firstFieldName, "ELSE_IF"),
-        };
+        return normalizeConditionByFieldKind(
+          {
+            ...condition,
+            uiConnector: "NEW_GROUP",
+            branchType: "ELSE_IF",
+          },
+          firstFieldName,
+          "ELSE_IF"
+        );
       });
 
       return {
@@ -299,6 +433,8 @@ export default function RulesListTable({
 
       if (targetIndex === -1) return rule;
 
+      const oldFirstFieldName = conditions[0]?.field_name || "";
+
       const nextConditions = conditions.map((condition) => {
         if (getConditionKey(condition) !== conditionKey) return condition;
 
@@ -310,16 +446,11 @@ export default function RulesListTable({
             return condition;
           }
 
-          const meta = getFieldMeta(nextField, condition);
-
-          return {
-            ...condition,
-            field_name: nextField,
-            operator: getDefaultOperatorForField(nextField, "ELSE_IF"),
-            numeric_value: meta?.kind === "number" ? "" : "",
-            boolean_value: meta?.kind === "boolean" ? true : false,
-            list_name: meta?.kind === "list" ? "" : "",
-          };
+          return normalizeConditionByFieldKind(
+            condition,
+            nextField,
+            condition.branchType || "ELSE_IF"
+          );
         }
 
         if (field === "operator") {
@@ -336,6 +467,13 @@ export default function RulesListTable({
           };
         }
 
+        if (field === "string_value") {
+          return {
+            ...condition,
+            string_value: value,
+          };
+        }
+
         if (field === "boolean_value") {
           return {
             ...condition,
@@ -348,6 +486,9 @@ export default function RulesListTable({
           [field]: value,
         };
       });
+
+      const newFirstFieldName = nextConditions[0]?.field_name || "";
+      const firstFieldChanged = oldFirstFieldName !== newFirstFieldName;
 
       const syncedConditions = nextConditions.map((condition, index, arr) => {
         if (index === 0) return condition;
@@ -368,6 +509,7 @@ export default function RulesListTable({
               field_name: "",
               operator: "",
               numeric_value: "",
+              string_value: "",
               list_name: "",
             };
           }
@@ -375,16 +517,25 @@ export default function RulesListTable({
           return condition;
         }
 
+        if (condition.branchType === "ELSE") {
+          return {
+            ...condition,
+            field_name: newFirstFieldName,
+            operator: "ELSE",
+          };
+        }
+
+        if (firstFieldChanged) {
+          return normalizeConditionByFieldKind(
+            condition,
+            newFirstFieldName,
+            condition.branchType || "ELSE_IF"
+          );
+        }
+
         return {
           ...condition,
-          field_name: nextConditions[0]?.field_name || condition.field_name,
-          operator:
-            condition.branchType === "ELSE"
-              ? "ELSE"
-              : getDefaultOperatorForField(
-                  nextConditions[0]?.field_name || condition.field_name,
-                  condition.branchType || "ELSE_IF"
-                ),
+          field_name: newFirstFieldName || condition.field_name,
         };
       });
 
@@ -415,17 +566,18 @@ export default function RulesListTable({
 
         if (index === targetIndex) {
           if (value === "AND") {
-            return {
-              ...condition,
-              uiConnector: "AND",
-              branchType: null,
-              field_name:
-                condition.field_name === firstFieldName ? "" : condition.field_name,
-              operator: getDefaultOperatorForField(
-                condition.field_name === firstFieldName ? "" : condition.field_name,
-                "ELSE_IF"
-              ),
-            };
+            const nextFieldName =
+              condition.field_name === firstFieldName ? "" : condition.field_name;
+
+            return normalizeConditionByFieldKind(
+              {
+                ...condition,
+                uiConnector: "AND",
+                branchType: null,
+              },
+              nextFieldName,
+              "ELSE_IF"
+            );
           }
 
           if (value === "ELSE") {
@@ -438,39 +590,51 @@ export default function RulesListTable({
             };
           }
 
-          return {
-            ...condition,
-            uiConnector: "NEW_GROUP",
-            branchType: "ELSE_IF",
-            field_name: firstFieldName,
-            operator: getDefaultOperatorForField(firstFieldName, "ELSE_IF"),
-          };
+          return normalizeConditionByFieldKind(
+            {
+              ...condition,
+              uiConnector: "NEW_GROUP",
+              branchType: "ELSE_IF",
+            },
+            firstFieldName,
+            "ELSE_IF"
+          );
         }
 
         if (value === "AND") {
+          const nextFieldName =
+            condition.field_name === firstFieldName ? "" : condition.field_name;
+
+          return normalizeConditionByFieldKind(
+            {
+              ...condition,
+              uiConnector: "AND",
+              branchType: null,
+            },
+            nextFieldName,
+            "ELSE_IF"
+          );
+        }
+
+        if (condition.branchType === "ELSE") {
           return {
             ...condition,
-            uiConnector: "AND",
-            branchType: null,
-            field_name:
-              condition.field_name === firstFieldName ? "" : condition.field_name,
-            operator: getDefaultOperatorForField(
-              condition.field_name === firstFieldName ? "" : condition.field_name,
-              "ELSE_IF"
-            ),
+            uiConnector: "NEW_GROUP",
+            branchType: "ELSE",
+            field_name: firstFieldName,
+            operator: "ELSE",
           };
         }
 
-        return {
-          ...condition,
-          uiConnector: "NEW_GROUP",
-          branchType: condition.branchType === "ELSE" ? "ELSE" : "ELSE_IF",
-          field_name: firstFieldName,
-          operator:
-            condition.branchType === "ELSE"
-              ? "ELSE"
-              : getDefaultOperatorForField(firstFieldName, "ELSE_IF"),
-        };
+        return normalizeConditionByFieldKind(
+          {
+            ...condition,
+            uiConnector: "NEW_GROUP",
+            branchType: "ELSE_IF",
+          },
+          firstFieldName,
+          "ELSE_IF"
+        );
       });
 
       return {
@@ -531,6 +695,7 @@ export default function RulesListTable({
                     onToggleRuleActive={handleToggleRuleActive}
                     onRemoveNewRule={onRemoveNewRule}
                     ruleErrors={validationErrors?.rules?.[rowKey] || {}}
+                    showValidation={showValidation}
                   />
 
                   {expanded && (
@@ -544,6 +709,7 @@ export default function RulesListTable({
                       onRemoveCondition={handleRemoveCondition}
                       ruleErrors={validationErrors?.rules?.[rowKey] || {}}
                       conditionErrors={validationErrors?.conditions || {}}
+                      showValidation={showValidation}
                     />
                   )}
                 </React.Fragment>

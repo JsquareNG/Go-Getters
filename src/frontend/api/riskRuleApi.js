@@ -9,3 +9,8 @@ export const saveRiskRuleChanges = async (payload) => {
   const res = await axiosClient.put("/risk-rules/saveChanges", payload);
   return res.data;
 };
+
+export const getBasicComplianceCategories = async () => {
+  const res = await axiosClient.get("/risk-rules/categories");
+  return res.data.categories || [];
+};
