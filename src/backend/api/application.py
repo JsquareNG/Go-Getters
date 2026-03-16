@@ -117,11 +117,14 @@ def get_application_by_app_id(application_id: str, db: Session = Depends(get_db)
 def save_application(data: dict = Body(...), db: Session = Depends(get_db)):
     
     form_data = data.get("form_data", {})
+    provider_session_id = data.get("provider_session_id")
+
 
     new_app = ApplicationForm(
         business_country=form_data["country"],
         business_name=form_data['businessName'],
         business_type=form_data['businessType'],
+        provider_session_id=provider_session_id,
         user_id=data["user_id"],
         form_data=form_data,
         previous_status=None,      
@@ -154,7 +157,6 @@ def save_application(data: dict = Body(...), db: Session = Depends(get_db)):
         description="Application created by applicant.",
     )
 
-    provider_session_id = data.get("provider_session_id")
 
     liveness_row = (
         db.query(LivenessDetection)
@@ -246,7 +248,7 @@ def first_submit_application(
     db: Session = Depends(get_db),
 ):
     form_data = data.get("form_data", {})
-
+    provider_session_id = data.get("provider_session_id")
 
     business_country=form_data["country"],
     business_name=form_data['businessName'],
@@ -260,6 +262,7 @@ def first_submit_application(
         user_id=user_id,
         previous_status=None,
         current_status="Under Review",
+        provider_session_id=provider_session_id,
         form_data=form_data,
     )
 
@@ -324,7 +327,7 @@ def first_submit_application(
 
     print("[firstSubmit] created app", new_app.application_id)
 
-    provider_session_id = data.get("provider_session_id")
+    
 
     liveness_row = (
         db.query(LivenessDetection)
