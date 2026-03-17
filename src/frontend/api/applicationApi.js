@@ -209,3 +209,8 @@ export const getQnA = async (applicationId) => {
   );
   return res.data;
 };
+
+export const getAllApplications = async () => {
+  const response = await axiosClient.get("/applications/");
+  return response.data;
+};
