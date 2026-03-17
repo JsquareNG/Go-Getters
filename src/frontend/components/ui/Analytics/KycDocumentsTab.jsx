@@ -58,7 +58,7 @@ const riskFlagConfig = {
 
 const demographicsConfig = {
   Male: { label: "Male", color: "#2563eb" },
-  Female: { label: "Female", color: "#fb7185" },
+  Female: { label: "Female", color: "#e43592" },
   Unknown: { label: "Unknown", color: "#9ca3af" },
   "<18": { label: "<18", color: "#9ca3af" },
   "18-24": { label: "18-24", color: "#2563eb" },
@@ -137,10 +137,6 @@ function countryFlagFromCode(code) {
 
 function isApproved(status) {
   return String(status || "").toLowerCase() === "approved";
-}
-
-function isDeclined(status) {
-  return String(status || "").toLowerCase() === "declined";
 }
 
 function isFinished(status) {
@@ -335,6 +331,13 @@ function buildLivenessDistribution(rows) {
   }));
 }
 
+function formatRiskFlagLabel(flag) {
+  return String(flag || "")
+    .replaceAll("_", " ")
+    .toLowerCase()
+    .replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
 function buildRiskFlagBreakdown(rows) {
   const counts = {};
 
@@ -348,6 +351,7 @@ function buildRiskFlagBreakdown(rows) {
   return Object.entries(counts)
     .map(([flag, count]) => ({
       flag,
+      label: formatRiskFlagLabel(flag),
       count,
     }))
     .sort((a, b) => b.count - a.count);
@@ -611,16 +615,8 @@ export function KycDocumentsTab({ dateRange, preset }) {
     [rows]
   );
 
-  const workflowTracking = useMemo(() => buildWorkflowTracking(rows), [rows]);
-  const maxWorkflow = Math.max(...workflowTracking.map((w) => w.count), 1);
-
   const dailyVerifications = useMemo(
     () => buildDailyVerificationVolume(rows),
-    [rows]
-  );
-
-  const dailyAverageScores = useMemo(
-    () => buildDailyAverageLivenessScore(rows),
     [rows]
   );
 
@@ -670,16 +666,6 @@ export function KycDocumentsTab({ dateRange, preset }) {
     }
   }, [preset, dateRange]);
 
-  const avgVerificationTime = {
-    overallAvg: "N/A",
-    breakdown: [
-      { label: "Total", value: "N/A" },
-      { label: "ID Check", value: "N/A" },
-      { label: "Liveness", value: "N/A" },
-      { label: "Face Match", value: "N/A" },
-    ],
-  };
-
   if (loading) {
     return (
       <div className="space-y-6">
@@ -706,9 +692,6 @@ export function KycDocumentsTab({ dateRange, preset }) {
               <span className="ml-1 text-sm font-normal text-muted-foreground">
                 Verifications
               </span>
-            </p>
-            <p className="text-xs text-muted-foreground">
-              Only rows with application ID are counted
             </p>
           </div>
         </CardHeader>
@@ -805,15 +788,19 @@ export function KycDocumentsTab({ dateRange, preset }) {
               >
                 <CartesianGrid strokeDasharray="3 3" className="stroke-border/40" />
                 <XAxis
-                  dataKey="flag"
+                  dataKey="label"
                   tick={{ fontSize: 10 }}
                   className="text-muted-foreground"
-                  angle={-12}
+                  angle={-20}
                   textAnchor="end"
                   interval={0}
-                  height={70}
+                  height={90}
                 />
-                <YAxis tick={{ fontSize: 10 }} className="text-muted-foreground" allowDecimals={false} />
+                <YAxis
+                  tick={{ fontSize: 10 }}
+                  className="text-muted-foreground"
+                  allowDecimals={false}
+                />
                 <ChartTooltip content={<ChartTooltipContent />} />
                 <Bar dataKey="count" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
               </BarChart>
@@ -872,9 +859,7 @@ export function KycDocumentsTab({ dateRange, preset }) {
                       <div
                         className={cn(
                           "h-full rounded-full transition-all",
-                          isWarning
-                            ? "bg-amber-500"
-                            : "bg-green-500"
+                          isWarning ? "bg-amber-500" : "bg-green-500"
                         )}
                         style={{ width: `${metric.passRate}%` }}
                       />
@@ -939,7 +924,7 @@ export function KycDocumentsTab({ dateRange, preset }) {
           </CardContent>
         </Card>
       </div>
-      
+
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         <Card>
           <CardHeader className="flex-row items-start justify-between pb-2">
@@ -1123,7 +1108,7 @@ export function KycDocumentsTab({ dateRange, preset }) {
         </Card>
       </div>
     </div>
-    );
-  }
+  );
+}
 
 export default KycDocumentsTab;

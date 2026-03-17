@@ -4,7 +4,6 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "../components/ui/primi
 import { OverviewTab } from "../components/ui/Analytics/OverviewTab";
 import { PipelineTab } from "../components/ui/Analytics/PipelineTab";
 import { KycDocumentsTab } from "../components/ui/Analytics/KycDocumentsTab";
-import { PerformanceTab } from "../components/ui/Analytics/PerformanceTab";
 import { OperationsTab } from "../components/ui/Analytics/OperationsTab";
 import { Button } from "../components/ui/primitives/Button";
 import { Calendar } from "../components/ui/primitives/Calendar";
@@ -219,14 +218,6 @@ export default function Analytics() {
               <Shield className="h-4 w-4" />
               KYC & Documents
             </TabsTrigger>
-
-            <TabsTrigger
-              value="performance"
-              className="gap-2 data-[state=active]:bg-card"
-            >
-              <Gauge className="h-4 w-4" />
-              Performance
-            </TabsTrigger>
           </TabsList>
 
           <TabsContent value="overview">
@@ -243,10 +234,6 @@ export default function Analytics() {
 
           <TabsContent value="kyc">
             <KycDocumentsTab dateRange={dateRange} preset={preset} />
-          </TabsContent>
-
-          <TabsContent value="performance">
-            <PerformanceTab dateRange={dateRange} preset={preset} />
           </TabsContent>
         </Tabs>
       </main>
