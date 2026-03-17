@@ -12,9 +12,9 @@ import {
 } from "@/components/ui";
 
 const riskPriority = {
-  "Enhanced Due Diligence (EDD)": 0,
-  "Standard EDD": 1,
-  "Simplified EDD": 2,
+  "Enhanced CDD": 0,
+  "Standard CDD": 1,
+  "Simplified CDD": 2,
   "Past Applications": 3,
 };
 
@@ -103,8 +103,8 @@ export default function StaffLandingPage() {
   const statusCounts = useMemo(() => {
     const counts = {
       "Total Pending": 0,
-      "Enhanced EDD": 0,
-      "Standard EDD": 0,
+      "Enhanced CDD": 0,
+      "Standard CDD": 0,
       "Past Applications": 0,
     };
 
@@ -115,12 +115,12 @@ export default function StaffLandingPage() {
       if (isPendingStatus(status)) {
         counts["Total Pending"] += 1;
 
-        if (riskGrade === "Enhanced Due Diligence (EDD)") {
-          counts["Enhanced EDD"] += 1;
+        if (riskGrade === "Enhanced CDD") {
+          counts["Enhanced CDD"] += 1;
         }
 
-        if (riskGrade === "Standard EDD") {
-          counts["Standard EDD"] += 1;
+        if (riskGrade === "Standard CDD") {
+          counts["Standard CDD"] += 1;
         }
       }
 
@@ -157,13 +157,13 @@ export default function StaffLandingPage() {
 
         if (selectedStatus === "Total Pending") {
           matchesCapsule = isPendingStatus(status);
-        } else if (selectedStatus === "Enhanced EDD") {
+        } else if (selectedStatus === "Enhanced CDD") {
           matchesCapsule =
             isPendingStatus(status) &&
-            riskGrade === "Enhanced Due Diligence (EDD)";
-        } else if (selectedStatus === "Standard EDD") {
+            riskGrade === "Enhanced CDD";
+        } else if (selectedStatus === "Standard CDD") {
           matchesCapsule =
-            isPendingStatus(status) && riskGrade === "Standard EDD";
+            isPendingStatus(status) && riskGrade === "Standard CDD";
         } else if (selectedStatus === "Past Applications") {
           matchesCapsule = isPastStatus(status);
         }
@@ -206,18 +206,18 @@ export default function StaffLandingPage() {
 
     const totalPending = pendingApps.length;
 
-    const enhancedEDD = pendingApps.filter(
-      (a) => getRiskGrade(a) === "Enhanced Due Diligence (EDD)",
+    const enhancedCDD = pendingApps.filter(
+      (a) => getRiskGrade(a) === "Enhanced CDD",
     ).length;
 
-    const standardEDD = pendingApps.filter(
-      (a) => getRiskGrade(a) === "Standard EDD",
+    const standardCDD = pendingApps.filter(
+      (a) => getRiskGrade(a) === "Standard CDD",
     ).length;
 
     return {
       totalPending,
-      enhancedEDD,
-      standardEDD,
+      enhancedCDD,
+      standardCDD,
     };
   }, [applications]);
 
@@ -244,8 +244,8 @@ export default function StaffLandingPage() {
         <div className="mb-8">
           <StaffStats
             totalPending={stats.totalPending ?? 0}
-            enhancedEDD={stats.enhancedEDD ?? 0}
-            standardEDD={stats.standardEDD ?? 0}
+            enhancedCDD={stats.enhancedCDD ?? 0}
+            standardCDD={stats.standardCDD ?? 0}
           />
         </div>
 
