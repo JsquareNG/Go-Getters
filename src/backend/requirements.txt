@@ -70,3 +70,4 @@ websockets==15.0.1
 Werkzeug==3.1.5
 yarl==1.22.0
 google-cloud-documentai>=2.0.0
+google-genai>=1.51.0
