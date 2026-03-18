@@ -502,7 +502,6 @@ const SINGAPORE_CONFIG = {
         {
           id: "step4",
           label: "Documents",
-          //   fields: { ...getComplianceDeclarations() },
           fields: {
             ACRABusinessProfile: {
               type: "file",
@@ -704,7 +703,6 @@ const SINGAPORE_CONFIG = {
         {
           id: "step4",
           label: "Documents",
-          //   fields: { ...getComplianceDeclarations() },
           fields: {
             ACRABusinessProfile: {
               type: "file",
@@ -727,14 +725,6 @@ const SINGAPORE_CONFIG = {
               required: true,
             },
           },
-          //   documents: [
-          //     "ACRA Business Profile",
-          //     "Board Resolution",
-          //     // "IDs of Directors",
-          //     // "IDs of UBOs (≥25%)",
-          //     "Proof of Business Address",
-          //     "Bank Statements (3 months)",
-          //   ],
         },
       ],
     },

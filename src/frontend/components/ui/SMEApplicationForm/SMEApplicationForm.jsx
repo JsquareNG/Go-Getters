@@ -36,7 +36,7 @@ import {
   getApplicationsByUserId,
 } from "@/api/applicationApi";
 
-import { uploadDocumentApi } from "@/api/documentApi";
+import { uploadDocumentApi, allDocuments } from "@/api/documentApi";
 
 const STEP_LABELS = [
   "To Get Started",
@@ -144,6 +144,317 @@ const SMEApplicationForm = () => {
 
     return [...keys];
   }, []);
+
+  //
+  // HELPER FUNCTIONS - FOR FILE UPLOADS
+  //
+
+  const buildExistingDocumentMap = (documents = []) => {
+    return documents.reduce((acc, doc) => {
+      acc[doc.document_type] = doc;
+      return acc;
+    }, {});
+  };
+
+  const unwrapFile = (value) => {
+    if (!value) return null;
+    if (value instanceof File) return value;
+    if (value.file instanceof File) return value.file;
+    return null;
+  };
+
+  const buildDocumentType = ({
+    sectionKey = null,
+    sectionConfig = null,
+    rowIndex = null,
+    fieldKey,
+  }) => {
+    if (!sectionKey) return fieldKey;
+
+    const roleValue = getSectionRoleValue(sectionKey, sectionConfig);
+
+    return `${roleValue}_${rowIndex + 1}_${fieldKey}`;
+  };
+
+  const collectFilesFromFieldSet = ({
+    fieldSet,
+    source,
+    sectionKey = null,
+    sectionConfig = null,
+    rowIndex = null,
+    uploads = [],
+  }) => {
+    Object.entries(fieldSet || {}).forEach(([fieldKey, fieldConfig]) => {
+      if (fieldKey === "conditionalFields") return;
+
+      const rawValue = source?.[fieldKey];
+
+      // normal file field
+      if (fieldConfig?.type === "file") {
+        const file = unwrapFile(rawValue);
+        if (file) {
+          uploads.push({
+            fieldPath: sectionKey
+              ? `${sectionKey}.${rowIndex}.${fieldKey}`
+              : fieldKey,
+            document_type: buildDocumentType({
+              sectionKey,
+              sectionConfig,
+              rowIndex,
+              fieldKey,
+            }),
+            file,
+          });
+        }
+      }
+
+      // field-level conditional fields
+      if (fieldConfig?.conditionalFields && rawValue) {
+        const nestedFieldSet = fieldConfig.conditionalFields[rawValue] || {};
+        collectFilesFromFieldSet({
+          fieldSet: nestedFieldSet,
+          source,
+          sectionKey,
+          sectionConfig,
+          rowIndex,
+          uploads,
+        });
+      }
+
+      // nested object block
+      if (
+        typeof fieldConfig === "object" &&
+        !fieldConfig.type &&
+        !fieldConfig.label &&
+        fieldKey !== "conditionalFields"
+      ) {
+        collectFilesFromFieldSet({
+          fieldSet: fieldConfig,
+          source: source?.[fieldKey] || {},
+          sectionKey,
+          sectionConfig,
+          rowIndex,
+          uploads,
+        });
+      }
+    });
+
+    return uploads;
+  };
+
+  const collectFileUploadEntries = (formData, activeConfig) => {
+    const businessType = formData?.businessType;
+    const entity = activeConfig?.entities?.[businessType];
+    if (!entity?.steps) return [];
+
+    const uploads = [];
+
+    entity.steps.forEach((step) => {
+      // top-level fields
+      collectFilesFromFieldSet({
+        fieldSet: step.fields || {},
+        source: formData,
+        uploads,
+      });
+
+      // repeatable sections
+      Object.entries(step.repeatableSections || {}).forEach(
+        ([sectionKey, sectionConfig]) => {
+          let rows = [];
+
+          if (sectionConfig?.storage === "individuals") {
+            const roleValue = getSectionRoleValue(sectionKey, sectionConfig);
+            rows = (formData?.individuals || []).filter(
+              (row) => row?.role === roleValue,
+            );
+          } else {
+            rows = Array.isArray(formData?.[sectionKey])
+              ? formData[sectionKey]
+              : [];
+          }
+
+          rows.forEach((row, rowIndex) => {
+            collectFilesFromFieldSet({
+              fieldSet: sectionConfig.fields || {},
+              source: row,
+              sectionKey,
+              sectionConfig,
+              rowIndex,
+              uploads,
+            });
+          });
+        },
+      );
+    });
+
+    return uploads;
+  };
+
+  const replaceDocumentById = async ({ documentId, file }) => {
+    const form = new FormData();
+    form.append("file", file);
+
+    const replaceRes = await fetch(
+      `http://127.0.0.1:8000/documents/replace-upload/${documentId}`,
+      {
+        method: "POST",
+        body: form,
+      },
+    );
+
+    if (!replaceRes.ok) {
+      throw new Error(`Failed to replace upload for document ${documentId}`);
+    }
+
+    return await replaceRes.json();
+  };
+
+  const initDocumentUpload = async ({ applicationId, documentType, file }) => {
+    const initRes = await fetch(
+      "http://127.0.0.1:8000/documents/init-persist-upload",
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          application_id: applicationId,
+          document_type: documentType,
+          filename: file.name,
+          mime_type: file.type || "application/octet-stream",
+        }),
+      },
+    );
+
+    if (!initRes.ok) {
+      throw new Error(`Failed to init upload for ${documentType}`);
+    }
+
+    return await initRes.json();
+  };
+
+  const uploadSingleDocument = async ({
+    applicationId,
+    documentType,
+    file,
+    existingDocumentMap = {},
+  }) => {
+    const existingDoc = existingDocumentMap[documentType];
+
+    if (existingDoc?.document_id) {
+      return await replaceDocumentById({
+        documentId: existingDoc.document_id,
+        file,
+      });
+    }
+
+    const initData = await initDocumentUpload({
+      applicationId,
+      documentType,
+      file,
+    });
+
+    if (!initData?.document_id) {
+      throw new Error(`No document_id returned for ${documentType}`);
+    }
+
+    return await replaceDocumentById({
+      documentId: initData.document_id,
+      file,
+    });
+  };
+
+  const uploadAllDocumentsFromFormData = async (
+    rawFormData,
+    activeConfig,
+    applicationId,
+  ) => {
+    const root = {
+      ...(rawFormData || {}),
+      ...((rawFormData || {}).formData || {}),
+      individuals:
+        rawFormData?.formData?.individuals ?? rawFormData?.individuals ?? [],
+    };
+
+    const uploadEntries = collectFileUploadEntries(root, activeConfig);
+
+    const uniqueUploadEntries = Object.values(
+      uploadEntries.reduce((acc, entry) => {
+        acc[entry.document_type] = entry;
+        return acc;
+      }, {}),
+    );
+
+    console.log("UPLOAD ENTRIES:", uniqueUploadEntries);
+
+    const existingDocs = await allDocuments(applicationId);
+    const existingDocumentMap = buildExistingDocumentMap(existingDocs);
+
+    const uploadedResults = [];
+
+    for (const entry of uniqueUploadEntries) {
+      const uploaded = await uploadSingleDocument({
+        applicationId,
+        documentType: entry.document_type,
+        file: entry.file,
+        existingDocumentMap,
+      });
+
+      uploadedResults.push({
+        ...entry,
+        uploaded,
+      });
+
+      if (uploaded?.document_id) {
+        existingDocumentMap[entry.document_type] = {
+          document_id: uploaded.document_id,
+          document_type: entry.document_type,
+        };
+      }
+    }
+
+    return uploadedResults;
+  };
+
+  // const uploadAllDocumentsFromFormData = async (
+  //   rawFormData,
+  //   activeConfig,
+  //   applicationId,
+  // ) => {
+  //   const root = rawFormData?.formData || rawFormData;
+  //   const uploadEntries = collectFileUploadEntries(root, activeConfig);
+
+  //   console.log("UPLOAD ENTRIES:", uploadEntries);
+
+  //   const existingDocs = await allDocuments(applicationId);
+  //   const existingDocumentMap = buildExistingDocumentMap(existingDocs);
+
+  //   const uploadedResults = [];
+
+  //   for (const entry of uploadEntries) {
+  //     const uploaded = await uploadSingleDocument({
+  //       applicationId,
+  //       documentType: entry.document_type,
+  //       file: entry.file,
+  //       existingDocumentMap,
+  //     });
+
+  //     uploadedResults.push({
+  //       ...entry,
+  //       uploaded,
+  //     });
+
+  //     // update map so repeated doc_types in same loop won't re-init
+  //     if (uploaded?.document_id) {
+  //       existingDocumentMap[entry.document_type] = {
+  //         document_id: uploaded.document_id,
+  //         document_type: entry.document_type,
+  //       };
+  //     }
+  //   }
+
+  //   return uploadedResults;
+  // };
 
   const isIndividualLikeSection = useCallback(
     (sectionConfig = {}) => {
@@ -503,42 +814,6 @@ const SMEApplicationForm = () => {
     [activeConfig, getMergedFormState, getSectionRoleValue],
   );
 
-  const uploadDocumentWithAutoAppId = useCallback(
-    async ({ applicationId, user, documentType, file, onProgress }) => {
-      let resolvedAppId = applicationId;
-
-      if (!resolvedAppId) {
-        const tempPayload = {
-          user_id: user.user_id,
-          email: user.email,
-          first_name: user.first_name ?? user.firstName ?? "",
-          form_data: {},
-        };
-
-        const res = await saveApplicationDraftApi(tempPayload);
-        resolvedAppId = res.application_id;
-
-        if (!resolvedAppId) {
-          throw new Error("Failed to create draft application");
-        }
-      }
-
-      const uploaded = await uploadDocumentApi(
-        {
-          application_id: resolvedAppId,
-          document_type: documentType,
-          filename: file.name,
-          mime_type: file.type || "application/octet-stream",
-        },
-        file,
-        onProgress,
-      );
-
-      return { appId: resolvedAppId, uploaded };
-    },
-    [],
-  );
-
   useEffect(() => {
     const initApplication = async () => {
       try {
@@ -645,25 +920,6 @@ const SMEApplicationForm = () => {
     try {
       let savedAppId = currentApp?.applicationId || appId;
 
-      const documents = formData.documents || {};
-      for (const [docType, docValue] of Object.entries(documents)) {
-        const files = Array.isArray(docValue) ? docValue : [docValue];
-
-        for (const file of files) {
-          if (file instanceof File) {
-            const { appId: returnedAppId } = await uploadDocumentWithAutoAppId({
-              applicationId: savedAppId,
-              user,
-              documentType: docType,
-              file,
-              onProgress: (pct) =>
-                console.log(`Uploading ${file.name}: ${pct}%`),
-            });
-            savedAppId = returnedAppId;
-          }
-        }
-      }
-
       const cleanedFormPayload = buildDynamicPayload(formData, activeConfig);
 
       const payload = {
@@ -684,23 +940,17 @@ const SMEApplicationForm = () => {
         form_data: cleanedFormPayload,
       };
 
-      // const payload = {
-      //   ...(savedAppId && savedAppId !== "new"
-      //     ? { application_id: savedAppId }
-      //     : {}),
-      //   user_id: user.user_id,
-      //   email: user.email,
-      //   first_name: user.first_name ?? user.firstName ?? "",
-      //   last_saved_step: currentStepFromRedux,
-      //   previous_status: formData?.previous_status || null,
-      //   current_status: formData?.current_status || "Draft",
-      //   form_data: buildDynamicPayload(formData, activeConfig),
-      // };
-
       console.log("SAVE DRAFT payload:", payload);
 
       const res = await saveApplicationDraftApi(payload);
       savedAppId = res.application_id || savedAppId;
+
+      const documents = await uploadAllDocumentsFromFormData(
+        formData,
+        activeConfig,
+        savedAppId,
+      );
+      console.log(documents);
 
       dispatch(saveDraftAction({ appId: savedAppId, data: formData }));
 
@@ -728,25 +978,8 @@ const SMEApplicationForm = () => {
 
     try {
       let savedAppId = currentApp?.applicationId || appId;
-      const documents = formData.documents || {};
 
-      for (const [docType, docValue] of Object.entries(documents)) {
-        const files = Array.isArray(docValue) ? docValue : [docValue];
-
-        for (const file of files) {
-          if (file instanceof File) {
-            const { appId: returnedAppId } = await uploadDocumentWithAutoAppId({
-              applicationId: savedAppId,
-              user,
-              documentType: docType,
-              file,
-              onProgress: (pct) =>
-                console.log(`Uploading ${file.name}: ${pct}%`),
-            });
-            savedAppId = returnedAppId;
-          }
-        }
-      }
+      const cleanedFormPayload = buildDynamicPayload(formData, activeConfig);
 
       const payload = {
         ...(savedAppId && savedAppId !== "new"
@@ -758,10 +991,41 @@ const SMEApplicationForm = () => {
         last_saved_step: currentStepFromRedux,
         previous_status: formData?.previous_status || null,
         current_status: formData?.current_status || "Draft",
-        form_data: buildDynamicPayload(formData, activeConfig),
+
+        business_name: cleanedFormPayload.businessName || "",
+        business_country: cleanedFormPayload.businessCountry || "",
+        business_type: cleanedFormPayload.businessType || "",
+
+        form_data: cleanedFormPayload,
       };
 
-      await submitSmeApplicationApi(payload);
+      const res = await submitSmeApplicationApi(payload);
+      savedAppId = res?.application_id || savedAppId;
+
+      const documents = await uploadAllDocumentsFromFormData(
+        formData,
+        activeConfig,
+        savedAppId,
+      );
+      console.log("submit documents successfully:", documents);
+
+      // const payload = {
+      //   ...(savedAppId && savedAppId !== "new"
+      //     ? { application_id: savedAppId }
+      //     : {}),
+      //   user_id: user.user_id,
+      //   email: user.email,
+      //   first_name: user.first_name ?? user.firstName ?? "",
+      //   last_saved_step: currentStepFromRedux,
+      //   previous_status: formData?.previous_status || null,
+      //   current_status: formData?.current_status || "Draft",
+      //   form_data: buildDynamicPayload(formData, activeConfig),
+      // };
+
+      // await submitSmeApplicationApi(payload);
+
+      // const documents = await uploadAllDocumentsFromFormData(formData, activeConfig, savedAppId);
+      // console.log("submit documents successfully: ", documents);
 
       dispatch(submitApplication({ appId: savedAppId, data: formData }));
 
@@ -805,6 +1069,7 @@ const SMEApplicationForm = () => {
             {...commonProps}
             documents={formData.documents}
             documentsProgress={formData.documentsProgress}
+            applicationId={appId}
           />
         );
       case 4:
