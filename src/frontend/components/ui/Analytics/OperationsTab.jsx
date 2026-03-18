@@ -17,7 +17,6 @@ import {
 import { Badge } from "../primitives/Badge";
 import { KPICard } from "./KPICard";
 import {
-  Clock,
   AlertTriangle,
   Users,
   Zap,
@@ -56,6 +55,13 @@ function formatDurationFromDays(days) {
 
 function isUnderManualReview(status) {
   return String(status || "").trim().toLowerCase() === "under manual review";
+}
+
+function getRowHighlightClass(index) {
+  if (index === 0) return "bg-yellow-500/70";
+  if (index === 1) return "bg-slate-200/80";
+  if (index === 2) return "bg-amber-200/80";
+  return "";
 }
 
 export function OperationsTab({ dateRange, preset }) {
@@ -136,7 +142,19 @@ export function OperationsTab({ dateRange, preset }) {
           })
         );
 
-        setTeamPerformance(enrichedLeaderboard);
+        const sortedLeaderboard = [...enrichedLeaderboard]
+          .sort((a, b) => {
+            if ((b.processed ?? 0) !== (a.processed ?? 0)) {
+              return (b.processed ?? 0) - (a.processed ?? 0);
+            }
+            return String(a.staffId || "").localeCompare(String(b.staffId || ""));
+          })
+          .map((member, index) => ({
+            ...member,
+            rank: index + 1,
+          }));
+
+        setTeamPerformance(sortedLeaderboard);
       } catch (error) {
         console.error("Failed to fetch operations metrics:", error);
         setOverview({});
@@ -151,42 +169,11 @@ export function OperationsTab({ dateRange, preset }) {
 
   const operationsKPIs = useMemo(() => {
     return {
-      avgProcessingTime: overview?.avgProcessingTimeDays ?? 0,
       escalationRate: overview?.escalationRate ?? 0,
       manualReviewTime: overview?.avgManualReviewTimeDays ?? 0,
       totalEscalations: overview?.totalEscalations ?? 0,
-      applicationsPerStaffPerDay: 0,
     };
   }, [overview]);
-
-  const slaMetrics = useMemo(() => {
-    return {
-      withinSLA: 0,
-      firstTimeApproval: 0,
-      escalationRate: overview?.escalationRate ?? 0,
-      resubmissionRate: 0,
-      avgFirstResponse: "-",
-      avgResolution: "-",
-    };
-  }, [overview]);
-
-  const efficiencyMetrics = [
-    {
-      label: "Escalation Rate",
-      value: slaMetrics.escalationRate,
-      color: "bg-status-in-review",
-    },
-    {
-      label: "Resubmission Rate",
-      value: slaMetrics.resubmissionRate,
-      color: "bg-status-requires-action",
-    },
-    {
-      label: "SLA Compliance",
-      value: slaMetrics.withinSLA,
-      color: "bg-status-approved",
-    },
-  ];
 
   if (loading) {
     return (
@@ -262,8 +249,11 @@ export function OperationsTab({ dateRange, preset }) {
                     </TableCell>
                   </TableRow>
                 ) : (
-                  teamPerformance.map((member) => (
-                    <TableRow key={member.staffId}>
+                  teamPerformance.map((member, index) => (
+                    <TableRow
+                      key={member.staffId}
+                      className={cn(getRowHighlightClass(index))}
+                    >
                       <TableCell>
                         <Badge
                           variant="outline"
@@ -287,7 +277,7 @@ export function OperationsTab({ dateRange, preset }) {
                       </TableCell>
 
                       <TableCell className="text-right tabular-nums font-semibold">
-                        {member.processed}
+                        {member.processed ?? 0}
                       </TableCell>
 
                       <TableCell className="text-right tabular-nums">
@@ -298,23 +288,23 @@ export function OperationsTab({ dateRange, preset }) {
                         <span
                           className={cn(
                             "tabular-nums font-medium",
-                            member.approvalRate >= 80
+                            (member.approvalRate ?? 0) >= 80
                               ? "text-status-approved"
                               : "text-status-in-review",
                           )}
                         >
-                          {member.approvalRate}%
+                          {member.approvalRate ?? 0}%
                         </span>
                       </TableCell>
 
                       <TableCell
                         className={cn(
-                          "text-right tabular-nums font-semibold",
+                          "text-right tabular-nums font-bold",
                           (member.applicationsLeft ?? 0) > 10
-                            ? "text-red-500"
+                            ? "text-black"
                             : (member.applicationsLeft ?? 0) > 5
-                              ? "text-amber-500"
-                              : "text-green-500",
+                              ? "text-black"
+                              : "text-black",
                         )}
                       >
                         {member.applicationsLeft ?? 0}
