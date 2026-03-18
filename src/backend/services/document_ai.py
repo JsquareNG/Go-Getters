@@ -39,11 +39,7 @@ def _cell_text(doc, cell) -> str:
 
 
 def _table_to_grid(doc, table) -> List[List[str]]:
-    """
-    Returns a simple 2D grid of strings:
-    - header rows first (if present)
-    - then body rows
-    """
+
     grid: List[List[str]] = []
 
     for row in getattr(table, "header_rows", []) or []:
@@ -56,14 +52,6 @@ def _table_to_grid(doc, table) -> List[List[str]]:
 
 
 def extract_tables_by_page(doc) -> List[List[Dict[str, Any]]]:
-    """
-    Returns tables grouped by page:
-    [
-      [ {table_index: 0, grid: [[...], ...]}, ...],   # page 1 tables
-      [ {table_index: 0, grid: ...}, ...],            # page 2 tables
-      ...
-    ]
-    """
     pages_tables: List[List[Dict[str, Any]]] = []
 
     for page in doc.pages:
