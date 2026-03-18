@@ -21,13 +21,12 @@ import {
   AlertTriangle,
   Users,
   Zap,
-  Target,
-  RotateCcw,
 } from "lucide-react";
 import {
   getAuditMetricsOverview,
   getStaffLeaderboard,
 } from "../../../api/auditTrailApi";
+import { getApplicationByReviewer } from "../../../api/applicationApi";
 import { cn } from "@/lib/utils";
 
 const rankColors = [
@@ -53,6 +52,10 @@ function formatDurationFromDays(days) {
   }
 
   return `${value.toFixed(2)} days`;
+}
+
+function isUnderManualReview(status) {
+  return String(status || "").trim().toLowerCase() === "under manual review";
 }
 
 export function OperationsTab({ dateRange, preset }) {
@@ -98,7 +101,42 @@ export function OperationsTab({ dateRange, preset }) {
         ]);
 
         setOverview(overviewRes || {});
-        setTeamPerformance(Array.isArray(leaderboardRes) ? leaderboardRes : []);
+
+        const leaderboard = Array.isArray(leaderboardRes) ? leaderboardRes : [];
+
+        const enrichedLeaderboard = await Promise.all(
+          leaderboard.map(async (member) => {
+            try {
+              const reviewerId = member.staffId;
+              const apps = await getApplicationByReviewer(reviewerId);
+
+              const reviewerApps = Array.isArray(apps)
+                ? apps
+                : Array.isArray(apps?.data)
+                  ? apps.data
+                  : [];
+
+              const assignedApplications = reviewerApps.length;
+              const applicationsLeft = reviewerApps.filter((app) =>
+                isUnderManualReview(app.current_status)
+              ).length;
+
+              return {
+                ...member,
+                assignedApplications,
+                applicationsLeft,
+              };
+            } catch (error) {
+              return {
+                ...member,
+                assignedApplications: 0,
+                applicationsLeft: 0,
+              };
+            }
+          })
+        );
+
+        setTeamPerformance(enrichedLeaderboard);
       } catch (error) {
         console.error("Failed to fetch operations metrics:", error);
         setOverview({});
@@ -117,10 +155,6 @@ export function OperationsTab({ dateRange, preset }) {
       escalationRate: overview?.escalationRate ?? 0,
       manualReviewTime: overview?.avgManualReviewTimeDays ?? 0,
       totalEscalations: overview?.totalEscalations ?? 0,
-      avgProcessingTimeTrend: 0,
-      escalationRateTrend: 0,
-      manualReviewTimeTrend: 0,
-      totalEscalationsTrend: 0,
       applicationsPerStaffPerDay: 0,
     };
   }, [overview]);
@@ -170,113 +204,29 @@ export function OperationsTab({ dateRange, preset }) {
         <p className="text-sm text-muted-foreground">{operationsDescription}</p>
       </div>
 
-      <div className="grid grid-cols-2 gap-4 lg:grid-cols-3 xl:grid-cols-6">
-        <KPICard
-          icon={<Clock className="h-5 w-5" />}
-          title="Avg Processing Time"
-          value={formatDurationFromDays(operationsKPIs.avgProcessingTime)}
-          trend={operationsKPIs.avgProcessingTimeTrend}
-          trendLabel="Submission → Decision"
-        />
+      <div className="grid grid-cols-4 gap-4 lg:grid-cols-4 xl:grid-cols-3">
         <KPICard
           icon={<AlertTriangle className="h-5 w-5" />}
           title="Escalation Rate"
           value={operationsKPIs.escalationRate}
           suffix="%"
-          trend={operationsKPIs.escalationRateTrend}
           trendLabel="of total applications"
         />
         <KPICard
           icon={<Users className="h-5 w-5" />}
           title="Manual Review Time"
           value={formatDurationFromDays(operationsKPIs.manualReviewTime)}
-          trend={operationsKPIs.manualReviewTimeTrend}
           trendLabel="Avg per application"
         />
         <KPICard
           icon={<Zap className="h-5 w-5" />}
           title="Total Escalations"
           value={operationsKPIs.totalEscalations}
-          trend={operationsKPIs.totalEscalationsTrend}
           trendLabel="Across filtered applications"
-        />
-        <KPICard
-          icon={<Target className="h-5 w-5" />}
-          title="SLA Compliance"
-          value={slaMetrics.withinSLA}
-          suffix="%"
-          trendLabel="Not tracked yet"
-        />
-        <KPICard
-          icon={<RotateCcw className="h-5 w-5" />}
-          title="First-Time Approval"
-          value={slaMetrics.firstTimeApproval}
-          suffix="%"
-          trendLabel="Not tracked yet"
         />
       </div>
 
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base font-medium">
-              Efficiency Ratios
-            </CardTitle>
-            <CardDescription>
-              Key operational performance indicators
-            </CardDescription>
-          </CardHeader>
-
-          <CardContent className="space-y-5">
-            {efficiencyMetrics.map((metric) => (
-              <div key={metric.label} className="space-y-1">
-                <div className="flex justify-between text-sm">
-                  <span className="text-muted-foreground">{metric.label}</span>
-                  <span className="tabular-nums font-semibold text-foreground">
-                    {metric.value}%
-                  </span>
-                </div>
-
-                <div className="h-2 w-full overflow-hidden rounded-full bg-muted">
-                  <div
-                    className={cn("h-full rounded-full", metric.color)}
-                    style={{
-                      width: `${Math.max(0, Math.min(metric.value, 100))}%`,
-                    }}
-                  />
-                </div>
-              </div>
-            ))}
-
-            <div className="space-y-2 border-t pt-3">
-              <div className="flex justify-between text-sm">
-                <span className="text-muted-foreground">
-                  Avg First Response
-                </span>
-                <span className="font-semibold text-foreground">
-                  {slaMetrics.avgFirstResponse}
-                </span>
-              </div>
-
-              <div className="flex justify-between text-sm">
-                <span className="text-muted-foreground">Avg Resolution</span>
-                <span className="font-semibold text-foreground">
-                  {slaMetrics.avgResolution}
-                </span>
-              </div>
-
-              <div className="flex justify-between text-sm">
-                <span className="text-muted-foreground">
-                  Apps / Staff / Day
-                </span>
-                <span className="font-semibold text-foreground">
-                  {operationsKPIs.applicationsPerStaffPerDay}
-                </span>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         <Card className="lg:col-span-2">
           <CardHeader>
             <CardTitle className="text-base font-medium">
@@ -289,14 +239,15 @@ export function OperationsTab({ dateRange, preset }) {
 
           <CardContent>
             <Table>
-              <TableHeader>
+              <TableHeader className="bg-slate-300/30">
                 <TableRow>
                   <TableHead className="w-12">#</TableHead>
                   <TableHead>Reviewer</TableHead>
+                  <TableHead className="text-right">Assigned</TableHead>
                   <TableHead className="text-right">Processed</TableHead>
                   <TableHead className="text-right">Avg Time</TableHead>
                   <TableHead className="text-right">Approval Rate</TableHead>
-                  <TableHead className="text-right">Escalations</TableHead>
+                  <TableHead className="text-right">Applications Left</TableHead>
                 </TableRow>
               </TableHeader>
 
@@ -304,7 +255,7 @@ export function OperationsTab({ dateRange, preset }) {
                 {teamPerformance.length === 0 ? (
                   <TableRow>
                     <TableCell
-                      colSpan={6}
+                      colSpan={7}
                       className="text-center text-muted-foreground"
                     >
                       No staff performance data available
@@ -332,6 +283,10 @@ export function OperationsTab({ dateRange, preset }) {
                       </TableCell>
 
                       <TableCell className="text-right tabular-nums font-semibold">
+                        {member.assignedApplications ?? 0}
+                      </TableCell>
+
+                      <TableCell className="text-right tabular-nums font-semibold">
                         {member.processed}
                       </TableCell>
 
@@ -352,8 +307,17 @@ export function OperationsTab({ dateRange, preset }) {
                         </span>
                       </TableCell>
 
-                      <TableCell className="text-right tabular-nums">
-                        {member.escalationsHandled}
+                      <TableCell
+                        className={cn(
+                          "text-right tabular-nums font-semibold",
+                          (member.applicationsLeft ?? 0) > 10
+                            ? "text-red-500"
+                            : (member.applicationsLeft ?? 0) > 5
+                              ? "text-amber-500"
+                              : "text-green-500",
+                        )}
+                      >
+                        {member.applicationsLeft ?? 0}
                       </TableCell>
                     </TableRow>
                   ))
