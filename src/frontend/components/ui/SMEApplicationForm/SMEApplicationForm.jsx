@@ -1079,6 +1079,7 @@ const SMEApplicationForm = () => {
             onSubmit={handleSubmitApplication}
             isSubmitting={isSubmitting}
             onEdit={handleEditStep}
+            applicationId={appId}
           />
         );
       default:

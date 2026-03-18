@@ -1,8 +1,10 @@
-import React, { useMemo } from "react";
+import React, { useMemo, useState, useEffect } from "react";
 import { useSelector } from "react-redux";
 import { CheckCircle2, AlertCircle } from "lucide-react";
 import { generateDocKey } from "../utils/formHelpers";
 import { SINGAPORE_CONFIG, INDONESIA_CONFIG } from "../config";
+
+import { allDocuments } from "@/api/documentApi";
 
 import {
   selectFormData,
@@ -13,9 +15,26 @@ import {
  * Step4ReviewSubmit
  * Pure review screen (submission handled by parent)
  */
-const Step4 = ({ onEdit, disabled = false }) => {
+const Step4 = ({ onEdit, disabled = false, applicationId }) => {
   const data = useSelector(selectFormData);
   const stepCompletion = useSelector(selectStepCompletion);
+  const [existingDocuments, setExistingDocuments] = useState([]);
+
+  useEffect(() => {
+    if (!applicationId || applicationId === "new") return;
+
+    const fetchDocuments = async () => {
+      try {
+        const docs = await allDocuments(applicationId);
+        setExistingDocuments(Array.isArray(docs) ? docs : []);
+      } catch (err) {
+        console.error("Failed to fetch documents:", err);
+        setExistingDocuments([]);
+      }
+    };
+
+    fetchDocuments();
+  }, [applicationId]);
 
   /* ------------------------------------------------ */
   /* ENTITY CONFIG */
@@ -48,17 +67,71 @@ const Step4 = ({ onEdit, disabled = false }) => {
   const step3Config = getStepConfigById("step3"); // match your config
   const step4Config = getStepConfigById("step4"); // match your config
 
-  //   console.log(step2Config);
-
   /* ------------------------------------------------ */
   /* HELPERS */
   /* ------------------------------------------------ */
 
-  //TODO: implement the file upload component here with file info
-  const formatDocumentName = (file) =>
-    file
-      ? `${file.name} (${(file.size / 1024).toFixed(2)} KB)`
-      : "Not uploaded";
+  const existingDocumentMap = useMemo(() => {
+    return existingDocuments.reduce((acc, doc) => {
+      acc[doc.document_type] = doc;
+      return acc;
+    }, {});
+  }, [existingDocuments]);
+
+  const getNestedValue = (obj, path) => {
+    if (!obj || !path) return undefined;
+
+    return path.split(".").reduce((acc, key) => {
+      if (acc == null) return undefined;
+      const isIndex = !Number.isNaN(Number(key));
+      return isIndex ? acc[Number(key)] : acc[key];
+    }, obj);
+  };
+
+  const unwrapLocalFile = (value) => {
+    if (!value) return null;
+    if (value instanceof File) return value;
+    if (value?.file instanceof File) return value.file;
+    return null;
+  };
+
+  const isBackendDocument = (value) => {
+    return (
+      value &&
+      typeof value === "object" &&
+      value.document_id &&
+      value.original_filename
+    );
+  };
+
+  const formatDisplayedDocument = (value) => {
+    const localFile = unwrapLocalFile(value);
+
+    if (localFile) {
+      return `${localFile.name} (${(localFile.size / 1024).toFixed(2)} KB)`;
+    }
+
+    if (isBackendDocument(value)) {
+      return value.original_filename || value.document_type || "Uploaded";
+    }
+
+    return "Not uploaded";
+  };
+
+  const getDisplayedDocumentValue = (fieldKey, stepData = {}) => {
+    const localValue =
+      getNestedValue(stepData?.formData || {}, fieldKey) ??
+      getNestedValue(stepData, fieldKey) ??
+      null;
+
+    const localFile = unwrapLocalFile(localValue);
+    if (localFile) return localValue;
+
+    const backendDoc = existingDocumentMap[fieldKey];
+    if (backendDoc) return backendDoc;
+
+    return null;
+  };
 
   const getFieldsFromStep = (stepConfig, stepData = {}) => {
     const fields = [];
@@ -90,8 +163,21 @@ const Step4 = ({ onEdit, disabled = false }) => {
           });
         } else {
           // Normal field
-          if (value instanceof File) {
-            value = `${value.name} (${(value.size / 1024).toFixed(2)} KB)`;
+          // if (value instanceof File) {
+          //   value = `${value.name} (${(value.size / 1024).toFixed(2)} KB)`;
+          // } else if (typeof value === "object" && value !== null) {
+          //   value = JSON.stringify(value, null, 2);
+          // } else if (value === "") {
+          //   value = "Not provided";
+          // }
+
+          const localFile = unwrapLocalFile(value);
+
+          if (localFile) {
+            value = `${localFile.name} (${(localFile.size / 1024).toFixed(2)} KB)`;
+          } else if (cfg.type === "file") {
+            const displayedDoc = getDisplayedDocumentValue(key, data);
+            value = formatDisplayedDocument(displayedDoc);
           } else if (typeof value === "object" && value !== null) {
             value = JSON.stringify(value, null, 2);
           } else if (value === "") {
@@ -101,7 +187,11 @@ const Step4 = ({ onEdit, disabled = false }) => {
           fields.push({
             label: prefix + cfg.label,
             value,
-            missing: cfg.required && value === "Not provided",
+            // missing: cfg.required && value === "Not provided",
+            missing:
+              cfg.required &&
+              ((cfg.type === "file" && !getDisplayedDocumentValue(key, data)) ||
+                value === "Not provided"),
           });
         }
       });
@@ -125,15 +215,25 @@ const Step4 = ({ onEdit, disabled = false }) => {
     );
 
     // --- Documents ---
+    // (stepConfig.documents || []).forEach((doc) => {
+    //   const key = generateDocKey(doc);
+    //   const file = stepData?.documents?.[key]?.file || stepData?.[key];
+    //   fields.push({
+    //     label: doc,
+    //     value: file
+    //       ? `${file.name} (${(file.size / 1024).toFixed(2)} KB)`
+    //       : "Not uploaded",
+    //     missing: !file,
+    //   });
+    // });
     (stepConfig.documents || []).forEach((doc) => {
       const key = generateDocKey(doc);
-      const file = stepData?.documents?.[key]?.file || stepData?.[key];
+      const value = getDisplayedDocumentValue(key, stepData);
+
       fields.push({
         label: doc,
-        value: file
-          ? `${file.name} (${(file.size / 1024).toFixed(2)} KB)`
-          : "Not uploaded",
-        missing: !file,
+        value: formatDisplayedDocument(value),
+        missing: !value,
       });
     });
 
