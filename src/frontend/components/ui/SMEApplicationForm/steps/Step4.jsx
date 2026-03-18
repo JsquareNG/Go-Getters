@@ -295,14 +295,6 @@ const Step4 = ({ onEdit, disabled = false, applicationId }) => {
       for (const item of items) {
         if (!checkFields(sectionCfg.fields, item)) return false;
       }
-
-      // // Section required but empty
-      // if (sectionCfg.required && items.length === 0) return false;
-
-      // // Each item
-      // for (const item of items) {
-      //   if (!checkFields(sectionCfg.fields, item)) return false;
-      // }
     }
 
     // Check documents

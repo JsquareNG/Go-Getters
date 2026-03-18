@@ -164,7 +164,6 @@ const SINGAPORE_CONFIG = {
           id: "step2",
           label: "Basic Information",
           fields: {
-            // acraProfileUpload: { type: "file", label: "Upload ACRA Business Profile (OCR Autofill)", required: true },
             ...getBasicBusinessFields(),
           },
           repeatableSections: {
@@ -174,8 +173,6 @@ const SINGAPORE_CONFIG = {
               min: 1,
               max: 1,
               fields: {
-                ...getIndividualFields(),
-                ...getComplianceDeclarations(),
                 role: {
                   type: "text",
                   label: "Role",
@@ -188,6 +185,8 @@ const SINGAPORE_CONFIG = {
                   value: 100,
                   readonly: true,
                 },
+                ...getIndividualFields(),
+                ...getComplianceDeclarations(),
               },
             },
           },
@@ -228,8 +227,6 @@ const SINGAPORE_CONFIG = {
               label: "Partner",
               min: 2,
               fields: {
-                ...getIndividualFields(),
-                ...getComplianceDeclarations(),
                 role: {
                   type: "text",
                   label: "Role",
@@ -243,6 +240,8 @@ const SINGAPORE_CONFIG = {
                   max: 100,
                   required: true,
                 },
+                ...getIndividualFields(),
+                ...getComplianceDeclarations(),
               },
             },
           },
@@ -372,7 +371,6 @@ const SINGAPORE_CONFIG = {
         {
           id: "step4",
           label: "Documents",
-          //   fields: { ...getComplianceDeclarations() },
           fields: {
             LPAgreement: {
               type: "file",

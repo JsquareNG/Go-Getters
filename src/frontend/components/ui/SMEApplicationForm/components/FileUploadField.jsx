@@ -36,26 +36,6 @@ const FileUploadField = ({
     [acceptTypes],
   );
 
-  // useEffect(() => {
-  //   if (!file) {
-  //     setPreviewUrl(null);
-  //     return;
-  //   }
-
-  //   // Redux may store { file, progress }
-  //   const actualFile = file instanceof File ? file : file?.file;
-
-  //   if (!(actualFile instanceof File)) {
-  //     setPreviewUrl(null);
-  //     return;
-  //   }
-
-  //   const url = URL.createObjectURL(actualFile);
-  //   setPreviewUrl(url);
-
-  //   return () => URL.revokeObjectURL(url);
-  // }, [file]);
-
   useEffect(() => {
     if (!file) {
       setPreviewUrl(null);
@@ -186,15 +166,21 @@ const FileUploadField = ({
             )}
 
             <p className="text-xs text-gray-500 mt-1">
-              {/* {formatFileSize(file.size)} */}
-              {/* {formatFileSize(actualFile?.size)} */}
-
               {actualFile?.size
                 ? formatFileSize(actualFile.size)
                 : existingUploadedFile?.mime_type || "Previously uploaded"}
             </p>
 
-            {previewUrl && (
+            {/* {previewUrl && (
+              <button
+                type="button"
+                onClick={handlePreview}
+                className="mt-2 text-sm text-blue-600 hover:underline"
+              >
+                View file
+              </button>
+            )} */}
+            {previewUrl && actualFile && (
               <button
                 type="button"
                 onClick={handlePreview}

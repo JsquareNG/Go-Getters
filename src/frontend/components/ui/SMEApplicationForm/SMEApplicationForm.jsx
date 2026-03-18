@@ -1060,7 +1060,7 @@ const SMEApplicationForm = () => {
       case 0:
         return <Step0Brief {...commonProps} />;
       case 1:
-        return <Step1BasicInformation {...commonProps} />;
+        return <Step1BasicInformation {...commonProps} applicationId={appId} />;
       case 2:
         return <Step2FinancialDetails {...commonProps} />;
       case 3:
