@@ -133,6 +133,33 @@ const Step4 = ({ onEdit, disabled = false, applicationId }) => {
     return null;
   };
 
+  // HELPER FOR NESTED INDIVIDUAL FIELDS:
+  const getMergedFormState = (rawData = {}) => {
+    const nested = rawData?.formData || {};
+    return {
+      ...rawData,
+      ...nested,
+      individuals: nested.individuals ?? rawData.individuals ?? [],
+    };
+  };
+
+  const getSectionRoleValue = (sectionKey, sectionConfig) => {
+    return sectionConfig?.fields?.role?.value || sectionKey;
+  };
+
+  const getSectionItems = (stepData, sectionKey, sectionConfig) => {
+    const merged = getMergedFormState(stepData);
+
+    if (sectionConfig?.storage === "individuals") {
+      const roleValue = getSectionRoleValue(sectionKey, sectionConfig);
+      return (merged.individuals || []).filter(
+        (person) => person?.role === roleValue,
+      );
+    }
+
+    return Array.isArray(merged?.[sectionKey]) ? merged[sectionKey] : [];
+  };
+
   const getFieldsFromStep = (stepConfig, stepData = {}) => {
     const fields = [];
 
@@ -162,15 +189,6 @@ const Step4 = ({ onEdit, disabled = false, applicationId }) => {
             });
           });
         } else {
-          // Normal field
-          // if (value instanceof File) {
-          //   value = `${value.name} (${(value.size / 1024).toFixed(2)} KB)`;
-          // } else if (typeof value === "object" && value !== null) {
-          //   value = JSON.stringify(value, null, 2);
-          // } else if (value === "") {
-          //   value = "Not provided";
-          // }
-
           const localFile = unwrapLocalFile(value);
 
           if (localFile) {
@@ -187,7 +205,6 @@ const Step4 = ({ onEdit, disabled = false, applicationId }) => {
           fields.push({
             label: prefix + cfg.label,
             value,
-            // missing: cfg.required && value === "Not provided",
             missing:
               cfg.required &&
               ((cfg.type === "file" && !getDisplayedDocumentValue(key, data)) ||
@@ -201,9 +218,22 @@ const Step4 = ({ onEdit, disabled = false, applicationId }) => {
     processFields(stepConfig.fields, stepData);
 
     // --- Repeatable sections (like Owners) ---
+    // Object.entries(stepConfig.repeatableSections || {}).forEach(
+    //   ([sectionKey, sectionCfg]) => {
+    //     const items = stepData?.[sectionKey] || [];
+    //     items.forEach((item, idx) => {
+    //       processFields(
+    //         sectionCfg.fields,
+    //         item,
+    //         `${sectionCfg.label} ${idx + 1} - `,
+    //       );
+    //     });
+    //   },
+    // );
     Object.entries(stepConfig.repeatableSections || {}).forEach(
       ([sectionKey, sectionCfg]) => {
-        const items = stepData?.[sectionKey] || [];
+        const items = getSectionItems(stepData, sectionKey, sectionCfg);
+
         items.forEach((item, idx) => {
           processFields(
             sectionCfg.fields,
@@ -213,29 +243,6 @@ const Step4 = ({ onEdit, disabled = false, applicationId }) => {
         });
       },
     );
-
-    // --- Documents ---
-    // (stepConfig.documents || []).forEach((doc) => {
-    //   const key = generateDocKey(doc);
-    //   const file = stepData?.documents?.[key]?.file || stepData?.[key];
-    //   fields.push({
-    //     label: doc,
-    //     value: file
-    //       ? `${file.name} (${(file.size / 1024).toFixed(2)} KB)`
-    //       : "Not uploaded",
-    //     missing: !file,
-    //   });
-    // });
-    (stepConfig.documents || []).forEach((doc) => {
-      const key = generateDocKey(doc);
-      const value = getDisplayedDocumentValue(key, stepData);
-
-      fields.push({
-        label: doc,
-        value: formatDisplayedDocument(value),
-        missing: !value,
-      });
-    });
 
     return fields;
   };
@@ -280,15 +287,22 @@ const Step4 = ({ onEdit, disabled = false, applicationId }) => {
     for (const [sectionKey, sectionCfg] of Object.entries(
       stepConfig.repeatableSections || {},
     )) {
-      const items = formData?.[sectionKey] || [];
+      // const items = formData?.[sectionKey] || [];
+      const items = getSectionItems(formData, sectionKey, sectionCfg);
 
-      // Section required but empty
-      if (sectionCfg.required && items.length === 0) return false;
+      if ((sectionCfg.min ?? 0) > items.length) return false;
 
-      // Each item
       for (const item of items) {
         if (!checkFields(sectionCfg.fields, item)) return false;
       }
+
+      // // Section required but empty
+      // if (sectionCfg.required && items.length === 0) return false;
+
+      // // Each item
+      // for (const item of items) {
+      //   if (!checkFields(sectionCfg.fields, item)) return false;
+      // }
     }
 
     // Check documents
