@@ -170,11 +170,24 @@ const SINGAPORE_CONFIG = {
           repeatableSections: {
             owners: {
               label: "Owner",
+              storage: "individuals",
               min: 1,
               max: 1,
               fields: {
                 ...getIndividualFields(),
                 ...getComplianceDeclarations(),
+                role: {
+                  type: "text",
+                  label: "Role",
+                  value: "Owner",
+                  readonly: true,
+                },
+                sharePercentage: {
+                  type: "number",
+                  label: "Share Percentage (%)",
+                  value: 100,
+                  readonly: true,
+                },
               },
             },
           },
@@ -199,12 +212,6 @@ const SINGAPORE_CONFIG = {
               required: true,
             },
           },
-          //   fields: { ...getComplianceDeclarations() },
-          //   documents: [
-          //     // "Owner ID",
-          //     "Proof of Business Address",
-          //     "Bank Statement (Last 3 months)",
-          //   ],
         },
       ],
     },
@@ -223,6 +230,19 @@ const SINGAPORE_CONFIG = {
               fields: {
                 ...getIndividualFields(),
                 ...getComplianceDeclarations(),
+                role: {
+                  type: "text",
+                  label: "Role",
+                  value: "Partner",
+                  readonly: true,
+                },
+                sharePercentage: {
+                  type: "number",
+                  label: "Share Percentage (%)",
+                  min: 0,
+                  max: 100,
+                  required: true,
+                },
               },
             },
           },
@@ -234,6 +254,7 @@ const SINGAPORE_CONFIG = {
           repeatableSections: {
             partnerFinancials: {
               label: "Partner Financial",
+              storage: "individuals",
               min: 2,
               fields: {
                 capitalContribution: {
@@ -257,6 +278,7 @@ const SINGAPORE_CONFIG = {
           repeatableSections: {
             partnershipDocuments: {
               label: "Partnership Documents",
+              storage: "individuals",
               min: 1,
               fields: {
                 partnershipAgreement: {
@@ -272,13 +294,6 @@ const SINGAPORE_CONFIG = {
               },
             },
           },
-          //   fields: { ...getComplianceDeclarations() },
-          //   documents: [
-          //     "IDs of ALL partners",
-          //     "Partnership Agreement",
-          //     "Proof of Business Address",
-          //     "Bank Statement",
-          //   ],
         },
       ],
     },
@@ -293,16 +308,44 @@ const SINGAPORE_CONFIG = {
           repeatableSections: {
             generalPartners: {
               label: "General Partner",
+              storage: "individuals",
               min: 1,
               fields: {
+                role: {
+                  type: "text",
+                  label: "Role",
+                  value: "General Partner",
+                  readonly: true,
+                },
+                sharePercentage: {
+                  type: "number",
+                  label: "Share Percentage (%)",
+                  min: 0,
+                  max: 100,
+                  required: true,
+                },
                 ...getIndividualFields(),
                 ...getComplianceDeclarations(),
               },
             },
             limitedPartners: {
               label: "Limited Partner",
+              storage: "individuals",
               min: 0,
               fields: {
+                role: {
+                  type: "text",
+                  label: "Role",
+                  value: "Limited Partner",
+                  readonly: true,
+                },
+                sharePercentage: {
+                  type: "number",
+                  label: "Share Percentage (%)",
+                  min: 0,
+                  max: 100,
+                  required: true,
+                },
                 ...getIndividualFields(),
                 ...getComplianceDeclarations(),
               },
@@ -347,12 +390,6 @@ const SINGAPORE_CONFIG = {
               required: true,
             },
           },
-          //   documents: [
-          //     "IDs of GP and LP",
-          //     "LP Agreement",
-          //     "Proof of Address",
-          //     "Bank Statement",
-          //   ],
         },
       ],
     },
@@ -389,16 +426,44 @@ const SINGAPORE_CONFIG = {
           repeatableSections: {
             partners: {
               label: "Partner",
+              storage: "individuals",
               min: 1,
               fields: {
+                role: {
+                  type: "text",
+                  label: "Role",
+                  value: "Partner",
+                  readonly: true,
+                },
+                sharePercentage: {
+                  type: "number",
+                  label: "Share Percentage (%)",
+                  min: 0,
+                  max: 100,
+                  required: true,
+                },
                 ...getIndividualFields(),
                 ...getComplianceDeclarations(),
               },
             },
             managers: {
               label: "Manager",
+              storage: "individuals",
               min: 1,
               fields: {
+                role: {
+                  type: "text",
+                  label: "Role",
+                  value: "Manager",
+                  readonly: true,
+                },
+                sharePercentage: {
+                  type: "number",
+                  label: "Share Percentage (%)",
+                  min: 0,
+                  max: 100,
+                  required: true,
+                },
                 ...getIndividualFields(),
                 nationality: {
                   type: "text",
@@ -460,13 +525,6 @@ const SINGAPORE_CONFIG = {
               required: true,
             },
           },
-          //   documents: [
-          //     "ACRA Business Profile",
-          //     "IDs of Partners",
-          //     "LLP Resolution",
-          //     "Proof of Address",
-          //     "Bank Statement",
-          //   ],
         },
       ],
     },
@@ -484,13 +542,6 @@ const SINGAPORE_CONFIG = {
               label: "Company Name",
               required: true,
             },
-            // businessIndustry: {
-            //   type: "checkbox",
-            //   label: "Business Industry",
-            //   required: true,
-            //   option: INDUSTRY_OPTIONS,
-            //   placeholder: "Select your industry",
-            // },
             uen: { type: "text", label: "UEN", required: true },
             incorporationDate: {
               type: "date",
@@ -520,14 +571,29 @@ const SINGAPORE_CONFIG = {
           repeatableSections: {
             directors: {
               label: "Director",
+              storage: "individuals",
               min: 1,
               fields: {
+                role: {
+                  type: "text",
+                  label: "Role",
+                  value: "Director",
+                  readonly: true,
+                },
+                sharePercentage: {
+                  type: "number",
+                  label: "Share Percentage (%)",
+                  min: 0,
+                  max: 100,
+                  required: true,
+                },
                 ...getIndividualFields(),
                 ...getComplianceDeclarations(),
               },
             },
             shareholders: {
               label: "Shareholder",
+              storage: "individuals",
               min: 1,
               fields: {
                 shareholderType: {
@@ -551,7 +617,9 @@ const SINGAPORE_CONFIG = {
                     },
                     sharePercentage: {
                       type: "number",
-                      label: "Share Percentage",
+                      label: "Share Percentage (%)",
+                      min: 0,
+                      max: 100,
                       required: true,
                     },
                   },
@@ -568,7 +636,9 @@ const SINGAPORE_CONFIG = {
                     },
                     sharePercentage: {
                       type: "number",
-                      label: "Share Percentage",
+                      label: "Share Percentage (%)",
+                      min: 0,
+                      max: 100,
                       required: true,
                     },
                   },
@@ -580,6 +650,7 @@ const SINGAPORE_CONFIG = {
             ultimateBeneficialOwner: {
               type: "conditional",
               label: "Ultimate Beneficial Owner (UBO)",
+              storage: "individuals",
               description:
                 "Auto-detected if shareholding ≥25%. Requires full KYC. Manual add allowed for control through other means.",
               condition: (shareholder) => shareholder.sharePercentage >= 25,

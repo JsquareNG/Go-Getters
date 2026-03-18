@@ -181,9 +181,24 @@ const INDONESIA_CONFIG = {
           repeatableSections: {
             owners: {
               label: "Owner",
+              storage: "individuals",
               min: 1,
               max: 1,
-              fields: { ...getIndividualFields() },
+              fields: {
+                role: {
+                  type: "text",
+                  label: "Role",
+                  value: "Owner",
+                  readonly: true,
+                },
+                sharePercentage: {
+                  type: "number",
+                  label: "Share Percentage (%)",
+                  value: 100,
+                  readonly: true,
+                },
+                ...getIndividualFields(),
+              },
             },
           },
         },
@@ -196,11 +211,6 @@ const INDONESIA_CONFIG = {
           id: "step4",
           label: "Required Documents",
           fields: {
-            // ownerIdDocument: {
-            //   type: "file",
-            //   label: "Owner KTP / Passport",
-            //   required: true,
-            // },
             businessLicense: {
               type: "file",
               label: "Business License (NIB)",
@@ -259,28 +269,44 @@ const INDONESIA_CONFIG = {
           repeatableSections: {
             generalPartners: {
               label: "General Partner",
+              storage: "individuals",
               min: 1,
               fields: {
-                ...getIndividualFields(),
                 role: {
                   type: "text",
                   label: "Role",
-                  value: "Managing Partner",
+                  value: "General Partner",
                   readonly: true,
                 },
+                sharePercentage: {
+                  type: "number",
+                  label: "Share Percentage (%)",
+                  min: 0,
+                  max: 100,
+                  required: true,
+                },
+                ...getIndividualFields(),
               },
             },
             limitedPartners: {
               label: "Limited Partner",
+              storage: "individuals",
               min: 0,
               fields: {
-                ...getIndividualFields(),
                 role: {
                   type: "text",
                   label: "Role",
-                  value: "Limited Partner",
+                  value: "Limitied Partner",
                   readonly: true,
                 },
+                sharePercentage: {
+                  type: "number",
+                  label: "Share Percentage (%)",
+                  min: 0,
+                  max: 100,
+                  required: true,
+                },
+                ...getIndividualFields(),
               },
             },
           },
@@ -381,20 +407,43 @@ const INDONESIA_CONFIG = {
           repeatableSections: {
             shareholders: {
               label: "Shareholder",
+              storage: "individuals",
               min: 1,
               fields: {
-                ...getIndividualFields(),
-                ownershipPercentage: {
+                role: {
+                  type: "text",
+                  label: "Role",
+                  value: "Shareholder",
+                  readonly: true,
+                },
+                sharePercentage: {
                   type: "number",
-                  label: "Ownership Percentage (%)",
+                  label: "Share Percentage (%)",
+                  min: 0,
+                  max: 100,
                   required: true,
                 },
+                ...getIndividualFields(),
               },
             },
             directors: {
               label: "Director / Authorized Signatory",
+              storage: "individuals",
               min: 1,
               fields: {
+                role: {
+                  type: "text",
+                  label: "Role",
+                  value: "Directory",
+                  readonly: true,
+                },
+                sharePercentage: {
+                  type: "number",
+                  label: "Share Percentage (%)",
+                  min: 0,
+                  max: 100,
+                  required: true,
+                },
                 ...getIndividualFields(),
                 position: { type: "text", label: "Position", required: true },
                 authorizedSignatory: {
@@ -530,6 +579,7 @@ const INDONESIA_CONFIG = {
           repeatableSections: {
             parentCompanyDirectors: {
               label: "Parent Company Director",
+              storage: "individuals",
               min: 1,
               fields: {
                 ...getIndividualFields(),
@@ -539,10 +589,18 @@ const INDONESIA_CONFIG = {
                   value: "Director",
                   readonly: true,
                 },
+                sharePercentage: {
+                  type: "number",
+                  label: "Share Percentage (%)",
+                  min: 0,
+                  max: 100,
+                  required: true,
+                },
               },
             },
             localRepresentatives: {
               label: "Indonesian Branch Representative",
+              storage: "individuals",
               min: 1,
               fields: {
                 ...getIndividualFields(),
@@ -555,6 +613,13 @@ const INDONESIA_CONFIG = {
                   label: "Role",
                   value: "Local Representative",
                   readonly: true,
+                },
+                sharePercentage: {
+                  type: "number",
+                  label: "Share Percentage (%)",
+                  min: 0,
+                  max: 100,
+                  required: true,
                 },
               },
             },

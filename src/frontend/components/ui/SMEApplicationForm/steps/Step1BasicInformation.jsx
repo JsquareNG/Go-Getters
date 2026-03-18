@@ -1,7 +1,7 @@
-import React, { useMemo, useRef, useState } from "react";
+import React, { useMemo, useRef, useState, useEffect } from "react";
 import FormFieldGroup from "../components/FormFieldGroup";
 import FileUploadField from "../components/FileUploadField";
-import {Button} from "@/components/ui"
+import { Button } from "@/components/ui";
 import { SINGAPORE_CONFIG, INDONESIA_CONFIG } from "../config";
 // import { extractFieldsFromStep, resolveConditionalFields, isFieldVisible } from "../utils/extractFields";
 
@@ -17,8 +17,8 @@ const Step1BasicInformation = ({ data, onFieldChange, disabled = false }) => {
   const [acraSuccessMsg, setAcraSuccessMsg] = useState("");
 
   const CONFIG_MAP = {
-    SG: SINGAPORE_CONFIG,
-    ID: INDONESIA_CONFIG,
+    Singapore: SINGAPORE_CONFIG,
+    Indonesia: INDONESIA_CONFIG,
   };
 
   const activeConfig = CONFIG_MAP[data?.country] || SINGAPORE_CONFIG;
@@ -42,6 +42,7 @@ const Step1BasicInformation = ({ data, onFieldChange, disabled = false }) => {
         ([sectionKey, section]) => {
           repeatableSections[sectionKey] = {
             label: section.label,
+            storage: section.storage,
             min: section.min,
             max: section.max,
             fields: { ...section.fields },
@@ -71,7 +72,7 @@ const Step1BasicInformation = ({ data, onFieldChange, disabled = false }) => {
     setAcraError("");
     setAcraSuccessMsg("");
 
-    if (data?.country !== "SG") return;
+    if (data?.country !== "Singapore") return;
     if (!acraFile) return setAcraError("Please upload your ACRA PDF first.");
     if (acraFile.type !== "application/pdf")
       return setAcraError("Only PDF is allowed.");
@@ -101,6 +102,12 @@ const Step1BasicInformation = ({ data, onFieldChange, disabled = false }) => {
       // const ownerId = result?.data?.owner?.identification_number || "";
       const ownerName = result?.data?.data?.owners?.name || "";
       const ownerId = result?.data?.data?.owners?.id_number || "";
+      // if (ownerName && data?.businessType === "sole_proprietorship") {
+      //   onFieldChange("owners.0.fullName", ownerName);
+      // }
+      // if (ownerId && data?.businessType === "sole_proprietorship") {
+      //   onFieldChange("owners.0.idNumber", ownerId);
+      // }
 
       // ---- helpers ----
       const setIfEmpty = (key, value) => {
@@ -181,100 +188,351 @@ const Step1BasicInformation = ({ data, onFieldChange, disabled = false }) => {
     }
   };
 
-  const handleFieldChange = (name, value) => {
-    if (!name || typeof name !== "string") {
-      console.error("Invalid field name:", name);
-      return;
-    }
+  // const handleFieldChange = (name, value) => {
+  //   if (!name || typeof name !== "string") {
+  //     console.error("Invalid field name:", name);
+  //     return;
+  //   }
 
-    onFieldChange(name, value);
+  //   onFieldChange(name, value);
+  // };
+
+  // const getNestedValue = (obj, path) => {
+  //   return path.split(".").reduce((acc, key) => acc?.[key], obj);
+  // };
+  // const getNestedValue = (obj, path) => {
+  //   if (!path) return undefined;
+  //   return path.split(".").reduce((acc, key) => {
+  //     if (acc == null) return undefined;
+  //     const isIndex = !Number.isNaN(Number(key));
+  //     return isIndex ? acc[Number(key)] : acc[key];
+  //   }, obj);
+  // };
+
+  // const buildEmptyRow = (fieldsConfig = {}) => {
+  //   const row = {};
+
+  //   Object.entries(fieldsConfig).forEach(([fieldKey, fieldCfg]) => {
+  //     // skip weird config containers
+  //     if (fieldKey === "conditionalFields") return;
+
+  //     if (fieldCfg?.type === "file") {
+  //       row[fieldKey] = null;
+  //     } else if (
+  //       typeof fieldCfg === "object" &&
+  //       !fieldCfg.type &&
+  //       !fieldCfg.label
+  //     ) {
+  //       row[fieldKey] = buildEmptyRow(fieldCfg);
+  //     } else if (fieldCfg?.value !== undefined) {
+  //       row[fieldKey] = fieldCfg.value;
+  //     } else {
+  //       row[fieldKey] = null;
+  //     }
+  //   });
+
+  //   return row;
+  // };
+
+  // const buildEmptyRow = (fieldsConfig = {}, role = null) => {
+  //   const row = role ? { role } : {};
+
+  //   Object.entries(fieldsConfig).forEach(([fieldKey, fieldCfg]) => {
+  //     if (fieldKey === "conditionalFields") return;
+
+  //     if (typeof fieldCfg === "object" && !fieldCfg.type && !fieldCfg.label) {
+  //       row[fieldKey] = buildEmptyRow(fieldCfg);
+  //       return;
+  //     }
+
+  //     if (fieldCfg?.value !== undefined) {
+  //       row[fieldKey] = fieldCfg.value;
+  //       return;
+  //     }
+
+  //     row[fieldKey] = null;
+  //   });
+
+  //   return row;
+  // };
+
+  // const getFormDataRoot = () => data?.formData || {};
+  const getFormDataRoot = () => {
+    if (data?.formData && Object.keys(data.formData).length > 0) {
+      return data.formData;
+    }
+    return data || {};
+  };
+  const getIndividuals = () => getFormDataRoot()?.individuals || [];
+  const isIndividualsStorage = (sectionConfig) =>
+    sectionConfig?.storage === "individuals";
+
+  const getRoleValue = (sectionConfig, fallbackKey) => {
+    return sectionConfig?.fields?.role?.value || fallbackKey;
   };
 
   const getNestedValue = (obj, path) => {
-    return path.split(".").reduce((acc, key) => acc?.[key], obj);
+    if (!path) return undefined;
+    return path.split(".").reduce((acc, key) => {
+      if (acc == null) return undefined;
+      const isIndex = !Number.isNaN(Number(key));
+      return isIndex ? acc[Number(key)] : acc[key];
+    }, obj);
   };
 
-  const setNestedValue = (obj, path, value) => {
-    const keys = path.split(".");
-    const lastKey = keys.pop();
-    const newObj = { ...obj };
-    let ref = newObj;
+  // const buildEmptyRow = (fieldsConfig = {}, role = null) => {
+  //   const row = role ? { role } : {};
 
-    keys.forEach((key) => {
-      if (!ref[key]) ref[key] = {};
-      ref[key] = { ...ref[key] };
-      ref = ref[key];
+  //   Object.entries(fieldsConfig).forEach(([fieldKey, fieldCfg]) => {
+  //     if (fieldKey === "conditionalFields") return;
+
+  //     if (typeof fieldCfg === "object" && !fieldCfg.type && !fieldCfg.label) {
+  //       row[fieldKey] = buildEmptyRow(fieldCfg);
+  //       return;
+  //     }
+
+  //     if (fieldCfg?.value !== undefined) {
+  //       row[fieldKey] = fieldCfg.value;
+  //       return;
+  //     }
+
+  //     row[fieldKey] = null;
+  //   });
+
+  //   return row;
+  // };
+  const buildEmptyRow = (fieldsConfig = {}) => {
+    const row = {};
+
+    Object.entries(fieldsConfig).forEach(([fieldKey, fieldCfg]) => {
+      if (fieldKey === "conditionalFields") return;
+
+      if (typeof fieldCfg === "object" && !fieldCfg.type && !fieldCfg.label) {
+        row[fieldKey] = buildEmptyRow(fieldCfg);
+        return;
+      }
+
+      if (fieldCfg?.value !== undefined) {
+        row[fieldKey] = fieldCfg.value;
+        return;
+      }
+
+      row[fieldKey] = null;
     });
 
-    ref[lastKey] = value;
-    return newObj;
+    return row;
   };
 
-  // const handleDocumentChange = (fieldPath, file) => {
-  //   if (!fieldPath || !file) return;
+  // const getSectionRows = (sectionKey, sectionConfig) => {
+  //   if (isIndividualsStorage(sectionConfig)) {
+  //     return getIndividuals().filter((row) => row?.role === sectionKey);
+  //   }
 
-  //   // Store metadata in Redux
-  //   const fileMeta = {
-  //     fileName: file.name,
-  //     fileType: file.type,
-  //     size: file.size,
-  //     progress: 0,
-  //   };
-
-  //   const updatedData = setNestedValue(data, fieldPath, fileMeta);
-
-  //   onFieldChange("", updatedData); // Redux update
-
+  //   return Array.isArray(getFormDataRoot()?.[sectionKey])
+  //     ? getFormDataRoot()[sectionKey]
+  //     : [];
   // };
-
-  const handleDocumentChange = (fieldPath, file) => {
-    if (!fieldPath) {
-      console.error("Invalid document field:", fieldPath);
-      return;
+  const getSectionRows = (sectionKey, sectionConfig) => {
+    if (isIndividualsStorage(sectionConfig)) {
+      const roleValue = getRoleValue(sectionConfig, sectionKey);
+      return getIndividuals().filter((row) => row?.role === roleValue);
     }
 
-    handleFieldChange(fieldPath, {
-      file,
-      progress: 0,
-    });
+    return Array.isArray(getFormDataRoot()?.[sectionKey])
+      ? getFormDataRoot()[sectionKey]
+      : [];
   };
 
-  //HELPER
+  const handleFieldChange = (name, value) => {
+    if (!name || typeof name !== "string") return;
+    onFieldChange(name, value);
+  };
+
+  const handleSectionChange = (sectionKey, nextRows) => {
+    onFieldChange(`formData.${sectionKey}`, nextRows);
+  };
+
+  const handleAddRepeatableRow = (sectionKey, sectionConfig) => {
+    const currentRows = getSectionRows(sectionKey, sectionConfig);
+    const max = sectionConfig?.max ?? Infinity;
+    if (currentRows.length >= max) return;
+
+    const nextRows = [...currentRows, buildEmptyRow(sectionConfig.fields)];
+    handleSectionChange(sectionKey, nextRows);
+  };
+
+  const handleRemoveRepeatableRow = (sectionKey, index, sectionConfig) => {
+    const currentRows = getSectionRows(sectionKey, sectionConfig);
+    const min = sectionConfig?.min ?? 0;
+    if (currentRows.length <= min) return;
+
+    const nextRows = currentRows.filter((_, i) => i !== index);
+    handleSectionChange(sectionKey, nextRows);
+  };
+
+  const handleIndividualFieldChange = (
+    sectionKey,
+    sectionConfig,
+    rowIndex,
+    fieldKey,
+    value,
+  ) => {
+    const individuals = [...getIndividuals()];
+    const roleValue = getRoleValue(sectionConfig, sectionKey);
+
+    const matchingRows = individuals
+      .map((person, originalIndex) => ({ person, originalIndex }))
+      .filter(({ person }) => person?.role === roleValue);
+
+    const target = matchingRows[rowIndex];
+    if (!target) return;
+
+    const updatedIndividuals = [...individuals];
+    updatedIndividuals[target.originalIndex] = {
+      ...updatedIndividuals[target.originalIndex],
+      [fieldKey]: value,
+    };
+
+    onFieldChange("formData.individuals", updatedIndividuals);
+  };
+
+  // const handleIndividualFieldChange = (
+  //   sectionKey,
+  //   rowIndex,
+  //   fieldKey,
+  //   value,
+  // ) => {
+  //   const individuals = [...getIndividuals()];
+
+  //   const matchingRows = individuals
+  //     .map((person, originalIndex) => ({ person, originalIndex }))
+  //     .filter(({ person }) => person?.role === sectionKey);
+
+  //   const target = matchingRows[rowIndex];
+  //   if (!target) return;
+
+  //   const updatedIndividuals = [...individuals];
+  //   updatedIndividuals[target.originalIndex] = {
+  //     ...updatedIndividuals[target.originalIndex],
+  //     [fieldKey]: value,
+  //   };
+
+  //   onFieldChange("formData.individuals", updatedIndividuals);
+  // };
+
+  // const handleAddIndividualRow = (sectionKey, sectionConfig) => {
+  //   const individuals = [...getIndividuals()];
+  //   const currentCount = individuals.filter(
+  //     (x) => x?.role === sectionKey,
+  //   ).length;
+  //   const max = sectionConfig?.max ?? Infinity;
+  //   if (currentCount >= max) return;
+
+  //   const newRow = buildEmptyRow(sectionConfig.fields, sectionKey);
+  //   onFieldChange("formData.individuals", [...individuals, newRow]);
+  // };
+  const handleAddIndividualRow = (sectionKey, sectionConfig) => {
+    const individuals = [...getIndividuals()];
+    const roleValue = getRoleValue(sectionConfig, sectionKey);
+    const currentCount = individuals.filter(
+      (x) => x?.role === roleValue,
+    ).length;
+    const max = sectionConfig?.max ?? Infinity;
+
+    if (currentCount >= max) return;
+
+    const newRow = buildEmptyRow(sectionConfig.fields);
+    onFieldChange("formData.individuals", [...individuals, newRow]);
+  };
+
+  // const handleRemoveIndividualRow = (sectionKey, rowIndex, sectionConfig) => {
+  //   const individuals = [...getIndividuals()];
+
+  //   const matchingRows = individuals
+  //     .map((person, originalIndex) => ({ person, originalIndex }))
+  //     .filter(({ person }) => person?.role === sectionKey);
+
+  //   const min = sectionConfig?.min ?? 0;
+  //   if (matchingRows.length <= min) return;
+
+  //   const target = matchingRows[rowIndex];
+  //   if (!target) return;
+
+  //   const updatedIndividuals = individuals.filter(
+  //     (_, idx) => idx !== target.originalIndex,
+  //   );
+
+  //   onFieldChange("formData.individuals", updatedIndividuals);
+  // };
+
+  const handleRemoveIndividualRow = (sectionKey, sectionConfig, rowIndex) => {
+    const individuals = [...getIndividuals()];
+    const roleValue = getRoleValue(sectionConfig, sectionKey);
+
+    const matchingRows = individuals
+      .map((person, originalIndex) => ({ person, originalIndex }))
+      .filter(({ person }) => person?.role === roleValue);
+
+    const min = sectionConfig?.min ?? 0;
+    if (matchingRows.length <= min) return;
+
+    const target = matchingRows[rowIndex];
+    if (!target) return;
+
+    const updatedIndividuals = individuals.filter(
+      (_, idx) => idx !== target.originalIndex,
+    );
+
+    onFieldChange("formData.individuals", updatedIndividuals);
+  };
+
+  const handleDocumentChange = (fieldPath, file) => {
+    handleFieldChange(fieldPath, { file, progress: 0 });
+  };
+
   const getVisibleConditionalFields = (fieldCfg, value) => {
     if (!fieldCfg.conditionalFields) return {};
     return fieldCfg.conditionalFields[value] || {};
   };
 
-  // ---- Generic field renderer (recursive for nested fields) ----
-  const renderField = (fieldName, fieldCfg, parentKey = null) => {
-    const fullKey = parentKey ? `${parentKey}.${fieldName}` : fieldName;
-    const value = parentKey
-      ? data?.[parentKey]?.[fieldName]
-      : data?.[fieldName];
+  const renderField = (fullKey, fieldCfg) => {
+    // const value =
+    //   getNestedValue(getFormDataRoot(), fullKey) ??
+    //   getNestedValue(data, fullKey);
+    const value =
+      // fullKey === "businessName" //mandatory only for this to work
+      //   ? (data?.businessName ??
+      //     data?.formData?.businessName ??
+      //     data?.business_name ??
+      //     "")
+      // :
+      getNestedValue(getFormDataRoot(), fullKey) ??
+      getNestedValue(data, fullKey);
 
-    // Nested object
     if (typeof fieldCfg === "object" && !fieldCfg.type && !fieldCfg.label) {
       return (
         <div key={fullKey} className="mb-6">
           <p className="font-semibold text-gray-900 mb-2">
-            {fieldName.replace(/([A-Z])/g, " $1").trim()}
+            {fullKey
+              .split(".")
+              .slice(-1)[0]
+              .replace(/([A-Z])/g, " $1")
+              .trim()}
           </p>
           {Object.entries(fieldCfg).map(([subKey, subCfg]) =>
-            renderField(subKey, subCfg, fullKey),
+            renderField(`${fullKey}.${subKey}`, subCfg),
           )}
         </div>
       );
     }
 
-    // File field
     if (fieldCfg.type === "file") {
       return (
         <FileUploadField
           key={fullKey}
           fieldName={fullKey}
           label={fieldCfg.label}
-          // file={data?.[fullKey] || null} // <- must match your Redux structure
-          file={getNestedValue(data, fullKey) || null}
+          file={value || null}
           onChange={(file) => handleDocumentChange(fullKey, file)}
           required={fieldCfg.required || false}
           acceptTypes="application/pdf,image/jpeg,image/png"
@@ -285,88 +543,572 @@ const Step1BasicInformation = ({ data, onFieldChange, disabled = false }) => {
       );
     }
 
-    // // Regular field
-    // return (
-    //   <FormFieldGroup
-    //     key={fullKey}
-    //     fieldName={fullKey}
-    //     label={fieldCfg.label}
-    //     placeholder={fieldCfg.placeholder || ""}
-    //     value={value || ""}
-    //     onChange={onFieldChange}
-    //     type={fieldCfg.type || "text"}
-    //     options={fieldCfg.options || []}
-    //     required={fieldCfg.required || false}
-    //     disabled={disabled}
-    //   />
-    // );
-
-    // Regular field (text/select/etc.)
     const fieldElement = (
       <FormFieldGroup
         key={fullKey}
         fieldName={fullKey}
         label={fieldCfg.label}
         placeholder={fieldCfg.placeholder || ""}
-        value={value || ""}
+        value={value ?? ""}
         onChange={onFieldChange}
+        // onChange={(_, nextValue) => handleFieldChange(fullKey, nextValue)}
         type={fieldCfg.type || "text"}
         options={fieldCfg.options || []}
         required={fieldCfg.required || false}
-        disabled={disabled}
+        disabled={disabled || fieldCfg.readonly}
       />
     );
 
-    // Render conditional fields if any
     if (fieldCfg.conditionalFields && value != null) {
       const visibleFields = getVisibleConditionalFields(fieldCfg, value);
-      const conditionalElements = Object.entries(visibleFields).map(
-        ([condKey, condCfg]) => renderField(condKey, condCfg, parentKey),
-      );
       return (
         <div key={fullKey}>
           {fieldElement}
-          <div className="ml-4 mt-2">{conditionalElements}</div>
+          <div className="ml-4 mt-2">
+            {Object.entries(visibleFields).map(([condKey, condCfg]) =>
+              renderField(
+                `${fullKey.split(".").slice(0, -1).join(".")}.${condKey}`,
+                condCfg,
+              ),
+            )}
+          </div>
         </div>
       );
     }
 
     return fieldElement;
   };
-  // ---- Helper to render a field or file field ----
-  // const renderField = (fieldName, fieldConfig) => {
-  //   if (fieldConfig.type === "file") {
+
+  const renderIndividualRowField = (
+    sectionKey,
+    sectionConfig,
+    rowIndex,
+    rowData,
+    fieldName,
+    fieldCfg,
+  ) => {
+    const value = rowData?.[fieldName];
+
+    if (typeof fieldCfg === "object" && !fieldCfg.type && !fieldCfg.label) {
+      return (
+        <div key={`${sectionKey}.${rowIndex}.${fieldName}`} className="mb-6">
+          <p className="font-semibold text-gray-900 mb-2">
+            {fieldName.replace(/([A-Z])/g, " $1").trim()}
+          </p>
+          {Object.entries(fieldCfg).map(([subKey, subCfg]) =>
+            renderIndividualRowField(
+              sectionKey,
+              rowIndex,
+              rowData?.[fieldName] || {},
+              subKey,
+              subCfg,
+            ),
+          )}
+        </div>
+      );
+    }
+
+    if (fieldCfg.type === "file") {
+      return (
+        <FileUploadField
+          key={`${sectionKey}.${rowIndex}.${fieldName}`}
+          fieldName={`${sectionKey}.${rowIndex}.${fieldName}`}
+          label={fieldCfg.label}
+          file={value || null}
+          // onChange={(file) =>
+          //   handleIndividualFieldChange(sectionKey, rowIndex, fieldName, {
+          //     file,
+          //     progress: 0,
+          //   })
+          // }
+          onChange={(file) =>
+            handleIndividualFieldChange(
+              sectionKey,
+              sectionConfig,
+              rowIndex,
+              fieldName,
+              { file, progress: 0 },
+            )
+          }
+          required={fieldCfg.required || false}
+          acceptTypes="application/pdf,image/jpeg,image/png"
+          placeholder={fieldCfg.placeholder || ""}
+          maxSize={5242880}
+          disabled={disabled || fieldCfg.readonly}
+        />
+      );
+    }
+
+    const fieldElement = (
+      <FormFieldGroup
+        key={`${sectionKey}.${rowIndex}.${fieldName}`}
+        fieldName={`${sectionKey}.${rowIndex}.${fieldName}`}
+        label={fieldCfg.label}
+        placeholder={fieldCfg.placeholder || ""}
+        value={value ?? ""}
+        onChange={(_, nextValue) =>
+          handleIndividualFieldChange(
+            sectionKey,
+            sectionConfig,
+            rowIndex,
+            fieldName,
+            nextValue,
+          )
+        }
+        type={fieldCfg.type || "text"}
+        options={fieldCfg.options || []}
+        required={fieldCfg.required || false}
+        disabled={disabled || fieldCfg.readonly}
+      />
+    );
+
+    if (fieldCfg.conditionalFields && value != null) {
+      const visibleFields = fieldCfg.conditionalFields[value] || {};
+      return (
+        <div key={`${sectionKey}.${rowIndex}.${fieldName}`}>
+          {fieldElement}
+          <div className="ml-4 mt-2">
+            {Object.entries(visibleFields).map(([condKey, condCfg]) =>
+              renderIndividualRowField(
+                sectionKey,
+                sectionConfig,
+                rowIndex,
+                rowData,
+                condKey,
+                condCfg,
+              ),
+            )}
+          </div>
+        </div>
+      );
+    }
+
+    return fieldElement;
+  };
+
+  useEffect(() => {
+    Object.entries(repeatableSectionsConfig).forEach(
+      ([sectionKey, section]) => {
+        const minRows = section.min ?? 0;
+
+        if (isIndividualsStorage(section)) {
+          const individuals = getIndividuals();
+          const roleValue = getRoleValue(section, sectionKey);
+
+          const sectionRows = individuals.filter((p) => p?.role === roleValue);
+
+          if (sectionRows.length < minRows) {
+            const missingCount = minRows - sectionRows.length;
+            const additionalRows = Array.from({ length: missingCount }, () =>
+              buildEmptyRow(section.fields, sectionKey),
+            );
+
+            onFieldChange("formData.individuals", [
+              ...individuals,
+              ...additionalRows,
+            ]);
+          }
+        } else {
+          const currentRows = getSectionRows(sectionKey, section);
+
+          if (currentRows.length < minRows) {
+            const missingCount = minRows - currentRows.length;
+            const additionalRows = Array.from({ length: missingCount }, () =>
+              buildEmptyRow(section.fields),
+            );
+
+            onFieldChange(`formData.${sectionKey}`, [
+              ...currentRows,
+              ...additionalRows,
+            ]);
+          }
+        }
+      },
+    );
+  }, [repeatableSectionsConfig]);
+
+  // const handleSectionChange = (sectionKey, nextRows) => {
+  //   onFieldChange(`formData.${sectionKey}`, nextRows);
+  // };
+
+  // const handleAddRepeatableRow = (sectionKey, sectionConfig) => {
+  //   const currentRows = getSectionRows(sectionKey, sectionConfig);
+  //   const max = sectionConfig?.max ?? Infinity;
+
+  //   if (currentRows.length >= max) return;
+
+  //   const nextRows = [...currentRows, buildEmptyRow(sectionConfig.fields)];
+  //   handleSectionChange(sectionKey, nextRows);
+  // };
+
+  // const handleRemoveRepeatableRow = (sectionKey, index, sectionConfig) => {
+  //   const currentRows = getSectionRows(sectionKey, sectionConfig);
+  //   const min = sectionConfig?.min ?? 0;
+
+  //   if (currentRows.length <= min) return;
+
+  //   const nextRows = currentRows.filter((_, i) => i !== index);
+  //   handleSectionChange(sectionKey, nextRows);
+  // };
+
+  // const handleIndividualFieldChange = (
+  //   sectionKey,
+  //   rowIndex,
+  //   fieldKey,
+  //   value,
+  // ) => {
+  //   const individuals = [...getIndividuals()];
+
+  //   const matchingRows = individuals
+  //     .map((person, originalIndex) => ({ person, originalIndex }))
+  //     .filter(({ person }) => person?.sectionKey === sectionKey);
+
+  //   const target = matchingRows[rowIndex];
+  //   if (!target) return;
+
+  //   const updatedIndividuals = [...individuals];
+  //   updatedIndividuals[target.originalIndex] = {
+  //     ...updatedIndividuals[target.originalIndex],
+  //     [fieldKey]: value,
+  //   };
+
+  //   onFieldChange("formData.individuals", updatedIndividuals);
+  // };
+
+  // const handleAddIndividualRow = (sectionKey, sectionConfig) => {
+  //   const individuals = [...getIndividuals()];
+  //   const currentCount = individuals.filter(
+  //     (x) => x?.role === sectionKey,
+  //   ).length;
+  //   const max = sectionConfig?.max ?? Infinity;
+
+  //   if (currentCount >= max) return;
+
+  //   const newRow = buildEmptyRow(sectionConfig.fields, sectionKey);
+  //   onFieldChange("formData.individuals", [...individuals, newRow]);
+  // };
+
+  // const handleRemoveIndividualRow = (sectionKey, rowIndex, sectionConfig) => {
+  //   const individuals = [...getIndividuals()];
+  //   const matchingRows = individuals
+  //     .map((person, originalIndex) => ({ person, originalIndex }))
+  //     .filter(({ person }) => person?.sectionKey === sectionKey);
+
+  //   const min = sectionConfig?.min ?? 0;
+  //   if (matchingRows.length <= min) return;
+
+  //   const target = matchingRows[rowIndex];
+  //   if (!target) return;
+
+  //   const updatedIndividuals = individuals.filter(
+  //     (_, idx) => idx !== target.originalIndex,
+  //   );
+
+  //   onFieldChange("formData.individuals", updatedIndividuals);
+  // };
+
+  // const handleDocumentChange = (fieldPath, file) => {
+  //   if (!fieldPath) {
+  //     console.error("Invalid document field:", fieldPath);
+  //     return;
+  //   }
+
+  //   handleFieldChange(fieldPath, {
+  //     file,
+  //     progress: 0,
+  //   });
+  // };
+
+  // //HELPER
+  // const getVisibleConditionalFields = (fieldCfg, value) => {
+  //   if (!fieldCfg.conditionalFields) return {};
+  //   return fieldCfg.conditionalFields[value] || {};
+  // };
+
+  // // ---- Generic field renderer (recursive for nested fields) ----
+  // // const renderField = (fieldName, fieldCfg, parentKey = null) => {
+  // //   const fullKey = parentKey ? `${parentKey}.${fieldName}` : fieldName;
+  // //   const value = parentKey
+  // //     ? data?.[parentKey]?.[fieldName]
+  // //     : data?.[fieldName];
+
+  // //   // Nested object
+  // //   if (typeof fieldCfg === "object" && !fieldCfg.type && !fieldCfg.label) {
+  // //     return (
+  // //       <div key={fullKey} className="mb-6">
+  // //         <p className="font-semibold text-gray-900 mb-2">
+  // //           {fieldName.replace(/([A-Z])/g, " $1").trim()}
+  // //         </p>
+  // //         {Object.entries(fieldCfg).map(([subKey, subCfg]) =>
+  // //           renderField(subKey, subCfg, fullKey),
+  // //         )}
+  // //       </div>
+  // //     );
+  // //   }
+
+  // //   // File field
+  // //   if (fieldCfg.type === "file") {
+  // //     return (
+  // //       <FileUploadField
+  // //         key={fullKey}
+  // //         fieldName={fullKey}
+  // //         label={fieldCfg.label}
+  // //         // file={data?.[fullKey] || null} // <- must match your Redux structure
+  // //         file={getNestedValue(data, fullKey) || null}
+  // //         onChange={(file) => handleDocumentChange(fullKey, file)}
+  // //         required={fieldCfg.required || false}
+  // //         acceptTypes="application/pdf,image/jpeg,image/png"
+  // //         placeholder={fieldCfg.placeholder || ""}
+  // //         maxSize={5242880}
+  // //         disabled={disabled}
+  // //       />
+  // //     );
+  // //   }
+
+  // //   // Regular field (text/select/etc.)
+  // //   const fieldElement = (
+  // //     <FormFieldGroup
+  // //       key={fullKey}
+  // //       fieldName={fullKey}
+  // //       label={fieldCfg.label}
+  // //       placeholder={fieldCfg.placeholder || ""}
+  // //       value={value || ""}
+  // //       onChange={onFieldChange}
+  // //       type={fieldCfg.type || "text"}
+  // //       options={fieldCfg.options || []}
+  // //       required={fieldCfg.required || false}
+  // //       disabled={disabled}
+  // //     />
+  // //   );
+
+  // //   // Render conditional fields if any
+  // //   if (fieldCfg.conditionalFields && value != null) {
+  // //     const visibleFields = getVisibleConditionalFields(fieldCfg, value);
+  // //     const conditionalElements = Object.entries(visibleFields).map(
+  // //       ([condKey, condCfg]) => renderField(condKey, condCfg, parentKey),
+  // //     );
+  // //     return (
+  // //       <div key={fullKey}>
+  // //         {fieldElement}
+  // //         <div className="ml-4 mt-2">{conditionalElements}</div>
+  // //       </div>
+  // //     );
+  // //   }
+
+  // //   return fieldElement;
+  // // };
+
+  // const getFormDataRoot = () => data?.formData || {};
+
+  // const isIndividualsStorage = (sectionConfig) =>
+  //   sectionConfig?.storage === "individuals";
+
+  // const getIndividuals = () => getFormDataRoot()?.individuals || [];
+
+  // const getSectionRows = (sectionKey, sectionConfig) => {
+  //   if (isIndividualsStorage(sectionConfig)) {
+  //     return getIndividuals().filter((row) => row?.sectionKey === sectionKey);
+  //   }
+
+  //   return Array.isArray(getFormDataRoot()?.[sectionKey])
+  //     ? getFormDataRoot()[sectionKey]
+  //     : [];
+  // };
+
+  // const renderField = (fullKey, fieldCfg) => {
+  //   // const value = getNestedValue(data, fullKey);
+  //   const value =
+  //     getNestedValue(getFormDataRoot(), fullKey) ??
+  //     getNestedValue(data, fullKey);
+
+  //   // Nested object block
+  //   if (typeof fieldCfg === "object" && !fieldCfg.type && !fieldCfg.label) {
+  //     return (
+  //       <div key={fullKey} className="mb-6">
+  //         <p className="font-semibold text-gray-900 mb-2">
+  //           {fullKey
+  //             .split(".")
+  //             .slice(-1)[0]
+  //             .replace(/([A-Z])/g, " $1")
+  //             .trim()}
+  //         </p>
+  //         {Object.entries(fieldCfg).map(([subKey, subCfg]) =>
+  //           renderField(`${fullKey}.${subKey}`, subCfg),
+  //         )}
+  //       </div>
+  //     );
+  //   }
+
+  //   // File
+  //   if (fieldCfg.type === "file") {
   //     return (
   //       <FileUploadField
-  //         key={fieldName}
-  //         fieldName={fieldName}
-  //         label={fieldConfig.label}
-  //         file={data[fieldName]?.file || null}
-  //         onChange={(file) => handleDocumentChange(fieldName, {file})}
-  //         required={fieldConfig.required || false}
+  //         key={fullKey}
+  //         fieldName={fullKey}
+  //         label={fieldCfg.label}
+  //         file={getNestedValue(data, fullKey) || null}
+  //         onChange={(file) => handleDocumentChange(fullKey, file)}
+  //         required={fieldCfg.required || false}
   //         acceptTypes="application/pdf,image/jpeg,image/png"
-  //         placeholder={fieldConfig.placeholder || ""}
+  //         placeholder={fieldCfg.placeholder || ""}
   //         maxSize={5242880}
   //         disabled={disabled}
   //       />
   //     );
   //   }
 
-  //   return (
+  //   const fieldElement = (
   //     <FormFieldGroup
-  //       key={fieldName}
-  //       fieldName={fieldName}
-  //       label={fieldConfig.label}
-  //       placeholder={fieldConfig.placeholder || ""}
-  //       value={data[fieldName] || ""}
+  //       key={fullKey}
+  //       fieldName={fullKey}
+  //       label={fieldCfg.label}
+  //       placeholder={fieldCfg.placeholder || ""}
+  //       value={value ?? ""}
   //       onChange={onFieldChange}
-  //       type={fieldConfig.type || "text"}
-  //       options={fieldConfig.options || []}
-  //       required={fieldConfig.required || false}
+  //       type={fieldCfg.type || "text"}
+  //       options={fieldCfg.options || []}
+  //       required={fieldCfg.required || false}
   //       disabled={disabled}
   //     />
   //   );
+
+  //   if (fieldCfg.conditionalFields && value != null) {
+  //     const visibleFields = getVisibleConditionalFields(fieldCfg, value);
+
+  //     return (
+  //       <div key={fullKey}>
+  //         {fieldElement}
+  //         <div className="ml-4 mt-2">
+  //           {Object.entries(visibleFields).map(([condKey, condCfg]) =>
+  //             renderField(
+  //               `${fullKey.split(".").slice(0, -1).join(".")}.${condKey}`,
+  //               condCfg,
+  //             ),
+  //           )}
+  //         </div>
+  //       </div>
+  //     );
+  //   }
+
+  //   return fieldElement;
   // };
+
+  // const renderIndividualRowField = (
+  //   sectionKey,
+  //   rowIndex,
+  //   rowData,
+  //   fieldName,
+  //   fieldCfg,
+  // ) => {
+  //   const value = rowData?.[fieldName];
+  //   console.log("indidivudal value:", value)
+
+  //   if (typeof fieldCfg === "object" && !fieldCfg.type && !fieldCfg.label) {
+  //     return (
+  //       <div key={`${sectionKey}.${rowIndex}.${fieldName}`} className="mb-6">
+  //         <p className="font-semibold text-gray-900 mb-2">
+  //           {fieldName.replace(/([A-Z])/g, " $1").trim()}
+  //         </p>
+  //         {Object.entries(fieldCfg).map(([subKey, subCfg]) =>
+  //           renderIndividualRowField(
+  //             sectionKey,
+  //             rowIndex,
+  //             rowData?.[fieldName] || {},
+  //             subKey,
+  //             subCfg,
+  //           ),
+  //         )}
+  //       </div>
+  //     );
+  //   }
+
+  //   if (fieldCfg.type === "file") {
+  //     return (
+  //       <FileUploadField
+  //         key={`${sectionKey}.${rowIndex}.${fieldName}`}
+  //         fieldName={`${sectionKey}.${rowIndex}.${fieldName}`}
+  //         label={fieldCfg.label}
+  //         file={value || null}
+  //         onChange={(file) =>
+  //           handleIndividualFieldChange(sectionKey, rowIndex, fieldName, {
+  //             file,
+  //             progress: 0,
+  //           })
+  //         }
+  //         required={fieldCfg.required || false}
+  //         acceptTypes="application/pdf,image/jpeg,image/png"
+  //         placeholder={fieldCfg.placeholder || ""}
+  //         maxSize={5242880}
+  //         disabled={disabled}
+  //       />
+  //     );
+  //   }
+
+  //   const fieldElement = (
+  //     <FormFieldGroup
+  //       key={`${sectionKey}.${rowIndex}.${fieldName}`}
+  //       fieldName={`${sectionKey}.${rowIndex}.${fieldName}`}
+  //       label={fieldCfg.label}
+  //       placeholder={fieldCfg.placeholder || ""}
+  //       value={value ?? ""}
+  //       onChange={(_, nextValue) =>
+  //         handleIndividualFieldChange(
+  //           sectionKey,
+  //           rowIndex,
+  //           fieldName,
+  //           nextValue,
+  //         )
+  //       }
+  //       type={fieldCfg.type || "text"}
+  //       options={fieldCfg.options || []}
+  //       required={fieldCfg.required || false}
+  //       disabled={disabled}
+  //     />
+  //   );
+
+  //   if (fieldCfg.conditionalFields && value != null) {
+  //     const visibleFields = fieldCfg.conditionalFields[value] || {};
+
+  //     return (
+  //       <div key={`${sectionKey}.${rowIndex}.${fieldName}`}>
+  //         {fieldElement}
+  //         <div className="ml-4 mt-2">
+  //           {Object.entries(visibleFields).map(([condKey, condCfg]) =>
+  //             renderIndividualRowField(
+  //               sectionKey,
+  //               rowIndex,
+  //               rowData,
+  //               condKey,
+  //               condCfg,
+  //             ),
+  //           )}
+  //         </div>
+  //       </div>
+  //     );
+  //   }
+
+  //   return fieldElement;
+  // };
+
+  // useEffect(() => {
+  //   Object.entries(repeatableSectionsConfig).forEach(
+  //     ([sectionKey, section]) => {
+  //       const currentRows = Array.isArray(data?.[sectionKey])
+  //         ? data[sectionKey]
+  //         : [];
+  //       const minRows = section.min ?? 0;
+
+  //       if (currentRows.length < minRows) {
+  //         const missingCount = minRows - currentRows.length;
+  //         const additionalRows = Array.from({ length: missingCount }, () =>
+  //           buildEmptyRow(section.fields),
+  //         );
+
+  //         onFieldChange(sectionKey, [...currentRows, ...additionalRows]);
+  //       }
+  //     },
+  //   );
+  // }, [repeatableSectionsConfig]);
 
   return (
     <div>
@@ -477,7 +1219,7 @@ const Step1BasicInformation = ({ data, onFieldChange, disabled = false }) => {
       )}
 
       {/* Repeatable Sections */}
-      {Object.entries(repeatableSectionsConfig).map(([sectionKey, section]) => (
+      {/* {Object.entries(repeatableSectionsConfig).map(([sectionKey, section]) => (
         <div key={sectionKey} className="mt-6">
           <h3 className="text-lg font-semibold mb-3 text-gray-900">
             {section.label}
@@ -486,7 +1228,258 @@ const Step1BasicInformation = ({ data, onFieldChange, disabled = false }) => {
             renderField(fieldName, fieldConfig),
           )}
         </div>
-      ))}
+      ))} */}
+      {/* {Object.entries(repeatableSectionsConfig).map(([sectionKey, section]) => {
+        const rows = Array.isArray(data?.[sectionKey]) ? data[sectionKey] : [];
+
+        const minRows = section.min ?? 0;
+        const maxRows = section.max ?? Infinity;
+
+        // render at least min rows visually
+        const effectiveRows =
+          rows.length > 0
+            ? rows
+            : Array.from({ length: minRows }, () =>
+                buildEmptyRow(section.fields),
+              );
+
+        return (
+          <div key={sectionKey} className="mt-8">
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-lg font-semibold text-gray-900">
+                {section.label}
+              </h3>
+
+              {!disabled && rows.length < maxRows && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => handleAddRepeatableRow(sectionKey, section)}
+                >
+                  Add {section.label}
+                </Button>
+              )}
+            </div>
+
+            {effectiveRows.map((row, index) => (
+              <div
+                key={`${sectionKey}-${index}`}
+                className="mb-6 rounded-xl border border-gray-200 p-4 bg-white"
+              >
+                <div className="flex items-center justify-between mb-4">
+                  <p className="font-medium text-gray-800">
+                    {section.label} {index + 1}
+                  </p>
+
+                  {!disabled && rows.length > minRows && (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      onClick={() =>
+                        handleRemoveRepeatableRow(sectionKey, index, section)
+                      }
+                    >
+                      Remove
+                    </Button>
+                  )}
+                </div>
+
+                {Object.entries(section.fields).map(
+                  ([fieldName, fieldConfig]) =>
+                    renderField(
+                      `${sectionKey}.${index}.${fieldName}`,
+                      fieldConfig,
+                    ),
+                )}
+              </div>
+            ))}
+          </div>
+        );
+      })} */}
+      {/* {Object.entries(repeatableSectionsConfig).map(([sectionKey, section]) => {
+        const rows = getSectionRows(sectionKey, section);
+        const minRows = section.min ?? 0;
+        const maxRows = section.max ?? Infinity;
+        const useIndividuals = isIndividualsStorage(section);
+
+        const effectiveRows =
+          rows.length > 0
+            ? rows
+            : Array.from({ length: minRows }, () =>
+                buildEmptyRow(
+                  section.fields,
+                  useIndividuals ? sectionKey : null,
+                ),
+              );
+
+        return (
+          <div key={sectionKey} className="mt-8">
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-lg font-semibold text-gray-900">
+                {section.label}
+              </h3>
+
+              {!disabled && rows.length < maxRows && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() =>
+                    useIndividuals
+                      ? handleAddIndividualRow(sectionKey, section)
+                      : handleAddRepeatableRow(sectionKey, section)
+                  }
+                >
+                  Add {section.label}
+                </Button>
+              )}
+            </div>
+
+            {effectiveRows.map((row, index) => (
+              <div
+                key={`${sectionKey}-${index}`}
+                className="mb-6 rounded-xl border border-gray-200 p-4 bg-white"
+              >
+                <div className="flex items-center justify-between mb-4">
+                  <p className="font-medium text-gray-800">
+                    {section.label} {index + 1}
+                  </p>
+
+                  {!disabled && rows.length > minRows && (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      onClick={() =>
+                        useIndividuals
+                          ? handleRemoveIndividualRow(
+                              sectionKey,
+                              index,
+                              section,
+                            )
+                          : handleRemoveRepeatableRow(
+                              sectionKey,
+                              index,
+                              section,
+                            )
+                      }
+                    >
+                      Remove
+                    </Button>
+                  )}
+                </div>
+
+                {Object.entries(section.fields).map(
+                  ([fieldName, fieldConfig]) =>
+                    useIndividuals
+                      ? renderIndividualRowField(
+                          sectionKey,
+                          index,
+                          row,
+                          fieldName,
+                          fieldConfig,
+                        )
+                      : renderField(
+                          `formData.${sectionKey}.${index}.${fieldName}`,
+                          fieldConfig,
+                        ),
+                )}
+              </div>
+            ))}
+          </div>
+        );
+      })} */}
+
+      {Object.entries(repeatableSectionsConfig).map(([sectionKey, section]) => {
+        const rows = getSectionRows(sectionKey, section);
+        const minRows = section.min ?? 0;
+        const maxRows = section.max ?? Infinity;
+        const useIndividuals = isIndividualsStorage(section);
+
+        const effectiveRows =
+          rows.length > 0
+            ? rows
+            : Array.from({ length: minRows }, () =>
+                buildEmptyRow(
+                  section.fields,
+                  useIndividuals ? sectionKey : null,
+                ),
+              );
+
+        return (
+          <div key={sectionKey} className="mt-8">
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-lg font-semibold text-gray-900">
+                {section.label}
+              </h3>
+
+              {!disabled && rows.length < maxRows && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() =>
+                    useIndividuals
+                      ? handleAddIndividualRow(sectionKey, section)
+                      : handleAddRepeatableRow(sectionKey, section)
+                  }
+                >
+                  Add {section.label}
+                </Button>
+              )}
+            </div>
+
+            {effectiveRows.map((row, index) => (
+              <div
+                key={`${sectionKey}-${index}`}
+                className="mb-6 rounded-xl border border-gray-200 p-4 bg-white"
+              >
+                <div className="flex items-center justify-between mb-4">
+                  <p className="font-medium text-gray-800">
+                    {section.label} {index + 1}
+                  </p>
+
+                  {!disabled && rows.length > minRows && (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      onClick={() =>
+                        useIndividuals
+                          ? handleRemoveIndividualRow(
+                              sectionKey,
+                              section,
+                              index,
+                            )
+                          : handleRemoveRepeatableRow(
+                              sectionKey,
+                              index,
+                              section,
+                            )
+                      }
+                    >
+                      Remove
+                    </Button>
+                  )}
+                </div>
+
+                {Object.entries(section.fields).map(
+                  ([fieldName, fieldConfig]) =>
+                    useIndividuals
+                      ? renderIndividualRowField(
+                          sectionKey,
+                          section,
+                          index,
+                          row,
+                          fieldName,
+                          fieldConfig,
+                        )
+                      : renderField(
+                          `formData.${sectionKey}.${index}.${fieldName}`,
+                          fieldConfig,
+                        ),
+                )}
+              </div>
+            ))}
+          </div>
+        );
+      })}
 
       {/* button to trigger face detector */}
       <Button className="gap-2">

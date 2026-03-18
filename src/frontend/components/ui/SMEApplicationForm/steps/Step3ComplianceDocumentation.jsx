@@ -14,8 +14,8 @@ const Step3ComplianceDocumentation = ({
   disabled = false,
 }) => {
   const CONFIG_MAP = {
-    SG: SINGAPORE_CONFIG,
-    ID: INDONESIA_CONFIG,
+    Singapore: SINGAPORE_CONFIG,
+    Indonesia: INDONESIA_CONFIG,
   };
 
   const activeConfig = CONFIG_MAP[data?.country] || SINGAPORE_CONFIG;

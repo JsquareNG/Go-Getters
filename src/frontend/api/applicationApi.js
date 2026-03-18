@@ -18,9 +18,9 @@ export const getApplicationByAppId = async (id) => {
  */
 const mapTopLevelFields = (form_data) => {
   return {
-    business_country: form_data.business_country || "",
-    business_type: form_data.business_type || "",
-    business_name: form_data.businessName || "",
+    // business_name: form_data.business_name || "",
+    // business_country: form_data.country || "",
+    // business_type: form_data.business_type || "",
     last_saved_step: form_data.last_saved_step ?? 0,
     previous_status: form_data.previous_status || null,
     current_status: form_data.current_status || "Draft",
@@ -32,45 +32,31 @@ const mapTopLevelFields = (form_data) => {
  */
 export const saveApplicationDraftApi = async (payload) => {
   // Extract form-level fields for backend mapping
-  const { user_id, email, firstName, application_id, form_data } = payload;
+  // const { user_id, email, first_name, application_id, form_data } = payload;
 
-  // Build draft payload for API
   // const draftPayload = {
   //   user_id,
   //   email,
-  //   firstName,
-  //   // business_country: state.data.country || "SG", // match Step0Brief
-  //   // business_name: state.data.business_name || "", // match Step0Brief
-  //   // business_type: state.data.businessType || "", // match Step0Brief
-  //   business_country: form_data.business_country || "", // fallback empty string
-  //   business_type: form_data.business_type || "",
-  //   business_name: form_data.businessName || "",
-  //   last_saved_step: form_data.last_saved_step ?? 0, // default to 0 if undefined
-  //   previous_status: form_data.previous_status || null,
-  //   current_status: form_data.current_status || "Draft",
-  //   form_data, // entire form state including repeatable sections, documents, conditional fields
-  //   ...(application_id && { application_id }), // include only if defined
+  //   first_name,
+  //   ...mapTopLevelFields(form_data), // dynamically mapped top-level fields
+  //   form_data, // keep all dynamic fields for backend
+  //   ...(application_id && { application_id }),
   // };
 
-  const draftPayload = {
-    user_id,
-    email,
-    firstName,
-    ...mapTopLevelFields(form_data), // dynamically mapped top-level fields
-    form_data, // keep all dynamic fields for backend
-    ...(application_id && { application_id }),
-  };
+  // console.log("draft payload", draftPayload)
+
+  const {application_id} = payload
 
   try {
     const res = application_id
       ? await axiosClient.put(
           `/applications/secondSave/${application_id}`,
-          draftPayload,
+          payload,
         )
-      : await axiosClient.post("/applications/firstSave", draftPayload);
+      : await axiosClient.post("/applications/firstSave", payload);
 
     console.log("API response:", res.data); // log backend response
-    console.log(draftPayload)
+    console.log("payload", payload)
 
     return res.data;
   } catch (err) {
@@ -83,18 +69,21 @@ export const saveApplicationDraftApi = async (payload) => {
  * Submit SME application dynamically
  */
 export const submitSmeApplicationApi = async (payload) => {
-  const { application_id, form_data } = payload;
+  const { application_id } = payload;
 
-  const submitPayload = {
-    form_data,
-    current_status: "Submitted",
-    ...(application_id && { application_id }),
-  };
+  // const submitPayload = {
+  //   form_data,
+  //   current_status: "Submitted",
+  //   ...(application_id && { application_id }),
+  // };
 
   try {
     const res = application_id
-      ? await axiosClient.put(`/applications/secondSubmit/${application_id}`, submitPayload)
-      : await axiosClient.post("/applications/firstSubmit", submitPayload);
+      ? await axiosClient.put(
+          `/applications/secondSubmit/${application_id}`,
+          payload,
+        )
+      : await axiosClient.post("/applications/firstSubmit", payload);
 
     return res.data;
   } catch (err) {
