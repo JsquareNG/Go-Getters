@@ -7,6 +7,7 @@ from backend.models.risk_rule_condition import RiskRuleCondition
 
 router = APIRouter(prefix="/risk-rules", tags=["risk-rules"])
 
+
 def condition_to_dict(c):
     return {
         "condition_id": c.id,
@@ -24,6 +25,7 @@ def condition_to_dict(c):
         "is_active": c.is_active,
     }
 
+
 def rule_to_dict(rule):
     return {
         "rule_id": rule.id,
@@ -35,6 +37,59 @@ def rule_to_dict(rule):
         "updated_at": rule.updated_at,
         "conditions": [condition_to_dict(c) for c in rule.conditions],
     }
+
+
+@router.get("/")
+def get_all_risk_rules(db: Session = Depends(get_db)):
+    rows = (
+        db.query(RiskRule)
+        .options(joinedload(RiskRule.conditions))
+        .order_by(RiskRule.category.asc(), RiskRule.rule_code.asc())
+        .all()
+    )
+
+    rules = [rule_to_dict(r) for r in rows]
+
+    categories_map = {}
+
+    for rule in rules:
+        category = (rule.get("category") or "UNCATEGORIZED").upper()
+
+        if category not in categories_map:
+            categories_map[category] = {
+                "category": category,
+                "total_rules": 0,
+                "active_rules": 0,
+                "inactive_rules": 0,
+                "rules": [],
+            }
+
+        categories_map[category]["total_rules"] += 1
+
+        if rule.get("is_active"):
+            categories_map[category]["active_rules"] += 1
+        else:
+            categories_map[category]["inactive_rules"] += 1
+
+        categories_map[category]["rules"].append({
+            "rule_id": rule["rule_id"],
+            "rule_code": rule["rule_code"],
+            "rule_name": rule["rule_name"],
+            "description": rule["description"],
+            "is_active": rule["is_active"],
+            "updated_at": rule["updated_at"],
+        })
+
+    categories = sorted(categories_map.values(), key=lambda x: x["category"])
+
+    return {
+        "total_rules": len(rules),
+        "total_categories": len(categories),
+        "category_types": [c["category"] for c in categories],
+        "categories": categories,
+        "rules": rules,
+    }
+
 
 @router.get("/categories")
 def get_basic_compliance_categories(db: Session = Depends(get_db)):
@@ -61,9 +116,9 @@ def get_basic_compliance_categories(db: Session = Depends(get_db)):
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
+
 @router.get("/byCategory/{category}")
 def get_rules_by_category(category: str, db: Session = Depends(get_db)):
-
     rows = (
         db.query(RiskRule)
         .options(joinedload(RiskRule.conditions))
@@ -74,9 +129,9 @@ def get_rules_by_category(category: str, db: Session = Depends(get_db)):
 
     return [rule_to_dict(r) for r in rows]
 
+
 @router.get("/activeByCategory/{category}")
 def get_active_rules_by_category(category: str, db: Session = Depends(get_db)):
-
     category = category.upper()
 
     rows = (
@@ -92,6 +147,7 @@ def get_active_rules_by_category(category: str, db: Session = Depends(get_db)):
 
     return [rule_to_dict(r) for r in rows]
 
+
 @router.put("/saveChanges")
 def save_risk_rule_changes(payload: dict = Body(...), db: Session = Depends(get_db)):
     try:
@@ -102,9 +158,6 @@ def save_risk_rule_changes(payload: dict = Body(...), db: Session = Depends(get_
 
         touched_rules = set()
 
-        # -----------------------------
-        # 1. Create brand new rules
-        # -----------------------------
         for item in rule_creates:
             new_rule = RiskRule(
                 rule_code=item["rule_code"].strip(),
@@ -115,7 +168,7 @@ def save_risk_rule_changes(payload: dict = Body(...), db: Session = Depends(get_
             )
 
             db.add(new_rule)
-            db.flush()  # get new_rule.id
+            db.flush()
 
             created_conditions = item.get("conditions", [])
             if not created_conditions:
@@ -144,9 +197,6 @@ def save_risk_rule_changes(payload: dict = Body(...), db: Session = Depends(get_
 
             touched_rules.add(new_rule.id)
 
-        # -----------------------------
-        # 2. Update existing rules
-        # -----------------------------
         for item in rule_updates:
             rule = db.query(RiskRule).options(joinedload(RiskRule.conditions)).filter(
                 RiskRule.id == item["rule_id"]
@@ -167,12 +217,9 @@ def save_risk_rule_changes(payload: dict = Body(...), db: Session = Depends(get_
             if "is_active" in item:
                 rule.is_active = bool(item["is_active"])
 
-                # if rule turned inactive -> all its conditions inactive
                 if rule.is_active is False:
                     for c in rule.conditions:
                         c.is_active = False
-
-                # if rule turned active and all conditions are inactive -> activate all
                 elif rule.is_active is True:
                     all_inactive = all(not c.is_active for c in rule.conditions)
                     if all_inactive:
@@ -181,9 +228,6 @@ def save_risk_rule_changes(payload: dict = Body(...), db: Session = Depends(get_
 
             touched_rules.add(rule.id)
 
-        # -----------------------------
-        # 3. Add new conditions to existing rules
-        # -----------------------------
         for item in new_conditions:
             rule = db.query(RiskRule).options(joinedload(RiskRule.conditions)).filter(
                 RiskRule.id == item["rule_id"]
@@ -211,9 +255,6 @@ def save_risk_rule_changes(payload: dict = Body(...), db: Session = Depends(get_
             db.add(new_condition)
             touched_rules.add(rule.id)
 
-        # -----------------------------
-        # 4. Update existing conditions
-        # -----------------------------
         for item in condition_updates:
             condition = (
                 db.query(RiskRuleCondition)
@@ -264,9 +305,6 @@ def save_risk_rule_changes(payload: dict = Body(...), db: Session = Depends(get_
 
         db.flush()
 
-        # -----------------------------
-        # 5. Final sync rule active state
-        # -----------------------------
         for rule_id in touched_rules:
             rule = (
                 db.query(RiskRule)
@@ -278,7 +316,6 @@ def save_risk_rule_changes(payload: dict = Body(...), db: Session = Depends(get_
             if not rule:
                 continue
 
-            # every rule must have at least one condition
             if not rule.conditions:
                 raise HTTPException(
                     status_code=400,

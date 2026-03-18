@@ -5,6 +5,7 @@ import { OverviewTab } from "../components/ui/Analytics/OverviewTab";
 import { PipelineTab } from "../components/ui/Analytics/PipelineTab";
 import { KycDocumentsTab } from "../components/ui/Analytics/KycDocumentsTab";
 import { OperationsTab } from "../components/ui/Analytics/OperationsTab";
+import { ComplianceTab } from "../components/ui/Analytics/ComplianceTab";
 import { Button } from "../components/ui/primitives/Button";
 import { Calendar } from "../components/ui/primitives/Calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "../components/ui/features/Popover";
@@ -23,6 +24,7 @@ import {
   Download,
   CalendarIcon,
   Users,
+  FileSearch
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { exportAnalyticsToExcel } from "@/lib/exportExcel";
@@ -215,8 +217,16 @@ export default function Analytics() {
               value="kyc"
               className="gap-2 data-[state=active]:bg-card"
             >
-              <Shield className="h-4 w-4" />
+              <FileSearch className="h-4 w-4" />
               KYC & Documents
+            </TabsTrigger>
+
+            <TabsTrigger
+              value="compliance"
+              className="gap-2 data-[state=active]:bg-card"
+            >
+              <Shield className="h-4 w-4" />
+              Compliance
             </TabsTrigger>
           </TabsList>
 
@@ -234,6 +244,10 @@ export default function Analytics() {
 
           <TabsContent value="kyc">
             <KycDocumentsTab dateRange={dateRange} preset={preset} />
+          </TabsContent>
+          
+          <TabsContent value="compliance">
+            <ComplianceTab dateRange={dateRange} preset={preset} />
           </TabsContent>
         </Tabs>
       </main>

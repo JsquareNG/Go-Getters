@@ -14,3 +14,8 @@ export const getBasicComplianceCategories = async () => {
   const res = await axiosClient.get("/risk-rules/categories");
   return res.data.categories || [];
 };
+
+export const getAllRules = async () => {
+  const res = await axiosClient.get("/risk-rules/");
+  return res.data;
+};
