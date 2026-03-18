@@ -19,4 +19,4 @@ export { default as FileUploadField } from "./components/FileUploadField";
 export { default as Step1BasicInformation } from "./steps/Step1BasicInformation";
 export { default as Step2FinancialDetails } from "./steps/Step2FinancialDetails";
 export { default as Step3ComplianceDocumentation } from "./steps/Step3ComplianceDocumentation";
-export { default as Step4ReviewSubmit } from "./steps/Step4ReviewSubmit";
+export { default as Step4 } from "./steps/Step4";
