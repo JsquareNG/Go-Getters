@@ -10,21 +10,33 @@ from backend.database import SessionLocal
 from backend.models.application import ApplicationForm
 from backend.models.documents import Document
 from backend.services.supabase_client import supabase_admin, BUCKET
+from backend.services.audit_service import create_audit_log
 from backend.models.user import User
 from backend.api.notification import *
 from backend.api.resend import send_email
 from backend.database import get_db
 from backend.models.reviewJobs import ReviewJobs
 from backend.models.bellNotifications import BellNotification
-from backend.risk.review_service import run_review_job
+from backend.compliance_rules_engine.review_service import run_review_job
 from backend.services.application_transitions import approve_application_service, need_manual_review_service
 from backend.models.action_requests import ActionRequest, ActionRequestItem
+from backend.models.auditTrail import AuditTrail
+from backend.models.user import User
+from backend.models.liveness_detection import LivenessDetection
 
 router = APIRouter(prefix="/applications", tags=["applications"])
 
 JOB_SECRET = os.getenv("JOB_SECRET", "")
 
 EXCLUDED_STATUSES = ("Withdrawn", "Approved", "Rejected")  # not "active"
+
+SIMULATION_ELIGIBLE_STATUSES = [
+    "Under Manual Review",
+    "Requires Action",
+    "Approved",
+    "Rejected",
+    "Withdrawn",
+]
 
 
 def to_dict(self):
@@ -46,6 +58,11 @@ def add_bell(
         from_status=from_status,
         to_status=to_status,
     ))
+
+def get_users_by_id(db: Session, userID: str):
+    user = db.query(User).filter(User.user_id == userID).first()
+
+    return f"{user.first_name} {user.last_name}"
 
 @router.get("/")
 def get_all_applications(db: Session = Depends(get_db)):
@@ -103,19 +120,56 @@ def get_application_by_app_id(application_id: str, db: Session = Depends(get_db)
 
     return {c.name: getattr(app, c.name) for c in app.__table__.columns}
 
+@router.get("/getSimulationApplications")
+def get_simulation_applications(db: Session = Depends(get_db)):
+    rows = (
+        db.query(ApplicationForm, ReviewJobs)
+        .outerjoin(ReviewJobs, ReviewJobs.application_id == ApplicationForm.application_id)
+        .filter(
+            ApplicationForm.current_status.in_(SIMULATION_ELIGIBLE_STATUSES)
+        )
+        .order_by(ApplicationForm.application_id.desc())
+        .all()
+    )
+
+    results = []
+
+    for app, review in rows:
+        results.append({
+            "application_id": app.application_id,
+            "business_name": app.business_name,
+            "business_country": app.business_country,
+            "business_type": app.business_type,
+            "current_status": app.current_status,
+            "previous_status": app.previous_status,
+            "business_industry": app.form_data.get("businessIndustry"),
+            "reviewer_id": app.reviewer_id,
+            "app_last_edited": app.last_edited,
+            "form_data": app.form_data,
+
+            "risk_score": review.risk_score if review else None,
+            "risk_grade": review.risk_grade if review else None,
+            "rules_triggered": review.rules_triggered if review else [],
+            "check_completed_at": review.completed_at if review else None,
+        })
+
+    return results
+
 # Saving Application as Draft
 @router.post("/firstSave")
 def save_application(data: dict = Body(...), db: Session = Depends(get_db)):
     
     form_data = data.get("form_data", {})
+    provider_session_id = data.get("provider_session_id")
+
 
     new_app = ApplicationForm(
         business_country=form_data["country"],
         business_name=form_data['businessName'],
         business_type=form_data['businessType'],
+        provider_session_id=provider_session_id,
         user_id=data["user_id"],
         form_data=form_data,
-        # last_saved_step=data['last_saved_step'],
         previous_status=None,      
         current_status="Draft"
     )
@@ -130,6 +184,30 @@ def save_application(data: dict = Body(...), db: Session = Depends(get_db)):
         to_status=new_app.current_status,
         message=f"You have successfuly saved your application as a draft."
     ))
+
+    username = get_users_by_id(db, new_app.user_id)
+
+    # Audit log: application created as draft
+    create_audit_log(
+        db=db,
+        application_id=new_app.application_id,
+        actor_id=new_app.user_id,
+        actor_type=username,
+        event_type="APPLICATION_CREATED",
+        entity_type="APPLICATION",
+        from_status=None,
+        to_status="Draft",
+        description="Application created by applicant.",
+    )
+
+
+    liveness_row = (
+        db.query(LivenessDetection)
+        .filter(LivenessDetection.provider_session_id == provider_session_id)
+        .first()
+    )
+
+    liveness_row.application_id = new_app.application_id
 
     db.commit()
     db.refresh(new_app)
@@ -148,35 +226,52 @@ def second_save(application_id: str, data: dict = Body(...), db: Session = Depen
         raise HTTPException(status_code=404, detail="Application not found")
     
     incoming = data or {}
+    incoming_form_data = incoming.get("form_data", {}) or {}
     existing_form_data = app.form_data or {}
 
-    for key, value in incoming.items():
+    for key, value in incoming_form_data.items():
         if key == "application_id":
             continue
         existing_form_data[key] = value
 
     app.form_data = existing_form_data
 
-    curr = app.current_status
-    prev = app.previous_status
+    old_previous_status = app.previous_status
+    old_current_status = app.current_status
+    
 
     if app.has_sent:
         app.has_sent = False
 
-    if curr == "Draft":
-        app.current_status = "Draft"
-
-    elif curr == "Requires Action" and prev == "Under Manual Review":
+    if old_current_status == "Requires Action" and old_previous_status == "Under Manual Review":
         app.previous_status = app.current_status
         app.current_status = "Draft"
 
-    db.add(BellNotification(
+    db.add(
+        BellNotification(
+            application_id=app.application_id,
+            recipient_id=app.user_id,
+            from_status=old_current_status,
+            to_status=app.current_status,
+            message="You have successfully saved your application as a draft."
+        )
+    )
+
+    status_changed = old_current_status != app.current_status
+
+    username = get_users_by_id(db, app.user_id)
+
+    create_audit_log(
+        db=db,
         application_id=app.application_id,
-        recipient_id=app.user_id,
-        from_status=app.previous_status,
+        actor_id=app.user_id,
+        actor_type=username,
+        event_type="APPLICATION_DRAFT_SAVED",
+        entity_type="APPLICATION",
+        from_status=old_current_status,
         to_status=app.current_status,
-        message=f"You have successfuly saved your application as a draft."
-    ))
+        description="Applicant updated the application draft."
+    )
     
     db.commit()
     db.refresh(app)
@@ -194,7 +289,7 @@ def first_submit_application(
     db: Session = Depends(get_db),
 ):
     form_data = data.get("form_data", {})
-
+    provider_session_id = data.get("provider_session_id")
 
     business_country=form_data["country"],
     business_name=form_data['businessName'],
@@ -208,6 +303,7 @@ def first_submit_application(
         user_id=user_id,
         previous_status=None,
         current_status="Under Review",
+        provider_session_id=provider_session_id,
         form_data=form_data,
     )
 
@@ -230,7 +326,57 @@ def first_submit_application(
         to_status="Under Review",
     )
 
+    username = get_users_by_id(db, new_app.user_id)
+
+    # Audit 1: application created
+    create_audit_log(
+        db=db,
+        application_id=new_app.application_id,
+        actor_id=new_app.user_id,
+        actor_type=username,
+        event_type="APPLICATION_CREATED",
+        entity_type="APPLICATION",
+        from_status=None,
+        to_status=None,
+        description="Application created by applicant."
+    )
+
+    create_audit_log(
+        db=db,
+        application_id=new_app.application_id,
+        actor_id=new_app.user_id,
+        actor_type=username,
+        event_type="APPLICATION_SUBMITTED",
+        entity_type="APPLICATION",
+        from_status="Draft",
+        to_status="Submitted",
+        description="Application submitted for bank review."
+    )
+
+    # Audit 2: application submitted
+    create_audit_log(
+        db=db,
+        application_id=new_app.application_id,
+        actor_id=new_app.user_id,
+        actor_type=username,
+        event_type="APPLICATION_SUBMITTED",
+        entity_type="APPLICATION",
+        from_status="Submitted",
+        to_status="Under Review",
+        description="Application is queued for automated compliance screening."
+    )
+
     print("[firstSubmit] created app", new_app.application_id)
+
+    
+
+    liveness_row = (
+        db.query(LivenessDetection)
+        .filter(LivenessDetection.provider_session_id == provider_session_id)
+        .first()
+    )
+
+    liveness_row.application_id = new_app.application_id
 
     db.commit()
     db.refresh(new_app)
@@ -328,190 +474,20 @@ def apply_full_application_update(app: ApplicationForm, data: dict):
     Used ONLY for first submit case.
     Updates any editable fields + form_data, but blocks status fields from being overwritten by client.
     """
+
     incoming = data or {}
+    incoming_form_data = incoming.get("form_data", {}) or {}
 
     # Copy existing JSON safely
     existing_form_data = app.form_data or {}
 
-    for key, value in incoming.items():
+    for key, value in incoming_form_data.items():
         existing_form_data[key] = value
 
     # Reassign JSON so SQLAlchemy detects the update
     app.form_data = existing_form_data
 
 @router.put("/secondSubmit/{application_id}")
-# def second_submit(
-#     application_id: str,
-#     background_tasks: BackgroundTasks,
-#     data: dict = Body(...),
-#     db: Session = Depends(get_db),
-# ):
-#     app = (
-#         db.query(ApplicationForm)
-#         .filter(ApplicationForm.application_id == application_id)
-#         .first()
-#     )
-
-#     if not app:
-#         raise HTTPException(status_code=404, detail="Application not found")
-
-#     # -----------------------------
-#     # Update fields
-#     # -----------------------------
-#     for key, value in (data or {}).items():
-#         if key == "application_id":
-#             continue
-#         if hasattr(app, key):
-#             setattr(app, key, value)
-#         else:
-#             app.form_data[key] = value
-
-#     curr = app.current_status
-#     prev = app.previous_status
-#     prev_blank = (prev is None) or (prev == "")
-
-#     user_email = data.get("email")
-#     user_firstName = data.get("firstName")
-
-#     # -----------------------------
-#     # Resolve staff (if assigned)
-#     # -----------------------------
-#     staff_email = None
-#     staff_firstName = None
-#     if app.reviewer_id:
-#         staff = db.query(User).filter(User.user_id == app.reviewer_id).first()
-#         if staff:
-#             staff_email = staff.email
-#             staff_firstName = staff.first_name
-
-#     # -----------------------------
-#     # Helper: safe background send
-#     # -----------------------------
-#     def safe_send(to_email: str, subject: str, body: str):
-#         try:
-#             send_email(to_email, subject, body)
-#         except Exception as e:
-#             print(f"❌ Email failed to {to_email}: {e}")
-
-#     emails_queued = {"user": False, "staff": False}
-#     email_notes = []
-
-#     # -----------------------------
-#     # Branch logic
-#     # -----------------------------
-#     if curr == "Draft" and prev_blank:
-#         app.previous_status = app.current_status
-#         app.current_status = "Under Review"
-
-#         add_bell(
-#             db=db,
-#             appId=app.application_id,
-#             recipient_id=app.user_id,
-#             message="Your application has been submitted successfully and is currently under review.",
-#             from_status=app.previous_status,
-#             to_status=app.current_status,
-#         )
-
-#         if user_email:
-#             subject, body = build_application_submitted_email(app, user_firstName)
-#             background_tasks.add_task(safe_send, user_email, subject, body)
-#             emails_queued["user"] = True
-#         else:
-#             email_notes.append("Missing user email; user email not queued.")
-
-        
-
-#     elif curr == "Requires Action" and prev == "Under Manual Review":
-#         app.previous_status = app.current_status
-#         app.current_status = "Under Manual Review"
-
-#         add_bell(
-#             db=db,
-#             appId=app.application_id,
-#             recipient_id=app.user_id,
-#             message="We received your additional documents. Your application is back under manual review.",
-#             from_status=app.previous_status,
-#             to_status=app.current_status,
-#         )
-
-#         if app.reviewer_id:
-#             add_bell(
-#                 db=db,
-#                 appId=app.application_id,
-#                 recipient_id=app.reviewer_id,
-#                 message="Applicant has uploaded additional documents. Please review the application again.",
-#                 from_status=app.previous_status,
-#                 to_status=app.current_status,
-#             )
-
-#         # user email
-#         if user_email:
-#             user_subject, user_body = build_user_manual_review_email(app, user_firstName)
-#             background_tasks.add_task(safe_send, user_email, user_subject, user_body)
-#             emails_queued["user"] = True
-#         else:
-#             email_notes.append("Missing user email; user email not queued.")
-
-#         # staff email
-#         if staff_email:
-#             staff_subject, staff_body = build_staff_manual_review_email(app, staff_firstName)
-#             background_tasks.add_task(safe_send, staff_email, staff_subject, staff_body)
-#             emails_queued["staff"] = True
-#         else:
-#             email_notes.append("Missing staff/reviewer email; staff email not queued.")
-
-#     elif curr == "Draft" and prev == "Requires Action":
-#         app.previous_status = app.current_status
-#         app.current_status = "Under Manual Review"
-
-#         add_bell(
-#             db=db,
-#             appId=app.application_id,
-#             recipient_id=app.user_id,
-#             message="We received your additional documents. Your application is back under manual review.",
-#             from_status=app.previous_status,
-#             to_status=app.current_status,
-#         )
-
-#         if app.reviewer_id:
-#             add_bell(
-#                 db=db,
-#                 appId=app.application_id,
-#                 recipient_id=app.reviewer_id,
-#                 message="Applicant has uploaded additional documents. Please review the application again.",
-#                 from_status=app.previous_status,
-#                 to_status=app.current_status,
-#             )
-
-#         # user email
-#         if user_email:
-#             user_subject, user_body = build_user_manual_review_email(app, user_firstName)
-#             background_tasks.add_task(safe_send, user_email, user_subject, user_body)
-#             emails_queued["user"] = True
-#         else:
-#             email_notes.append("Missing user email; user email not queued.")
-
-#         # staff email
-#         if staff_email:
-#             staff_subject, staff_body = build_staff_manual_review_email(app, staff_firstName)
-#             background_tasks.add_task(safe_send, staff_email, staff_subject, staff_body)
-#             emails_queued["staff"] = True
-#         else:
-#             email_notes.append("Missing staff/reviewer email; staff email not queued.")
-
-#     # -----------------------------
-#     # Persist changes (IMPORTANT)
-#     # -----------------------------
-#     db.commit()
-#     db.refresh(app)
-
-#     return {
-#         "application_id": app.application_id,
-#         "previous_status": app.previous_status,
-#         "current_status": app.current_status,
-#         "emails_queued": emails_queued,
-#         "email_notes": email_notes,
-#     }
 def second_submit(
     application_id: str,
     background_tasks: BackgroundTasks,
@@ -551,6 +527,9 @@ def second_submit(
     emails_queued = {"user": False, "staff": False}
     email_notes = []
 
+    username = get_users_by_id(db, app.user_id)
+
+
     # -----------------------------
     # CASE A: First submit (Draft -> Under Review)
     # user can edit ANY application fields
@@ -561,6 +540,13 @@ def second_submit(
         app.previous_status = app.current_status
         app.current_status = "Under Review"
 
+        review_job = ReviewJobs(
+        application_id=app.application_id,
+        status="QUEUED"
+    )
+
+        db.add(review_job)
+
         add_bell(
             db=db,
             appId=app.application_id,
@@ -570,11 +556,34 @@ def second_submit(
             to_status=app.current_status,
         )
 
-         # ✅ ADD THIS (same as firstSubmit)
-        print("[secondSubmit] before add_task", app.application_id)
-        background_tasks.add_task(run_review_job, app.application_id)
-        print("[secondSubmit] after add_task", app.application_id)
+        create_audit_log(
+            db=db,
+            application_id=app.application_id,
+            actor_id=app.user_id,
+            actor_type=username,
+            event_type="APPLICATION_SUBMITTED",
+            entity_type="APPLICATION",
+            from_status="Draft",
+            to_status="Submitted",
+            description="Application submitted for bank review."
+        )
 
+        # Optional system event for queueing review
+        create_audit_log(
+            db=db,
+            application_id=app.application_id,
+            actor_id=None,
+            actor_type="SYSTEM",
+            event_type="REVIEW_JOB_QUEUED",
+            entity_type="REVIEW_JOB",
+            from_status="Submitted",
+            to_status="Under Review",
+            description="Application is queued for automated compliance screening."
+        )
+
+         # ✅ ADD THIS (same as firstSubmit)
+
+        background_tasks.add_task(run_review_job, app.application_id)
 
         if user_email:
             subject, body = build_application_submitted_email(app, user_firstName)
@@ -588,12 +597,14 @@ def second_submit(
     # user cannot edit application fields; only submit required info (answers etc.)
     # -----------------------------
     elif (curr == "Requires Action" and prev == "Under Manual Review") or (curr == "Draft" and prev == "Requires Action"):
+        old_status = app.current_status
+        
         # ✅ Close open action request + update answers
         closed_ar = close_open_action_request_and_update_answers(db, app.application_id, data)
         if not closed_ar:
             # your choice: either error out, or allow but log note
             email_notes.append("No OPEN action request found to close for this application.")
-
+        
         # Move app back to manual review
         app.previous_status = app.current_status
         app.current_status = "Under Manual Review"
@@ -617,6 +628,18 @@ def second_submit(
                 to_status=app.current_status,
             )
 
+        create_audit_log(
+            db=db,
+            application_id=app.application_id,
+            actor_id=app.user_id,
+            actor_type=username,
+            event_type="APPLICATION_RESUBMITTED",
+            entity_type="APPLICATION",
+            from_status=old_status,
+            to_status="Under Manual Review",
+            description="Applicant has submitted the requested additional information.",
+        )
+
         # user email
         if user_email:
             user_subject, user_body = build_user_manual_review_email(app, user_firstName)
@@ -632,7 +655,6 @@ def second_submit(
             emails_queued["staff"] = True
         else:
             email_notes.append("Missing staff/reviewer email; staff email not queued.")
-
     else:
         raise HTTPException(
             status_code=400,
@@ -649,52 +671,6 @@ def second_submit(
         "emails_queued": emails_queued,
         "email_notes": email_notes,
     }
-
-def pick_least_loaded_staff_id(db: Session) -> str | None:
-    # 1) Compute each staff's load (NO LOCKS here)
-    active_counts_sq = (
-        select(
-            ApplicationForm.reviewer_id.label("rid"),
-            func.count(ApplicationForm.application_id).label("cnt"),
-        )
-        .where(
-            ApplicationForm.reviewer_id.isnot(None),
-            ApplicationForm.current_status.notin_(EXCLUDED_STATUSES),
-        )
-        .group_by(ApplicationForm.reviewer_id)
-        .subquery()
-    )
-
-    staff_loads = db.execute(
-        select(
-            User.user_id,
-            func.coalesce(active_counts_sq.c.cnt, 0).label("load"),
-        )
-        .select_from(User)
-        .outerjoin(active_counts_sq, active_counts_sq.c.rid == User.user_id)
-        .where(User.user_role == "STAFF")
-        .order_by(func.coalesce(active_counts_sq.c.cnt, 0).asc())
-    ).all()
-
-    if not staff_loads:
-        return None
-
-    min_load = staff_loads[0].load
-    candidates = [row.user_id for row in staff_loads if row.load == min_load]
-
-    if not candidates:
-        return None
-
-    # 2) Lock ONE candidate staff row (LOCK QUERY touches ONLY "user" table)
-    chosen = db.execute(
-        select(User.user_id)
-        .where(User.user_id.in_(candidates))
-        .order_by(func.random())
-        .with_for_update(skip_locked=True)
-        .limit(1)
-    ).scalar_one_or_none()
-
-    return chosen
 
 @router.put("/needManualReview/{application_id}")
 def need_manual_review(
@@ -718,7 +694,6 @@ def need_manual_review(
         "email_notes": email_notes,
     }
 
-
 # User discarding their draft application
 @router.delete("/delete/{application_id}")
 def delete_application(application_id: str, db: Session = Depends(get_db)):
@@ -730,30 +705,37 @@ def delete_application(application_id: str, db: Session = Depends(get_db)):
     if not app:
         raise HTTPException(status_code=404, detail="Application not found")
 
-    # Get storage paths BEFORE deleting app (cascade will remove document rows)
-    docs = (
-        db.query(Document)
-        .filter(Document.application_id == application_id)
-        .all()
+    old_status = app.current_status
+    app.previous_status = old_status
+    app.current_status = "Deleted"
+
+    username = get_users_by_id(db, app.user_id)
+
+    add_bell(
+        db=db,
+        appId=app.application_id,
+        recipient_id=app.user_id,
+        message="You have discarded your draft application.",
+        from_status=old_status,
+        to_status="Deleted",
     )
-    paths = [d.storage_path for d in docs if getattr(d, "storage_path", None)]
 
-    # Delete from storage first (service role bypasses Storage RLS)
-    if paths:
-        try:
-            supabase_admin.storage.from_(BUCKET).remove(paths)
-        except Exception as e:
-            raise HTTPException(
-                status_code=500,
-                detail=f"Failed to delete storage objects: {str(e)}"
-            )
+    create_audit_log(
+        db=db,
+        application_id=app.application_id,
+        actor_id=app.user_id,
+        actor_type=username,
+        event_type="APPLICATION_DELETED",
+        entity_type="APPLICATION",
+        from_status=old_status,
+        to_status="Deleted",
+        description="Applicant discarded the draft application.",
+    )
 
-    # Delete DB row (cascade deletes documents)
-    db.delete(app)
     db.commit()
 
     return {
-        "message": "Application deleted successfully",
+        "message": "Application discarded successfully",
         "application_id": application_id
     }
 
@@ -809,6 +791,8 @@ def reject_application(
     if reason is None or str(reason).strip() == "":
         raise HTTPException(status_code=400, detail="reason is required when rejecting")
 
+    old_status = app.current_status
+
     # Status update
     app.previous_status = app.current_status
     app.current_status = "Rejected"
@@ -821,6 +805,20 @@ def reject_application(
         to_status="Rejected",
         message="Your application has been rejected."
     ))
+
+    username = get_users_by_id(db, app.reviewer_id)
+
+    create_audit_log(
+        db=db,
+        application_id=app.application_id,
+        actor_id=app.reviewer_id,
+        actor_type=f" {username} (Reviewer)",
+        event_type="APPLICATION_REJECTED",
+        entity_type="APPLICATION",
+        from_status=old_status,
+        to_status="Rejected",
+        description="Application rejected following manual compliance review."
+    )
 
     # Persist first
     db.commit()
@@ -889,6 +887,8 @@ def require_action(
     requested_docs = data.get("documents") or []
     requested_qns = data.get("questions") or []
 
+    old_status = app.current_status
+
     if app.has_sent:
         app.has_sent = False
         
@@ -937,6 +937,20 @@ def require_action(
         to_status=app.current_status ,
         message=f"This application requires additional documents from you. Please upload them."
     ))
+
+    username = get_users_by_id(db, app.reviewer_id)
+
+    create_audit_log(
+        db=db,
+        application_id=app.application_id,
+        actor_id=app.reviewer_id,
+        actor_type=f"{username} (Reviewer)",
+        event_type="APPLICATION_ESCALATED",
+        entity_type="APPLICATION",
+        from_status=old_status,
+        to_status="Requires Action",
+        description="Reviewer requested additional documentation from the applicant."
+    )
     
     # Persist first
     db.commit()
@@ -998,10 +1012,24 @@ def withdraw_application(
 
     if not app:
         raise HTTPException(status_code=404, detail="Application not found")
+    
+    old_status = app.current_status
 
     # Status update
     app.previous_status = app.current_status
     app.current_status = "Withdrawn"
+
+    open_action_requests = (
+        db.query(ActionRequest)
+        .filter(
+            ActionRequest.application_id == app.application_id,
+            ActionRequest.status == "OPEN"
+        )
+        .all()
+    )
+
+    for ar in open_action_requests:
+        ar.status = "WITHDRAWN"
 
     # Persist first
     db.commit()
@@ -1047,6 +1075,20 @@ def withdraw_application(
             to_status=app.current_status,
             message=f"SME User has withdrawn their application for {app.business_name}."
         ))
+
+    username = get_users_by_id(db, app.user_id)
+
+    create_audit_log(
+        db=db,
+        application_id=app.application_id,
+        actor_id=app.user_id,
+        actor_type=username,
+        event_type="APPLICATION_WITHDRAWN",
+        entity_type="APPLICATION",
+        from_status=old_status,
+        to_status="Withdrawn",
+        description="Application withdrawn by applicant."
+    )
 
     db.commit()
 

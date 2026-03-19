@@ -101,8 +101,7 @@ const SMEApplicationForm = () => {
 
   const isViewOnly = routeMode === "view" || currentApp?.status === "Submitted";
 
-  const activeConfig = CONFIG_MAP[formData?.country] || SINGAPORE_CONFIG;
-
+  // --- Edit functionality ---
   const handleEditStep = (step) => {
     navigate(`/application/edit/${appId}/${step}`);
   };
@@ -733,6 +732,8 @@ const SMEApplicationForm = () => {
         ...normalizedData,
         ...nonIndividualRepeatables,
         individuals,
+        provider_session_id: formData.provider_session_id || null,
+
         businessName:
           normalizedData.businessName || normalizedData.business_name || "",
         businessType:
@@ -1498,6 +1499,17 @@ const SMEApplicationForm = () => {
 
       const cleanedFormPayload = buildDynamicPayload(formData, activeConfig);
 
+      const providerSessionId = formData.provider_session_id;
+
+      if (!providerSessionId) {
+        toast({
+          title: "Identity Verification Required",
+          description: "Please complete identity verification before submitting.",
+          variant: "destructive",
+        });
+        return;
+      }
+
       const payload = {
         ...(savedAppId && savedAppId !== "new"
           ? { application_id: savedAppId }
@@ -1514,6 +1526,8 @@ const SMEApplicationForm = () => {
         business_type: cleanedFormPayload.businessType || "",
 
         form_data: cleanedFormPayload,
+
+        provider_session_id: providerSessionId,
       };
 
       const res = await submitSmeApplicationApi(payload);
@@ -1636,7 +1650,7 @@ const SMEApplicationForm = () => {
           />
 
           {/* <div className="flex-1 overflow-y-scroll h-full"> */}
-            {!isViewOnly && <MissingSteps report={validationReport} />}
+          {!isViewOnly && <MissingSteps report={validationReport} />}
           {/* </div> */}
         </div>
       </div>

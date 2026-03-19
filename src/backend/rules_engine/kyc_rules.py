@@ -1,38 +1,42 @@
-from backend.rules_engine.config import HIGH_RISK_COUNTRIES
-
-
-def evaluate_individual(person):
+def evaluate_kyc_rules(individual):
 
     score = 0
     triggers = []
 
+    if individual.sanctions_declared:
 
-    if person.is_pep:
-        score += 40
+        score += 100
         triggers.append({
-            "code": "R001",
-            "description": "Politically Exposed Person detected"
+            "code": "KYC001",
+            "description": f"{individual.name} sanctions exposure",
+            "score": 100
         })
 
-    if person.nationality in HIGH_RISK_COUNTRIES:
+    if individual.is_pep:
+
+        score += 50
+        triggers.append({
+            "code": "KYC002",
+            "description": f"{individual.name} politically exposed person",
+            "score": 50
+        })
+
+    if individual.fatca_us_person:
+
         score += 20
         triggers.append({
-            "code": "R002",
-            "description": "Nationality from high-risk jurisdiction"
+            "code": "KYC003",
+            "description": f"{individual.name} FATCA US person",
+            "score": 20
         })
 
-    if person.is_signatory and person.ownership_pct < 25:
-        score += 10
-        triggers.append({
-            "code": "R003",
-            "description": "Account control without significant ownership"
-        })
+    if not individual.tax_residency:
 
-    if person.directorships > 5:
         score += 10
         triggers.append({
-            "code": "R004",
-            "description": "Individual holds multiple company directorships"
+            "code": "KYC004",
+            "description": f"{individual.name} missing tax residency",
+            "score": 10
         })
 
     return score, triggers
