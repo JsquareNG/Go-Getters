@@ -142,7 +142,6 @@ const SMEApplicationForm = () => {
   const hasConfigSteps =
     Array.isArray(entityConfig?.steps) && entityConfig.steps.length > 0;
 
-
   const flattenFieldKeys = useCallback((fields = {}) => {
     const keys = new Set();
 
@@ -1058,7 +1057,7 @@ const SMEApplicationForm = () => {
     [activeConfig, getMergedFormState, validateStepConfig],
   );
 
-   const validationReport = useMemo(
+  const validationReport = useMemo(
     () => buildValidationReport(formData),
     [formData, buildValidationReport],
   );
@@ -1070,10 +1069,7 @@ const SMEApplicationForm = () => {
   }, [validationReport]);
 
   const canSubmit =
-  clampedStep === 4 &&
-  isStep0Valid &&
-  hasConfigSteps &&
-  !isIncomplete;
+    clampedStep === 4 && isStep0Valid && hasConfigSteps && !isIncomplete;
 
   const goToStep = useCallback(
     (targetStep) => {
@@ -1590,21 +1586,6 @@ const SMEApplicationForm = () => {
     }
   };
 
-  // const MissingSteps = ({ incomplete }) => {
-  //   if (!incomplete) return null;
-
-  //   return (
-  //     <div className="mt-8">
-  //       <h2 className="font-semibold text-lg mb-2">
-  //         Some required fields are missing
-  //       </h2>
-  //       <p className="text-sm text-red-500">
-  //         Please complete the required fields before submitting.
-  //       </p>
-  //     </div>
-  //   );
-  // };
-
   const MissingSteps = ({ report }) => {
     if (!report || report.total === 0) return null;
 
@@ -1617,7 +1598,7 @@ const SMEApplicationForm = () => {
           Please complete the following before submitting.
         </p>
 
-        <div className="space-y-3">
+        <div className="space-y-3 overflow-y-auto max-h-120 pr-2 pb-7">
           {report.byStep
             .filter((step) => step.missing.length > 0)
             .map((step) => (
@@ -1639,10 +1620,6 @@ const SMEApplicationForm = () => {
       </div>
     );
   };
-  // const isIncomplete = hasIncompleteFields(formData);
-
-  // console.log("isIncomplete:", isIncomplete);
-  // console.log("formData:", formData);
 
   return (
     <div className="h-[calc(100vh-4rem)] flex overflow-hidden bg-gray-50">
@@ -1658,8 +1635,9 @@ const SMEApplicationForm = () => {
             stepLabels={STEP_LABELS}
           />
 
-          {/* {!isViewOnly && <MissingSteps incomplete={isIncomplete} />} */}
-          {!isViewOnly && <MissingSteps report={validationReport} />}
+          {/* <div className="flex-1 overflow-y-scroll h-full"> */}
+            {!isViewOnly && <MissingSteps report={validationReport} />}
+          {/* </div> */}
         </div>
       </div>
 
@@ -1688,39 +1666,37 @@ const SMEApplicationForm = () => {
                     </Button>
 
                     <div className="flex gap-3">
-  {clampedStep < 4 ? (
-    <>
-      <Button
-        variant="outline"
-        onClick={handleSaveDraft}
-        disabled={isSubmitting}
-      >
-        Save Draft
-      </Button>
+                      {clampedStep < 4 ? (
+                        <>
+                          <Button
+                            variant="outline"
+                            onClick={handleSaveDraft}
+                            disabled={isSubmitting}
+                          >
+                            Save Draft
+                          </Button>
 
-      <Button
-        onClick={() => goToStep(clampedStep + 1)}
-      >
-        Next
-      </Button>
-    </>
-  ) : canSubmit ? (
-    <Button
-      onClick={handleSubmitApplication}
-      disabled={isSubmitting}
-    >
-      Submit
-    </Button>
-  ) : (
-    <Button
-      variant="outline"
-      onClick={handleSaveDraft}
-      disabled={isSubmitting}
-    >
-      Save Draft
-    </Button>
-  )}
-</div>
+                          <Button onClick={() => goToStep(clampedStep + 1)}>
+                            Next
+                          </Button>
+                        </>
+                      ) : canSubmit ? (
+                        <Button
+                          onClick={handleSubmitApplication}
+                          disabled={isSubmitting}
+                        >
+                          Submit
+                        </Button>
+                      ) : (
+                        <Button
+                          variant="outline"
+                          onClick={handleSaveDraft}
+                          disabled={isSubmitting}
+                        >
+                          Save Draft
+                        </Button>
+                      )}
+                    </div>
                   </div>
                 )}
               </CardContent>
