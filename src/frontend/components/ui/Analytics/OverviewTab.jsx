@@ -46,6 +46,10 @@ const industryChartConfig = {
   count: { label: "Applications", color: "hsl(210, 100%, 50%)" },
 };
 
+const statusChartConfig = {
+  count: { label: "Applications", color: "hsl(210, 100%, 50%)" },
+};
+
 const COUNTRY_COLORS = ["hsl(351, 85%, 49%)", "hsl(210, 100%, 50%)"];
 
 function safeParseJson(value) {
@@ -81,6 +85,25 @@ function normalizeCountry(value) {
   return String(value).trim();
 }
 
+function normalizeStatus(value) {
+  if (!value) return "Unknown";
+
+  const v = String(value).trim().toLowerCase();
+
+  if (v === "draft") return "Draft";
+  if (v === "pending") return "Pending";
+  if (v === "under review" || v === "under manual review")
+    return "Under Manual Review";
+  if (v === "requires action" || v === "action required")
+    return "Requires Action";
+  if (v === "approved") return "Approved";
+  if (v === "rejected" || v === "declined") return "Rejected";
+  if (v === "withdrawn") return "Withdrawn";
+  if (v === "deleted") return "Deleted";
+
+  return String(value).trim();
+}
+
 function formatBusinessType(value) {
   if (!value) return "Unknown";
 
@@ -110,7 +133,8 @@ function buildIndustryBreakdown(applications = []) {
 
   applications.forEach((app) => {
     const payload = getPayload(app);
-    const industry = String(payload.businessIndustry || "Unknown").trim() || "Unknown";
+    const industry =
+      String(payload.businessIndustry || "Unknown").trim() || "Unknown";
 
     counts[industry] = (counts[industry] || 0) + 1;
     total += 1;
@@ -151,9 +175,7 @@ function buildCountryBreakdown(applications = []) {
       applications: applicationsCount,
       approved: approvedCounts[country] || 0,
       percentage:
-        total > 0
-          ? Number(((applicationsCount / total) * 100).toFixed(1))
-          : 0,
+        total > 0 ? Number(((applicationsCount / total) * 100).toFixed(1)) : 0,
     }))
     .sort((a, b) => b.applications - a.applications);
 }
@@ -282,6 +304,42 @@ function buildOverviewKPIs(applications = []) {
   };
 }
 
+function buildStatusBreakdown(applications = []) {
+  const counts = {};
+
+  applications.forEach((app) => {
+    const status = normalizeStatus(app.current_status);
+    counts[status] = (counts[status] || 0) + 1;
+  });
+
+  const preferredOrder = [
+    "Draft",
+    "Pending",
+    "Under Manual Review",
+    "Requires Action",
+    "Approved",
+    "Rejected",
+    "Withdrawn",
+    "Deleted",
+    "Unknown",
+  ];
+
+  return Object.entries(counts)
+    .map(([status, count]) => ({
+      status,
+      count,
+    }))
+    .sort((a, b) => {
+      const aIndex = preferredOrder.indexOf(a.status);
+      const bIndex = preferredOrder.indexOf(b.status);
+
+      const safeA = aIndex === -1 ? 999 : aIndex;
+      const safeB = bIndex === -1 ? 999 : bIndex;
+
+      return safeA - safeB;
+    });
+}
+
 export function OverviewTab({ dateRange, preset }) {
   const [selectedCountry, setSelectedCountry] = useState("All");
   const [applications, setApplications] = useState([]);
@@ -359,6 +417,11 @@ export function OverviewTab({ dateRange, preset }) {
     [filteredApplications],
   );
 
+  const statusBreakdown = useMemo(
+    () => buildStatusBreakdown(filteredApplications),
+    [filteredApplications],
+  );
+
   const filteredBusinessTypes =
     selectedCountry === "All"
       ? businessTypeBreakdown
@@ -371,7 +434,7 @@ export function OverviewTab({ dateRange, preset }) {
 
   return (
     <div className="space-y-6">
-      <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
+      <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
         <KPICard
           icon={<FileText className="h-5 w-5" />}
           title="Total Applications"
@@ -388,25 +451,10 @@ export function OverviewTab({ dateRange, preset }) {
           trendLabel="vs last quarter"
         />
         <KPICard
-          icon={<Clock className="h-5 w-5" />}
-          title="Avg Processing"
-          value={overviewKPIs.avgProcessingDays}
-          suffix="days"
-          trend={overviewKPIs.avgProcessingDaysTrend}
-          trendLabel="vs last quarter"
-        />
-        <KPICard
           icon={<Users className="h-5 w-5" />}
           title="Pending Review"
           value={overviewKPIs.pendingReview}
           trend={overviewKPIs.pendingReviewTrend}
-          trendLabel="vs last week"
-        />
-        <KPICard
-          icon={<AlertTriangle className="h-5 w-5" />}
-          title="Requires Action"
-          value={overviewKPIs.requiresAction}
-          trend={overviewKPIs.requiresActionTrend}
           trendLabel="vs last week"
         />
         <KPICard
@@ -431,16 +479,42 @@ export function OverviewTab({ dateRange, preset }) {
             <AreaChart data={monthlyTrends}>
               <defs>
                 <linearGradient id="gradApproved" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="var(--color-approved)" stopOpacity={0.3} />
-                  <stop offset="95%" stopColor="var(--color-approved)" stopOpacity={0} />
+                  <stop
+                    offset="5%"
+                    stopColor="var(--color-approved)"
+                    stopOpacity={0.3}
+                  />
+                  <stop
+                    offset="95%"
+                    stopColor="var(--color-approved)"
+                    stopOpacity={0}
+                  />
                 </linearGradient>
-                <linearGradient id="gradApplications" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="var(--color-applications)" stopOpacity={0.3} />
-                  <stop offset="95%" stopColor="var(--color-applications)" stopOpacity={0} />
+                <linearGradient
+                  id="gradApplications"
+                  x1="0"
+                  y1="0"
+                  x2="0"
+                  y2="1"
+                >
+                  <stop
+                    offset="5%"
+                    stopColor="var(--color-applications)"
+                    stopOpacity={0.3}
+                  />
+                  <stop
+                    offset="95%"
+                    stopColor="var(--color-applications)"
+                    stopOpacity={0}
+                  />
                 </linearGradient>
               </defs>
               <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
-              <XAxis dataKey="month" tick={{ fontSize: 12 }} className="fill-muted-foreground" />
+              <XAxis
+                dataKey="month"
+                tick={{ fontSize: 12 }}
+                className="fill-muted-foreground"
+              />
               <YAxis tick={{ fontSize: 12 }} className="fill-muted-foreground" />
               <ChartTooltip content={<ChartTooltipContent />} />
               <Area
@@ -466,6 +540,57 @@ export function OverviewTab({ dateRange, preset }) {
                 strokeDasharray="4 4"
               />
             </AreaChart>
+          </ChartContainer>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader className="pb-2">
+          <CardTitle className="text-base font-medium">
+            Applications by Status
+          </CardTitle>
+          <CardDescription>
+            Current application counts by onboarding status
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <ChartContainer config={statusChartConfig} className="h-[300px] w-full">
+            <BarChart data={statusBreakdown}>
+              <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
+              <XAxis
+                dataKey="status"
+                tick={{ fontSize: 11 }}
+                className="fill-muted-foreground"
+              />
+              <YAxis tick={{ fontSize: 11 }} className="fill-muted-foreground" />
+              <ChartTooltip content={<ChartTooltipContent />} />
+              <Bar dataKey="count" radius={[4, 4, 0, 0]} name="Applications">
+                {statusBreakdown.map((item) => (
+                  <Cell
+                    key={item.status}
+                    fill={
+                      item.status === "Approved"
+                        ? "hsl(142, 71%, 45%)"
+                        : item.status === "Rejected"
+                          ? "hsl(0, 84%, 60%)"
+                          : item.status === "Under Manual Review"
+                            ? "hsl(38, 92%, 50%)"
+                            : item.status === "Requires Action"
+                              ? "hsl(210, 100%, 50%)"
+                              : item.status === "Withdrawn"
+                                ? "hsl(270, 60%, 55%)"
+                                : item.status === "Draft"
+                                  ? "hsl(215, 16%, 65%)"
+                                  : item.status === "Pending"
+                                    ? "hsl(200, 80%, 60%)"
+                                    : item.status === "Deleted"
+                                      ? "hsl(0, 0%, 55%)"
+                                      : "hsl(215, 16%, 65%)"
+                    }
+                  />
+                ))}
+              </Bar>
+            </BarChart>
           </ChartContainer>
         </CardContent>
       </Card>
@@ -513,7 +638,10 @@ export function OverviewTab({ dateRange, preset }) {
 
             <div className="grid grid-cols-2 gap-3 mt-4">
               {countryBreakdown.map((c) => (
-                <div key={c.code} className="p-3 rounded-lg bg-slate-300/50 space-y-1">
+                <div
+                  key={c.code}
+                  className="p-3 rounded-lg bg-slate-300/50 space-y-1"
+                >
                   <p className="text-sm font-medium text-foreground">{c.country}</p>
                   <p className="text-2xl font-semibold text-foreground tabular-nums">
                     {c.applications}

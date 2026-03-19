@@ -20,12 +20,28 @@ import {
   AlertTriangle,
   Users,
   Zap,
+  CheckCircle2,
+  Clock,
 } from "lucide-react";
 import {
   getAuditMetricsOverview,
   getStaffLeaderboard,
 } from "../../../api/auditTrailApi";
-import { getApplicationByReviewer } from "../../../api/applicationApi";
+import {
+  getApplicationByReviewer,
+  getAllApplications,
+  getAllJob,
+} from "../../../api/applicationApi";
+import {
+  LineChart,
+  Line,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+  LabelList,
+} from "recharts";
 import { cn } from "@/lib/utils";
 
 const rankColors = [
@@ -57,6 +73,99 @@ function isUnderManualReview(status) {
   return String(status || "").trim().toLowerCase() === "under manual review";
 }
 
+function isApproved(status) {
+  return String(status || "").trim().toLowerCase() === "approved";
+}
+
+function isUnderReview(status) {
+  return String(status || "").trim().toLowerCase() === "under review";
+}
+
+function isWithinDateRangeFromCreatedAt(app, dateRange) {
+  if (!dateRange?.from && !dateRange?.to) return true;
+
+  const createdAt = app?.created_at;
+  if (!createdAt) return false;
+
+  const date = new Date(createdAt);
+  if (Number.isNaN(date.getTime())) return false;
+
+  if (dateRange?.from && date < dateRange.from) return false;
+  if (dateRange?.to && date > dateRange.to) return false;
+
+  return true;
+}
+
+function getMonthKey(dateValue) {
+  const d = new Date(dateValue);
+  if (Number.isNaN(d.getTime())) return null;
+
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, "0");
+  return `${year}-${month}`;
+}
+
+function getMonthLabel(monthKey) {
+  const [year, month] = monthKey.split("-");
+  const d = new Date(Number(year), Number(month) - 1, 1);
+
+  return d.toLocaleString("default", {
+    month: "short",
+    year: "2-digit",
+  });
+}
+
+function buildProcessingTimeByMonth(reviewJobs, applications, dateRange) {
+  const filteredApplications = applications.filter((app) =>
+    isWithinDateRangeFromCreatedAt(app, dateRange)
+  );
+
+  const applicationMap = new Map(
+    filteredApplications.map((app) => [app.application_id, app])
+  );
+
+  const processingByMonth = {};
+
+  reviewJobs.forEach((job) => {
+    if (!job.application_id || !job.completed_at) return;
+    if (String(job.status || "").toUpperCase() !== "COMPLETED") return;
+
+    const app = applicationMap.get(job.application_id);
+    if (!app?.created_at) return;
+
+    const created = new Date(app.created_at);
+    const completed = new Date(job.completed_at);
+
+    if (Number.isNaN(created.getTime()) || Number.isNaN(completed.getTime())) {
+      return;
+    }
+
+    if (completed < created) return;
+
+    const diffDays = (completed - created) / (1000 * 60 * 60 * 24);
+    const monthKey = getMonthKey(app.created_at);
+    if (!monthKey) return;
+
+    if (!processingByMonth[monthKey]) {
+      processingByMonth[monthKey] = {
+        totalDays: 0,
+        count: 0,
+      };
+    }
+
+    processingByMonth[monthKey].totalDays += diffDays;
+    processingByMonth[monthKey].count += 1;
+  });
+
+  return Object.entries(processingByMonth)
+    .map(([monthKey, value]) => ({
+      month: getMonthLabel(monthKey),
+      sortKey: monthKey,
+      value: value.count === 0 ? 0 : value.totalDays / value.count,
+    }))
+    .sort((a, b) => a.sortKey.localeCompare(b.sortKey));
+}
+
 function getRowHighlightClass(index) {
   if (index === 0) return "bg-yellow-500/70";
   if (index === 1) return "bg-slate-200/80";
@@ -68,6 +177,8 @@ export function OperationsTab({ dateRange, preset }) {
   const [overview, setOverview] = useState(null);
   const [teamPerformance, setTeamPerformance] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [stpRate, setStpRate] = useState(0);
+  const [processingTime, setProcessingTime] = useState([]);
 
   const filterParams = useMemo(() => {
     return {
@@ -101,12 +212,48 @@ export function OperationsTab({ dateRange, preset }) {
       try {
         setLoading(true);
 
-        const [overviewRes, leaderboardRes] = await Promise.all([
-          getAuditMetricsOverview(filterParams),
-          getStaffLeaderboard(filterParams),
-        ]);
+        const [overviewRes, leaderboardRes, applicationsRes, reviewJobsRes] =
+          await Promise.all([
+            getAuditMetricsOverview(filterParams),
+            getStaffLeaderboard(filterParams),
+            getAllApplications(),
+            getAllJob(),
+          ]);
 
         setOverview(overviewRes || {});
+
+        const allApplications = Array.isArray(applicationsRes)
+          ? applicationsRes
+          : Array.isArray(applicationsRes?.data)
+            ? applicationsRes.data
+            : [];
+
+        const allReviewJobs = Array.isArray(reviewJobsRes)
+          ? reviewJobsRes
+          : Array.isArray(reviewJobsRes?.data)
+            ? reviewJobsRes.data
+            : [];
+
+        const filteredApplications = allApplications.filter((app) =>
+          isWithinDateRangeFromCreatedAt(app, dateRange)
+        );
+
+        const stpApplications = filteredApplications.filter(
+          (app) =>
+            isUnderReview(app.previous_status) &&
+            isApproved(app.current_status)
+        );
+
+        const nextStpRate =
+          filteredApplications.length > 0
+            ? (stpApplications.length / filteredApplications.length) * 100
+            : 0;
+
+        setStpRate(Number(nextStpRate.toFixed(1)));
+
+        setProcessingTime(
+          buildProcessingTimeByMonth(allReviewJobs, allApplications, dateRange)
+        );
 
         const leaderboard = Array.isArray(leaderboardRes) ? leaderboardRes : [];
 
@@ -159,21 +306,24 @@ export function OperationsTab({ dateRange, preset }) {
         console.error("Failed to fetch operations metrics:", error);
         setOverview({});
         setTeamPerformance([]);
+        setStpRate(0);
+        setProcessingTime([]);
       } finally {
         setLoading(false);
       }
     };
 
     fetchOperationsData();
-  }, [filterParams]);
+  }, [filterParams, dateRange]);
 
   const operationsKPIs = useMemo(() => {
     return {
       escalationRate: overview?.escalationRate ?? 0,
       manualReviewTime: overview?.avgManualReviewTimeDays ?? 0,
       totalEscalations: overview?.totalEscalations ?? 0,
+      stpRate: stpRate ?? 0,
     };
-  }, [overview]);
+  }, [overview, stpRate]);
 
   if (loading) {
     return (
@@ -191,7 +341,7 @@ export function OperationsTab({ dateRange, preset }) {
         <p className="text-sm text-muted-foreground">{operationsDescription}</p>
       </div>
 
-      <div className="grid grid-cols-4 gap-4 lg:grid-cols-4 xl:grid-cols-3">
+      <div className="grid grid-cols-4 gap-4 lg:grid-cols-4 xl:grid-cols-4">
         <KPICard
           icon={<AlertTriangle className="h-5 w-5" />}
           title="Escalation Rate"
@@ -211,7 +361,52 @@ export function OperationsTab({ dateRange, preset }) {
           value={operationsKPIs.totalEscalations}
           trendLabel="Across filtered applications"
         />
+        <KPICard
+          icon={<CheckCircle2 className="h-5 w-5" />}
+          title="STP Rate"
+          value={operationsKPIs.stpRate}
+          suffix="%"
+          trendLabel="Under Review → Approved"
+        />
       </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-base font-medium">
+            <Clock className="h-4 w-4 text-primary" />
+            Application Processing Time Trend
+          </CardTitle>
+          <CardDescription>
+            Average time from application creation to review completion
+          </CardDescription>
+        </CardHeader>
+
+        <CardContent className="h-[300px]">
+          <ResponsiveContainer width="100%" height="100%">
+            <LineChart data={processingTime}>
+              <CartesianGrid strokeDasharray="3 3" />
+              <XAxis dataKey="month" />
+              <YAxis
+                label={{ value: "Days", angle: -90, position: "insideLeft" }}
+              />
+              <Tooltip formatter={(v) => `${Number(v).toFixed(1)} days`} />
+              <Line
+                type="monotone"
+                dataKey="value"
+                stroke="hsl(var(--accent))"
+                strokeWidth={3}
+                dot
+              >
+                <LabelList
+                  dataKey="value"
+                  position="top"
+                  formatter={(v) => `${Number(v).toFixed(1)}`}
+                />
+              </Line>
+            </LineChart>
+          </ResponsiveContainer>
+        </CardContent>
+      </Card>
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         <Card className="lg:col-span-2">

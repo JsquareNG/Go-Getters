@@ -1,5 +1,17 @@
 import { useEffect, useMemo, useState } from "react";
 import { Shield, ChevronDown, ChevronRight } from "lucide-react";
+import {
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+  Cell,
+  LabelList,
+  Legend,
+} from "recharts";
 
 import {
   Card,
@@ -19,7 +31,7 @@ import {
 } from "../primitives/table";
 
 import { cn } from "@/lib/utils";
-import { getAllJob } from "../../../api/applicationApi";
+import { getAllJob, getAllApplications } from "../../../api/applicationApi";
 import { getAllRules } from "../../../api/riskRuleApi";
 
 const ddColors = {
@@ -50,7 +62,7 @@ const categoryBarColorClasses = [
   "bg-[hsl(var(--status-in-progress))]",
   "bg-[hsl(var(--status-submitted))]",
   "bg-[hsl(var(--status-in-review))]",
-  "bg-primary",
+  "bg-red-500",
   "bg-[hsl(var(--status-approved))]",
   "bg-[hsl(var(--status-requires-action))]",
 ];
@@ -59,13 +71,35 @@ const categoryBadgeColorClasses = [
   "bg-[hsl(var(--status-in-progress)/0.1)] text-[hsl(var(--status-in-progress))] border-[hsl(var(--status-in-progress)/0.2)]",
   "bg-[hsl(var(--status-submitted)/0.1)] text-[hsl(var(--status-submitted))] border-[hsl(var(--status-submitted)/0.2)]",
   "bg-[hsl(var(--status-in-review)/0.1)] text-[hsl(var(--status-in-review))] border-[hsl(var(--status-in-review)/0.2)]",
-  "bg-primary/10 text-primary border-primary/20",
+  "bg-red-500/10 text-red-500 border-red-500/20",
   "bg-[hsl(var(--status-approved)/0.1)] text-[hsl(var(--status-approved))] border-[hsl(var(--status-approved)/0.2)]",
   "bg-[hsl(var(--status-requires-action)/0.1)] text-[hsl(var(--status-requires-action))] border-[hsl(var(--status-requires-action)/0.2)]",
 ];
 
+const riskScoreBarColors = [
+  "hsl(var(--status-submitted))",
+  "hsl(var(--status-approved))",
+  "hsl(var(--status-in-review))",
+  "hsl(var(--status-requires-action))",
+  "hsl(var(--destructive))",
+];
+
 function normalizeRiskGrade(value) {
   return String(value || "").trim().toLowerCase();
+}
+
+function normalizeStatus(value) {
+  const v = String(value || "").trim().toLowerCase();
+
+  if (v === "approved") return "Approved";
+  if (v === "rejected" || v === "declined") return "Rejected";
+  if (v === "under review") return "Under Review";
+  if (v === "under manual review") return "Under Manual Review";
+  if (v === "requires action" || v === "action required")
+    return "Requires Action";
+  if (v === "draft") return "Draft";
+
+  return String(value || "").trim() || "Unknown";
 }
 
 function formatCategoryDisplayName(category) {
@@ -192,15 +226,100 @@ function getTopTriggeredRules(reviewJobs, topN = 6) {
       ...rule,
       percentage:
         totalTriggeredOccurrences > 0
-          ? Number(((rule.triggered / totalTriggeredOccurrences) * 100).toFixed(1))
+          ? Number(
+              ((rule.triggered / totalTriggeredOccurrences) * 100).toFixed(1)
+            )
           : 0,
     }))
     .sort((a, b) => b.triggered - a.triggered)
     .slice(0, topN);
 }
 
+function getRiskBucket(score) {
+  const value = Number(score);
+
+  if (Number.isNaN(value)) return null;
+  if (value <= 50) return "0-50";
+  if (value <= 100) return "51-100";
+  if (value <= 150) return "101-150";
+  if (value <= 200) return "151-200";
+  return "201+";
+}
+
+function getRiskScoreDistribution(reviewJobs) {
+  const buckets = {
+    "0-50": 0,
+    "51-100": 0,
+    "101-150": 0,
+    "151-200": 0,
+    "201+": 0,
+  };
+
+  reviewJobs.forEach((job) => {
+    if (job.status !== "COMPLETED") return;
+
+    const bucket = getRiskBucket(job.risk_score);
+    if (!bucket) return;
+
+    buckets[bucket] += 1;
+  });
+
+  return Object.entries(buckets).map(([range, count]) => ({
+    range,
+    count,
+  }));
+}
+
+function getRiskScoreVsApproval(reviewJobs, applications) {
+  const applicationMap = new Map(
+    applications.map((app) => [app.application_id, app])
+  );
+
+  const approvalBuckets = {
+    "0-50": { approved: 0, rejected: 0 },
+    "51-100": { approved: 0, rejected: 0 },
+    "101-150": { approved: 0, rejected: 0 },
+    "151-200": { approved: 0, rejected: 0 },
+    "201+": { approved: 0, rejected: 0 },
+  };
+
+  reviewJobs.forEach((job) => {
+    if (job.status !== "COMPLETED") return;
+
+    const bucket = getRiskBucket(job.risk_score);
+    if (!bucket) return;
+
+    const app = applicationMap.get(job.application_id);
+    if (!app) return;
+
+    const status = normalizeStatus(app.current_status);
+    if (status !== "Approved" && status !== "Rejected") return;
+
+    if (status === "Approved") {
+      approvalBuckets[bucket].approved += 1;
+    } else if (status === "Rejected") {
+      approvalBuckets[bucket].rejected += 1;
+    }
+  });
+
+  return Object.entries(approvalBuckets).map(([range, values]) => {
+    const total = values.approved + values.rejected;
+
+    return {
+      range,
+      approved: values.approved,
+      rejected: values.rejected,
+      approvalRate:
+        total > 0 ? Number(((values.approved / total) * 100).toFixed(1)) : 0,
+      rejectedRate:
+        total > 0 ? Number(((values.rejected / total) * 100).toFixed(1)) : 0,
+    };
+  });
+}
+
 export function ComplianceTab() {
   const [reviewJobs, setReviewJobs] = useState([]);
+  const [applications, setApplications] = useState([]);
   const [ruleCategories, setRuleCategories] = useState([]);
   const [expandedCategory, setExpandedCategory] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -214,14 +333,13 @@ export function ComplianceTab() {
         setLoading(true);
         setError("");
 
-        const [reviewJobsData, riskRulesData] = await Promise.all([
-          getAllJob(),
-          getAllRules(),
-        ]);
+        const [reviewJobsData, applicationsData, riskRulesData] =
+          await Promise.all([getAllJob(), getAllApplications(), getAllRules()]);
 
         if (!mounted) return;
 
         setReviewJobs(Array.isArray(reviewJobsData) ? reviewJobsData : []);
+        setApplications(Array.isArray(applicationsData) ? applicationsData : []);
         setRuleCategories(normalizeRuleCategories(riskRulesData));
       } catch (err) {
         console.error("Failed to load compliance tab data:", err);
@@ -253,6 +371,14 @@ export function ComplianceTab() {
     return getTopTriggeredRules(reviewJobs, 6);
   }, [reviewJobs]);
 
+  const riskScoreDistribution = useMemo(() => {
+    return getRiskScoreDistribution(reviewJobs);
+  }, [reviewJobs]);
+
+  const riskScoreVsApproval = useMemo(() => {
+    return getRiskScoreVsApproval(reviewJobs, applications);
+  }, [reviewJobs, applications]);
+
   return (
     <div className="space-y-6">
       {error ? (
@@ -261,127 +387,215 @@ export function ComplianceTab() {
         </div>
       ) : null}
 
-      <div className= "grid grid-cols-1 gap-6 lg:grid-cols-2">
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-base font-medium">
-            <Shield className="h-4 w-4 text-primary" />
-            Due Diligence Breakdown
-          </CardTitle>
-          <CardDescription>
-            EDD, Standard CDD, and SDD distribution
-          </CardDescription>
-        </CardHeader>
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-base font-medium">
+              <Shield className="h-4 w-4 text-primary" />
+              Due Diligence Breakdown
+            </CardTitle>
+            <CardDescription>
+              EDD, Standard CDD, and SDD distribution
+            </CardDescription>
+          </CardHeader>
 
-        <CardContent>
-          <div className="mb-5 flex h-5 overflow-hidden rounded-full">
-            {dueDiligenceBreakdown.map((dd) => (
-              <div
-                key={dd.type}
-                className="h-full transition-all"
-                style={{
-                  width: `${dd.percentage}%`,
-                  backgroundColor: ddColors[dd.type],
-                }}
-              />
-            ))}
-          </div>
+          <CardContent>
+            <div className="mb-5 flex h-5 overflow-hidden rounded-full">
+              {dueDiligenceBreakdown.map((dd) => (
+                <div
+                  key={dd.type}
+                  className="h-full transition-all"
+                  style={{
+                    width: `${dd.percentage}%`,
+                    backgroundColor: ddColors[dd.type],
+                  }}
+                />
+              ))}
+            </div>
 
-          <div className="space-y-3">
-            {dueDiligenceBreakdown.map((dd) => (
-              <div
-                key={dd.type}
-                className={cn(
-                  "flex items-center justify-between rounded-lg p-3",
-                  ddBgColors[dd.type]
-                )}
-              >
-                <div className="flex items-center gap-3">
-                  <div
-                    className="h-3 w-3 rounded-full"
-                    style={{ backgroundColor: ddColors[dd.type] }}
-                  />
-                  <div>
-                    <p className={cn("text-sm font-semibold", ddTextColors[dd.type])}>
-                      {dd.type}
+            <div className="space-y-3">
+              {dueDiligenceBreakdown.map((dd) => (
+                <div
+                  key={dd.type}
+                  className={cn(
+                    "flex items-center justify-between rounded-lg p-3",
+                    ddBgColors[dd.type]
+                  )}
+                >
+                  <div className="flex items-center gap-3">
+                    <div
+                      className="h-3 w-3 rounded-full"
+                      style={{ backgroundColor: ddColors[dd.type] }}
+                    />
+                    <div>
+                      <p
+                        className={cn(
+                          "text-sm font-semibold",
+                          ddTextColors[dd.type]
+                        )}
+                      >
+                        {dd.type}
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        {dd.description}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="text-right">
+                    <p className="tabular-nums text-lg font-bold text-foreground">
+                      {dd.count}
                     </p>
                     <p className="text-xs text-muted-foreground">
-                      {dd.description}
+                      {dd.percentage}%
                     </p>
                   </div>
                 </div>
+              ))}
+            </div>
 
-                <div className="text-right">
-                  <p className="tabular-nums text-lg font-bold text-foreground">
-                    {dd.count}
-                  </p>
-                  <p className="text-xs text-muted-foreground">
-                    {dd.percentage}%
-                  </p>
-                </div>
-              </div>
-            ))}
-          </div>
-
-          {loading ? (
-            <p className="mt-4 text-xs text-muted-foreground">
-              Loading review jobs...
-            </p>
-          ) : null}
-        </CardContent>
-      </Card>
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base font-medium">
-            Top Triggered Risk Rules
-          </CardTitle>
-          <CardDescription>
-            Most frequently activated risk detection rules
-          </CardDescription>
-        </CardHeader>
-
-        <CardContent>
-          <div className="space-y-3">
-            {topTriggeredRules.map((rule) => (
-              <div
-                key={rule.code}
-                className="flex items-center gap-4 rounded-lg border bg-card p-3"
-              >
-                <div className="min-w-0 flex-1">
-                  <div className="mb-1 flex items-center gap-2">
-                    <span className="text-sm font-medium text-foreground">
-                      {rule.rule}
-                    </span>
-                  </div>
-
-                  <div className="h-1.5 w-full overflow-hidden rounded-full bg-slate-200">
-                    <div
-                      className="h-full rounded-full bg-red-500"
-                      style={{ width: `${rule.percentage}%` }}
-                    />
-                  </div>
-                </div>
-
-                <div className="shrink-0 text-right">
-                  <p className="tabular-nums text-sm font-semibold text-foreground">
-                    {rule.triggered}
-                  </p>
-                  <p className="text-xs text-muted-foreground">
-                    {rule.percentage}%
-                  </p>
-                </div>
-              </div>
-            ))}
-
-            {topTriggeredRules.length === 0 ? (
-              <div className="rounded-lg border border-dashed p-6 text-center text-sm text-muted-foreground">
-                No triggered rule data found.
-              </div>
+            {loading ? (
+              <p className="mt-4 text-xs text-muted-foreground">
+                Loading review jobs...
+              </p>
             ) : null}
-          </div>
-        </CardContent>
-      </Card>
-    </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base font-medium">
+              Top Triggered Risk Rules
+            </CardTitle>
+            <CardDescription>
+              Most frequently activated risk detection rules
+            </CardDescription>
+          </CardHeader>
+
+          <CardContent>
+            <div className="space-y-3">
+              {topTriggeredRules.map((rule) => (
+                <div
+                  key={rule.code}
+                  className="flex items-center gap-4 rounded-lg border bg-card p-3"
+                >
+                  <div className="min-w-0 flex-1">
+                    <div className="mb-1 flex items-center gap-2">
+                      <span className="text-sm font-medium text-foreground">
+                        {rule.rule}
+                      </span>
+                    </div>
+
+                    <div className="h-1.5 w-full overflow-hidden rounded-full bg-slate-200">
+                      <div
+                        className="h-full rounded-full bg-red-500"
+                        style={{ width: `${rule.percentage}%` }}
+                      />
+                    </div>
+                  </div>
+
+                  <div className="shrink-0 text-right">
+                    <p className="tabular-nums text-sm font-semibold text-foreground">
+                      {rule.triggered}
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      {rule.percentage}%
+                    </p>
+                  </div>
+                </div>
+              ))}
+
+              {topTriggeredRules.length === 0 ? (
+                <div className="rounded-lg border border-dashed p-6 text-center text-sm text-muted-foreground">
+                  No triggered rule data found.
+                </div>
+              ) : null}
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base font-medium">
+              Risk Score Distribution
+            </CardTitle>
+            <CardDescription>
+              Distribution of completed review jobs by risk score range
+            </CardDescription>
+          </CardHeader>
+
+          <CardContent className="h-[320px]">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={riskScoreDistribution}>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis dataKey="range" />
+                <YAxis />
+                <Tooltip />
+                <Bar dataKey="count" radius={[6, 6, 0, 0]}>
+                  {riskScoreDistribution.map((entry, index) => (
+                    <Cell
+                      key={entry.range}
+                      fill={
+                        riskScoreBarColors[index % riskScoreBarColors.length]
+                      }
+                    />
+                  ))}
+                  <LabelList dataKey="count" position="top" />
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base font-medium">
+              Risk Score vs Approval
+            </CardTitle>
+            <CardDescription>
+              Approved vs rejected outcomes by risk score range
+            </CardDescription>
+          </CardHeader>
+
+          <CardContent className="h-[320px]">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={riskScoreVsApproval}>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis dataKey="range" />
+                <YAxis />
+                <Tooltip />
+                <Legend />
+                <Bar
+                  dataKey="approved"
+                  name="Approved"
+                  stackId="a"
+                  fill="hsl(var(--status-approved))"
+                >
+                  <LabelList
+                    dataKey="approvalRate"
+                    position="top"
+                    formatter={(v) => `${v}%`}
+                  />
+                </Bar>
+                <Bar
+                  dataKey="rejected"
+                  name="Rejected"
+                  stackId="a"
+                  fill="hsl(var(--destructive))"
+                >
+                  <LabelList
+                    dataKey="rejectedRate"
+                    position="top"
+                    formatter={(v) => `${v}%`}
+                  />
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
+          </CardContent>
+        </Card>
+      </div>
 
       <Card>
         <CardHeader>

@@ -6,6 +6,7 @@ import { PipelineTab } from "../components/ui/Analytics/PipelineTab";
 import { KycDocumentsTab } from "../components/ui/Analytics/KycDocumentsTab";
 import { OperationsTab } from "../components/ui/Analytics/OperationsTab";
 import { ComplianceTab } from "../components/ui/Analytics/ComplianceTab";
+import DashboardTab from "/components/ui/Analytics/EdwinTab";
 import { Button } from "../components/ui/primitives/Button";
 import { Calendar } from "../components/ui/primitives/Calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "../components/ui/features/Popover";
@@ -228,6 +229,14 @@ export default function Analytics() {
               <Shield className="h-4 w-4" />
               Compliance
             </TabsTrigger>
+
+            <TabsTrigger
+              value="edwin"
+              className="gap-2 data-[state=active]:bg-card"
+            >
+              <Shield className="h-4 w-4" />
+              Edwin Tab
+            </TabsTrigger>
           </TabsList>
 
           <TabsContent value="overview">
@@ -248,6 +257,10 @@ export default function Analytics() {
           
           <TabsContent value="compliance">
             <ComplianceTab dateRange={dateRange} preset={preset} />
+          </TabsContent>
+
+          <TabsContent value="edwin">
+            <DashboardTab dateRange={dateRange} preset={preset} />
           </TabsContent>
         </Tabs>
       </main>
