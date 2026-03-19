@@ -131,6 +131,8 @@ const SMEApplicationForm = () => {
   const selectedBusinessType =
     mergedFormData?.businessType || mergedFormData?.business_type || "";
 
+  const activeConfig = CONFIG_MAP[formData?.country] || SINGAPORE_CONFIG;
+
   const isStep0Valid = Boolean(mergedFormData?.country && selectedBusinessType);
 
   const entityConfig = useMemo(() => {
@@ -1504,7 +1506,8 @@ const SMEApplicationForm = () => {
       if (!providerSessionId) {
         toast({
           title: "Identity Verification Required",
-          description: "Please complete identity verification before submitting.",
+          description:
+            "Please complete identity verification before submitting.",
           variant: "destructive",
         });
         return;

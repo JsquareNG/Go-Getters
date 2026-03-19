@@ -46,6 +46,8 @@ const Step1BasicInformation = ({
   applicationId,
 }) => {
   const fileRef = useRef(null);
+  const processedDiditSessionRef = useRef("");
+  const latestKycDataRef = useRef(DEFAULT_KYC_DATA);
 
   const [existingDocuments, setExistingDocuments] = useState([]);
 
@@ -83,7 +85,6 @@ const Step1BasicInformation = ({
   const [businessProfileError, setBusinessProfileError] = useState("");
   const [businessProfileSuccessMsg, setBusinessProfileSuccessMsg] =
     useState("");
-
 
   const CONFIG_MAP = {
     Singapore: SINGAPORE_CONFIG,
@@ -179,7 +180,6 @@ const Step1BasicInformation = ({
     if (!businessProfileFieldKey) return null;
     return basicFieldsConfig[businessProfileFieldKey];
   }, [basicFieldsConfig, businessProfileFieldKey]);
-
 
   const getFormDataRoot = () => {
     if (data?.formData && Object.keys(data.formData).length > 0) {
@@ -390,6 +390,7 @@ const Step1BasicInformation = ({
     }
   };
 
+  // --- LIVENESS DETECTION ---
   const handleStartKyc = async () => {
     console.log("Start KYC button clicked");
 
@@ -409,10 +410,7 @@ const Step1BasicInformation = ({
 
     try {
       const applicationId =
-        data?.application_id ||
-        data?.applicationId ||
-        data?.appId ||
-        "";
+        data?.application_id || data?.applicationId || data?.appId || "";
 
       const callbackUrl = window.location.href.split("?")[0];
 
@@ -427,13 +425,16 @@ const Step1BasicInformation = ({
 
       console.log("KYC payload being sent:", payload);
 
-      const response = await fetch("http://127.0.0.1:8000/didit/create-session", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
+      const response = await fetch(
+        "http://127.0.0.1:8000/didit/create-session",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(payload),
         },
-        body: JSON.stringify(payload),
-      });
+      );
 
       console.log("Backend response status:", response.status);
 
@@ -824,24 +825,6 @@ const Step1BasicInformation = ({
       );
     }
 
-    // if (fieldCfg.type === "file") {
-    //   return (
-    //     <FileUploadField
-    //       key={fullKey}
-    //       fieldName={fullKey}
-    //       label={fieldCfg.label}
-    //       // file={value || null}
-    //                 file={getDisplayedTopLevelFile(fieldName, value)}
-
-    //       onChange={(file) => handleDocumentChange(fullKey, file)}
-    //       required={fieldCfg.required || false}
-    //       acceptTypes="application/pdf,image/jpeg,image/png"
-    //       placeholder={fieldCfg.placeholder || ""}
-    //       maxSize={5242880}
-    //       disabled={disabled}
-    //     />
-    //   );
-    // }
     if (fieldCfg.type === "file") {
       const displayedFile = getDisplayedTopLevelFile(fieldName, value);
       const isBusinessProfileOCRField =
@@ -1089,70 +1072,9 @@ const Step1BasicInformation = ({
         Basic Information
       </h2>
 
-      {extractorConfig && businessProfileFieldKey && (
-        <div className="mb-6 rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
-          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-            <div>
-              <p className="text-sm font-semibold text-gray-900">
-                {businessProfileFieldConfig?.label || extractorConfig.title}
-              </p>
-              <p className="text-xs text-gray-500">
-                {extractorConfig.helperText}
-              </p>
-            </div>
-
-            <div className="flex items-center gap-3">
-              <button
-                type="button"
-                onClick={handleChooseBusinessProfile}
-                className="rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-semibold hover:bg-gray-50"
-                disabled={businessProfileUploading || disabled}
-              >
-                Upload PDF
-              </button>
-
-              <button
-                type="button"
-                onClick={handleAutofillBusinessProfile}
-                className={`rounded-lg px-4 py-2 text-sm font-semibold text-white ${
-                  businessProfileUploading
-                    ? "bg-gray-400"
-                    : "bg-red-600 hover:bg-red-700"
-                }`}
-                disabled={businessProfileUploading || disabled}
-              >
-                {businessProfileUploading ? "Autofilling..." : "Autofill"}
-              </button>
-
-              <input
-                ref={fileRef}
-                type="file"
-                accept="application/pdf"
-                className="hidden"
-                onChange={handleBusinessProfileFileChange}
-              />
-            </div>
-          </div>
-
-          <div className="mt-3 text-xs">
-            {businessProfileFile?.name && (
-              <p className="text-gray-600">
-                Selected:{" "}
-                <span className="font-medium">{businessProfileFile.name}</span>
-              </p>
-            )}
-            {businessProfileError && (
-              <p className="mt-1 text-red-600">{businessProfileError}</p>
-            )}
-            {businessProfileSuccessMsg && (
-              <p className="mt-1 text-green-600">{businessProfileSuccessMsg}</p>
-            )}
-          </div>
-        </div>
-      )}
-
+      {/* LIVENESS DETECTION */}
       <Card
-        className={`mb-6 border-2 transition-colors ${
+        className={`mb-6 border-1 transition-colors ${
           isKycPassed
             ? "border-[hsl(var(--status-approved))]/30 bg-[hsl(var(--status-approved))]/5"
             : kycStatus === "pending"
@@ -1257,7 +1179,8 @@ const Step1BasicInformation = ({
 
                     {isKycFailed && (
                       <p className="pt-2 font-medium text-red-600">
-                        Face match score must be at least {MIN_FACE_MATCH_SCORE}% before you can proceed to the next step.
+                        Face match score must be at least {MIN_FACE_MATCH_SCORE}
+                        % before you can proceed to the next step.
                       </p>
                     )}
                   </div>
@@ -1279,7 +1202,12 @@ const Step1BasicInformation = ({
               )}
 
               {kycStatus === "pending" && (
-                <Button type="button" variant="outline" disabled className="gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  disabled
+                  className="gap-2"
+                >
                   Verifying...
                 </Button>
               )}
@@ -1312,38 +1240,42 @@ const Step1BasicInformation = ({
         </CardContent>
       </Card>
 
-      <Separator className="my-8" />
+      {/* <Separator className="my-8" /> */}
 
-      {/* {data?.country === "SG" && (
+      {/* AUTOFILL FUNCTION */}
+      {extractorConfig && businessProfileFieldKey && (
         <div className="mb-6 rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <p className="text-sm font-semibold text-gray-900">
-                Autofill with ACRA business profile
+                {businessProfileFieldConfig?.label || extractorConfig.title}
               </p>
               <p className="text-xs text-gray-500">
-                Upload ACRA Business Profile (PDF), then click Autofill.
+                {extractorConfig.helperText}
               </p>
             </div>
+
             <div className="flex items-center gap-3">
               <button
                 type="button"
-                onClick={handleChooseAcra}
+                onClick={handleChooseBusinessProfile}
                 className="rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-semibold hover:bg-gray-50"
-                disabled={acraUploading}
+                disabled={businessProfileUploading || disabled}
               >
                 Upload PDF
               </button>
 
               <button
                 type="button"
-                onClick={handleAutofillAcra}
+                onClick={handleAutofillBusinessProfile}
                 className={`rounded-lg px-4 py-2 text-sm font-semibold text-white ${
-                  acraUploading ? "bg-gray-400" : "bg-red-600 hover:bg-red-700"
+                  businessProfileUploading
+                    ? "bg-gray-400"
+                    : "bg-red-600 hover:bg-red-700"
                 }`}
-                disabled={acraUploading}
+                disabled={businessProfileUploading || disabled}
               >
-                {acraUploading ? "Autofilling..." : "Autofill"}
+                {businessProfileUploading ? "Autofilling..." : "Autofill"}
               </button>
 
               <input
@@ -1351,64 +1283,27 @@ const Step1BasicInformation = ({
                 type="file"
                 accept="application/pdf"
                 className="hidden"
-                onChange={handleAcraFileChange}
+                onChange={handleBusinessProfileFileChange}
               />
             </div>
           </div>
 
           <div className="mt-3 text-xs">
-            {acraFile?.name && (
+            {businessProfileFile?.name && (
               <p className="text-gray-600">
-                Selected: <span className="font-medium">{acraFile.name}</span>
+                Selected:{" "}
+                <span className="font-medium">{businessProfileFile.name}</span>
               </p>
             )}
-            {acraError && <p className="mt-1 text-red-600">{acraError}</p>}
-            {acraSuccessMsg && (
-              <p className="mt-1 text-green-600">{acraSuccessMsg}</p>
+            {businessProfileError && (
+              <p className="mt-1 text-red-600">{businessProfileError}</p>
+            )}
+            {businessProfileSuccessMsg && (
+              <p className="mt-1 text-green-600">{businessProfileSuccessMsg}</p>
             )}
           </div>
         </div>
-      )} */}
-
-      {/* Top-Level Fields */}
-      {/* {Object.entries(basicFieldsConfig).map(([fieldName, fieldConfig]) => (
-        <FormFieldGroup
-          key={fieldName}
-          fieldName={fieldName}
-          label={fieldConfig.label}
-          placeholder={fieldConfig.placeholder || ""}
-          value={data[fieldName] || ""}
-          onChange={onFieldChange} // Redux-only
-          type={fieldConfig.type || "text"}
-          options={fieldConfig.options || []}
-          required={fieldConfig.required || false}
-          disabled={disabled}
-        />
-      ))} */}
-
-      {/* Repeatable Sections */}
-      {/* {Object.entries(repeatableSectionsConfig).map(([sectionKey, section]) => (
-        <div key={sectionKey} className="mt-6">
-          <h3 className="text-lg font-semibold mb-3 text-gray-900">
-            {section.label}
-          </h3>
-
-          {Object.entries(section.fields).map(([fieldName, fieldConfig]) => (
-            <FormFieldGroup
-              key={fieldName}
-              fieldName={fieldName}
-              label={fieldConfig.label}
-              placeholder={fieldConfig.placeholder || ""}
-              value={data[fieldName] || ""}
-              onChange={onFieldChange} // Redux-only
-              type={fieldConfig.type || "text"}
-              options={fieldConfig.options || []}
-              required={fieldConfig.required || false}
-              disabled={disabled}
-            />
-          ))}
-        </div>
-      ))} */}
+      )}
 
       {/* Top-Level Fields */}
       {Object.entries(basicFieldsConfig).map(([fieldName, fieldConfig]) =>
