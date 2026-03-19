@@ -70,10 +70,44 @@ const Step4 = ({ onEdit, disabled = false, applicationId }) => {
   /* ------------------------------------------------ */
   /* HELPERS */
   /* ------------------------------------------------ */
+  const normalizeDocType = (value) => (value || "").trim();
 
+  const getConfigDocumentType = ({
+    cfg,
+    fieldKey,
+    sectionKey = null,
+    sectionConfig = null,
+    rowIndex = null,
+  }) => {
+    // explicit config override
+    if (cfg?.documentType) return cfg.documentType;
+
+    // top-level file
+    if (!sectionKey) {
+      return fieldKey;
+    }
+
+    // repeatable section
+    if (sectionConfig?.storage === "individuals") {
+      const roleValue = getSectionRoleValue(sectionKey, sectionConfig);
+      return `${roleValue}_${rowIndex + 1}_${fieldKey}`;
+    }
+
+    return `${sectionKey}_${rowIndex + 1}_${fieldKey}`;
+  };
+
+  // const existingDocumentMap = useMemo(() => {
+  //   return existingDocuments.reduce((acc, doc) => {
+  //     acc[doc.document_type] = doc;
+  //     return acc;
+  //   }, {});
+  // }, [existingDocuments]);
   const existingDocumentMap = useMemo(() => {
     return existingDocuments.reduce((acc, doc) => {
-      acc[doc.document_type] = doc;
+      const type = normalizeDocType(doc.document_type);
+      if (type) {
+        acc[type] = doc;
+      }
       return acc;
     }, {});
   }, [existingDocuments]);
@@ -118,20 +152,79 @@ const Step4 = ({ onEdit, disabled = false, applicationId }) => {
     return "Not uploaded";
   };
 
-  const getDisplayedDocumentValue = (fieldKey, stepData = {}) => {
-    const localValue =
-      getNestedValue(stepData?.formData || {}, fieldKey) ??
-      getNestedValue(stepData, fieldKey) ??
-      null;
+  // const getDisplayedRepeatableDocumentValue = ({
+  //   sectionKey,
+  //   sectionConfig,
+  //   rowIndex,
+  //   fieldKey,
+  //   item,
+  // }) => {
+  //   const localValue = item?.[fieldKey] ?? null;
+  //   const localFile = unwrapLocalFile(localValue);
+
+  //   if (localFile) return localValue;
+
+  //   if (sectionConfig?.storage === "individuals") {
+  //     const documentType = buildIndividualDocumentType(
+  //       sectionKey,
+  //       sectionConfig,
+  //       rowIndex,
+  //       fieldKey,
+  //     );
+
+  //     return existingDocumentMap[documentType] || null;
+  //   }
+
+  //   return (
+  //     existingDocumentMap[`${sectionKey}_${rowIndex + 1}_${fieldKey}`] || null
+  //   );
+  // };
+
+  const getDisplayedDocument = ({
+    cfg,
+    fieldKey,
+    stepData = {},
+    item = null,
+    sectionKey = null,
+    sectionConfig = null,
+    rowIndex = null,
+  }) => {
+    // 1. local unsaved file first
+    const localValue = item
+      ? (item?.[fieldKey] ?? null)
+      : (getNestedValue(stepData?.formData || {}, fieldKey) ??
+        getNestedValue(stepData, fieldKey) ??
+        null);
 
     const localFile = unwrapLocalFile(localValue);
     if (localFile) return localValue;
 
-    const backendDoc = existingDocumentMap[fieldKey];
-    if (backendDoc) return backendDoc;
+    // 2. backend document fallback
+    const documentType = getConfigDocumentType({
+      cfg,
+      fieldKey,
+      sectionKey,
+      sectionConfig,
+      rowIndex,
+    });
 
-    return null;
+    return existingDocumentMap[normalizeDocType(documentType)] || null;
   };
+
+  // const getDisplayedDocumentValue = (fieldKey, stepData = {}) => {
+  //   const localValue =
+  //     getNestedValue(stepData?.formData || {}, fieldKey) ??
+  //     getNestedValue(stepData, fieldKey) ??
+  //     null;
+
+  //   const localFile = unwrapLocalFile(localValue);
+  //   if (localFile) return localValue;
+
+  //   const backendDoc = existingDocumentMap[fieldKey];
+  //   if (backendDoc) return backendDoc;
+
+  //   return null;
+  // };
 
   // HELPER FOR NESTED INDIVIDUAL FIELDS:
   const getMergedFormState = (rawData = {}) => {
@@ -170,72 +263,6 @@ const Step4 = ({ onEdit, disabled = false, applicationId }) => {
     return `${roleValue}_${rowIndex + 1}_${fieldKey}`;
   };
 
-  const getDisplayedTopLevelDocumentValue = (fieldKey, stepData = {}) => {
-    const localValue =
-      getNestedValue(stepData?.formData || {}, fieldKey) ??
-      getNestedValue(stepData, fieldKey) ??
-      null;
-
-    const localFile = unwrapLocalFile(localValue);
-    if (localFile) return localValue;
-
-    return existingDocumentMap[fieldKey] || null;
-  };
-
-  // const getDisplayedRepeatableDocumentValue = ({
-  //   sectionKey,
-  //   sectionConfig,
-  //   rowIndex,
-  //   fieldKey,
-  //   item,
-  // }) => {
-  //   const localValue = item?.[fieldKey] ?? null;
-
-  //   const localFile = unwrapLocalFile(localValue);
-  //   if (localFile) return localValue;
-
-  //   if (sectionConfig?.storage === "individuals") {
-  //     const documentType = buildIndividualDocumentType(
-  //       sectionKey,
-  //       sectionConfig,
-  //       rowIndex,
-  //       fieldKey,
-  //     );
-  //     return existingDocumentMap[documentType] || null;
-  //   }
-
-  //   const fallbackType = `${sectionKey}_${rowIndex + 1}_${fieldKey}`;
-  //   return existingDocumentMap[fallbackType] || null;
-  // };
-
-  const getDisplayedRepeatableDocumentValue = ({
-    sectionKey,
-    sectionConfig,
-    rowIndex,
-    fieldKey,
-    item,
-  }) => {
-    const localValue = item?.[fieldKey] ?? null;
-    const localFile = unwrapLocalFile(localValue);
-
-    if (localFile) return localValue;
-
-    if (sectionConfig?.storage === "individuals") {
-      const documentType = buildIndividualDocumentType(
-        sectionKey,
-        sectionConfig,
-        rowIndex,
-        fieldKey,
-      );
-
-      return existingDocumentMap[documentType] || null;
-    }
-
-    return (
-      existingDocumentMap[`${sectionKey}_${rowIndex + 1}_${fieldKey}`] || null
-    );
-  };
-
   const getFieldsFromStep = (stepConfig, stepData = {}) => {
     const fields = [];
 
@@ -270,7 +297,13 @@ const Step4 = ({ onEdit, disabled = false, applicationId }) => {
           if (localFile) {
             value = `${localFile.name} (${(localFile.size / 1024).toFixed(2)} KB)`;
           } else if (cfg.type === "file") {
-            const displayedDoc = getDisplayedDocumentValue(key, data);
+            // const displayedDoc = getDisplayedDocumentValue(key, data);
+            // value = formatDisplayedDocument(displayedDoc);
+            const displayedDoc = getDisplayedDocument({
+              cfg,
+              fieldKey: key,
+              stepData: data,
+            });
             value = formatDisplayedDocument(displayedDoc);
           } else if (typeof value === "object" && value !== null) {
             value = JSON.stringify(value, null, 2);
@@ -283,7 +316,13 @@ const Step4 = ({ onEdit, disabled = false, applicationId }) => {
             value,
             missing:
               cfg.required &&
-              ((cfg.type === "file" && !getDisplayedDocumentValue(key, data)) ||
+              // ((cfg.type === "file" && !getDisplayedDocumentValue(key, data))
+              ((cfg.type === "file") &
+                !getDisplayedDocument({
+                  cfg,
+                  fieldKey: key,
+                  stepData: data,
+                }) ||
                 value === "Not provided"),
           });
         }
@@ -337,12 +376,21 @@ const Step4 = ({ onEdit, disabled = false, applicationId }) => {
             }
 
             if (cfg.type === "file") {
-              const displayedDoc = getDisplayedRepeatableDocumentValue({
+              // const displayedDoc = getDisplayedRepeatableDocumentValue({
+              //   sectionKey,
+              //   sectionConfig: sectionCfg,
+              //   rowIndex: idx,
+              //   fieldKey: key,
+              //   item,
+              // });
+              const displayedDoc = getDisplayedDocument({
+                cfg,
+                fieldKey: key,
+                item,
                 sectionKey,
                 sectionConfig: sectionCfg,
                 rowIndex: idx,
-                fieldKey: key,
-                item,
+                stepData,
               });
 
               fields.push({
@@ -437,108 +485,156 @@ const Step4 = ({ onEdit, disabled = false, applicationId }) => {
 
   //   return true;
   // };
+  // const isStepComplete = (stepConfig, formData = {}) => {
+  //   if (!stepConfig) return true;
+
+  //   const checkFields = ({
+  //     fields,
+  //     data,
+  //     sectionKey = null,
+  //     sectionConfig = null,
+  //     rowIndex = null,
+  //   }) => {
+  //     for (const [sectionKey, sectionCfg] of Object.entries(
+  //       stepConfig.repeatableSections || {},
+  //     )) {
+  //       const items = getSectionItems(formData, sectionKey, sectionCfg);
+
+  //       if ((sectionCfg.min ?? 0) > items.length) return false;
+
+  //       for (let idx = 0; idx < items.length; idx++) {
+  //         const item = items[idx];
+
+  //         for (const [key, cfg] of Object.entries(sectionCfg.fields || {})) {
+  //           const value = item?.[key];
+
+  //           if (cfg.required) {
+  //             if (cfg.type === "file") {
+  //               const displayedDoc = getDisplayedRepeatableDocumentValue({
+  //                 sectionKey,
+  //                 sectionConfig: sectionCfg,
+  //                 rowIndex: idx,
+  //                 fieldKey: key,
+  //                 item,
+  //               });
+
+  //               if (!displayedDoc) return false;
+  //             } else {
+  //               if (
+  //                 value === null ||
+  //                 value === undefined ||
+  //                 (typeof value === "string" && value.trim() === "") ||
+  //                 (Array.isArray(value) && value.length === 0)
+  //               ) {
+  //                 return false;
+  //               }
+  //             }
+  //           }
+  //         }
+  //       }
+  //     }
+
+  //     return true;
+  //   };
+
+  //   if (!checkFields({ fields: stepConfig.fields, data: formData }))
+  //     return false;
+
+  //   for (const [sectionKey, sectionCfg] of Object.entries(
+  //     stepConfig.repeatableSections || {},
+  //   )) {
+  //     const items = getSectionItems(formData, sectionKey, sectionCfg);
+
+  //     if ((sectionCfg.min ?? 0) > items.length) return false;
+
+  //     for (let idx = 0; idx < items.length; idx++) {
+  //       if (
+  //         !checkFields({
+  //           fields: sectionCfg.fields,
+  //           data: items[idx],
+  //           sectionKey,
+  //           sectionConfig: sectionCfg,
+  //           rowIndex: idx,
+  //         })
+  //       ) {
+  //         return false;
+  //       }
+  //     }
+  //   }
+
+  //   return true;
+  // };
+  const isEmptyValue = (value) => {
+    return (
+      value === null ||
+      value === undefined ||
+      (typeof value === "string" && value.trim() === "") ||
+      (Array.isArray(value) && value.length === 0)
+    );
+  };
+
+  const validateFieldSet = ({
+    fields,
+    data,
+    stepData,
+    sectionKey = null,
+    sectionConfig = null,
+    rowIndex = null,
+  }) => {
+    for (const [key, cfg] of Object.entries(fields || {})) {
+      const value = data?.[key];
+
+      // handle conditional fields
+      if (cfg.conditionalFields && value in cfg.conditionalFields) {
+        const conditionalFields = cfg.conditionalFields[value] || {};
+        const conditionalOk = validateFieldSet({
+          fields: conditionalFields,
+          data,
+          stepData,
+          sectionKey,
+          sectionConfig,
+          rowIndex,
+        });
+        if (!conditionalOk) return false;
+      }
+
+      if (!cfg.required) continue;
+
+      if (cfg.type === "file") {
+        const displayedDoc = getDisplayedDocument({
+          cfg,
+          fieldKey: key,
+          stepData,
+          item: sectionKey ? data : null,
+          sectionKey,
+          sectionConfig,
+          rowIndex,
+        });
+
+        if (!displayedDoc) return false;
+      } else {
+        if (isEmptyValue(value)) return false;
+      }
+    }
+
+    return true;
+  };
+
   const isStepComplete = (stepConfig, formData = {}) => {
     if (!stepConfig) return true;
 
-    const checkFields = ({
-      fields,
-      data,
-      sectionKey = null,
-      sectionConfig = null,
-      rowIndex = null,
-    }) => {
-      // for (const [key, cfg] of Object.entries(fields || {})) {
-      //   const value = data?.[key];
-
-      //   if (cfg.conditionalFields && value in cfg.conditionalFields) {
-      //     const conditionalFields = cfg.conditionalFields[value] || {};
-      //     for (const [condKey, condCfg] of Object.entries(conditionalFields)) {
-      //       const condValue = data?.[condKey];
-      //       if (
-      //         condCfg.required &&
-      //         (condValue === null ||
-      //           condValue === undefined ||
-      //           (typeof condValue === "string" && condValue.trim() === ""))
-      //       ) {
-      //         return false;
-      //       }
-      //     }
-      //   }
-
-      //   if (cfg.required) {
-      //     if (cfg.type === "file") {
-      //       let displayedDoc = null;
-
-      //       if (sectionKey && sectionConfig && rowIndex != null) {
-      //         displayedDoc = getDisplayedRepeatableDocumentValue({
-      //           sectionKey,
-      //           sectionConfig,
-      //           rowIndex,
-      //           fieldKey: key,
-      //           item: data,
-      //         });
-      //       } else {
-      //         displayedDoc = getDisplayedTopLevelDocumentValue(key, formData);
-      //       }
-
-      //       if (!displayedDoc) return false;
-      //     } else {
-      //       if (
-      //         value === null ||
-      //         value === undefined ||
-      //         (typeof value === "string" && value.trim() === "") ||
-      //         (Array.isArray(value) && value.length === 0)
-      //       ) {
-      //         return false;
-      //       }
-      //     }
-      //   }
-      // }
-      for (const [sectionKey, sectionCfg] of Object.entries(
-        stepConfig.repeatableSections || {},
-      )) {
-        const items = getSectionItems(formData, sectionKey, sectionCfg);
-
-        if ((sectionCfg.min ?? 0) > items.length) return false;
-
-        for (let idx = 0; idx < items.length; idx++) {
-          const item = items[idx];
-
-          for (const [key, cfg] of Object.entries(sectionCfg.fields || {})) {
-            const value = item?.[key];
-
-            if (cfg.required) {
-              if (cfg.type === "file") {
-                const displayedDoc = getDisplayedRepeatableDocumentValue({
-                  sectionKey,
-                  sectionConfig: sectionCfg,
-                  rowIndex: idx,
-                  fieldKey: key,
-                  item,
-                });
-
-                if (!displayedDoc) return false;
-              } else {
-                if (
-                  value === null ||
-                  value === undefined ||
-                  (typeof value === "string" && value.trim() === "") ||
-                  (Array.isArray(value) && value.length === 0)
-                ) {
-                  return false;
-                }
-              }
-            }
-          }
-        }
-      }
-
-      return true;
-    };
-
-    if (!checkFields({ fields: stepConfig.fields, data: formData }))
+    // top-level fields
+    if (
+      !validateFieldSet({
+        fields: stepConfig.fields,
+        data: formData,
+        stepData: formData,
+      })
+    ) {
       return false;
+    }
 
+    // repeatable sections
     for (const [sectionKey, sectionCfg] of Object.entries(
       stepConfig.repeatableSections || {},
     )) {
@@ -547,10 +643,13 @@ const Step4 = ({ onEdit, disabled = false, applicationId }) => {
       if ((sectionCfg.min ?? 0) > items.length) return false;
 
       for (let idx = 0; idx < items.length; idx++) {
+        const item = items[idx];
+
         if (
-          !checkFields({
+          !validateFieldSet({
             fields: sectionCfg.fields,
-            data: items[idx],
+            data: item,
+            stepData: formData,
             sectionKey,
             sectionConfig: sectionCfg,
             rowIndex: idx,
@@ -592,16 +691,6 @@ const Step4 = ({ onEdit, disabled = false, applicationId }) => {
   /* STEP COMPLETION */
   /* ------------------------------------------------ */
 
-  //   const allFields = [...basicFields, ...financialFields, ...complianceFields];
-  //   const allStepsComplete = allFields.every(
-  //     (f) => f.value && f.value !== "Not provided",
-  //   );
-  //   const allStepsComplete =
-  //     stepCompletion[0] &&
-  //     stepCompletion[1] &&
-  //     stepCompletion[2] &&
-  //     stepCompletion[3];
-
   /* ------------------------------------------------ */
   /* REVIEW SECTION */
   /* ------------------------------------------------ */
@@ -623,22 +712,6 @@ const Step4 = ({ onEdit, disabled = false, applicationId }) => {
         </button>
       </div>
 
-      {/* <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {fields.map((field, idx) => (
-          <div
-            key={idx}
-            className="bg-white p-3 rounded border border-gray-200"
-          >
-            <p className="text-xs font-medium text-gray-500 uppercase mb-1">
-              {field.label}
-            </p>
-
-            <p className="text-sm text-gray-900 break-words">
-              {field.value || "Not provided"}
-            </p>
-          </div>
-        ))}
-      </div> */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {fields.map((field, idx) => (
           <div
