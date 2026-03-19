@@ -3,10 +3,21 @@ import FormFieldGroup from "../components/FormFieldGroup";
 import FileUploadField from "../components/FileUploadField";
 import { Button } from "@/components/ui";
 import { SINGAPORE_CONFIG, INDONESIA_CONFIG } from "../config";
-import { allDocuments } from "@/api/documentApi";
+import { allDocuments, ocrDocumentApi } from "@/api/documentApi";
 
-const ACRA_WITH_TABLES_ENDPOINT =
-  "http://127.0.0.1:8000/document-ai/extract-acra-bizprofile";
+// const ACRA_WITH_TABLES_ENDPOINT =
+//   "http://127.0.0.1:8000/document-ai/extract-acra-bizprofile";
+const BUSINESS_PROFILE_EXTRACTORS = {
+  Singapore: {
+    title: "Autofill with Business Profile",
+    helperText: "Upload the business profile / ACRA PDF, then click Autofill.",
+  },
+  Indonesia: {
+    title: "Autofill with Business Profile",
+    helperText:
+      "Upload the registration / deed / incorporation PDF, then click Autofill.",
+  },
+};
 
 const Step1BasicInformation = ({
   data,
@@ -46,10 +57,13 @@ const Step1BasicInformation = ({
     return value instanceof File || value?.file instanceof File;
   };
 
-  const [acraFile, setAcraFile] = useState(null);
-  const [acraUploading, setAcraUploading] = useState(false);
-  const [acraError, setAcraError] = useState("");
-  const [acraSuccessMsg, setAcraSuccessMsg] = useState("");
+  const [businessProfileFile, setBusinessProfileFile] = useState(null);
+  const [businessProfileUploading, setBusinessProfileUploading] =
+    useState(false);
+  const [businessProfileError, setBusinessProfileError] = useState("");
+  const [businessProfileSuccessMsg, setBusinessProfileSuccessMsg] =
+    useState("");
+
 
   const CONFIG_MAP = {
     Singapore: SINGAPORE_CONFIG,
@@ -92,136 +106,23 @@ const Step1BasicInformation = ({
     };
   }, [data?.businessType, data?.country]);
 
-  // ---- ACRA Upload Handlers ----
-  const handleChooseAcra = () => fileRef.current?.click();
+  // --- OCR ---
+  const extractorConfig = BUSINESS_PROFILE_EXTRACTORS[data?.country] || null;
 
-  const handleAcraFileChange = (e) => {
-    setAcraError("");
-    setAcraSuccessMsg("");
-    const file = e.target.files?.[0];
-    if (file) setAcraFile(file);
-    e.target.value = "";
-  };
+  const businessProfileFieldKey = useMemo(() => {
+    const entry = Object.entries(basicFieldsConfig || {}).find(
+      ([, fieldCfg]) =>
+        fieldCfg?.type === "file" && fieldCfg?.ocrTarget === "business_profile",
+    );
 
-  const handleAutofillAcra = async () => {
-    setAcraError("");
-    setAcraSuccessMsg("");
+    return entry?.[0] || null;
+  }, [basicFieldsConfig]);
 
-    if (data?.country !== "Singapore") return;
-    if (!acraFile) return setAcraError("Please upload your ACRA PDF first.");
-    if (acraFile.type !== "application/pdf")
-      return setAcraError("Only PDF is allowed.");
+  const businessProfileFieldConfig = useMemo(() => {
+    if (!businessProfileFieldKey) return null;
+    return basicFieldsConfig[businessProfileFieldKey];
+  }, [basicFieldsConfig, businessProfileFieldKey]);
 
-    setAcraUploading(true);
-
-    try {
-      const formDataApi = new FormData();
-      formDataApi.append("file", acraFile);
-
-      const res = await fetch(ACRA_WITH_TABLES_ENDPOINT, {
-        method: "POST",
-        body: formDataApi,
-      });
-
-      if (!res.ok) throw new Error("Autofill failed");
-
-      const result = await res.json();
-      console.log("FULL API RESPONSE:", result);
-      const rawKv = result?.data?.data || {};
-      const kv = {};
-      Object.keys(rawKv).forEach((k) => {
-        kv[k.toLowerCase().trim()] = rawKv[k];
-      });
-
-      // const ownerName = result?.data?.owner?.owner_name || "";
-      // const ownerId = result?.data?.owner?.identification_number || "";
-      const ownerName = result?.data?.data?.owners?.name || "";
-      const ownerId = result?.data?.data?.owners?.id_number || "";
-      // if (ownerName && data?.businessType === "sole_proprietorship") {
-      //   onFieldChange("owners.0.fullName", ownerName);
-      // }
-      // if (ownerId && data?.businessType === "sole_proprietorship") {
-      //   onFieldChange("owners.0.idNumber", ownerId);
-      // }
-
-      // ---- helpers ----
-      const setIfEmpty = (key, value) => {
-        if (!(key in basicFieldsConfig)) return;
-        if (!value) return;
-        const next = String(value).trim();
-        if (!next) return;
-        const current = data?.[key] ?? "";
-        if (!current || String(current).trim() === "") {
-          onFieldChange?.(key, next); // direct Redux update
-        }
-      };
-
-      const ddMmmYyyyToISO = (s) => {
-        if (!s) return "";
-        const m = String(s)
-          .trim()
-          .match(/^(\d{1,2})\s+([A-Z]{3})\s+(\d{4})$/i);
-        if (!m) return "";
-        const months = {
-          JAN: "01",
-          FEB: "02",
-          MAR: "03",
-          APR: "04",
-          MAY: "05",
-          JUN: "06",
-          JUL: "07",
-          AUG: "08",
-          SEP: "09",
-          OCT: "10",
-          NOV: "11",
-          DEC: "12",
-        };
-        const day = m[1].padStart(2, "0");
-        const mm = months[m[2].toUpperCase()];
-        return `${m[3]}-${mm}-${day}`;
-      };
-
-      const normalizeStatus = (s) => {
-        if (!s) return "";
-        const v = String(s).trim().toUpperCase();
-        if (v === "LIVE" || v === "ACTIVE") return "Active";
-        if (v === "INACTIVE") return "Inactive";
-        if (v === "DISSOLVED") return "Dissolved";
-        if (v === "LIQUIDATED") return "Liquidated";
-        if (v === "IN RECEIVERSHIP") return "InReceivership";
-        if (v === "STRUCK OFF") return "StruckOff";
-        return "";
-      };
-
-      // ---- map ACRA → Redux ----
-      setIfEmpty(
-        "businessName",
-        // kv["name of business"] || kv["name of company"],
-        kv["name"],
-      );
-      // setIfEmpty("registeredAddress", kv["principal place of business"]);
-      setIfEmpty("registeredAddress", kv["address"]);
-
-      const isoDate = ddMmmYyyyToISO(
-        kv["registration_date"] || kv["commencement date"],
-      );
-      if (isoDate) setIfEmpty("registrationDate", isoDate);
-      const mappedStatus = normalizeStatus(
-        // kv["status of business"] || kv["status of company"],
-        kv["status"],
-      );
-      if (mappedStatus) setIfEmpty("businessStatus", mappedStatus);
-      setIfEmpty("uen", kv["uen"]);
-      if (ownerName) setIfEmpty("fullName", ownerName);
-      if (ownerId) setIfEmpty("idNumber", ownerId);
-
-      setAcraSuccessMsg("Autofill completed. Please review before proceeding.");
-    } catch (err) {
-      setAcraError(err?.message || "Failed to autofill.");
-    } finally {
-      setAcraUploading(false);
-    }
-  };
 
   const getFormDataRoot = () => {
     if (data?.formData && Object.keys(data.formData).length > 0) {
@@ -273,6 +174,166 @@ const Step1BasicInformation = ({
     return result;
   };
 
+  // --- OCR ---
+  const setIfEmpty = (key, value) => {
+    if (!(key in basicFieldsConfig)) return;
+    if (!value) return;
+
+    const next = String(value).trim();
+    if (!next) return;
+
+    const current =
+      getNestedValue(getFormDataRoot(), key) ?? getNestedValue(data, key) ?? "";
+
+    if (!current || String(current).trim() === "") {
+      onFieldChange(key, next);
+    }
+  };
+
+  const ddMmmYyyyToISO = (s) => {
+    if (!s) return "";
+
+    const m = String(s)
+      .trim()
+      .match(/^(\d{1,2})\s+([A-Z]{3})\s+(\d{4})$/i);
+
+    if (!m) return "";
+
+    const months = {
+      JAN: "01",
+      FEB: "02",
+      MAR: "03",
+      APR: "04",
+      MAY: "05",
+      JUN: "06",
+      JUL: "07",
+      AUG: "08",
+      SEP: "09",
+      OCT: "10",
+      NOV: "11",
+      DEC: "12",
+    };
+
+    const day = m[1].padStart(2, "0");
+    const mm = months[m[2].toUpperCase()];
+    return `${m[3]}-${mm}-${day}`;
+  };
+
+  const normalizeStatus = (s) => {
+    if (!s) return "";
+    const v = String(s).trim().toUpperCase();
+
+    if (v === "LIVE" || v === "ACTIVE") return "Active";
+    if (v === "INACTIVE") return "Inactive";
+    if (v === "DISSOLVED") return "Dissolved";
+    if (v === "LIQUIDATED") return "Liquidated";
+    if (v === "IN RECEIVERSHIP") return "InReceivership";
+    if (v === "STRUCK OFF") return "StruckOff";
+
+    return "";
+  };
+
+  const mapBusinessProfileResultToForm = (result) => {
+    const rawKv = result?.data?.data || {};
+    const kv = {};
+
+    Object.keys(rawKv).forEach((k) => {
+      kv[k.toLowerCase().trim()] = rawKv[k];
+    });
+
+    const ownerName =
+      result?.data?.data?.owners?.name || result?.data?.owner?.owner_name || "";
+
+    const ownerId =
+      result?.data?.data?.owners?.id_number ||
+      result?.data?.owner?.identification_number ||
+      "";
+
+    setIfEmpty("businessName", kv["name"] || kv["business name"]);
+    setIfEmpty(
+      "registeredAddress",
+      kv["address"] ||
+        kv["registered address"] ||
+        kv["principal place of business"],
+    );
+
+    const isoDate = ddMmmYyyyToISO(
+      kv["registration_date"] ||
+        kv["commencement date"] ||
+        kv["date of registration"],
+    );
+    if (isoDate) setIfEmpty("registrationDate", isoDate);
+
+    const mappedStatus = normalizeStatus(
+      kv["status"] || kv["business status"] || kv["status of business"],
+    );
+    if (mappedStatus) setIfEmpty("businessStatus", mappedStatus);
+
+    setIfEmpty("uen", kv["uen"]);
+    setIfEmpty("nib", kv["nib"]);
+    setIfEmpty(
+      "businessRegistrationNumber",
+      kv["uen"] || kv["nib"] || kv["registration number"],
+    );
+    setIfEmpty("npwp", kv["npwp"]);
+
+    if (ownerName) setIfEmpty("fullName", ownerName);
+    if (ownerId) setIfEmpty("idNumber", ownerId);
+  };
+
+  const handleChooseBusinessProfile = () => fileRef.current?.click();
+
+  const handleBusinessProfileFileChange = (e) => {
+    setBusinessProfileError("");
+    setBusinessProfileSuccessMsg("");
+
+    const file = e.target.files?.[0];
+    if (file) {
+      setBusinessProfileFile(file);
+
+      if (businessProfileFieldKey) {
+        onFieldChange(businessProfileFieldKey, { file, progress: 0 });
+      }
+    }
+
+    e.target.value = "";
+  };
+
+  const handleAutofillBusinessProfile = async () => {
+    setBusinessProfileError("");
+    setBusinessProfileSuccessMsg("");
+
+    if (!businessProfileFile) {
+      setBusinessProfileError(
+        "Please upload the business profile document first.",
+      );
+      return;
+    }
+
+    if (businessProfileFile.type !== "application/pdf") {
+      setBusinessProfileError("Only PDF is allowed.");
+      return;
+    }
+
+    setBusinessProfileUploading(true);
+
+    try {
+      const result = await ocrDocumentApi(businessProfileFile);
+      console.log("BUSINESS PROFILE OCR RESPONSE:", result);
+
+      mapBusinessProfileResultToForm(result);
+
+      setBusinessProfileSuccessMsg(
+        "Autofill completed. Please review before proceeding.",
+      );
+    } catch (err) {
+      setBusinessProfileError(err?.message || "Failed to autofill.");
+    } finally {
+      setBusinessProfileUploading(false);
+    }
+  };
+
+  // --- SPECIFICALLY FOR INDIVIDUAL'S NESTING ---
   const buildIndividualDocumentType = (
     sectionKey,
     sectionConfig,
@@ -343,31 +404,6 @@ const Step1BasicInformation = ({
     handleSectionChange(sectionKey, nextRows);
   };
 
-  // const handleIndividualFieldChange = (
-  //   sectionKey,
-  //   sectionConfig,
-  //   rowIndex,
-  //   fieldKey,
-  //   value,
-  // ) => {
-  //   const individuals = [...getIndividuals()];
-  //   const roleValue = getRoleValue(sectionConfig, sectionKey);
-
-  //   const matchingRows = individuals
-  //     .map((person, originalIndex) => ({ person, originalIndex }))
-  //     .filter(({ person }) => person?.role === roleValue);
-
-  //   const target = matchingRows[rowIndex];
-  //   if (!target) return;
-
-  //   const updatedIndividuals = [...individuals];
-  //   updatedIndividuals[target.originalIndex] = {
-  //     ...updatedIndividuals[target.originalIndex],
-  //     [fieldKey]: value,
-  //   };
-
-  //   onFieldChange("formData.individuals", updatedIndividuals);
-  // };
   const handleIndividualFieldChange = (
     sectionKey,
     sectionConfig,
@@ -481,7 +517,29 @@ const Step1BasicInformation = ({
     };
   };
 
+  const getDisplayedTopLevelFile = (fieldName, localValue) => {
+    if (hasUsableLocalFile(localValue)) {
+      return localValue;
+    }
+
+    const existingDoc = existingDocumentMap[fieldName];
+    if (!existingDoc) return null;
+
+    return {
+      uploaded: true,
+      document_id: existingDoc.document_id,
+      document_type: existingDoc.document_type,
+      original_filename: existingDoc.original_filename,
+      storage_path: existingDoc.storage_path,
+      mime_type: existingDoc.mime_type,
+      status: existingDoc.status,
+      created_at: existingDoc.created_at,
+    };
+  };
+
   const renderField = (fullKey, fieldCfg) => {
+    const fieldName = fullKey.split(".").slice(-1)[0];
+
     const value =
       getNestedValue(getFormDataRoot(), fullKey) ??
       getNestedValue(data, fullKey);
@@ -503,20 +561,71 @@ const Step1BasicInformation = ({
       );
     }
 
+    // if (fieldCfg.type === "file") {
+    //   return (
+    //     <FileUploadField
+    //       key={fullKey}
+    //       fieldName={fullKey}
+    //       label={fieldCfg.label}
+    //       // file={value || null}
+    //                 file={getDisplayedTopLevelFile(fieldName, value)}
+
+    //       onChange={(file) => handleDocumentChange(fullKey, file)}
+    //       required={fieldCfg.required || false}
+    //       acceptTypes="application/pdf,image/jpeg,image/png"
+    //       placeholder={fieldCfg.placeholder || ""}
+    //       maxSize={5242880}
+    //       disabled={disabled}
+    //     />
+    //   );
+    // }
     if (fieldCfg.type === "file") {
+      const displayedFile = getDisplayedTopLevelFile(fieldName, value);
+      const isBusinessProfileOCRField =
+        fieldName === businessProfileFieldKey &&
+        fieldCfg?.ocrTarget === "business_profile";
+
       return (
-        <FileUploadField
-          key={fullKey}
-          fieldName={fullKey}
-          label={fieldCfg.label}
-          file={value || null}
-          onChange={(file) => handleDocumentChange(fullKey, file)}
-          required={fieldCfg.required || false}
-          acceptTypes="application/pdf,image/jpeg,image/png"
-          placeholder={fieldCfg.placeholder || ""}
-          maxSize={5242880}
-          disabled={disabled}
-        />
+        <div key={fullKey} className="mb-6">
+          <FileUploadField
+            fieldName={fullKey}
+            label={fieldCfg.label}
+            file={displayedFile}
+            onChange={(file) => handleDocumentChange(fullKey, file)}
+            required={fieldCfg.required || false}
+            acceptTypes="application/pdf,image/jpeg,image/png"
+            placeholder={fieldCfg.placeholder || ""}
+            maxSize={5242880}
+            disabled={disabled}
+          />
+
+          {isBusinessProfileOCRField && (
+            <div className="mt-2 flex items-center gap-3">
+              <button
+                type="button"
+                onClick={() => handleAutofillBusinessProfile(fieldName)}
+                disabled={businessProfileUploading || disabled}
+                className={`rounded-lg px-4 py-2 text-sm font-semibold text-white ${
+                  businessProfileUploading
+                    ? "bg-gray-400"
+                    : "bg-red-600 hover:bg-red-700"
+                }`}
+              >
+                {businessProfileUploading ? "Autofilling..." : "Autofill"}
+              </button>
+
+              {businessProfileError && (
+                <p className="text-sm text-red-600">{businessProfileError}</p>
+              )}
+
+              {businessProfileSuccessMsg && (
+                <p className="text-sm text-green-600">
+                  {businessProfileSuccessMsg}
+                </p>
+              )}
+            </div>
+          )}
+        </div>
       );
     }
 
@@ -717,8 +826,70 @@ const Step1BasicInformation = ({
         Basic Information
       </h2>
 
+      {extractorConfig && businessProfileFieldKey && (
+        <div className="mb-6 rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <p className="text-sm font-semibold text-gray-900">
+                {businessProfileFieldConfig?.label || extractorConfig.title}
+              </p>
+              <p className="text-xs text-gray-500">
+                {extractorConfig.helperText}
+              </p>
+            </div>
+
+            <div className="flex items-center gap-3">
+              <button
+                type="button"
+                onClick={handleChooseBusinessProfile}
+                className="rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-semibold hover:bg-gray-50"
+                disabled={businessProfileUploading || disabled}
+              >
+                Upload PDF
+              </button>
+
+              <button
+                type="button"
+                onClick={handleAutofillBusinessProfile}
+                className={`rounded-lg px-4 py-2 text-sm font-semibold text-white ${
+                  businessProfileUploading
+                    ? "bg-gray-400"
+                    : "bg-red-600 hover:bg-red-700"
+                }`}
+                disabled={businessProfileUploading || disabled}
+              >
+                {businessProfileUploading ? "Autofilling..." : "Autofill"}
+              </button>
+
+              <input
+                ref={fileRef}
+                type="file"
+                accept="application/pdf"
+                className="hidden"
+                onChange={handleBusinessProfileFileChange}
+              />
+            </div>
+          </div>
+
+          <div className="mt-3 text-xs">
+            {businessProfileFile?.name && (
+              <p className="text-gray-600">
+                Selected:{" "}
+                <span className="font-medium">{businessProfileFile.name}</span>
+              </p>
+            )}
+            {businessProfileError && (
+              <p className="mt-1 text-red-600">{businessProfileError}</p>
+            )}
+            {businessProfileSuccessMsg && (
+              <p className="mt-1 text-green-600">{businessProfileSuccessMsg}</p>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* ACRA Autofill */}
-      {data?.country === "SG" && (
+      {/* {data?.country === "SG" && (
         <div className="mb-6 rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
             <div>
@@ -772,9 +943,8 @@ const Step1BasicInformation = ({
             )}
           </div>
         </div>
-      )}
+      )} */}
 
-  
       {/* Top-Level Fields */}
       {Object.entries(basicFieldsConfig).map(([fieldName, fieldConfig]) =>
         renderField(fieldName, fieldConfig),

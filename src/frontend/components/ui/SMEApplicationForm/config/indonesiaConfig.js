@@ -167,17 +167,20 @@ const INDONESIA_CONFIG = {
               value: "Usaha Dagang (UD)",
               readonly: true,
             },
-            businessRegistrationUpload: {
-              type: "file",
-              label: "Upload Business Registration / NIB (OCR autofill)",
-              required: true,
-            },
           },
         },
         {
           id: "step2",
           label: "Basic Information",
-          fields: { ...getBasicBusinessFields() },
+          fields: {
+            businessRegistrationUpload: {
+              type: "file",
+              label: "Upload Business Registration / NIB (OCR autofill)",
+              required: true,
+              ocrTarget: "business_profile",
+            },
+            ...getBasicBusinessFields(),
+          },
           repeatableSections: {
             owners: {
               label: "Owner",
@@ -255,17 +258,20 @@ const INDONESIA_CONFIG = {
               value: "Commanditaire Vennootschap (CV)",
               readonly: true,
             },
-            businessRegistrationUpload: {
-              type: "file",
-              label: "Upload Deed of Establishment (OCR autofill)",
-              required: true,
-            },
           },
         },
         {
           id: "step2",
           label: "Basic Information",
-          fields: { ...getBasicBusinessFields() },
+          fields: {
+            businessRegistrationUpload: {
+              type: "file",
+              label: "Upload Deed of Establishment (OCR autofill)",
+              required: true,
+              ocrTarget: "business_profile",
+            },
+            ...getBasicBusinessFields(),
+          },
           repeatableSections: {
             generalPartners: {
               label: "General Partner",
@@ -392,18 +398,21 @@ const INDONESIA_CONFIG = {
               value: "Perseroan Terbatas (PT)",
               readonly: true,
             },
-            incorporationUpload: {
-              type: "file",
-              label:
-                "Upload Certificate of Incorporation / Company Deed (OCR autofill)",
-              required: true,
-            },
           },
         },
         {
           id: "step2",
           label: "Basic Information",
-          fields: { ...getBasicBusinessFields() },
+          fields: {
+            incorporationUpload: {
+              type: "file",
+              label:
+                "Upload Certificate of Incorporation / Company Deed (OCR autofill)",
+              required: true,
+              ocrTarget: "business_profile",
+            },
+            ...getBasicBusinessFields(),
+          },
           repeatableSections: {
             shareholders: {
               label: "Shareholder",
@@ -524,18 +533,19 @@ const INDONESIA_CONFIG = {
               value: "Foreign Company / Branch",
               readonly: true,
             },
-            incorporationUpload: {
-              type: "file",
-              label:
-                "Upload Parent Company Incorporation Document (OCR autofill)",
-              required: true,
-            },
           },
         },
         {
           id: "step2",
           label: "Basic Information",
           fields: {
+            incorporationUpload: {
+              type: "file",
+              label:
+                "Upload Parent Company Incorporation Document (OCR autofill)",
+              required: true,
+              ocrTarget: "business_profile",
+            },
             parentCompanyName: {
               type: "text",
               label: "Parent Company Name",

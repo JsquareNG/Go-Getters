@@ -16,6 +16,12 @@ const YES_NO_OPTIONS = ["Yes", "No"].map((opt) => ({
 
 function getBasicBusinessFields() {
   return {
+    businessProfile: {
+      type: "file",
+      label: "Upload ACRA Business Profile (OCR autofill)",
+      required: true,
+      ocrTarget: "business_profile",
+    },
     businessName: { type: "text", label: "Business Name", required: true },
     businessIndustry: {
       type: "select",

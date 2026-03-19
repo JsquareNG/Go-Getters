@@ -88,6 +88,7 @@ const SMEApplicationForm = () => {
 
   const { appId, step: routeStep } = useParams();
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [existingDocuments, setExistingDocuments] = useState([]);
 
   const routeMode = window.location.pathname.includes("/application/view/")
     ? "view"
@@ -122,6 +123,25 @@ const SMEApplicationForm = () => {
       individuals: nested.individuals ?? rawFormData.individuals ?? [],
     };
   }, []);
+
+  const mergedFormData = useMemo(
+    () => getMergedFormState(formData),
+    [formData, getMergedFormState],
+  );
+
+  const selectedBusinessType =
+    mergedFormData?.businessType || mergedFormData?.business_type || "";
+
+  const isStep0Valid = Boolean(mergedFormData?.country && selectedBusinessType);
+
+  const entityConfig = useMemo(() => {
+    if (!selectedBusinessType) return null;
+    return activeConfig?.entities?.[selectedBusinessType] || null;
+  }, [activeConfig, selectedBusinessType]);
+
+  const hasConfigSteps =
+    Array.isArray(entityConfig?.steps) && entityConfig.steps.length > 0;
+
 
   const flattenFieldKeys = useCallback((fields = {}) => {
     const keys = new Set();
@@ -416,45 +436,43 @@ const SMEApplicationForm = () => {
     return uploadedResults;
   };
 
-  // const uploadAllDocumentsFromFormData = async (
-  //   rawFormData,
-  //   activeConfig,
-  //   applicationId,
-  // ) => {
-  //   const root = rawFormData?.formData || rawFormData;
-  //   const uploadEntries = collectFileUploadEntries(root, activeConfig);
+  useEffect(() => {
+    if (!appId || appId === "new") {
+      setExistingDocuments([]);
+      return;
+    }
 
-  //   console.log("UPLOAD ENTRIES:", uploadEntries);
+    const fetchDocuments = async () => {
+      try {
+        const docs = await allDocuments(appId);
+        setExistingDocuments(Array.isArray(docs) ? docs : []);
+      } catch (err) {
+        console.error("Failed to fetch documents:", err);
+        setExistingDocuments([]);
+      }
+    };
 
-  //   const existingDocs = await allDocuments(applicationId);
-  //   const existingDocumentMap = buildExistingDocumentMap(existingDocs);
+    fetchDocuments();
+  }, [appId]);
 
-  //   const uploadedResults = [];
+  const existingDocumentMap = useMemo(
+    () => buildExistingDocumentMap(existingDocuments),
+    [existingDocuments],
+  );
 
-  //   for (const entry of uploadEntries) {
-  //     const uploaded = await uploadSingleDocument({
-  //       applicationId,
-  //       documentType: entry.document_type,
-  //       file: entry.file,
-  //       existingDocumentMap,
-  //     });
+  const hasUploadedDocument = useCallback(
+    ({ value, documentType }) => {
+      // local unsaved file in form state
+      const localFile = unwrapFile(value);
+      if (localFile) return true;
 
-  //     uploadedResults.push({
-  //       ...entry,
-  //       uploaded,
-  //     });
+      // already uploaded backend document
+      if (documentType && existingDocumentMap[documentType]) return true;
 
-  //     // update map so repeated doc_types in same loop won't re-init
-  //     if (uploaded?.document_id) {
-  //       existingDocumentMap[entry.document_type] = {
-  //         document_id: uploaded.document_id,
-  //         document_type: entry.document_type,
-  //       };
-  //     }
-  //   }
-
-  //   return uploadedResults;
-  // };
+      return false;
+    },
+    [existingDocumentMap],
+  );
 
   const isIndividualLikeSection = useCallback(
     (sectionConfig = {}) => {
@@ -757,51 +775,202 @@ const SMEApplicationForm = () => {
     ],
   );
 
-  const hasIncompleteFields = useCallback(
-    (rawData) => {
+  const isEmptyValue = (value) => {
+    return (
+      value === null ||
+      value === undefined ||
+      (typeof value === "string" && value.trim() === "") ||
+      (Array.isArray(value) && value.length === 0)
+    );
+  };
+
+  const validateStepConfig = useCallback(
+    (stepConfig, rawData) => {
       const data = getMergedFormState(rawData);
-      const businessType = data.businessType;
-      if (!businessType) return true;
+      const missing = [];
 
-      const steps = activeConfig?.entities?.[businessType]?.steps || [];
+      if (!stepConfig) {
+        return { isValid: true, missing: [] };
+      }
 
-      for (const step of steps) {
-        for (const [key, fieldDef] of Object.entries(step.fields || {})) {
-          if (fieldDef.required && !data[key]) return true;
+      // -----------------------------
+      // Top-level fields
+      // -----------------------------
+      for (const [key, fieldDef] of Object.entries(stepConfig.fields || {})) {
+        if (fieldDef?.required) {
+          if (fieldDef.type === "file") {
+            const documentType = buildDocumentType({ fieldKey: key });
 
-          if (fieldDef.conditionalFields && data[key]) {
-            const conditional = fieldDef.conditionalFields[data[key]] || {};
-            for (const [ck, cd] of Object.entries(conditional)) {
-              if (cd.required && !data[ck]) return true;
+            if (
+              !hasUploadedDocument({
+                value: data[key],
+                documentType,
+              })
+            ) {
+              missing.push({
+                field: key,
+                label: fieldDef.label || key,
+                type: "file",
+                documentType,
+                scope: "top-level",
+              });
+            }
+          } else {
+            if (isEmptyValue(data[key])) {
+              missing.push({
+                field: key,
+                label: fieldDef.label || key,
+                type: fieldDef.type || "text",
+                scope: "top-level",
+              });
             }
           }
         }
 
-        const repeatableSections = step.repeatableSections || {};
-        for (const [sectionKey, section] of Object.entries(
-          repeatableSections,
-        )) {
-          let rows = [];
+        // conditional fields under top-level field
+        if (fieldDef?.conditionalFields && data[key]) {
+          const conditional = fieldDef.conditionalFields[data[key]] || {};
 
-          if (section?.storage === "individuals") {
-            const roleValue = getSectionRoleValue(sectionKey, section);
-            rows = (data.individuals || []).filter(
-              (x) => x?.role === roleValue,
-            );
-          } else {
-            rows = Array.isArray(data[sectionKey]) ? data[sectionKey] : [];
+          for (const [ck, cd] of Object.entries(conditional)) {
+            if (!cd?.required) continue;
+
+            if (cd.type === "file") {
+              const documentType = buildDocumentType({ fieldKey: ck });
+
+              if (
+                !hasUploadedDocument({
+                  value: data[ck],
+                  documentType,
+                })
+              ) {
+                missing.push({
+                  field: ck,
+                  label: cd.label || ck,
+                  parentField: key,
+                  type: "file",
+                  documentType,
+                  scope: "top-level-conditional",
+                });
+              }
+            } else {
+              if (isEmptyValue(data[ck])) {
+                missing.push({
+                  field: ck,
+                  label: cd.label || ck,
+                  parentField: key,
+                  type: cd.type || "text",
+                  scope: "top-level-conditional",
+                });
+              }
+            }
           }
+        }
+      }
 
-          if ((section.min ?? 0) > rows.length) return true;
+      // -----------------------------
+      // Repeatable sections
+      // -----------------------------
+      for (const [sectionKey, section] of Object.entries(
+        stepConfig.repeatableSections || {},
+      )) {
+        let rows = [];
 
-          for (const item of rows) {
-            for (const [k, fDef] of Object.entries(section.fields || {})) {
-              if (fDef.required && !item?.[k]) return true;
+        if (section?.storage === "individuals") {
+          const roleValue = getSectionRoleValue(sectionKey, section);
+          rows = (data.individuals || []).filter((x) => x?.role === roleValue);
+        } else {
+          rows = Array.isArray(data[sectionKey]) ? data[sectionKey] : [];
+        }
 
-              if (fDef.conditionalFields && item?.[k]) {
-                const conditional = fDef.conditionalFields[item[k]] || {};
-                for (const [ck, cd] of Object.entries(conditional)) {
-                  if (cd.required && !item?.[ck]) return true;
+        if ((section.min ?? 0) > rows.length) {
+          missing.push({
+            field: sectionKey,
+            label: `${section.label || sectionKey} (minimum ${section.min})`,
+            type: "repeatable-min",
+            scope: "repeatable-min",
+          });
+          continue;
+        }
+
+        for (let rowIndex = 0; rowIndex < rows.length; rowIndex++) {
+          const item = rows[rowIndex];
+
+          for (const [k, fDef] of Object.entries(section.fields || {})) {
+            if (fDef?.required) {
+              if (fDef.type === "file") {
+                const documentType = buildDocumentType({
+                  sectionKey,
+                  sectionConfig: section,
+                  rowIndex,
+                  fieldKey: k,
+                });
+
+                if (
+                  !hasUploadedDocument({
+                    value: item?.[k],
+                    documentType,
+                  })
+                ) {
+                  missing.push({
+                    field: `${sectionKey}[${rowIndex}].${k}`,
+                    label: `${section.label || sectionKey} ${rowIndex + 1} - ${fDef.label || k}`,
+                    type: "file",
+                    documentType,
+                    scope: "repeatable",
+                  });
+                }
+              } else {
+                if (isEmptyValue(item?.[k])) {
+                  missing.push({
+                    field: `${sectionKey}[${rowIndex}].${k}`,
+                    label: `${section.label || sectionKey} ${rowIndex + 1} - ${fDef.label || k}`,
+                    type: fDef.type || "text",
+                    scope: "repeatable",
+                  });
+                }
+              }
+            }
+
+            // conditional fields under repeatable field
+            if (fDef?.conditionalFields && item?.[k]) {
+              const conditional = fDef.conditionalFields[item[k]] || {};
+
+              for (const [ck, cd] of Object.entries(conditional)) {
+                if (!cd?.required) continue;
+
+                if (cd.type === "file") {
+                  const documentType = buildDocumentType({
+                    sectionKey,
+                    sectionConfig: section,
+                    rowIndex,
+                    fieldKey: ck,
+                  });
+
+                  if (
+                    !hasUploadedDocument({
+                      value: item?.[ck],
+                      documentType,
+                    })
+                  ) {
+                    missing.push({
+                      field: `${sectionKey}[${rowIndex}].${ck}`,
+                      label: `${section.label || sectionKey} ${rowIndex + 1} - ${cd.label || ck}`,
+                      parentField: k,
+                      type: "file",
+                      documentType,
+                      scope: "repeatable-conditional",
+                    });
+                  }
+                } else {
+                  if (isEmptyValue(item?.[ck])) {
+                    missing.push({
+                      field: `${sectionKey}[${rowIndex}].${ck}`,
+                      label: `${section.label || sectionKey} ${rowIndex + 1} - ${cd.label || ck}`,
+                      parentField: k,
+                      type: cd.type || "text",
+                      scope: "repeatable-conditional",
+                    });
+                  }
                 }
               }
             }
@@ -809,17 +978,392 @@ const SMEApplicationForm = () => {
         }
       }
 
-      return false;
+      return {
+        isValid: missing.length === 0,
+        missing,
+      };
     },
-    [activeConfig, getMergedFormState, getSectionRoleValue],
+    [getMergedFormState, getSectionRoleValue, hasUploadedDocument],
   );
+
+  const buildValidationReport = useCallback(
+    (rawData) => {
+      const data = getMergedFormState(rawData);
+      const businessType = data.businessType || data.business_type;
+
+      // Step 0 only
+      const step0Missing = [];
+      if (!data.country) {
+        step0Missing.push({ field: "country", label: "Country" });
+      }
+      if (!businessType) {
+        step0Missing.push({ field: "businessType", label: "Business Type" });
+      }
+
+      const byStep = [
+        {
+          stepId: "step0",
+          stepLabel: "To Get Started",
+          missing: step0Missing,
+        },
+      ];
+
+      if (!businessType) {
+        return {
+          total: step0Missing.length,
+          byStep,
+        };
+      }
+
+      const entity = activeConfig?.entities?.[businessType];
+      if (
+        !entity ||
+        !Array.isArray(entity.steps) ||
+        entity.steps.length === 0
+      ) {
+        byStep.push({
+          stepId: "config",
+          stepLabel: "Form Configuration",
+          missing: [
+            {
+              field: "config",
+              label:
+                "No application form configuration found for selected business type",
+            },
+          ],
+        });
+
+        return {
+          total: step0Missing.length + 1,
+          byStep,
+        };
+      }
+
+      entity.steps.forEach((step, idx) => {
+        const result = validateStepConfig(step, rawData);
+        byStep.push({
+          stepId: step.id || `step${idx + 1}`,
+          stepLabel: STEP_LABELS[idx + 1] || `Step ${idx + 1}`,
+          missing: result.missing,
+        });
+      });
+
+      const total = byStep.reduce((sum, step) => sum + step.missing.length, 0);
+
+      return {
+        total,
+        byStep,
+      };
+    },
+    [activeConfig, getMergedFormState, validateStepConfig],
+  );
+
+   const validationReport = useMemo(
+    () => buildValidationReport(formData),
+    [formData, buildValidationReport],
+  );
+
+  const isIncomplete = validationReport.total > 0;
+
+  useEffect(() => {
+    console.log("VALIDATION REPORT:", validationReport);
+  }, [validationReport]);
+
+  const canSubmit =
+  clampedStep === 4 &&
+  isStep0Valid &&
+  hasConfigSteps &&
+  !isIncomplete;
+
+  const goToStep = useCallback(
+    (targetStep) => {
+      // Step 0 always accessible
+      if (targetStep === 0) {
+        navigate(`/application/${routeMode}/${appId}/${targetStep}`);
+        return;
+      }
+
+      // Steps 1-3 require Step 0 only
+      if (targetStep >= 1 && targetStep <= 3) {
+        if (!isStep0Valid) {
+          toast({
+            title: "Fill in missing fields first",
+            description:
+              "Please select country and business type before proceeding.",
+            variant: "destructive",
+          });
+          return;
+        }
+
+        navigate(`/application/${routeMode}/${appId}/${targetStep}`);
+        return;
+      }
+
+      // Step 4 requires all previous form steps valid
+      if (targetStep === 4) {
+        if (!isStep0Valid) {
+          toast({
+            title: "Fill in missing fields first",
+            description:
+              "Please select country and business type before proceeding.",
+            variant: "destructive",
+          });
+          return;
+        }
+
+        if (!hasConfigSteps) {
+          toast({
+            title: "Form structure unavailable",
+            description:
+              "Could not determine required fields for this application yet.",
+            variant: "destructive",
+          });
+          return;
+        }
+
+        // if (validationReport.total > 0) {
+        //   toast({
+        //     title: "Complete required fields first",
+        //     description:
+        //       "Please resolve the missing fields before proceeding to review.",
+        //     variant: "destructive",
+        //   });
+        //   return;
+        // }
+
+        navigate(`/application/${routeMode}/${appId}/${targetStep}`);
+      }
+    },
+    [
+      navigate,
+      routeMode,
+      appId,
+      isStep0Valid,
+      hasConfigSteps,
+      validationReport,
+      toast,
+    ],
+  );
+
+  // const hasIncompleteFields = useCallback(
+  //   (rawData) => {
+  //     const data = getMergedFormState(rawData);
+  //     const businessType = data.businessType;
+  //     if (!businessType) return true;
+
+  //     const steps = activeConfig?.entities?.[businessType]?.steps || [];
+
+  //     for (const step of steps) {
+  //       for (const [key, fieldDef] of Object.entries(step.fields || {})) {
+  //         if (fieldDef.required && !data[key]) return true;
+
+  //         if (fieldDef.conditionalFields && data[key]) {
+  //           const conditional = fieldDef.conditionalFields[data[key]] || {};
+
+  //           for (const [key, fieldDef] of Object.entries(step.fields || {})) {
+  //             if (fieldDef.required) {
+  //               if (fieldDef.type === "file") {
+  //                 const documentType = buildDocumentType({ fieldKey: key });
+
+  //                 if (
+  //                   !hasUploadedDocument({
+  //                     value: data[key],
+  //                     documentType,
+  //                   })
+  //                 ) {
+  //                   console.log("Missing top-level file field:", {
+  //                     stepId: step.id,
+  //                     fieldKey: key,
+  //                     documentType,
+  //                     value: data[key],
+  //                     existingDoc: existingDocumentMap[documentType],
+  //                   });
+  //                   return true;
+  //                 }
+  //               } else {
+  //                 if (
+  //                   data[key] === null ||
+  //                   data[key] === undefined ||
+  //                   (typeof data[key] === "string" &&
+  //                     data[key].trim() === "") ||
+  //                   (Array.isArray(data[key]) && data[key].length === 0)
+  //                 ) {
+  //                   console.log("Missing top-level required field:", {
+  //                     stepId: step.id,
+  //                     fieldKey: key,
+  //                     value: data[key],
+  //                   });
+  //                   return true;
+  //                 }
+  //               }
+  //             }
+
+  //             if (fieldDef.conditionalFields && data[key]) {
+  //               const conditional = fieldDef.conditionalFields[data[key]] || {};
+
+  //               for (const [ck, cd] of Object.entries(conditional)) {
+  //                 if (!cd.required) continue;
+
+  //                 if (cd.type === "file") {
+  //                   const documentType = buildDocumentType({ fieldKey: ck });
+
+  //                   if (
+  //                     !hasUploadedDocument({
+  //                       value: data[ck],
+  //                       documentType,
+  //                     })
+  //                   ) {
+  //                     console.log("Missing top-level conditional file field:", {
+  //                       stepId: step.id,
+  //                       parentField: key,
+  //                       fieldKey: ck,
+  //                       documentType,
+  //                       value: data[ck],
+  //                       existingDoc: existingDocumentMap[documentType],
+  //                     });
+  //                     return true;
+  //                   }
+  //                 } else {
+  //                   if (
+  //                     data[ck] === null ||
+  //                     data[ck] === undefined ||
+  //                     (typeof data[ck] === "string" &&
+  //                       data[ck].trim() === "") ||
+  //                     (Array.isArray(data[ck]) && data[ck].length === 0)
+  //                   ) {
+  //                     console.log(
+  //                       "Missing top-level conditional required field:",
+  //                       {
+  //                         stepId: step.id,
+  //                         parentField: key,
+  //                         fieldKey: ck,
+  //                         value: data[ck],
+  //                       },
+  //                     );
+  //                     return true;
+  //                   }
+  //                 }
+  //               }
+  //             }
+  //           }
+  //         }
+  //       }
+
+  //       const repeatableSections = step.repeatableSections || {};
+  //       for (const [sectionKey, section] of Object.entries(
+  //         repeatableSections,
+  //       )) {
+  //         let rows = [];
+
+  //         if (section?.storage === "individuals") {
+  //           const roleValue = getSectionRoleValue(sectionKey, section);
+  //           rows = (data.individuals || []).filter(
+  //             (x) => x?.role === roleValue,
+  //           );
+  //         } else {
+  //           rows = Array.isArray(data[sectionKey]) ? data[sectionKey] : [];
+  //         }
+
+  //         if ((section.min ?? 0) > rows.length) return true;
+
+  //         for (let rowIndex = 0; rowIndex < rows.length; rowIndex++) {
+  //           const item = rows[rowIndex];
+
+  //           for (const [k, fDef] of Object.entries(section.fields || {})) {
+  //             if (fDef.required) {
+  //               if (fDef.type === "file") {
+  //                 const documentType = buildDocumentType({
+  //                   sectionKey,
+  //                   sectionConfig: section,
+  //                   rowIndex,
+  //                   fieldKey: k,
+  //                 });
+
+  //                 if (
+  //                   !hasUploadedDocument({
+  //                     value: item?.[k],
+  //                     documentType,
+  //                   })
+  //                 ) {
+  //                   return true;
+  //                 }
+  //               } else {
+  //                 // if (!item?.[k]) return true;
+  //                 if (
+  //                   item?.[k] === null ||
+  //                   item?.[k] === undefined ||
+  //                   (typeof item?.[k] === "string" && item[k].trim() === "") ||
+  //                   (Array.isArray(item?.[k]) && item[k].length === 0)
+  //                 ) {
+  //                   console.log("Missing repeatable required field:", {
+  //                     stepId: step.id,
+  //                     sectionKey,
+  //                     rowIndex,
+  //                     fieldKey: k,
+  //                     value: item?.[k],
+  //                   });
+  //                   return true;
+  //                 }
+  //               }
+  //             }
+
+  //             if (fDef.conditionalFields && item?.[k]) {
+  //               const conditional = fDef.conditionalFields[item[k]] || {};
+
+  //               for (const [ck, cd] of Object.entries(conditional)) {
+  //                 if (!cd.required) continue;
+
+  //                 if (cd.type === "file") {
+  //                   const documentType = buildDocumentType({
+  //                     sectionKey,
+  //                     sectionConfig: section,
+  //                     rowIndex,
+  //                     fieldKey: ck,
+  //                   });
+
+  //                   if (
+  //                     !hasUploadedDocument({
+  //                       value: item?.[k],
+  //                       documentType,
+  //                     })
+  //                   ) {
+  //                     console.log("Missing repeatable file field:", {
+  //                       stepId: step.id,
+  //                       sectionKey,
+  //                       rowIndex,
+  //                       fieldKey: k,
+  //                       documentType,
+  //                       value: item?.[k],
+  //                       existingDoc: existingDocumentMap[documentType],
+  //                     });
+  //                     return true;
+  //                   }
+  //                 } else {
+  //                   if (!item?.[ck]) return true;
+  //                 }
+  //               }
+  //             }
+  //           }
+  //         }
+  //       }
+  //     }
+
+  //     return false;
+  //   },
+  //   [
+  //     activeConfig,
+  //     getMergedFormState,
+  //     getSectionRoleValue,
+  //     hasUploadedDocument,
+  //     existingDocumentMap,
+  //   ],
+  // );
 
   useEffect(() => {
     const initApplication = async () => {
       try {
         if (appId && appId !== "new") {
           const app = await getApplicationByAppId(appId);
-          // const normalizedFormData = snakeToCamelDeep(app?.form_data || {});
 
           const flattenSavedFormData = (input = {}) => {
             let flat = snakeToCamelDeep(input);
@@ -851,29 +1395,6 @@ const SMEApplicationForm = () => {
             previous_status: app?.previous_status ?? null,
             current_status: app?.current_status ?? "Draft",
           };
-
-          // const mergedFormData = {
-          //   ...normalizedFormData,
-          //   businessName:
-          //     normalizedFormData.businessName ??
-          //     app?.form_data?.business_name ??
-          //     "",
-          //   businessType:
-          //     normalizedFormData.businessType ??
-          //     app?.form_data?.business_type ??
-          //     "",
-          //   businessCountry:
-          //     normalizedFormData.businessCountry ??
-          //     app?.form_data?.business_country ??
-          //     "",
-          //   country:
-          //     normalizedFormData.country ??
-          //     app?.form_data?.business_country ??
-          //     "",
-          //   last_saved_step: app?.last_saved_step ?? 0,
-          //   previous_status: app?.previous_status ?? null,
-          //   current_status: app?.current_status ?? "Draft",
-          // };
 
           dispatch(
             loadApplication({
@@ -1007,25 +1528,7 @@ const SMEApplicationForm = () => {
         activeConfig,
         savedAppId,
       );
-      console.log("submit documents successfully:", documents);
-
-      // const payload = {
-      //   ...(savedAppId && savedAppId !== "new"
-      //     ? { application_id: savedAppId }
-      //     : {}),
-      //   user_id: user.user_id,
-      //   email: user.email,
-      //   first_name: user.first_name ?? user.firstName ?? "",
-      //   last_saved_step: currentStepFromRedux,
-      //   previous_status: formData?.previous_status || null,
-      //   current_status: formData?.current_status || "Draft",
-      //   form_data: buildDynamicPayload(formData, activeConfig),
-      // };
-
-      // await submitSmeApplicationApi(payload);
-
-      // const documents = await uploadAllDocumentsFromFormData(formData, activeConfig, savedAppId);
-      // console.log("submit documents successfully: ", documents);
+      // console.log("submit documents successfully:", documents);
 
       dispatch(submitApplication({ appId: savedAppId, data: formData }));
 
@@ -1087,22 +1590,59 @@ const SMEApplicationForm = () => {
     }
   };
 
-  const MissingSteps = ({ incomplete }) => {
-    if (!incomplete) return null;
+  // const MissingSteps = ({ incomplete }) => {
+  //   if (!incomplete) return null;
+
+  //   return (
+  //     <div className="mt-8">
+  //       <h2 className="font-semibold text-lg mb-2">
+  //         Some required fields are missing
+  //       </h2>
+  //       <p className="text-sm text-red-500">
+  //         Please complete the required fields before submitting.
+  //       </p>
+  //     </div>
+  //   );
+  // };
+
+  const MissingSteps = ({ report }) => {
+    if (!report || report.total === 0) return null;
 
     return (
       <div className="mt-8">
         <h2 className="font-semibold text-lg mb-2">
           Some required fields are missing
         </h2>
-        <p className="text-sm text-red-500">
-          Please complete the required fields before submitting.
+        <p className="text-sm text-red-500 mb-3">
+          Please complete the following before submitting.
         </p>
+
+        <div className="space-y-3">
+          {report.byStep
+            .filter((step) => step.missing.length > 0)
+            .map((step) => (
+              <div
+                key={step.stepId}
+                className="rounded-md border border-red-200 bg-red-50 p-3"
+              >
+                <p className="font-medium text-red-800 mb-1">
+                  {step.stepLabel}
+                </p>
+                <ul className="list-disc list-inside text-sm text-red-700 space-y-1">
+                  {step.missing.map((item, idx) => (
+                    <li key={`${step.stepId}-${idx}`}>{item.label}</li>
+                  ))}
+                </ul>
+              </div>
+            ))}
+        </div>
       </div>
     );
   };
+  // const isIncomplete = hasIncompleteFields(formData);
 
-  const isIncomplete = hasIncompleteFields(formData);
+  // console.log("isIncomplete:", isIncomplete);
+  // console.log("formData:", formData);
 
   return (
     <div className="h-[calc(100vh-4rem)] flex overflow-hidden bg-gray-50">
@@ -1118,7 +1658,8 @@ const SMEApplicationForm = () => {
             stepLabels={STEP_LABELS}
           />
 
-          {!isViewOnly && <MissingSteps incomplete={isIncomplete} />}
+          {/* {!isViewOnly && <MissingSteps incomplete={isIncomplete} />} */}
+          {!isViewOnly && <MissingSteps report={validationReport} />}
         </div>
       </div>
 
@@ -1147,35 +1688,39 @@ const SMEApplicationForm = () => {
                     </Button>
 
                     <div className="flex gap-3">
-                      <Button
-                        variant="outline"
-                        onClick={handleSaveDraft}
-                        disabled={isSubmitting}
-                      >
-                        Save Draft
-                      </Button>
+  {clampedStep < 4 ? (
+    <>
+      <Button
+        variant="outline"
+        onClick={handleSaveDraft}
+        disabled={isSubmitting}
+      >
+        Save Draft
+      </Button>
 
-                      {clampedStep < 4 ? (
-                        <Button
-                          onClick={() =>
-                            navigate(
-                              `/application/${routeMode}/${appId}/${clampedStep + 1}`,
-                            )
-                          }
-                        >
-                          Next
-                        </Button>
-                      ) : (
-                        !isIncomplete && (
-                          <Button
-                            onClick={handleSubmitApplication}
-                            disabled={isSubmitting || isIncomplete}
-                          >
-                            Submit
-                          </Button>
-                        )
-                      )}
-                    </div>
+      <Button
+        onClick={() => goToStep(clampedStep + 1)}
+      >
+        Next
+      </Button>
+    </>
+  ) : canSubmit ? (
+    <Button
+      onClick={handleSubmitApplication}
+      disabled={isSubmitting}
+    >
+      Submit
+    </Button>
+  ) : (
+    <Button
+      variant="outline"
+      onClick={handleSaveDraft}
+      disabled={isSubmitting}
+    >
+      Save Draft
+    </Button>
+  )}
+</div>
                   </div>
                 )}
               </CardContent>
