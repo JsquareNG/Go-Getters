@@ -1,11 +1,33 @@
 from fastapi import APIRouter, Depends, HTTPException, Body
 from sqlalchemy.orm import Session, joinedload
-
+from typing import List
+from pydantic import BaseModel
+from typing import Literal
 from backend.database import get_db
 from backend.models.risk_rule import RiskRule
 from backend.models.risk_rule_condition import RiskRuleCondition
+from backend.config.rule_field_options import RULE_FIELD_OPTIONS
 
 router = APIRouter(prefix="/risk-rules", tags=["risk-rules"])
+
+class RuleFieldOption(BaseModel):
+    value: str
+    label: str
+    kind: Literal["string", "number", "boolean", "list"]
+
+
+@router.get("/field-options/{category}", response_model=List[RuleFieldOption])
+def get_rule_field_options(category: str):
+    normalized_category = category.upper().strip()
+
+    if normalized_category not in RULE_FIELD_OPTIONS:
+        raise HTTPException(
+            status_code=404,
+            detail=f"Field options not found for category '{normalized_category}'.",
+        )
+
+    return RULE_FIELD_OPTIONS[normalized_category]
+
 
 def condition_to_dict(c):
     return {

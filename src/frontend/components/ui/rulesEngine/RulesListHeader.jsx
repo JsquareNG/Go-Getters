@@ -3,18 +3,17 @@ import { Plus, ChevronDown, ChevronUp } from "lucide-react";
 
 const CATEGORY_TABS = [
   { key: "BASIC", label: "Basic Compliance" },
-  { key: "KYC", label: "Know Your Customer" },
-  { key: "KYB", label: "Know Your Business" },
+  { key: "KYC", label: "Know Your Customer" }
 ];
+
+const regionNames = new Intl.DisplayNames(["en"], { type: "region" });
 
 function formatBasicCategoryLabel(category) {
   if (!category) return "";
 
-  if (category === "SG") return "Singapore";
-  if (category === "IND") return "Indonesia";
   if (category === "GENERAL") return "General";
 
-  return category;
+  return regionNames.of(category) || category;
 }
 
 export default function RulesListHeader({
@@ -33,15 +32,11 @@ export default function RulesListHeader({
   const title =
     activeCategory === "KYC"
       ? "Know Your Customer Rules"
-      : activeCategory === "KYB"
-      ? "Know Your Business Rules"
       : "Basic Compliance Rules";
 
   const subtitle =
     activeCategory === "KYC"
       ? "Manage rules used by the rules engine for KYC."
-      : activeCategory === "KYB"
-      ? "Manage rules used by the rules engine for KYB."
       : "Manage rules used by the rules engine for Basic Compliance.";
 
   return (

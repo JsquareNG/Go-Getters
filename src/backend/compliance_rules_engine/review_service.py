@@ -136,7 +136,7 @@ def run_review_job(application_id: str):
         job.rules_triggered = result.get("triggered_rules", [])
 
 
-        if decision == "Simplified CDD":
+        if decision == "Simplified Due Diligence (SDD)":
             create_audit_log(
                 db=db,
                 application_id=application_id,

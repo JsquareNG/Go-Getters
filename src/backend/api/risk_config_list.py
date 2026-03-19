@@ -11,6 +11,7 @@ router = APIRouter(prefix="/risk-config-list", tags=["risk-config-list"])
 def to_dict(obj):
     return {c.name: getattr(obj, c.name) for c in obj.__table__.columns}
 
+
 def normalize_item_label(value: str) -> str:
     if not value:
         return ""
@@ -19,7 +20,14 @@ def normalize_item_label(value: str) -> str:
     normalized_words = []
 
     for word in words:
-        normalized_words.append(word[:1].upper() + word[1:].lower())
+        # remove brackets for checking
+        clean_word = word.strip("()")
+
+        # if already uppercase acronym (e.g. IP, LLP, SG)
+        if clean_word.isupper() and len(clean_word) <= 5:
+            normalized_words.append(word.upper())
+        else:
+            normalized_words.append(word[:1].upper() + word[1:].lower())
 
     return " ".join(normalized_words)
 
@@ -36,9 +44,9 @@ def get_all_risk_config_list(db: Session = Depends(get_db)):
 
     return [to_dict(r) for r in rows]
 
-@router.get("/list-names")
-def get_unique_list_names(db: Session = Depends(get_db)):
 
+@router.get("/all-list-names")
+def get_unique_list_names(db: Session = Depends(get_db)):
     rows = (
         db.query(RiskConfigList.list_name)
         .distinct()
@@ -47,6 +55,25 @@ def get_unique_list_names(db: Session = Depends(get_db)):
     )
 
     return [r[0] for r in rows]
+
+
+@router.get("/list-names")
+def get_list_names(db: Session = Depends(get_db)):
+    excluded_list_names = {"THRESHOLDS"}
+
+    rows = (
+        db.query(RiskConfigList.list_name)
+        .distinct()
+        .order_by(RiskConfigList.list_name.asc())
+        .all()
+    )
+
+    return [
+        row[0]
+        for row in rows
+        if row[0] not in excluded_list_names
+    ]
+
 
 @router.get("/byListName/{list_name}")
 def get_risk_config_by_list_name(list_name: str, db: Session = Depends(get_db)):
@@ -80,6 +107,7 @@ def get_active_risk_config_by_list_name(list_name: str, db: Session = Depends(ge
 
     return [to_dict(r) for r in rows]
 
+
 @router.get("/byId/{id}")
 def get_risk_config_item_by_id(id: int, db: Session = Depends(get_db)):
     row = db.query(RiskConfigList).filter(RiskConfigList.id == id).first()
@@ -88,6 +116,19 @@ def get_risk_config_item_by_id(id: int, db: Session = Depends(get_db)):
         raise HTTPException(status_code=404, detail="Risk config item not found")
 
     return to_dict(row)
+
+
+def build_duplicate_query(db, *, current_id=None, list_name="", item_label=""):
+    query = db.query(RiskConfigList).filter(
+        func.lower(RiskConfigList.list_name) == list_name.lower(),
+        func.lower(RiskConfigList.item_label) == item_label.lower(),
+    )
+
+    if current_id is not None:
+        query = query.filter(RiskConfigList.id != current_id)
+
+    return query
+
 
 @router.put("/save-changes")
 def save_risk_config_list_changes(data: dict = Body(...), db: Session = Depends(get_db)):
@@ -113,9 +154,6 @@ def save_risk_config_list_changes(data: dict = Body(...), db: Session = Depends(
             if "list_name" in upd and upd["list_name"] is not None:
                 row.list_name = upd["list_name"].strip()
 
-            if "item_value" in upd and upd["item_value"] is not None:
-                row.item_value = upd["item_value"].strip()
-
             if "item_label" in upd and upd["item_label"] is not None:
                 row.item_label = normalize_item_label(upd["item_label"])
 
@@ -125,23 +163,42 @@ def save_risk_config_list_changes(data: dict = Body(...), db: Session = Depends(
             if "is_active" in upd:
                 row.is_active = upd["is_active"]
 
-            # uppercase country codes
-            if row.item_type.lower() == "country":
-                row.item_value = row.item_value.upper()
+            normalized_type = (row.item_type or "").strip().lower()
 
-            duplicate = (
-                db.query(RiskConfigList)
-                .filter(
-                    RiskConfigList.id != row.id,
-                    func.lower(RiskConfigList.list_name) == row.list_name.lower(),
-                    func.lower(RiskConfigList.item_value) == row.item_value.lower()
-                )
-                .first()
-            )
+            if normalized_type == "threshold":
+                incoming_item_value = upd.get("item_value")
+                item_value = (incoming_item_value or "").strip()
+
+                if not item_value:
+                    raise HTTPException(
+                        status_code=400,
+                        detail="item_value is required for threshold updates"
+                    )
+
+                row.item_value = item_value
+            else:
+                row.item_value = None
+
+            if not row.list_name:
+                raise HTTPException(status_code=400, detail="list_name is required for update")
+
+            if not row.item_label:
+                raise HTTPException(status_code=400, detail="item_label is required for update")
+
+            if not row.item_type:
+                raise HTTPException(status_code=400, detail="item_type is required for update")
+
+            duplicate = build_duplicate_query(
+                db,
+                current_id=row.id,
+                list_name=row.list_name,
+                item_label=row.item_label,
+            ).first()
+
             if duplicate:
                 raise HTTPException(
                     status_code=400,
-                    detail=f"Duplicate found for update: {row.list_name} / {row.item_value}"
+                    detail=f"Duplicate found for update: {row.list_name} / {row.item_label}"
                 )
 
             updated_items.append(row)
@@ -151,35 +208,37 @@ def save_risk_config_list_changes(data: dict = Body(...), db: Session = Depends(
         # -------------------------
         for item in creates:
             list_name = (item.get("list_name") or "").strip()
-            item_value = (item.get("item_value") or "").strip()
             item_label = normalize_item_label(item.get("item_label") or "")
             item_type = (item.get("item_type") or "").strip()
             is_active = item.get("is_active", True)
 
+            normalized_type = item_type.lower()
+
+            if normalized_type == "threshold":
+                item_value = (item.get("item_value") or "").strip()
+            else:
+                item_value = None
+
             if not list_name:
                 raise HTTPException(status_code=400, detail="list_name is required for create")
-            if not item_value:
-                raise HTTPException(status_code=400, detail="item_value is required for create")
             if not item_label:
                 raise HTTPException(status_code=400, detail="item_label is required for create")
             if not item_type:
                 raise HTTPException(status_code=400, detail="item_type is required for create")
 
-            if item_type.lower() == "country":
-                item_value = item_value.upper()
+            if normalized_type == "threshold" and not item_value:
+                raise HTTPException(status_code=400, detail="item_value is required for threshold create")
 
-            existing = (
-                db.query(RiskConfigList)
-                .filter(
-                    func.lower(RiskConfigList.list_name) == list_name.lower(),
-                    func.lower(RiskConfigList.item_value) == item_value.lower()
-                )
-                .first()
-            )
+            existing = build_duplicate_query(
+                db,
+                list_name=list_name,
+                item_label=item_label,
+            ).first()
+
             if existing:
                 raise HTTPException(
                     status_code=400,
-                    detail=f"Duplicate found for create: {list_name} / {item_value}"
+                    detail=f"Duplicate found for create: {list_name} / {item_label}"
                 )
 
             new_item = RiskConfigList(

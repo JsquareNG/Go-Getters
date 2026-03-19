@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 from sqlalchemy import func
+from typing import Optional, Dict, Any
 import mimetypes
 import os
 
@@ -12,22 +13,6 @@ from backend.database import get_db
 
 router = APIRouter(prefix="/documents", tags=["documents"])
 SUPABASE_URL = os.getenv("SUPABASE_URL")
-
-# -----------------------------
-# DB dependency
-# -----------------------------
-# def get_db():
-#     db = SessionLocal()
-#     try:
-#         yield db
-#     finally:
-#         db.close()
-
-# -----------------------------
-# Config: required doc types
-# Replace these with your real 3 required document_type strings
-# -----------------------------
-REQUIRED_TYPES = {"bank_statement", "business_registration", "directors_info"}
 
 
 # -----------------------------
@@ -61,6 +46,7 @@ class InitPersistUploadIn(BaseModel):
     document_type: str  # required type OR "supporting" (or any non-required)
     filename: str
     mime_type: str = "application/pdf"
+    extracted_data: Optional[Dict[str, Any]] = None
 
 class ConfirmPersistUploadIn(BaseModel):
     document_id: str
@@ -92,6 +78,7 @@ def init_persist_upload(payload: InitPersistUploadIn, db: Session = Depends(get_
         doc.original_filename = payload.filename
         doc.mime_type = payload.mime_type
         doc.status = "uploading"
+        doc.extracted_data = payload.extracted_data or {}
     else:
         doc = Document(
             application_id=payload.application_id,
@@ -100,23 +87,9 @@ def init_persist_upload(payload: InitPersistUploadIn, db: Session = Depends(get_
             original_filename=payload.filename,
             mime_type=payload.mime_type,
             status="uploading",
+            extracted_data=payload.extracted_data or {},
         )
         db.add(doc)
-
-    # else:
-    #     # Supporting doc: ALWAYS new row + supporting_N naming
-    #     index = next_supporting_index(db, payload.application_id)
-    #     path = supporting_storage_path(payload.application_id, index)
-
-    #     doc = Document(
-    #         application_id=payload.application_id,
-    #         document_type="supporting",
-    #         storage_path=path,
-    #         original_filename=payload.filename,
-    #         mime_type=payload.mime_type,
-    #         status="uploading",
-    #     )
-    #     db.add(doc)
 
     db.commit()
     db.refresh(doc)
@@ -161,28 +134,6 @@ def list_docs(application_id: str, db: Session = Depends(get_db)):
         }
         for d in docs
     ]
-
-# get url for specific document
-# @router.get("/download-url/{application_id}/{document_type}")
-# def get_download_url(application_id: str, document_type: str, db: Session = Depends(get_db)):
-#     doc = (
-#         db.query(Document)
-#         .filter(
-#             Document.application_id == application_id,
-#             Document.document_type == document_type,
-#             Document.status == "uploaded",
-#         )
-#         .order_by(Document.created_at.desc())
-#         .first()
-#     )
-#     if not doc:
-#         raise HTTPException(404, "No uploaded document found")
-
-#     signed = supabase.storage.from_(BUCKET).create_signed_url(doc.storage_path, 300)
-#     if not signed:
-#         raise HTTPException(500, "Failed to create signed download URL")
-
-#     return {"signed_download": signed}
 
 @router.post("/replace-upload/{document_id}")
 def replace_upload(document_id: str, file: UploadFile = File(...), db: Session = Depends(get_db)):
