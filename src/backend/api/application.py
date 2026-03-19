@@ -30,6 +30,14 @@ JOB_SECRET = os.getenv("JOB_SECRET", "")
 
 EXCLUDED_STATUSES = ("Withdrawn", "Approved", "Rejected")  # not "active"
 
+SIMULATION_ELIGIBLE_STATUSES = [
+    "Under Manual Review",
+    "Requires Action",
+    "Approved",
+    "Rejected",
+    "Withdrawn",
+]
+
 
 def to_dict(self):
     return {c.name: getattr(self, c.name) for c in self.__table__.columns}
@@ -112,6 +120,41 @@ def get_application_by_app_id(application_id: str, db: Session = Depends(get_db)
 
     return {c.name: getattr(app, c.name) for c in app.__table__.columns}
 
+@router.get("/getSimulationApplications")
+def get_simulation_applications(db: Session = Depends(get_db)):
+    rows = (
+        db.query(ApplicationForm, ReviewJobs)
+        .outerjoin(ReviewJobs, ReviewJobs.application_id == ApplicationForm.application_id)
+        .filter(
+            ApplicationForm.current_status.in_(SIMULATION_ELIGIBLE_STATUSES)
+        )
+        .order_by(ApplicationForm.application_id.desc())
+        .all()
+    )
+
+    results = []
+
+    for app, review in rows:
+        results.append({
+            "application_id": app.application_id,
+            "business_name": app.business_name,
+            "business_country": app.business_country,
+            "business_type": app.business_type,
+            "current_status": app.current_status,
+            "previous_status": app.previous_status,
+            "business_industry": app.form_data.get("businessIndustry"),
+            "reviewer_id": app.reviewer_id,
+            "app_last_edited": app.last_edited,
+            "form_data": app.form_data,
+
+            "risk_score": review.risk_score if review else None,
+            "risk_grade": review.risk_grade if review else None,
+            "rules_triggered": review.rules_triggered if review else [],
+            "check_completed_at": review.completed_at if review else None,
+        })
+
+    return results
+
 # Saving Application as Draft
 @router.post("/firstSave")
 def save_application(data: dict = Body(...), db: Session = Depends(get_db)):
@@ -183,9 +226,10 @@ def second_save(application_id: str, data: dict = Body(...), db: Session = Depen
         raise HTTPException(status_code=404, detail="Application not found")
     
     incoming = data or {}
+    incoming_form_data = incoming.get("form_data", {}) or {}
     existing_form_data = app.form_data or {}
 
-    for key, value in incoming.items():
+    for key, value in incoming_form_data.items():
         if key == "application_id":
             continue
         existing_form_data[key] = value
@@ -199,10 +243,7 @@ def second_save(application_id: str, data: dict = Body(...), db: Session = Depen
     if app.has_sent:
         app.has_sent = False
 
-    if old_current_status == "Draft":
-        app.current_status = "Draft"
-
-    elif old_current_status == "Requires Action" and old_previous_status == "Under Manual Review":
+    if old_current_status == "Requires Action" and old_previous_status == "Under Manual Review":
         app.previous_status = app.current_status
         app.current_status = "Draft"
 
@@ -227,8 +268,8 @@ def second_save(application_id: str, data: dict = Body(...), db: Session = Depen
         actor_type=username,
         event_type="APPLICATION_DRAFT_SAVED",
         entity_type="APPLICATION",
-        from_status=old_current_status if status_changed else None,
-        to_status=app.current_status if status_changed else None,
+        from_status=old_current_status,
+        to_status=app.current_status,
         description="Applicant updated the application draft."
     )
     
@@ -433,190 +474,20 @@ def apply_full_application_update(app: ApplicationForm, data: dict):
     Used ONLY for first submit case.
     Updates any editable fields + form_data, but blocks status fields from being overwritten by client.
     """
+
     incoming = data or {}
+    incoming_form_data = incoming.get("form_data", {}) or {}
 
     # Copy existing JSON safely
     existing_form_data = app.form_data or {}
 
-    for key, value in incoming.items():
+    for key, value in incoming_form_data.items():
         existing_form_data[key] = value
 
     # Reassign JSON so SQLAlchemy detects the update
     app.form_data = existing_form_data
 
 @router.put("/secondSubmit/{application_id}")
-# def second_submit(
-#     application_id: str,
-#     background_tasks: BackgroundTasks,
-#     data: dict = Body(...),
-#     db: Session = Depends(get_db),
-# ):
-#     app = (
-#         db.query(ApplicationForm)
-#         .filter(ApplicationForm.application_id == application_id)
-#         .first()
-#     )
-
-#     if not app:
-#         raise HTTPException(status_code=404, detail="Application not found")
-
-#     # -----------------------------
-#     # Update fields
-#     # -----------------------------
-#     for key, value in (data or {}).items():
-#         if key == "application_id":
-#             continue
-#         if hasattr(app, key):
-#             setattr(app, key, value)
-#         else:
-#             app.form_data[key] = value
-
-#     curr = app.current_status
-#     prev = app.previous_status
-#     prev_blank = (prev is None) or (prev == "")
-
-#     user_email = data.get("email")
-#     user_firstName = data.get("firstName")
-
-#     # -----------------------------
-#     # Resolve staff (if assigned)
-#     # -----------------------------
-#     staff_email = None
-#     staff_firstName = None
-#     if app.reviewer_id:
-#         staff = db.query(User).filter(User.user_id == app.reviewer_id).first()
-#         if staff:
-#             staff_email = staff.email
-#             staff_firstName = staff.first_name
-
-#     # -----------------------------
-#     # Helper: safe background send
-#     # -----------------------------
-#     def safe_send(to_email: str, subject: str, body: str):
-#         try:
-#             send_email(to_email, subject, body)
-#         except Exception as e:
-#             print(f"❌ Email failed to {to_email}: {e}")
-
-#     emails_queued = {"user": False, "staff": False}
-#     email_notes = []
-
-#     # -----------------------------
-#     # Branch logic
-#     # -----------------------------
-#     if curr == "Draft" and prev_blank:
-#         app.previous_status = app.current_status
-#         app.current_status = "Under Review"
-
-#         add_bell(
-#             db=db,
-#             appId=app.application_id,
-#             recipient_id=app.user_id,
-#             message="Your application has been submitted successfully and is currently under review.",
-#             from_status=app.previous_status,
-#             to_status=app.current_status,
-#         )
-
-#         if user_email:
-#             subject, body = build_application_submitted_email(app, user_firstName)
-#             background_tasks.add_task(safe_send, user_email, subject, body)
-#             emails_queued["user"] = True
-#         else:
-#             email_notes.append("Missing user email; user email not queued.")
-
-        
-
-#     elif curr == "Requires Action" and prev == "Under Manual Review":
-#         app.previous_status = app.current_status
-#         app.current_status = "Under Manual Review"
-
-#         add_bell(
-#             db=db,
-#             appId=app.application_id,
-#             recipient_id=app.user_id,
-#             message="We received your additional documents. Your application is back under manual review.",
-#             from_status=app.previous_status,
-#             to_status=app.current_status,
-#         )
-
-#         if app.reviewer_id:
-#             add_bell(
-#                 db=db,
-#                 appId=app.application_id,
-#                 recipient_id=app.reviewer_id,
-#                 message="Applicant has uploaded additional documents. Please review the application again.",
-#                 from_status=app.previous_status,
-#                 to_status=app.current_status,
-#             )
-
-#         # user email
-#         if user_email:
-#             user_subject, user_body = build_user_manual_review_email(app, user_firstName)
-#             background_tasks.add_task(safe_send, user_email, user_subject, user_body)
-#             emails_queued["user"] = True
-#         else:
-#             email_notes.append("Missing user email; user email not queued.")
-
-#         # staff email
-#         if staff_email:
-#             staff_subject, staff_body = build_staff_manual_review_email(app, staff_firstName)
-#             background_tasks.add_task(safe_send, staff_email, staff_subject, staff_body)
-#             emails_queued["staff"] = True
-#         else:
-#             email_notes.append("Missing staff/reviewer email; staff email not queued.")
-
-#     elif curr == "Draft" and prev == "Requires Action":
-#         app.previous_status = app.current_status
-#         app.current_status = "Under Manual Review"
-
-#         add_bell(
-#             db=db,
-#             appId=app.application_id,
-#             recipient_id=app.user_id,
-#             message="We received your additional documents. Your application is back under manual review.",
-#             from_status=app.previous_status,
-#             to_status=app.current_status,
-#         )
-
-#         if app.reviewer_id:
-#             add_bell(
-#                 db=db,
-#                 appId=app.application_id,
-#                 recipient_id=app.reviewer_id,
-#                 message="Applicant has uploaded additional documents. Please review the application again.",
-#                 from_status=app.previous_status,
-#                 to_status=app.current_status,
-#             )
-
-#         # user email
-#         if user_email:
-#             user_subject, user_body = build_user_manual_review_email(app, user_firstName)
-#             background_tasks.add_task(safe_send, user_email, user_subject, user_body)
-#             emails_queued["user"] = True
-#         else:
-#             email_notes.append("Missing user email; user email not queued.")
-
-#         # staff email
-#         if staff_email:
-#             staff_subject, staff_body = build_staff_manual_review_email(app, staff_firstName)
-#             background_tasks.add_task(safe_send, staff_email, staff_subject, staff_body)
-#             emails_queued["staff"] = True
-#         else:
-#             email_notes.append("Missing staff/reviewer email; staff email not queued.")
-
-#     # -----------------------------
-#     # Persist changes (IMPORTANT)
-#     # -----------------------------
-#     db.commit()
-#     db.refresh(app)
-
-#     return {
-#         "application_id": app.application_id,
-#         "previous_status": app.previous_status,
-#         "current_status": app.current_status,
-#         "emails_queued": emails_queued,
-#         "email_notes": email_notes,
-#     }
 def second_submit(
     application_id: str,
     background_tasks: BackgroundTasks,
@@ -711,10 +582,8 @@ def second_submit(
         )
 
          # ✅ ADD THIS (same as firstSubmit)
-        print("[secondSubmit] before add_task", app.application_id)
-        background_tasks.add_task(run_review_job, app.application_id)
-        print("[secondSubmit] after add_task", app.application_id)
 
+        background_tasks.add_task(run_review_job, app.application_id)
 
         if user_email:
             subject, body = build_application_submitted_email(app, user_firstName)
@@ -1149,6 +1018,18 @@ def withdraw_application(
     # Status update
     app.previous_status = app.current_status
     app.current_status = "Withdrawn"
+
+    open_action_requests = (
+        db.query(ActionRequest)
+        .filter(
+            ActionRequest.application_id == app.application_id,
+            ActionRequest.status == "OPEN"
+        )
+        .all()
+    )
+
+    for ar in open_action_requests:
+        ar.status = "WITHDRAWN"
 
     # Persist first
     db.commit()

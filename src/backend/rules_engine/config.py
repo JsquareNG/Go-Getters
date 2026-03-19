@@ -9,7 +9,7 @@ FATF_BLACKLIST = {
 
 # FATF Jurisdictions Under Increased Monitoring
 HIGH_RISK_COUNTRIES = {
-    "Algeria",
+    "Algeria", 
     "Angola",
     "Bolivia",
     "Bulgaria",

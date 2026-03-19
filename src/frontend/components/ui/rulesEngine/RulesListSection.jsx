@@ -6,31 +6,18 @@ import ConfirmModal from "./common/ConfirmModal";
 import {
   getRiskRulesByCategory,
   saveRiskRuleChanges,
-  getBasicComplianceCategories 
+  getBasicComplianceCategories,
+  getRuleFieldOptions,
 } from "../../../api/riskRuleApi";
 import {
   validateRulesListRows,
   hasValidationErrors,
 } from "./ruleValidation";
 
-const FIELD_OPTIONS = [
-  { value: "years_incorporated", label: "years_incorporated", kind: "number" },
-  { value: "ownership_pct", label: "ownership_pct", kind: "number" },
-  { value: "is_signatory", label: "is_signatory", kind: "boolean" },
-  { value: "country", label: "country", kind: "string" },
-  {
-    value: "country_of_incorporation",
-    label: "country_of_incorporation",
-    kind: "list",
-  },
-  { value: "business_country", label: "business_country", kind: "list" },
-  { value: "industry", label: "industry", kind: "list" },
-];
-
 const NUMERIC_OPERATOR_CODES = new Set(["EQ", "NE", "GT", "GTE", "LT", "LTE"]);
 
-function getFieldMeta(fieldName, condition = null) {
-  const found = FIELD_OPTIONS.find((item) => item.value === fieldName);
+function getFieldMeta(fieldOptions, fieldName, condition = null) {
+  const found = fieldOptions.find((item) => item.value === fieldName);
   if (found) return found;
 
   if (fieldName) {
@@ -75,11 +62,11 @@ function getFieldMeta(fieldName, condition = null) {
   return null;
 }
 
-function getValueTypeForCondition(condition) {
+function getValueTypeForCondition(fieldOptions, condition) {
   const branchType = condition.branchType || "ELSE_IF";
   if (branchType === "ELSE") return "NONE";
 
-  const meta = getFieldMeta(condition.field_name, condition);
+  const meta = getFieldMeta(fieldOptions, condition.field_name, condition);
 
   if (meta?.kind === "boolean") return "BOOLEAN";
   if (meta?.kind === "list") return "LIST";
@@ -171,7 +158,7 @@ function getRuleKey(rule) {
   return rule.rule_id ?? rule.__tempId;
 }
 
-function serializeConditionsForSave(conditions = []) {
+function serializeConditionsForSave(fieldOptions, conditions = []) {
   let currentGroup = 1;
   let currentOrder = 1;
 
@@ -201,7 +188,7 @@ function serializeConditionsForSave(conditions = []) {
       order_no: currentOrder,
       field_name: condition.field_name || null,
       operator: isElse ? "ELSE" : condition.operator,
-      value_type: getValueTypeForCondition(condition),
+      value_type: getValueTypeForCondition(fieldOptions, condition),
       numeric_value:
         !isElse &&
         NUMERIC_OPERATOR_CODES.has((condition.operator || "").toUpperCase()) &&
@@ -248,7 +235,7 @@ function areSerializedConditionsSame(a, b) {
   return JSON.stringify(a) === JSON.stringify(b);
 }
 
-function buildSavePayload(serverRows, workingRows) {
+function buildSavePayload(serverRows, workingRows, fieldOptions) {
   const payload = {
     // Existing rules that were edited
     rules: [],
@@ -273,6 +260,7 @@ function buildSavePayload(serverRows, workingRows) {
     // - order_no
     // - field_name / operator / value_type / values
     const serializedWorkingConditions = serializeConditionsForSave(
+      fieldOptions,
       workingRule.conditions || []
     );
 
@@ -345,6 +333,7 @@ function buildSavePayload(serverRows, workingRows) {
     // Serialize server conditions into the same shape as working conditions
     // so comparisons are apples-to-apples.
     const serializedServerConditions = serializeConditionsForSave(
+      fieldOptions,
       serverRule.conditions || []
     );
 
@@ -427,6 +416,28 @@ function buildSavePayload(serverRows, workingRows) {
   return payload;
 }
 
+function getRuleKeysWithErrors(rows, validationErrors) {
+  const invalidRuleKeys = new Set();
+
+  rows.forEach((rule) => {
+    const ruleKey = getRuleKey(rule);
+    const ruleErrorObj = validationErrors?.rules?.[ruleKey] || {};
+    const hasRuleError = Object.values(ruleErrorObj).some(Boolean);
+
+    const hasConditionError = (rule.conditions || []).some((condition) => {
+      const conditionKey = condition.condition_id ?? condition.__tempId;
+      const conditionErrorObj = validationErrors?.conditions?.[conditionKey] || {};
+      return Object.values(conditionErrorObj).some(Boolean);
+    });
+
+    if (hasRuleError || hasConditionError) {
+      invalidRuleKeys.add(ruleKey);
+    }
+  });
+
+  return invalidRuleKeys;
+}
+
 export default function RulesListSection() {
   const [activeCategory, setActiveCategory] = useState("BASIC");
   const [serverRows, setServerRows] = useState([]);
@@ -443,7 +454,10 @@ export default function RulesListSection() {
   });
   const [basicComplianceFilter, setBasicComplianceFilter] = useState("");
   const [basicComplianceCategories, setBasicComplianceCategories] = useState([]);
+  const [fieldOptions, setFieldOptions] = useState([]);
   const bottomRef = useRef(null);
+  const effectiveCategory =
+  activeCategory === "BASIC" ? basicComplianceFilter : activeCategory;
 
   const [confirmState, setConfirmState] = useState({
     open: false,
@@ -508,11 +522,29 @@ export default function RulesListSection() {
     }
   }, [activeCategory]);
 
+  useEffect(() => {
+    const fetchFieldOptions = async () => {
+      try {
+        if (!effectiveCategory) {
+          setFieldOptions([]);
+          return;
+        }
 
+        const data = await getRuleFieldOptions(effectiveCategory);
+        console.log("effectiveCategory:", effectiveCategory);
+        console.log("field options response:", data);
+        setFieldOptions(data || []);
+      } catch (err) {
+        console.error("Failed to load field options", err);
+        setFieldOptions([]);
+      }
+    };
 
+    fetchFieldOptions();
+  }, [effectiveCategory]);
 
   const hasChanges = useMemo(() => {
-    const payload = buildSavePayload(serverRows, workingRows);
+    const payload = buildSavePayload(serverRows, workingRows, fieldOptions);
     return (
       payload.rules.length > 0 ||
       payload.conditions.length > 0 ||
@@ -690,7 +722,7 @@ export default function RulesListSection() {
       setError("");
       setSuccess("");
 
-      const payload = buildSavePayload(serverRows, workingRows);
+      const payload = buildSavePayload(serverRows, workingRows, fieldOptions);
 
       console.log("SAVE PAYLOAD:", payload);
       console.log(
@@ -755,12 +787,40 @@ export default function RulesListSection() {
     }
   };
 
+  // const handleSaveButtonClick = async () => {
+  //   const nextValidationErrors = validateRulesListRows(workingRows);
+  //   setDisplayValidationErrors(nextValidationErrors);
+  //   setShowValidation(true);
+
+  //   if (hasValidationErrors(nextValidationErrors)) {
+  //     setError("Please resolve the validation errors before saving.");
+  //     setSuccess("");
+  //     return;
+  //   }
+
+  //   if (!hasChanges) return;
+
+  //   setConfirmState({
+  //     open: true,
+  //     action: "save",
+  //   });
+  // };
   const handleSaveButtonClick = async () => {
     const nextValidationErrors = validateRulesListRows(workingRows);
     setDisplayValidationErrors(nextValidationErrors);
     setShowValidation(true);
 
     if (hasValidationErrors(nextValidationErrors)) {
+      const invalidRuleKeys = getRuleKeysWithErrors(workingRows, nextValidationErrors);
+
+      setExpandedRuleIds((prev) => {
+        const next = { ...prev };
+        invalidRuleKeys.forEach((ruleKey) => {
+          next[ruleKey] = true;
+        });
+        return next;
+      });
+
       setError("Please resolve the validation errors before saving.");
       setSuccess("");
       return;
@@ -821,6 +881,7 @@ export default function RulesListSection() {
           bottomRef={bottomRef}
           validationErrors={displayValidationErrors}
           showValidation={showValidation}
+          fieldOptions={fieldOptions}
         />
 
         <RulesListFooterActions

@@ -2,22 +2,8 @@ import React from "react";
 import RuleTableRow from "./RuleTableRow";
 import RuleConditionsPanel from "./RuleConditionsPanel";
 
-const FIELD_OPTIONS = [
-  { value: "years_incorporated", label: "years_incorporated", kind: "number" },
-  { value: "ownership_pct", label: "ownership_pct", kind: "number" },
-  { value: "is_signatory", label: "is_signatory", kind: "boolean" },
-  { value: "country", label: "country", kind: "string" },
-  {
-    value: "country_of_incorporation",
-    label: "country_of_incorporation",
-    kind: "list",
-  },
-  { value: "business_country", label: "business_country", kind: "list" },
-  { value: "industry", label: "industry", kind: "list" },
-];
-
-function getFieldMeta(fieldName, condition = null) {
-  const found = FIELD_OPTIONS.find((item) => item.value === fieldName);
+function getFieldMeta(fieldOptions, fieldName, condition = null) {
+  const found = fieldOptions.find((item) => item.value === fieldName);
   if (found) return found;
 
   if (fieldName) {
@@ -62,11 +48,11 @@ function getFieldMeta(fieldName, condition = null) {
   return null;
 }
 
-function getDefaultOperatorForField(fieldName, branchType = "ELSE_IF") {
+function getDefaultOperatorForField(fieldOptions, fieldName, branchType = "ELSE_IF") {
   if (branchType === "ELSE") return "ELSE";
   if (!fieldName) return "";
 
-  const meta = getFieldMeta(fieldName);
+  const meta = getFieldMeta(fieldOptions, fieldName);
 
   if (!meta) return "";
   if (meta.kind === "boolean") return "IS_TRUE";
@@ -82,14 +68,16 @@ function getRuleKey(rule) {
   return rule.rule_id ?? rule.__tempId;
 }
 
-function buildEmptyCondition(isFirst = false, mode = "BRANCH", firstFieldName = "") {
+function buildEmptyCondition(fieldOptions, isFirst = false, mode = "BRANCH", firstFieldName = "") {
+  const fallbackField = fieldOptions[0]?.value || "";
+
   const defaultField = isFirst
-    ? "years_incorporated"
+    ? fallbackField
     : mode === "AND"
     ? ""
-    : firstFieldName || "years_incorporated";
+    : firstFieldName || fallbackField;
 
-  const defaultMeta = defaultField ? getFieldMeta(defaultField) : null;
+  const defaultMeta = defaultField ? getFieldMeta(fieldOptions, defaultField) : null;
 
   return {
     condition_id: null,
@@ -98,6 +86,7 @@ function buildEmptyCondition(isFirst = false, mode = "BRANCH", firstFieldName = 
     order_no: isFirst ? 1 : null,
     field_name: defaultField,
     operator: getDefaultOperatorForField(
+      fieldOptions, 
       defaultField,
       isFirst ? "IF" : "ELSE_IF"
     ),
@@ -148,8 +137,8 @@ function isNumericOperator(operator = "") {
   );
 }
 
-function normalizeConditionByFieldKind(condition, fieldName, branchType = "ELSE_IF") {
-  const meta = getFieldMeta(fieldName, condition);
+function normalizeConditionByFieldKind(fieldOptions, condition, fieldName, branchType = "ELSE_IF") {
+  const meta = getFieldMeta(fieldOptions, fieldName, condition);
 
   if (!meta) {
     return {
@@ -254,6 +243,7 @@ export default function RulesListTable({
   bottomRef,
   validationErrors,
   showValidation,
+  fieldOptions = [], 
 }) {
   const handleToggleRuleActive = (ruleKey) => {
     const nextRows = rows.map((rule) => {
@@ -302,7 +292,7 @@ export default function RulesListTable({
       if (!conditions.length) {
         return {
           ...rule,
-          conditions: [buildEmptyCondition(true)],
+          conditions: [buildEmptyCondition(fieldOptions, true)],
         };
       }
 
@@ -318,7 +308,7 @@ export default function RulesListTable({
         ...rule,
         conditions: [
           ...conditions,
-          buildEmptyCondition(false, flowMode, firstFieldName),
+          buildEmptyCondition(fieldOptions, false, flowMode, firstFieldName),
         ],
       };
     });
@@ -356,6 +346,7 @@ export default function RulesListTable({
             condition.field_name === firstFieldName ? "" : condition.field_name;
 
           return normalizeConditionByFieldKind(
+            fieldOptions,
             {
               ...condition,
               uiConnector: "AND",
@@ -377,6 +368,7 @@ export default function RulesListTable({
         }
 
         return normalizeConditionByFieldKind(
+          fieldOptions,
           {
             ...condition,
             uiConnector: "NEW_GROUP",
@@ -447,6 +439,7 @@ export default function RulesListTable({
           }
 
           return normalizeConditionByFieldKind(
+            fieldOptions,
             condition,
             nextField,
             condition.branchType || "ELSE_IF"
@@ -527,6 +520,7 @@ export default function RulesListTable({
 
         if (firstFieldChanged) {
           return normalizeConditionByFieldKind(
+            fieldOptions,
             condition,
             newFirstFieldName,
             condition.branchType || "ELSE_IF"
@@ -570,6 +564,7 @@ export default function RulesListTable({
               condition.field_name === firstFieldName ? "" : condition.field_name;
 
             return normalizeConditionByFieldKind(
+              fieldOptions,
               {
                 ...condition,
                 uiConnector: "AND",
@@ -591,6 +586,7 @@ export default function RulesListTable({
           }
 
           return normalizeConditionByFieldKind(
+            fieldOptions,
             {
               ...condition,
               uiConnector: "NEW_GROUP",
@@ -606,6 +602,7 @@ export default function RulesListTable({
             condition.field_name === firstFieldName ? "" : condition.field_name;
 
           return normalizeConditionByFieldKind(
+            fieldOptions,
             {
               ...condition,
               uiConnector: "AND",
@@ -627,6 +624,7 @@ export default function RulesListTable({
         }
 
         return normalizeConditionByFieldKind(
+          fieldOptions,
           {
             ...condition,
             uiConnector: "NEW_GROUP",
@@ -664,7 +662,7 @@ export default function RulesListTable({
 
   return (
     <div className="overflow-hidden rounded-xl border border-gray-200">
-      <div className="max-h-[620px] overflow-x-auto overflow-y-auto">
+      <div className="max-h-[820px] overflow-x-auto overflow-y-auto">
         <table className="min-w-full text-sm">
           <thead className="bg-gray-100 text-left text-gray-700">
             <tr>
@@ -684,6 +682,17 @@ export default function RulesListTable({
               const expanded = Boolean(expandedRuleIds[rowKey]);
               const conditions = row.conditions || [];
 
+              const ruleErrors = validationErrors?.rules?.[rowKey] || {};
+              const hasRuleError = Object.values(ruleErrors).some(Boolean);
+
+              const hasConditionError = conditions.some((condition) => {
+                const conditionKey = getConditionKey(condition);
+                const conditionErrorObj = validationErrors?.conditions?.[conditionKey] || {};
+                return Object.values(conditionErrorObj).some(Boolean);
+              });
+
+              const hasAnyErrors = showValidation && (hasRuleError || hasConditionError);
+
               return (
                 <React.Fragment key={rowKey}>
                   <RuleTableRow
@@ -696,6 +705,8 @@ export default function RulesListTable({
                     onRemoveNewRule={onRemoveNewRule}
                     ruleErrors={validationErrors?.rules?.[rowKey] || {}}
                     showValidation={showValidation}
+                    hasAnyErrors={hasAnyErrors}
+                    hasConditionError={showValidation && hasConditionError}
                   />
 
                   {expanded && (
@@ -710,6 +721,7 @@ export default function RulesListTable({
                       ruleErrors={validationErrors?.rules?.[rowKey] || {}}
                       conditionErrors={validationErrors?.conditions || {}}
                       showValidation={showValidation}
+                      fieldOptions={fieldOptions}
                     />
                   )}
                 </React.Fragment>

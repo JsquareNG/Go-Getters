@@ -1,25 +1,6 @@
 import React from "react";
 import { Trash2 } from "lucide-react";
-
-function Toggle({ checked, onChange, disabled = false, title = "" }) {
-  return (
-    <button
-      type="button"
-      onClick={disabled ? undefined : onChange}
-      title={disabled ? title : ""}
-      aria-disabled={disabled}
-      className={`relative inline-flex h-6 w-11 items-center rounded-full transition ${
-        checked ? "bg-green-600" : "bg-gray-300"
-      } ${disabled ? "cursor-not-allowed" : "cursor-pointer"}`}
-    >
-      <span
-        className={`inline-block h-4 w-4 transform rounded-full bg-white transition ${
-          checked ? "translate-x-6" : "translate-x-1"
-        }`}
-      />
-    </button>
-  );
-}
+import Toggle from "./common/Toggle";
 
 export default function ConfigListTable({
   rows,
@@ -33,14 +14,27 @@ export default function ConfigListTable({
   onRemoveNewRow,
   bottomRef,
 }) {
-  const isIndustry = itemType === "industry";
   const isThreshold = itemType === "threshold";
 
-  const columnCount = isIndustry ? 4 : 5;
+  const columnCount = isThreshold ? 6 : 4;
+
+  const getMainColumnLabel = () => {
+    if (itemType === "country") return "Country Name";
+    if (itemType === "industry") return "Industry";
+    if (itemType === "entity_type") return "Entity Type";
+    return "Value";
+  };
+
+  const getMainPlaceholder = () => {
+    if (itemType === "country") return "Enter Country Name";
+    if (itemType === "industry") return "Enter Industry";
+    if (itemType === "entity_type") return "Enter Entity Type";
+    return "Enter Value";
+  };
 
   return (
     <div className="overflow-hidden rounded-xl border border-gray-200">
-      <div className="max-h-[520px] overflow-x-auto overflow-y-auto">
+      <div className="max-h-[820px] overflow-x-auto overflow-y-auto">
         <table className="min-w-full text-sm">
           <thead className="bg-gray-100 text-left text-gray-700">
             <tr>
@@ -56,13 +50,8 @@ export default function ConfigListTable({
               ) : (
                 <>
                   <th className="px-4 py-3 font-medium">
-                    {isIndustry ? "Industry" : "Country Name"}
+                    {getMainColumnLabel()}
                   </th>
-
-                  {!isIndustry && (
-                    <th className="px-4 py-3 font-medium">ISO Country Code</th>
-                  )}
-
                   <th className="px-4 py-3 font-medium">Status</th>
                   <th className="px-4 py-3 font-medium text-center">Active</th>
                   <th className="px-4 py-3 font-medium text-center">Action</th>
@@ -75,7 +64,7 @@ export default function ConfigListTable({
             {loading ? (
               <tr>
                 <td
-                  colSpan={isThreshold ? 6 : columnCount}
+                  colSpan={columnCount}
                   className="px-4 py-8 text-center text-gray-500"
                 >
                   Loading...
@@ -84,7 +73,7 @@ export default function ConfigListTable({
             ) : rows.length === 0 ? (
               <tr>
                 <td
-                  colSpan={isThreshold ? 6 : columnCount}
+                  colSpan={columnCount}
                   className="px-4 py-8 text-center text-gray-500"
                 >
                   No records found.
@@ -94,15 +83,20 @@ export default function ConfigListTable({
               rows.map((row) => {
                 const rowKey = row.id ?? row.__tempId;
                 const rowErrors = validationErrors?.[rowKey] || {};
+
                 const toggleDisabled =
                   typeof isToggleDisabled === "function"
                     ? isToggleDisabled(row)
                     : false;
+
                 const toggleReason =
                   typeof getToggleDisabledReason === "function"
                     ? getToggleDisabledReason(row)
                     : "";
 
+                // =====================
+                // THRESHOLD ROW
+                // =====================
                 if (isThreshold) {
                   return (
                     <tr
@@ -126,7 +120,7 @@ export default function ConfigListTable({
                           />
 
                           {rowErrors.item_label && (
-                            <p className="mt-1 break-words whitespace-normal text-xs text-red-600">
+                            <p className="mt-1 text-xs text-red-600">
                               {rowErrors.item_label}
                             </p>
                           )}
@@ -134,14 +128,16 @@ export default function ConfigListTable({
                       </td>
 
                       <td className="px-4 py-3 text-center align-middle">
-                        <span className="text-lg font-semibold text-gray-500">=</span>
+                        <span className="text-lg font-semibold text-gray-500">
+                          =
+                        </span>
                       </td>
 
                       <td className="px-4 py-3 align-top">
                         <div>
                           <input
                             type="number"
-                            value={row.item_value}
+                            value={row.item_value ?? ""}
                             onChange={(e) =>
                               onFieldChange(row, "item_value", e.target.value)
                             }
@@ -154,7 +150,7 @@ export default function ConfigListTable({
                             min="1"
                           />
                           {rowErrors.item_value && (
-                            <p className="mt-1 break-words whitespace-normal text-xs text-red-600">
+                            <p className="mt-1 text-xs text-red-600">
                               {rowErrors.item_value}
                             </p>
                           )}
@@ -174,14 +170,12 @@ export default function ConfigListTable({
                       </td>
 
                       <td className="px-4 py-3 text-center">
-                        <div className="flex items-center justify-center">
-                          <Toggle
-                            checked={row.is_active}
-                            disabled={toggleDisabled}
-                            title={toggleReason}
-                            onChange={() => onToggleActive(row)}
-                          />
-                        </div>
+                        <Toggle
+                          checked={row.is_active}
+                          disabled={toggleDisabled}
+                          title={toggleReason}
+                          onChange={() => onToggleActive(row)}
+                        />
                       </td>
 
                       <td className="px-4 py-3 text-center">
@@ -190,7 +184,6 @@ export default function ConfigListTable({
                             type="button"
                             onClick={() => onRemoveNewRow(row)}
                             className="inline-flex items-center justify-center rounded-lg p-2 text-red-600 hover:bg-red-50"
-                            title="Remove new row"
                           >
                             <Trash2 className="h-4 w-4" />
                           </button>
@@ -202,8 +195,14 @@ export default function ConfigListTable({
                   );
                 }
 
+                // =====================
+                // ALL OTHER TABS (NO "=")
+                // =====================
                 return (
-                  <tr key={rowKey} className={row.isNew ? "bg-blue-50/40" : ""}>
+                  <tr
+                    key={rowKey}
+                    className={row.isNew ? "bg-blue-50/40" : ""}
+                  >
                     <td className="px-4 py-3 align-top">
                       <div>
                         <input
@@ -217,43 +216,15 @@ export default function ConfigListTable({
                               ? "border-red-500"
                               : "border-gray-300"
                           }`}
-                          placeholder={
-                            isIndustry ? "Enter Industry" : "Enter Country Name"
-                          }
+                          placeholder={getMainPlaceholder()}
                         />
                         {rowErrors.item_label && (
-                          <p className="mt-1 break-words whitespace-normal text-xs text-red-600">
+                          <p className="mt-1 text-xs text-red-600">
                             {rowErrors.item_label}
                           </p>
                         )}
                       </div>
                     </td>
-
-                    {!isIndustry && (
-                      <td className="px-4 py-3 align-top">
-                        <div>
-                          <input
-                            type="text"
-                            value={row.item_value}
-                            onChange={(e) =>
-                              onFieldChange(row, "item_value", e.target.value)
-                            }
-                            className={`w-full rounded-lg border px-3 py-2 uppercase outline-none focus:border-gray-900 ${
-                              rowErrors.item_value
-                                ? "border-red-500"
-                                : "border-gray-300"
-                            }`}
-                            placeholder="e.g. SG, US or JP"
-                            maxLength={3}
-                          />
-                          {rowErrors.item_value && (
-                            <p className="mt-1 break-words whitespace-normal text-xs text-red-600">
-                              {rowErrors.item_value}
-                            </p>
-                          )}
-                        </div>
-                      </td>
-                    )}
 
                     <td className="px-4 py-3">
                       <span
@@ -268,14 +239,12 @@ export default function ConfigListTable({
                     </td>
 
                     <td className="px-4 py-3 text-center">
-                      <div className="flex items-center justify-center">
-                        <Toggle
-                          checked={row.is_active}
-                          disabled={toggleDisabled}
-                          title={toggleReason}
-                          onChange={() => onToggleActive(row)}
-                        />
-                      </div>
+                      <Toggle
+                        checked={row.is_active}
+                        disabled={toggleDisabled}
+                        title={toggleReason}
+                        onChange={() => onToggleActive(row)}
+                      />
                     </td>
 
                     <td className="px-4 py-3 text-center">
@@ -284,7 +253,6 @@ export default function ConfigListTable({
                           type="button"
                           onClick={() => onRemoveNewRow(row)}
                           className="inline-flex items-center justify-center rounded-lg p-2 text-red-600 hover:bg-red-50"
-                          title="Remove new row"
                         >
                           <Trash2 className="h-4 w-4" />
                         </button>
