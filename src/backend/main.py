@@ -17,13 +17,15 @@ from backend.api.bellNotification import router as application_bellNotifications
 from backend.api.reviewJobs import router as review_jobs
 
 from backend.api.extract import router as extract_router
-# from backend.api.document_ai import router as docai_router
-# from backend.api.id_verification import router as idv_router
+
 from backend.api.auditTrail import router as audit_router
 from backend.api.risk_config_list import router as risk_list_router
 from backend.api.risk_rule import router as risk_rule_router
 from backend.api.liveness_detection import router as live_detection_router
 from backend.api.simulationTesting import router as sim_testing_router
+
+from backend.api.didit_session import router as didit_session_router
+
 import os
 from pathlib import Path
 from dotenv import load_dotenv
@@ -59,7 +61,7 @@ async def log_requests(request: Request, call_next):
 #add cors middleware
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173", "http://127.0.0.1:5173"],
+    allow_origins=["http://localhost:5173", "http://127.0.0.1:5173","http://localhost:5174","http://localhost:5175","http://localhost:5176"],
     # allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
@@ -84,3 +86,4 @@ app.include_router(risk_rule_router)
 
 app.include_router(live_detection_router)
 app.include_router(sim_testing_router)
+app.include_router(didit_session_router)

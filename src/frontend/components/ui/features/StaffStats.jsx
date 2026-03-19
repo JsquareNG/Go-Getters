@@ -30,8 +30,8 @@ function StatCard({ icon, label, value, variant = "default" }) {
 
 const StaffStats = ({
   totalPending,
-  enhancedEDD,
-  standardEDD,
+  enhancedCDD,
+  standardCDD,
 }) => {
   return (
     <div className="flex flex-wrap gap-4">
@@ -42,14 +42,14 @@ const StaffStats = ({
       />
       <StatCard
         icon={<Clock className="h-5 w-5" />}
-        label="Enhanced EDD"
-        value={enhancedEDD}
+        label="Enhanced CDD"
+        value={enhancedCDD}
         variant="warning"
       />
       <StatCard
         icon={<CheckCircle2 className="h-5 w-5 text-amber-500" />}
-        label="Standard EDD"
-        value={standardEDD}
+        label="Standard CDD"
+        value={standardCDD}
       />
     </div>
   );

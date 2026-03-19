@@ -64,6 +64,13 @@ const SMEApplicationForm = () => {
     : Math.max(0, Math.min(4, routeStepNumber));
   const isViewOnly = routeMode === "view" || currentApp?.status === "Submitted";
 
+  // KYC guard for Step 1 only
+  const kycData = formData?.kycData || {};
+  const isStep1 = clampedStep === 1;
+  const isKycCompleted = kycData?.status === "completed";
+  const faceMatchScore = Number(kycData?.faceMatchScore ?? 0);
+  const canProceedFromStep1 = isKycCompleted && faceMatchScore >= 60;
+
   // --- Edit functionality ---
   const handleEditStep = (step) => {
     navigate(`/application/edit/${appId}/${step}`);
@@ -95,34 +102,12 @@ const SMEApplicationForm = () => {
     if (currentApp?.formData && Object.keys(formData).length === 0) {
       const cleanData = {};
 
-      // function flatten(obj) {
-      //   if (!obj || typeof obj !== "object") return;
-      //   Object.entries(obj).forEach(([key, value]) => {
-      //     if (key === "null") {
-      //       // skip recursion into "null" objects
-      //       return;
-      //     } else if (value !== undefined && value !== null) {
-      //       // preserve nested objects only if not arrays or File objects
-      //       if (
-      //         typeof value === "object" &&
-      //         !Array.isArray(value) &&
-      //         !(value instanceof File)
-      //       ) {
-      //         flatten(value);
-      //       } else {
-      //         cleanData[key] = value === "" ? null : value; // normalize empty string
-      //       }
-      //     }
-      //   });
-      // }
-
       function flatten(obj) {
         if (!obj || typeof obj !== "object") return;
         Object.entries(obj).forEach(([key, value]) => {
           if (value instanceof File) {
-            cleanData[key] = value; // keep File as is
+            cleanData[key] = value;
           } else if (Array.isArray(value)) {
-            // preserve arrays as arrays, do not flatten into indices
             cleanData[key] = value.map((v) =>
               typeof v === "object" ? { ...v } : v,
             );
@@ -136,10 +121,8 @@ const SMEApplicationForm = () => {
 
       flatten(currentApp.formData);
 
-      // remove top-level null key if exists
       if ("null" in cleanData) delete cleanData.null;
 
-      // dispatch all cleaned fields
       Object.entries(cleanData).forEach(([key, value]) => {
         handleFieldChange(key, value);
       });
@@ -152,13 +135,9 @@ const SMEApplicationForm = () => {
    * Validate SME application form data
    * Returns { isValid: boolean, errors: Record<string, string> }
    */
-  // NOTE: CURRENTLY NOT IN USE
-  // console.log(formData);
-
   const validateFormData = (data) => {
     const errors = {};
 
-    // Required fields
     if (!data.businessName || data.businessName.trim() === "") {
       errors.businessName = "Business name is required";
     }
@@ -179,7 +158,6 @@ const SMEApplicationForm = () => {
       errors.phone = "Phone number must be 6-15 digits";
     }
 
-    // Numeric fields
     if (data.expectedMonthlyTransactionVolume) {
       const value = Number(data.expectedMonthlyTransactionVolume);
       if (isNaN(value) || value < 0) {
@@ -203,7 +181,6 @@ const SMEApplicationForm = () => {
       Object.entries(fields).forEach(([key, fieldDef]) => {
         if (fieldDef.required) requiredFields.push(key);
 
-        // Handle conditional fields
         if (fieldDef.conditionalFields && data[key]) {
           Object.entries(fieldDef.conditionalFields[data[key]] || {}).forEach(
             ([cKey, cDef]) => {
@@ -213,14 +190,11 @@ const SMEApplicationForm = () => {
         }
       });
 
-      // HELPERS **
-      // Repeatable sections (like owners/partners)
       const repeatableSections = step.repeatableSections || {};
       Object.values(repeatableSections).forEach((section) => {
         Object.entries(section.fields || {}).forEach(([key, fieldDef]) => {
           if (fieldDef.required) requiredFields.push(key);
 
-          // Handle conditional fields
           if (fieldDef.conditionalFields && data[key]) {
             Object.entries(fieldDef.conditionalFields[data[key]] || {}).forEach(
               ([cKey, cDef]) => {
@@ -248,7 +222,6 @@ const SMEApplicationForm = () => {
       }
     }
 
-    // Check repeatable sections/individuals
     const individuals = mapIndividuals(data);
     const individualFields = Object.keys(individuals);
     for (const field of individualFields) {
@@ -260,11 +233,6 @@ const SMEApplicationForm = () => {
     return false;
   };
 
-  /**
-   * Recursively traverses the formData object
-   * Returns an array of all keys/paths where type === "file"
-   * Also supports conditional and repeatable sections
-   */
   function extractFileFields(config, path = []) {
     let files = [];
 
@@ -273,12 +241,10 @@ const SMEApplicationForm = () => {
 
       if (!field) continue;
 
-      // Standard file field
       if (field.type === "file") {
         files.push({ path: [...path, key], field });
       }
 
-      // Conditional fields (e.g., UBO, conditionalFields)
       if (field.conditionalFields) {
         for (const condKey in field.conditionalFields) {
           files.push(
@@ -291,7 +257,6 @@ const SMEApplicationForm = () => {
         }
       }
 
-      // Repeatable sections
       if (field.fields && typeof field.fields === "object") {
         files.push(...extractFileFields(field.fields, [...path, key]));
       }
@@ -303,16 +268,12 @@ const SMEApplicationForm = () => {
   const extractFiles = (obj) => {
     if (!obj || typeof obj !== "object") return obj;
 
-    // If it's a File itself
     if (obj instanceof File) return obj;
 
-    // If it's the { file, progress } structure
     if ("file" in obj && obj.file instanceof File) return obj.file;
 
-    // Arrays: map recursively
     if (Array.isArray(obj)) return obj.map(extractFiles);
 
-    // Objects: recurse
     const result = {};
     Object.entries(obj).forEach(([key, value]) => {
       result[key] = extractFiles(value);
@@ -333,7 +294,6 @@ const SMEApplicationForm = () => {
       ownership: "100%",
     };
 
-    // List of declarations
     const declarations = [
       "pepDeclaration",
       "sanctionsDeclaration",
@@ -342,17 +302,14 @@ const SMEApplicationForm = () => {
 
     declarations.forEach((decl) => {
       if (data[decl]) {
-        individual[decl] = data[decl]; // store the user's input ("Yes" or "No")
+        individual[decl] = data[decl];
 
-        // Only store actual values from conditional fields if user said "Yes"
         const configFields =
           SINGAPORE_CONFIG2.entities.sole_proprietorship.steps[0]
             .repeatableSections.owners.fields[decl]?.conditionalFields;
 
         if (configFields?.[data[decl]]) {
-          // Only copy the **values**, not the field definitions
           Object.keys(configFields[data[decl]]).forEach((key) => {
-            // Use value from data if exists, else null
             individual[key] = data[key] ?? null;
           });
         }
@@ -363,14 +320,11 @@ const SMEApplicationForm = () => {
   };
 
   const buildFormPayload = (data) => {
-    // shallow copy top-level fields
     const payload = { ...data };
 
-    // Map individuals n extrcat files
     const individuals = mapIndividuals(data);
     payload.individuals = extractFiles(individuals);
 
-    // Remove top-level fields that are now under individuals
     [
       "fullName",
       "idNumber",
@@ -397,9 +351,6 @@ const SMEApplicationForm = () => {
   /* ------------------------------------------------ */
   const handleSaveDraft = async () => {
     try {
-      // Flatten formData before validating
-
-      // const cleanData = buildFormPayload(formData);
       const cleanData = buildFormPayload(
         formData,
         SINGAPORE_CONFIG2,
@@ -408,11 +359,12 @@ const SMEApplicationForm = () => {
 
       const normalizedData = {
         ...cleanData,
+        provider_session_id: formData.provider_session_id || null,
         businessName: cleanData.businessName || cleanData.business_name || "",
         businessType: cleanData.businessType || cleanData.business_type || "",
         country: cleanData.country || cleanData.business_country || "",
       };
-      // console.log(cleanData);
+
       const payload = {
         user_id: user.user_id,
         email: user.email,
@@ -425,19 +377,13 @@ const SMEApplicationForm = () => {
         application_id: appId !== "new" ? appId : undefined,
       };
 
-      console.log("Saving application draft payload:", payload); // debug log
+      console.log("Saving application draft payload:", payload);
 
       const res = await saveApplicationDraftApi(payload);
 
-      // Always get returned application_id (new or existing)
       const savedAppId = res.application_id || appId;
 
-      // Update Redux with saved draft
       dispatch(saveDraftAction({ appId: savedAppId, data: formData }));
-
-      // dispatch(
-      //   saveDraftAction({ appId: res.application_id || appId, data: formData }),
-      // );
 
       toast({
         title: "Draft Saved",
@@ -458,23 +404,23 @@ const SMEApplicationForm = () => {
   const handleSubmitApplication = async () => {
     setIsSubmitting(true);
     try {
-      // const { isValid, errors } = validateFormData(formData);
-      // if (!isValid) {
-      //   toast({
-      //     title: "Cannot Submit",
-      //     description: "Please fix validation errors before submitting.",
-      //     variant: "destructive",
-      //   });
-      //   console.log("Submit validation errors:", errors);
-      //   return;
-      // }
-
-      // const cleanData = buildFormPayload(formData);
       const cleanData = buildFormPayload(
         formData,
         SINGAPORE_CONFIG2,
         formData.businessType,
       );
+
+      const providerSessionId = formData.provider_session_id;
+
+      if (!providerSessionId) {
+        toast({
+          title: "Identity Verification Required",
+          description: "Please complete identity verification before submitting.",
+          variant: "destructive",
+        });
+        return;
+      }
+
       const payload = {
         user_id: user.user_id,
         email: user.email,
@@ -483,6 +429,7 @@ const SMEApplicationForm = () => {
         business_type: cleanData.businessType || "",
         business_country: cleanData.country || "",
         form_data: cleanData,
+        provider_session_id: providerSessionId,
         last_saved_step: clampedStep,
         application_id: appId !== "new" ? appId : undefined,
       };
@@ -535,11 +482,6 @@ const SMEApplicationForm = () => {
         );
       case 4:
         return (
-          // <Step4ReviewSubmit
-          //   {...commonProps}
-          //   onSubmit={handleSubmitApplication}
-          //   isSubmitting={isSubmitting}
-          // />
           <Step4
             {...commonProps}
             onSubmit={handleSubmitApplication}
@@ -582,7 +524,6 @@ const SMEApplicationForm = () => {
 
                 {!isViewOnly && (
                   <div className="mt-8 flex justify-between border-t pt-6">
-                    {/* Previous Button */}
                     <Button
                       onClick={() =>
                         navigate(
@@ -596,7 +537,6 @@ const SMEApplicationForm = () => {
                     </Button>
 
                     <div className="flex gap-3">
-                      {/* Always show Save Draft */}
                       <Button
                         variant="outline"
                         onClick={handleSaveDraft}
@@ -605,25 +545,22 @@ const SMEApplicationForm = () => {
                         Save Draft
                       </Button>
 
-                      {/* Next / Submit logic */}
                       {clampedStep < 4 ? (
-                        // Show Next button if not last step
                         <Button
                           onClick={() =>
                             navigate(
                               `/application/${routeMode}/${appId}/${clampedStep + 1}`,
                             )
                           }
+                          disabled={isStep1 && !canProceedFromStep1}
                         >
                           Next
                         </Button>
                       ) : (
-                        // Last step: show Submit only if all fields are filled
                         !hasNullFields(formData) && (
                           <Button
                             onClick={handleSubmitApplication}
-                            disabled={isSubmitting}
-                            // variant="destructive"
+                            disabled={isSubmitting || !formData.provider_session_id}
                           >
                             Submit
                           </Button>

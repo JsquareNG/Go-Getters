@@ -1,56 +1,129 @@
 from fastapi import APIRouter, UploadFile, File, HTTPException
+from backend.services.gemini_extractor import parse_universal_document, classify_document
+from backend.services.document_ai import extract_document_layout
 
-# services
-from backend.services.acra_extractor import extract_acra_data_with_tables
-from backend.services.id_verification.orchestrator import extract_and_validate
-# from backend.services.indo_nib_extractor import extract_indo_nib_profile
+from backend.services.gemini_basic_extractor import (
+    classify_business_document,
+    parse_basic_info_document,
+)
+from backend.services.normalisation import normalize_proof_of_address
 
 router = APIRouter(prefix="/extract", tags=["OCR Extraction"])
 
 
-# ================================
-# ACRA BUSINESS PROFILE EXTRACTION
-# ================================
-@router.post("/acra-bizprofile")
-async def extract_acra(file: UploadFile = File(...)):
-    try:
-        pdf_bytes = await file.read()
-        data = extract_acra_data_with_tables(pdf_bytes)
 
-        return {
-            "document_type": "ACRA_BIZPROFILE",
-            "data": data
+SUPPORTED_CONTENT_TYPES = [
+    "application/pdf",
+    "image/jpeg",
+    "image/png",
+]
+
+
+@router.post("/classify-and-extract")
+async def classify_and_extract_document(file: UploadFile = File(...)):
+    try:
+        # 1. Validate file type
+        if file.content_type not in SUPPORTED_CONTENT_TYPES:
+            raise HTTPException(
+                status_code=400,
+                detail="Only PDF, JPG, PNG allowed"
+            )
+
+        # 2. Read file once
+        file_bytes = await file.read()
+
+        # 3. OCR once
+        doc_ai_result = extract_document_layout(file_bytes, file.content_type)
+        raw_text = doc_ai_result.get("raw_text", "")
+
+        if not raw_text:
+            raise HTTPException(
+                status_code=400,
+                detail="Document AI extracted no text."
+            )
+
+        # 4. Classify once
+        detected_doc_type = classify_document(raw_text)
+        is_supported = detected_doc_type != "UNKNOWN"
+
+        # 5. Prepare base response
+        response = {
+            "filename": file.filename,
+            "content_type": file.content_type,
+            "document_type": detected_doc_type,
+            "is_supported": is_supported,
+            "data": None,
         }
 
-    except Exception as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        # 6. If unsupported, return metadata only
+        if not is_supported:
+            return response
 
+        # 7. Extract structured info
+        final_data = parse_universal_document(raw_text, detected_doc_type)
 
-# ================================
-# IDENTITY VERIFICATION EXTRACTION
-# ================================
-@router.post("/id")
-async def extract_id(file: UploadFile = File(...)):
+        # 8. Normalize proof-of-address documents
+        if detected_doc_type in ["UTILITY_BILL", "TENANCY_AGREEMENT", "OFFICE_LEASE"]:
+            final_data = normalize_proof_of_address(detected_doc_type, final_data)
 
-    if file.content_type not in [
-        "application/pdf",
-        "image/jpeg",
-        "image/png"
-    ]:
+        # 9. Return all in one response
+        response["data"] = final_data
+        return response
+
+    except ValueError as ve:
         raise HTTPException(
-            status_code=400,
-            detail="Only PDF, JPG, PNG allowed"
+            status_code=422,
+            detail=f"Validation Error: {str(ve)}"
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Processing Error: {str(e)}"
         )
 
-    file_bytes = await file.read()
+@router.post("/universal-basic-info")
+async def extract_universal_basic_info(file: UploadFile = File(...)):
+    try:
+        if file.content_type not in [
+            "application/pdf",
+            "image/jpeg",
+            "image/png"
+        ]:
+            raise HTTPException(
+                status_code=400,
+                detail="Only PDF, JPG, PNG allowed"
+            )
 
-    result = extract_and_validate(
-        file_bytes,
-        file.content_type,
-        file.filename
-    )
+        file_bytes = await file.read()
 
-    return {
-        "document_type": "IDENTITY_DOCUMENT",
-        "data": result
-    }
+        doc_ai_result = extract_document_layout(file_bytes, file.content_type)
+        raw_text = doc_ai_result.get("raw_text", "")
+
+        if not raw_text:
+            raise HTTPException(
+                status_code=400,
+                detail="Document AI extracted no text."
+            )
+
+        detected_doc_type = classify_business_document(raw_text)
+
+        if detected_doc_type == "UNKNOWN":
+            raise HTTPException(
+                status_code=400,
+                detail="Only ACRA business profiles and Indonesian NIB documents are supported for basic autofill."
+            )
+
+        final_data = parse_basic_info_document(raw_text, detected_doc_type)
+
+        return {
+            "document_type": detected_doc_type,
+            "data": final_data
+        }
+
+    except ValueError as ve:
+        raise HTTPException(status_code=422, detail=f"Validation Error: {str(ve)}")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Processing Error: {str(e)}")
+
