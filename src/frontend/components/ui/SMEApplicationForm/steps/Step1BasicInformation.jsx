@@ -9,7 +9,8 @@ import { livenessDetectionApi } from "../../../../api/livenessDetectionApi";
 import { Button } from "@/components/ui";
 
 import { SINGAPORE_CONFIG, INDONESIA_CONFIG } from "../config";
-import { allDocuments, ocrDocumentApi } from "@/api/documentApi";
+import { allDocuments } from "@/api/documentApi";
+import { extractProfileApi } from "@/api/ocrApi";
 
 // const ACRA_WITH_TABLES_ENDPOINT =
 //   "http://127.0.0.1:8000/document-ai/extract-acra-bizprofile";
@@ -375,7 +376,7 @@ const Step1BasicInformation = ({
     setBusinessProfileUploading(true);
 
     try {
-      const result = await ocrDocumentApi(businessProfileFile);
+      const result = await extractProfileApi(businessProfileFile);
       console.log("BUSINESS PROFILE OCR RESPONSE:", result);
 
       mapBusinessProfileResultToForm(result);
@@ -845,7 +846,7 @@ const Step1BasicInformation = ({
             disabled={disabled}
           />
 
-          {isBusinessProfileOCRField && (
+          {/* {isBusinessProfileOCRField && (
             <div className="mt-2 flex items-center gap-3">
               <button
                 type="button"
@@ -870,7 +871,7 @@ const Step1BasicInformation = ({
                 </p>
               )}
             </div>
-          )}
+          )} */}
         </div>
       );
     }
@@ -1240,7 +1241,7 @@ const Step1BasicInformation = ({
         </CardContent>
       </Card>
 
-      {/* <Separator className="my-8" /> */}
+      <Separator className="my-8 border-1 bg-gray-100" />
 
       {/* AUTOFILL FUNCTION */}
       {extractorConfig && businessProfileFieldKey && (

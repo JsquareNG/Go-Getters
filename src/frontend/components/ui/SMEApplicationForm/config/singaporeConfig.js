@@ -89,9 +89,11 @@ function getCoreFinancialFields() {
       country: {
         type: "select",
         label: "Country of Tax Residency",
+        required: true,
+
         options: COUNTRIES(),
       },
-      tin: { type: "text", label: "TIN" },
+      tin: { type: "text", label: "TIN", required: true },
     },
     expectedCountriesOfTransactionActivity: {
       type: "checkbox",
@@ -119,6 +121,7 @@ function getComplianceDeclarations() {
     pepDeclaration: {
       type: "select",
       label: "Politically Exposed Person (PEP)",
+      required: true,
       options: YES_NO_OPTIONS,
       conditionalFields: {
         Yes: {
@@ -126,23 +129,38 @@ function getComplianceDeclarations() {
             type: "select",
             label: "Country",
             options: COUNTRIES(),
+            required: true,
           },
-          position: { type: "text", label: "Position Held" },
-          relationship: { type: "text", label: "Relationship Type" },
-          period: { type: "text", label: "Period" },
+          position: { type: "text", label: "Position Held", required: true },
+          relationship: {
+            type: "text",
+            label: "Relationship Type",
+            required: true,
+          },
+          period: { type: "text", label: "Period", required: true },
         },
       },
     },
     sanctionsDeclaration: {
       type: "select",
       label: "Subject to Sanctions",
+      required: true,
+
       options: YES_NO_OPTIONS,
       conditionalFields: {
-        Yes: { details: { type: "textarea", label: "Provide Details" } },
+        Yes: {
+          details: {
+            type: "textarea",
+            label: "Provide Details",
+            required: true,
+          },
+        },
       },
     },
     fatcaDeclaration: {
       type: "select",
+      required: true,
+
       label: "U.S. Citizen / Tax Resident",
       options: YES_NO_OPTIONS,
     },

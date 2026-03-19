@@ -131,9 +131,18 @@ const SMEApplicationForm = () => {
   const selectedBusinessType =
     mergedFormData?.businessType || mergedFormData?.business_type || "";
 
-  const activeConfig = CONFIG_MAP[formData?.country] || SINGAPORE_CONFIG;
+  const selectedCountry =
+    mergedFormData?.country ||
+    mergedFormData?.businessCountry ||
+    mergedFormData?.business_country ||
+    "";
 
-  const isStep0Valid = Boolean(mergedFormData?.country && selectedBusinessType);
+  const activeConfig = CONFIG_MAP[selectedCountry] || SINGAPORE_CONFIG;
+  const isStep0Valid = Boolean(selectedCountry && selectedBusinessType);
+
+  // const activeConfig = CONFIG_MAP[formData?.country] || SINGAPORE_CONFIG;
+
+  // const isStep0Valid = Boolean(mergedFormData?.country && selectedBusinessType);
 
   const entityConfig = useMemo(() => {
     if (!selectedBusinessType) return null;
@@ -1120,16 +1129,6 @@ const SMEApplicationForm = () => {
           return;
         }
 
-        // if (validationReport.total > 0) {
-        //   toast({
-        //     title: "Complete required fields first",
-        //     description:
-        //       "Please resolve the missing fields before proceeding to review.",
-        //     variant: "destructive",
-        //   });
-        //   return;
-        // }
-
         navigate(`/application/${routeMode}/${appId}/${targetStep}`);
       }
     },
@@ -1143,220 +1142,6 @@ const SMEApplicationForm = () => {
       toast,
     ],
   );
-
-  // const hasIncompleteFields = useCallback(
-  //   (rawData) => {
-  //     const data = getMergedFormState(rawData);
-  //     const businessType = data.businessType;
-  //     if (!businessType) return true;
-
-  //     const steps = activeConfig?.entities?.[businessType]?.steps || [];
-
-  //     for (const step of steps) {
-  //       for (const [key, fieldDef] of Object.entries(step.fields || {})) {
-  //         if (fieldDef.required && !data[key]) return true;
-
-  //         if (fieldDef.conditionalFields && data[key]) {
-  //           const conditional = fieldDef.conditionalFields[data[key]] || {};
-
-  //           for (const [key, fieldDef] of Object.entries(step.fields || {})) {
-  //             if (fieldDef.required) {
-  //               if (fieldDef.type === "file") {
-  //                 const documentType = buildDocumentType({ fieldKey: key });
-
-  //                 if (
-  //                   !hasUploadedDocument({
-  //                     value: data[key],
-  //                     documentType,
-  //                   })
-  //                 ) {
-  //                   console.log("Missing top-level file field:", {
-  //                     stepId: step.id,
-  //                     fieldKey: key,
-  //                     documentType,
-  //                     value: data[key],
-  //                     existingDoc: existingDocumentMap[documentType],
-  //                   });
-  //                   return true;
-  //                 }
-  //               } else {
-  //                 if (
-  //                   data[key] === null ||
-  //                   data[key] === undefined ||
-  //                   (typeof data[key] === "string" &&
-  //                     data[key].trim() === "") ||
-  //                   (Array.isArray(data[key]) && data[key].length === 0)
-  //                 ) {
-  //                   console.log("Missing top-level required field:", {
-  //                     stepId: step.id,
-  //                     fieldKey: key,
-  //                     value: data[key],
-  //                   });
-  //                   return true;
-  //                 }
-  //               }
-  //             }
-
-  //             if (fieldDef.conditionalFields && data[key]) {
-  //               const conditional = fieldDef.conditionalFields[data[key]] || {};
-
-  //               for (const [ck, cd] of Object.entries(conditional)) {
-  //                 if (!cd.required) continue;
-
-  //                 if (cd.type === "file") {
-  //                   const documentType = buildDocumentType({ fieldKey: ck });
-
-  //                   if (
-  //                     !hasUploadedDocument({
-  //                       value: data[ck],
-  //                       documentType,
-  //                     })
-  //                   ) {
-  //                     console.log("Missing top-level conditional file field:", {
-  //                       stepId: step.id,
-  //                       parentField: key,
-  //                       fieldKey: ck,
-  //                       documentType,
-  //                       value: data[ck],
-  //                       existingDoc: existingDocumentMap[documentType],
-  //                     });
-  //                     return true;
-  //                   }
-  //                 } else {
-  //                   if (
-  //                     data[ck] === null ||
-  //                     data[ck] === undefined ||
-  //                     (typeof data[ck] === "string" &&
-  //                       data[ck].trim() === "") ||
-  //                     (Array.isArray(data[ck]) && data[ck].length === 0)
-  //                   ) {
-  //                     console.log(
-  //                       "Missing top-level conditional required field:",
-  //                       {
-  //                         stepId: step.id,
-  //                         parentField: key,
-  //                         fieldKey: ck,
-  //                         value: data[ck],
-  //                       },
-  //                     );
-  //                     return true;
-  //                   }
-  //                 }
-  //               }
-  //             }
-  //           }
-  //         }
-  //       }
-
-  //       const repeatableSections = step.repeatableSections || {};
-  //       for (const [sectionKey, section] of Object.entries(
-  //         repeatableSections,
-  //       )) {
-  //         let rows = [];
-
-  //         if (section?.storage === "individuals") {
-  //           const roleValue = getSectionRoleValue(sectionKey, section);
-  //           rows = (data.individuals || []).filter(
-  //             (x) => x?.role === roleValue,
-  //           );
-  //         } else {
-  //           rows = Array.isArray(data[sectionKey]) ? data[sectionKey] : [];
-  //         }
-
-  //         if ((section.min ?? 0) > rows.length) return true;
-
-  //         for (let rowIndex = 0; rowIndex < rows.length; rowIndex++) {
-  //           const item = rows[rowIndex];
-
-  //           for (const [k, fDef] of Object.entries(section.fields || {})) {
-  //             if (fDef.required) {
-  //               if (fDef.type === "file") {
-  //                 const documentType = buildDocumentType({
-  //                   sectionKey,
-  //                   sectionConfig: section,
-  //                   rowIndex,
-  //                   fieldKey: k,
-  //                 });
-
-  //                 if (
-  //                   !hasUploadedDocument({
-  //                     value: item?.[k],
-  //                     documentType,
-  //                   })
-  //                 ) {
-  //                   return true;
-  //                 }
-  //               } else {
-  //                 // if (!item?.[k]) return true;
-  //                 if (
-  //                   item?.[k] === null ||
-  //                   item?.[k] === undefined ||
-  //                   (typeof item?.[k] === "string" && item[k].trim() === "") ||
-  //                   (Array.isArray(item?.[k]) && item[k].length === 0)
-  //                 ) {
-  //                   console.log("Missing repeatable required field:", {
-  //                     stepId: step.id,
-  //                     sectionKey,
-  //                     rowIndex,
-  //                     fieldKey: k,
-  //                     value: item?.[k],
-  //                   });
-  //                   return true;
-  //                 }
-  //               }
-  //             }
-
-  //             if (fDef.conditionalFields && item?.[k]) {
-  //               const conditional = fDef.conditionalFields[item[k]] || {};
-
-  //               for (const [ck, cd] of Object.entries(conditional)) {
-  //                 if (!cd.required) continue;
-
-  //                 if (cd.type === "file") {
-  //                   const documentType = buildDocumentType({
-  //                     sectionKey,
-  //                     sectionConfig: section,
-  //                     rowIndex,
-  //                     fieldKey: ck,
-  //                   });
-
-  //                   if (
-  //                     !hasUploadedDocument({
-  //                       value: item?.[k],
-  //                       documentType,
-  //                     })
-  //                   ) {
-  //                     console.log("Missing repeatable file field:", {
-  //                       stepId: step.id,
-  //                       sectionKey,
-  //                       rowIndex,
-  //                       fieldKey: k,
-  //                       documentType,
-  //                       value: item?.[k],
-  //                       existingDoc: existingDocumentMap[documentType],
-  //                     });
-  //                     return true;
-  //                   }
-  //                 } else {
-  //                   if (!item?.[ck]) return true;
-  //                 }
-  //               }
-  //             }
-  //           }
-  //         }
-  //       }
-  //     }
-
-  //     return false;
-  //   },
-  //   [
-  //     activeConfig,
-  //     getMergedFormState,
-  //     getSectionRoleValue,
-  //     hasUploadedDocument,
-  //     existingDocumentMap,
-  //   ],
-  // );
 
   useEffect(() => {
     const initApplication = async () => {
@@ -1618,21 +1403,26 @@ const SMEApplicationForm = () => {
         <div className="space-y-3 overflow-y-auto max-h-120 pr-2 pb-7">
           {report.byStep
             .filter((step) => step.missing.length > 0)
-            .map((step) => (
-              <div
-                key={step.stepId}
-                className="rounded-md border border-red-200 bg-red-50 p-3"
-              >
-                <p className="font-medium text-red-800 mb-1">
-                  {step.stepLabel}
-                </p>
-                <ul className="list-disc list-inside text-sm text-red-700 space-y-1">
-                  {step.missing.map((item, idx) => (
-                    <li key={`${step.stepId}-${idx}`}>{item.label}</li>
-                  ))}
-                </ul>
-              </div>
-            ))}
+            .map((step, index) => {
+              const prevStep = report.byStep[index +1];
+
+              return (
+                <div
+                  key={step.stepId}
+                  className="rounded-md border border-red-200 bg-red-50 p-3"
+                >
+                  <p className="font-medium text-red-800 mb-1">
+                    {/* {step.stepLabel} */}
+                    {prevStep ? prevStep.stepLabel : step.stepLabel}
+                  </p>
+                  <ul className="list-disc list-inside text-sm text-red-700 space-y-1">
+                    {step.missing.map((item, idx) => (
+                      <li key={`${step.stepId}-${idx}`}>{item.label}</li>
+                    ))}
+                  </ul>
+                </div>
+              );
+            })}
         </div>
       </div>
     );
@@ -1652,9 +1442,7 @@ const SMEApplicationForm = () => {
             stepLabels={STEP_LABELS}
           />
 
-          {/* <div className="flex-1 overflow-y-scroll h-full"> */}
           {!isViewOnly && <MissingSteps report={validationReport} />}
-          {/* </div> */}
         </div>
       </div>
 
