@@ -1,7 +1,7 @@
-from backend.compliance_rules_engine.generalRules import evaluate_general_rules
-from backend.compliance_rules_engine.sgRules import evaluate_singapore_rules
-from backend.compliance_rules_engine.indoRules import evaluate_indonesia_rules
-from backend.compliance_rules_engine.kycRules import evaluate_kyc_rules
+from backend.compliance_rules_engine.rules.generalRules import evaluate_general_rules
+from backend.compliance_rules_engine.rules.sgRules import evaluate_singapore_rules
+from backend.compliance_rules_engine.rules.indoRules import evaluate_indonesia_rules
+from backend.compliance_rules_engine.rules.kycRules import evaluate_kyc_rules
 
 def evaluate_company(company, db, config):
     total_score = 0
@@ -38,11 +38,11 @@ def evaluate_company(company, db, config):
     standard_threshold = config.get("thresholds", {}).get("Standard Due Diligence")
 
     if total_score < simplified_threshold:
-        decision = "Simplified CDD"
+        decision = "Simplified Due Diligence (SDD)"
     elif total_score < standard_threshold:
-        decision = "Standard CDD"
+        decision = "Standard Due Diligence (CDD)"
     else:
-        decision = "Enhanced CDD"
+        decision = "Enhanced Due Diligence (EDD)"
 
     return {
         "risk_score": total_score,

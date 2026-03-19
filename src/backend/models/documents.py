@@ -1,6 +1,7 @@
 import uuid
 from backend.database import Base
-# from database import Base
+from sqlalchemy.dialects.postgresql import JSONB
+from sqlalchemy.ext.mutable import MutableDict
 
 from sqlalchemy import Column, String, ForeignKey, DateTime, text
 from sqlalchemy.orm import relationship
@@ -32,6 +33,8 @@ class Document(Base):
     status = Column(String(30), nullable=False, server_default=text("'uploaded'"))
 
     created_at = Column(DateTime(timezone=True), server_default=text("now()"), nullable=False)
+
+    extracted_data = Column(MutableDict.as_mutable(JSONB), default=dict)
 
     application = relationship(
     "ApplicationForm",

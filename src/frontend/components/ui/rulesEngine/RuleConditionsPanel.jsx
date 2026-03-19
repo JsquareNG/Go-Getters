@@ -18,6 +18,7 @@ export default function RuleConditionsPanel({
   ruleErrors = {},
   conditionErrors = {},
   showValidation = false,
+  fieldOptions = [],
 }) {
   const conditionsError = showValidation ? ruleErrors.conditions : "";
 
@@ -64,6 +65,7 @@ export default function RuleConditionsPanel({
                     conditionErrors[getConditionKey(condition)] || {}
                   }
                   showValidation={showValidation}
+                  fieldOptions={fieldOptions}
                 />
               ))}
             </div>

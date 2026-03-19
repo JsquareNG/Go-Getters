@@ -23,7 +23,7 @@ from backend.api.auditTrail import router as audit_router
 from backend.api.risk_config_list import router as risk_list_router
 from backend.api.risk_rule import router as risk_rule_router
 from backend.api.liveness_detection import router as live_detection_router
-
+from backend.api.simulationTesting import router as sim_testing_router
 import os
 from pathlib import Path
 from dotenv import load_dotenv
@@ -83,3 +83,4 @@ app.include_router(risk_list_router)
 app.include_router(risk_rule_router)
 
 app.include_router(live_detection_router)
+app.include_router(sim_testing_router)

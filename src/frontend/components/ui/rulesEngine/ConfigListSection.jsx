@@ -1,40 +1,22 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { Plus, Save, AlertTriangle } from "lucide-react";
+import { Plus, Save } from "lucide-react";
 import ConfigListTable from "./ConfigListTable";
 import {
   getRiskConfigListByListName,
   saveRiskConfigListChanges,
+  getAllRiskConfigListNames,
 } from "../../../api/riskConfigListApi";
-
-const CONFIG_TABS = [
-  {
-    key: "THRESHOLDS",
-    label: "Thresholds",
-    itemType: "threshold",
-  },{
-    key: "HIGH_RISK_COUNTRIES",
-    label: "High Risk Countries",
-    itemType: "country",
-  },
-  {
-    key: "HIGH_RISK_INDUSTRIES",
-    label: "High Risk Industries",
-    itemType: "industry",
-  },
-  {
-    key: "FATF_BLACKLIST",
-    label: "FATF Blacklist",
-    itemType: "country",
-  },
-];
+import ConfirmModal from "./common/ConfirmModal";
 
 const COUNTRY_TAB_KEYS = ["HIGH_RISK_COUNTRIES", "FATF_BLACKLIST"];
 
 function normalizeRow(row) {
   return {
     id: row.id ?? null,
+    __tempId: row.__tempId ?? null,
+    __clientOrder: null,
     list_name: row.list_name ?? "",
-    item_value: row.item_value ?? "",
+    item_value: row.item_value ?? null,
     item_label: row.item_label ?? "",
     item_type: row.item_type ?? "",
     is_active: Boolean(row.is_active),
@@ -43,69 +25,34 @@ function normalizeRow(row) {
   };
 }
 
-function ConfirmModal({
-  open,
-  title,
-  message,
-  confirmLabel = "Yes",
-  cancelLabel = "No",
-  confirmVariant = "dark",
-  type = "warning",
-  onConfirm,
-  onCancel,
-}) {
-  if (!open) return null;
+function formatConfigTabLabel(name) {
+  if (!name) return "";
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
-      <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl">
-        <div className="flex items-start gap-3">
-          <div
-            className={`mt-0.5 rounded-full p-2 ${
-              type === "save"
-                ? "bg-blue-100 text-blue-700"
-                : "bg-yellow-100 text-yellow-700"
-            }`}
-          >
-            {type === "save" ? <Save size={18} /> : <AlertTriangle size={18} />}
-          </div>
+  const specialWords = {
+    FATF: "FATF",
+    SG: "Singapore",
+  };
 
-          <div className="flex-1">
-            <h3 className="text-lg font-semibold text-gray-900">{title}</h3>
-            <p className="mt-2 text-sm text-gray-600">{message}</p>
-          </div>
-        </div>
+  return name
+    .split("_")
+    .map(
+      (part) =>
+        specialWords[part] || part.charAt(0) + part.slice(1).toLowerCase()
+    )
+    .join(" ");
+}
 
-        <div className="mt-6 flex justify-end gap-3">
-          <button
-            type="button"
-            onClick={onCancel}
-            className="rounded-xl border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-800 hover:bg-gray-50"
-          >
-            {cancelLabel}
-          </button>
+function getItemTypeFromListName(name) {
+  if (name === "THRESHOLDS") return "threshold";
+  if (name.includes("COUNTRIES") || name.includes("BLACKLIST")) return "country";
+  if (name.includes("INDUSTRIES")) return "industry";
+  if (name.includes("ENTITY_TYPES")) return "entity_type";
 
-          <button
-            type="button"
-            onClick={onConfirm}
-            className={`rounded-xl px-4 py-2 text-sm font-medium text-white ${
-              confirmVariant === "danger"
-                ? "bg-red-600 hover:bg-red-700"
-                : confirmVariant === "primary"
-                ? "bg-blue-600 hover:bg-blue-700"
-                : "bg-gray-900 hover:bg-black"
-            }`}
-          >
-            {confirmLabel}
-          </button>
-        </div>
-      </div>
-    </div>
-  );
+  return "industry";
 }
 
 export default function ConfigListSection() {
-  const [activeTab, setActiveTab] = useState("THRESHOLDS");
+  const [activeTab, setActiveTab] = useState("");
   const [serverRows, setServerRows] = useState([]);
   const [workingRows, setWorkingRows] = useState([]);
   const [crossTabRows, setCrossTabRows] = useState([]);
@@ -114,6 +61,7 @@ export default function ConfigListSection() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+  const [configTabs, setConfigTabs] = useState([]);
   const bottomRef = useRef(null);
 
   const [confirmState, setConfirmState] = useState({
@@ -121,9 +69,40 @@ export default function ConfigListSection() {
     action: null,
   });
 
+  useEffect(() => {
+    const fetchConfigTabs = async () => {
+      try {
+        const names = await getAllRiskConfigListNames();
+
+        const tabs = (names || [])
+          .map((name) => ({
+            key: name,
+            label: formatConfigTabLabel(name),
+            itemType: getItemTypeFromListName(name),
+          }))
+          .sort((a, b) => {
+            if (a.key === "THRESHOLDS") return -1;
+            if (b.key === "THRESHOLDS") return 1;
+            return a.label.localeCompare(b.label);
+          });
+
+        setConfigTabs(tabs);
+
+        if (tabs.length && !activeTab) {
+          setActiveTab(tabs[0].key);
+        }
+      } catch (err) {
+        console.error("Failed to load config tabs", err);
+        setConfigTabs([]);
+      }
+    };
+
+    fetchConfigTabs();
+  }, [activeTab]);
+
   const currentTabMeta = useMemo(
-    () => CONFIG_TABS.find((tab) => tab.key === activeTab),
-    [activeTab]
+    () => configTabs.find((tab) => tab.key === activeTab),
+    [configTabs, activeTab]
   );
 
   const otherCountryTabKey =
@@ -142,7 +121,6 @@ export default function ConfigListSection() {
 
   const getRowKey = (row) => row.id ?? row.__tempId;
   const normalizeText = (value) => (value || "").trim().toLowerCase();
-  const normalizeCode = (value) => (value || "").trim().toUpperCase();
 
   const fetchRows = async () => {
     try {
@@ -194,6 +172,8 @@ export default function ConfigListSection() {
   };
 
   useEffect(() => {
+    if (!activeTab) return;
+
     fetchRows();
     fetchCrossTabRows();
   }, [activeTab]);
@@ -203,7 +183,7 @@ export default function ConfigListSection() {
       workingRows.map((r) => ({
         id: r.id,
         list_name: r.list_name,
-        item_value: r.item_value,
+        item_value: r.item_type === "threshold" ? r.item_value : null,
         item_label: r.item_label,
         item_type: r.item_type,
         is_active: r.is_active,
@@ -215,7 +195,7 @@ export default function ConfigListSection() {
       serverRows.map((r) => ({
         id: r.id,
         list_name: r.list_name,
-        item_value: r.item_value,
+        item_value: r.item_type === "threshold" ? r.item_value : null,
         item_label: r.item_label,
         item_type: r.item_type,
         is_active: r.is_active,
@@ -256,7 +236,6 @@ export default function ConfigListSection() {
   const committedSortedRows = useMemo(() => {
     if (currentTabMeta?.itemType === "threshold") {
       return [...serverRows].sort((a, b) => {
-        // active first
         if (a.is_active !== b.is_active) {
           return a.is_active ? -1 : 1;
         }
@@ -264,12 +243,10 @@ export default function ConfigListSection() {
         const aValue = Number(a.item_value ?? 0);
         const bValue = Number(b.item_value ?? 0);
 
-        // then threshold value ascending
         if (aValue !== bValue) {
           return aValue - bValue;
         }
 
-        // fallback: threshold name
         return (a.item_label || "")
           .toLowerCase()
           .localeCompare((b.item_label || "").toLowerCase());
@@ -277,12 +254,10 @@ export default function ConfigListSection() {
     }
 
     return [...serverRows].sort((a, b) => {
-      // active first
       if (a.is_active !== b.is_active) {
         return a.is_active ? -1 : 1;
       }
 
-      // then alphabetical
       return (a.item_label || "")
         .toLowerCase()
         .localeCompare((b.item_label || "").toLowerCase());
@@ -290,28 +265,6 @@ export default function ConfigListSection() {
   }, [serverRows, currentTabMeta]);
 
   const sortedRows = useMemo(() => {
-    if (currentTabMeta?.itemType === "threshold") {
-      return [...workingRows].sort((a, b) => {
-        // active first
-        if (a.is_active !== b.is_active) {
-          return a.is_active ? -1 : 1;
-        }
-
-        const aValue = Number(a.item_value ?? 0);
-        const bValue = Number(b.item_value ?? 0);
-
-        // then threshold value ascending
-        if (aValue !== bValue) {
-          return aValue - bValue;
-        }
-
-        // fallback: threshold name
-        return (a.item_label || "")
-          .toLowerCase()
-          .localeCompare((b.item_label || "").toLowerCase());
-      });
-    }
-
     const committedOrderMap = new Map(
       committedSortedRows.map((row, index) => [getRowKey(row), index])
     );
@@ -323,18 +276,31 @@ export default function ConfigListSection() {
       const aHasCommittedOrder = committedOrderMap.has(aKey);
       const bHasCommittedOrder = committedOrderMap.has(bKey);
 
-      // Existing rows keep their last committed display order
       if (aHasCommittedOrder && bHasCommittedOrder) {
         return committedOrderMap.get(aKey) - committedOrderMap.get(bKey);
       }
 
-      // Existing rows stay above new rows
       if (aHasCommittedOrder && !bHasCommittedOrder) return -1;
       if (!aHasCommittedOrder && bHasCommittedOrder) return 1;
 
-      // New rows: active first, then alphabetical
       if (a.is_active !== b.is_active) {
         return a.is_active ? -1 : 1;
+      }
+
+      const aClientOrder = a.__clientOrder ?? 0;
+      const bClientOrder = b.__clientOrder ?? 0;
+
+      if (aClientOrder !== bClientOrder) {
+        return aClientOrder - bClientOrder;
+      }
+
+      if (currentTabMeta?.itemType === "threshold") {
+        const aValue = Number(a.item_value ?? 0);
+        const bValue = Number(b.item_value ?? 0);
+
+        if (aValue !== bValue) {
+          return aValue - bValue;
+        }
       }
 
       return (a.item_label || "")
@@ -350,17 +316,10 @@ export default function ConfigListSection() {
     if (!otherCountryTabKey) return false;
 
     const targetLabel = normalizeText(targetRow.item_label);
-    const targetCode = normalizeCode(targetRow.item_value);
 
     return crossTabRows.some((row) => {
       if (!row.is_active) return false;
-
-      const sameLabel =
-        targetLabel && normalizeText(row.item_label) === targetLabel;
-      const sameCode =
-        targetCode && normalizeCode(row.item_value) === targetCode;
-
-      return sameLabel || sameCode;
+      return targetLabel && normalizeText(row.item_label) === targetLabel;
     });
   };
 
@@ -407,10 +366,6 @@ export default function ConfigListSection() {
 
         let nextValue = value;
 
-        if (field === "item_value" && row.item_type === "country") {
-          nextValue = value.toUpperCase();
-        }
-
         if (row.item_type === "threshold" && field === "item_value") {
           nextValue = value.replace(/[^\d]/g, "");
         }
@@ -440,16 +395,19 @@ export default function ConfigListSection() {
 
   const handleAddRow = () => {
     const tempId = `new-${Date.now()}-${Math.random()}`;
+    const clientOrder = Date.now() + Math.random();
+    const itemType = currentTabMeta?.itemType || "industry";
 
     setWorkingRows((prev) => [
       ...prev,
       {
         id: null,
         __tempId: tempId,
+        __clientOrder: clientOrder,
         list_name: activeTab,
-        item_value: "",
+        item_value: itemType === "threshold" ? "" : null,
         item_label: "",
-        item_type: currentTabMeta.itemType,
+        item_type: itemType,
         is_active: true,
         updated_at: null,
         isNew: true,
@@ -503,14 +461,7 @@ export default function ConfigListSection() {
         }
       } else {
         if (!row.item_label?.trim()) {
-          rowErrors.item_label =
-            row.item_type === "industry"
-              ? "Industry Name is required."
-              : "Country Name is required.";
-        }
-
-        if (row.item_type !== "industry" && !row.item_value?.trim()) {
-          rowErrors.item_value = "ISO Country Code is required.";
+          rowErrors.item_label = "Value is required.";
         }
       }
 
@@ -519,50 +470,18 @@ export default function ConfigListSection() {
       }
     });
 
-    if (currentTabMeta?.itemType === "industry") {
-      const seenIndustryLabels = new Map();
+    if (currentTabMeta?.itemType !== "threshold") {
+      const seenLabels = new Map();
 
       workingRows.forEach((row) => {
         const labelKey = normalizeText(row.item_label);
         if (!labelKey) return;
 
-        if (!seenIndustryLabels.has(labelKey)) {
-          seenIndustryLabels.set(labelKey, []);
-        }
-        seenIndustryLabels.get(labelKey).push(row);
-      });
-
-      for (const [, rows] of seenIndustryLabels.entries()) {
-        if (rows.length > 1) {
-          rows.forEach((row) => {
-            const rowKey = getRowKey(row);
-            errors[rowKey] = {
-              ...(errors[rowKey] || {}),
-              item_label:
-                "Industry already exists in this list, remove one to continue.",
-            };
-          });
-        }
-      }
-    }
-
-    if (currentTabMeta?.itemType === "country") {
-      const seenLabels = new Map();
-      const seenCodes = new Map();
-
-      workingRows.forEach((row) => {
-        const labelKey = normalizeText(row.item_label);
-        const codeKey = normalizeCode(row.item_value);
-
-        if (labelKey) {
-          if (!seenLabels.has(labelKey)) seenLabels.set(labelKey, []);
-          seenLabels.get(labelKey).push(row);
+        if (!seenLabels.has(labelKey)) {
+          seenLabels.set(labelKey, []);
         }
 
-        if (codeKey) {
-          if (!seenCodes.has(codeKey)) seenCodes.set(codeKey, []);
-          seenCodes.get(codeKey).push(row);
-        }
+        seenLabels.get(labelKey).push(row);
       });
 
       for (const [, rows] of seenLabels.entries()) {
@@ -571,26 +490,14 @@ export default function ConfigListSection() {
             const rowKey = getRowKey(row);
             errors[rowKey] = {
               ...(errors[rowKey] || {}),
-              item_label:
-                "Country already exists in this list, remove one to continue.",
+              item_label: "Value already exists in this list, remove one to continue.",
             };
           });
         }
       }
+    }
 
-      for (const [, rows] of seenCodes.entries()) {
-        if (rows.length > 1) {
-          rows.forEach((row) => {
-            const rowKey = getRowKey(row);
-            errors[rowKey] = {
-              ...(errors[rowKey] || {}),
-              item_value:
-                "ISO country code already exists in this list, remove one to continue.",
-            };
-          });
-        }
-      }
-
+    if (currentTabMeta?.itemType === "country") {
       const activeCrossTabRows = crossTabRows.filter((row) => row.is_active);
 
       const crossLabels = new Set(
@@ -599,33 +506,17 @@ export default function ConfigListSection() {
           .filter(Boolean)
       );
 
-      const crossCodes = new Set(
-        activeCrossTabRows
-          .map((row) => normalizeCode(row.item_value))
-          .filter(Boolean)
-      );
-
       workingRows.forEach((row) => {
         if (!row.is_active) return;
 
         const rowKey = getRowKey(row);
         const labelKey = normalizeText(row.item_label);
-        const codeKey = normalizeCode(row.item_value);
-
         const alreadyHasSameTabLabelError = Boolean(errors[rowKey]?.item_label);
-        const alreadyHasSameTabCodeError = Boolean(errors[rowKey]?.item_value);
 
         if (!alreadyHasSameTabLabelError && labelKey && crossLabels.has(labelKey)) {
           errors[rowKey] = {
             ...(errors[rowKey] || {}),
             item_label: `Country already exists as an active record in ${otherCountryTabLabel}, remove/deactivate one to continue.`,
-          };
-        }
-
-        if (!alreadyHasSameTabCodeError && codeKey && crossCodes.has(codeKey)) {
-          errors[rowKey] = {
-            ...(errors[rowKey] || {}),
-            item_value: `ISO Country Code already exists as an active record in ${otherCountryTabLabel}, remove/deactivate one to continue.`,
           };
         }
       });
@@ -676,11 +567,7 @@ export default function ConfigListSection() {
           creates.push({
             list_name: row.list_name,
             item_value:
-              row.item_type === "country"
-                ? row.item_value.trim().toUpperCase()
-                : row.item_type === "threshold"
-                ? row.item_value.trim()
-                : row.item_label.trim().toUpperCase(),
+              row.item_type === "threshold" ? row.item_value?.trim() || "" : null,
             item_label: row.item_label.trim(),
             item_type: row.item_type,
             is_active: row.is_active,
@@ -693,15 +580,14 @@ export default function ConfigListSection() {
 
         const normalizedLabel = row.item_label.trim();
         const normalizedItemValue =
-          row.item_type === "country"
-            ? row.item_value.trim().toUpperCase()
-            : row.item_type === "threshold"
-            ? row.item_value.trim()
-            : row.item_label.trim().toUpperCase();
+          row.item_type === "threshold" ? row.item_value?.trim() || "" : null;
+
+        const originalComparableValue =
+          original.item_type === "threshold" ? original.item_value ?? "" : null;
 
         const changed =
-          original.item_value !== normalizedItemValue ||
-          original.item_label !== normalizedLabel ||
+          originalComparableValue !== normalizedItemValue ||
+          (original.item_label ?? "") !== normalizedLabel ||
           original.item_type !== row.item_type ||
           original.is_active !== row.is_active ||
           original.list_name !== row.list_name;
@@ -784,6 +670,7 @@ export default function ConfigListSection() {
     setValidationErrors(errors);
 
     if (Object.keys(errors).length > 0) {
+      setError("Please resolve the validation errors before saving.");
       setSuccess("");
       return;
     }
@@ -806,12 +693,12 @@ export default function ConfigListSection() {
       ? "Manage compliance thresholds for this list."
       : "Manage configuration records for this list.";
 
-  const shouldShowAddRow = true
+  const shouldShowAddRow = true;
 
   return (
     <>
       <div className="mb-5 flex gap-2 border-b border-gray-200">
-        {CONFIG_TABS.map((tab) => {
+        {configTabs.map((tab) => {
           const active = activeTab === tab.key;
           return (
             <button
@@ -867,7 +754,7 @@ export default function ConfigListSection() {
       <ConfigListTable
         rows={sortedRows}
         loading={loading}
-        itemType={currentTabMeta.itemType}
+        itemType={currentTabMeta?.itemType || "industry"}
         validationErrors={validationErrors}
         isToggleDisabled={isRowActivationBlocked}
         getToggleDisabledReason={getRowActivationBlockReason}

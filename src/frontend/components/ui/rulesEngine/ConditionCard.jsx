@@ -1,21 +1,8 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
+import { getRiskConfigListNames } from "../../../api/riskConfigListApi";
 import { Trash2, Plus } from "lucide-react";
 import Toggle from "./common/Toggle";
 import FieldError from "./common/FieldError";
-
-const FIELD_OPTIONS = [
-  { value: "years_incorporated", label: "years_incorporated", kind: "number" },
-  { value: "ownership_pct", label: "ownership_pct", kind: "number" },
-  { value: "is_signatory", label: "is_signatory", kind: "boolean" },
-  { value: "country", label: "country", kind: "string" },
-  {
-    value: "country_of_incorporation",
-    label: "country_of_incorporation",
-    kind: "list",
-  },
-  { value: "business_country", label: "business_country", kind: "list" },
-  { value: "industry", label: "industry", kind: "list" },
-];
 
 const NUMERIC_OPERATOR_OPTIONS = [
   { code: "EQ", symbol: "=" },
@@ -30,12 +17,18 @@ const STRING_OPERATOR_OPTIONS = [
   { code: "EQ", symbol: "=" }
 ];
 
-const LIST_OPTIONS = [
-  { value: "HIGH_RISK_COUNTRIES", label: "High Risk Countries" },
-  { value: "FATF_BLACKLIST", label: "FATF Blacklist" },
-  { value: "HIGH_RISK_INDUSTRIES", label: "High Risk Industries" },
-  { value: "UNSUPPORTED_SG_ENTITY_TYPES", label: "Unsupported SG Entity Types" },
-];
+function formatListLabel(value) {
+  if (!value) return "";
+
+  const specialWords = {
+    FATF: "FATF",
+  };
+
+  return value
+    .split("_")
+    .map((part) => specialWords[part] || part.charAt(0) + part.slice(1).toLowerCase())
+    .join(" ");
+}
 
 function getConditionKey(condition) {
   return condition.condition_id ?? condition.__tempId;
@@ -48,8 +41,8 @@ function getRuleFlowMode(conditions = []) {
   return second.uiConnector === "AND" ? "AND" : "BRANCH";
 }
 
-function getFieldMeta(fieldName, condition = null) {
-  const found = FIELD_OPTIONS.find((item) => item.value === fieldName);
+function getFieldMeta(fieldOptions, fieldName, condition = null) {
+  const found = fieldOptions.find((item) => item.value === fieldName);
   if (found) return found;
 
   if (fieldName) {
@@ -114,6 +107,7 @@ export default function ConditionCard({
   onAddCondition,
   conditionErrors = {},
   showValidation = false,
+  fieldOptions = [],
 }) {
   const conditionKey = getConditionKey(condition);
   const ruleFlowMode = getRuleFlowMode(allConditions);
@@ -125,11 +119,12 @@ export default function ConditionCard({
   const isAndRow = !isFirst && condition.uiConnector === "AND";
   const isBranchRow = !isFirst && condition.uiConnector !== "AND";
   const isExistingCondition = !condition.isNew;
+  const [listOptions, setListOptions] = useState([]);
 
   const effectiveFieldName =
     isBranchRow ? firstFieldName || condition.field_name : condition.field_name;
 
-  const fieldMeta = getFieldMeta(effectiveFieldName, condition);
+  const fieldMeta = getFieldMeta(fieldOptions, effectiveFieldName, condition);
   const isNumeric = fieldMeta?.kind === "number";
   const isBoolean = fieldMeta?.kind === "boolean";
   const isList = fieldMeta?.kind === "list";
@@ -173,6 +168,24 @@ export default function ConditionCard({
     }
   }
 
+  useEffect(() => {
+    const fetchListOptions = async () => {
+      try {
+        const data = await getRiskConfigListNames();
+        const formatted = (data || []).map((item) => ({
+          value: item,
+          label: formatListLabel(item),
+        }));
+        setListOptions(formatted);
+      } catch (err) {
+        console.error("Failed to load config list names", err);
+        setListOptions([]);
+      }
+    };
+
+    fetchListOptions();
+  }, []);
+
   const selectedConditionType = isFirst
     ? "IF"
     : condition.uiConnector === "AND"
@@ -190,7 +203,7 @@ export default function ConditionCard({
     )
     .map((item) => item.field_name);
 
-  const andFieldOptions = FIELD_OPTIONS.filter(
+  const andFieldOptions = fieldOptions.filter(
     (option) =>
       !usedFieldNamesByOtherConditions.includes(option.value) ||
       option.value === condition.field_name
@@ -278,7 +291,7 @@ export default function ConditionCard({
                           }
                           className={inputClass(Boolean(fieldNameError))}
                         >
-                          {FIELD_OPTIONS.map((option) => (
+                          {fieldOptions.map((option) => (
                             <option key={option.value} value={option.value}>
                               {option.label}
                             </option>
@@ -340,7 +353,7 @@ export default function ConditionCard({
                           className={inputClass(Boolean(listNameError))}
                         >
                           <option value="">Select List</option>
-                          {LIST_OPTIONS.map((option) => (
+                          {listOptions.map((option) => (
                             <option key={option.value} value={option.value}>
                               {option.label}
                             </option>

@@ -21,13 +21,23 @@ export default function RuleTableRow({
   onRemoveNewRule,
   ruleErrors = {},
   showValidation = false,
+  hasAnyErrors = false,
+  hasConditionError = false,
 }) {
   const ruleCodeError = showValidation ? ruleErrors.rule_code : "";
   const ruleNameError = showValidation ? ruleErrors.rule_name : "";
   const descriptionError = showValidation ? ruleErrors.description : "";
 
   return (
-    <tr className={`align-top ${row.isNew ? "bg-blue-50/40" : ""}`}>
+    <tr
+      className={`align-top ${
+        hasAnyErrors
+          ? "bg-red-50"
+          : row.isNew
+          ? "bg-blue-50/40"
+          : ""
+      }`}
+    >
       <td className="px-4 py-3">
         <button
           type="button"
