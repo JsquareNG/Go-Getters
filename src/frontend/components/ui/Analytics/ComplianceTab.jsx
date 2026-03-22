@@ -6,7 +6,6 @@ import {
   XAxis,
   YAxis,
   CartesianGrid,
-  ResponsiveContainer,
   Cell,
   Legend,
   PieChart,
@@ -579,8 +578,8 @@ export function ComplianceTab() {
                       content={
                         <ChartTooltipContent
                           formatter={(value, _name, item) => [
-                            `${value} jobs`,
                             item?.payload?.range,
+                            `: ${value} jobs`,
                           ]}
                         />
                       }
@@ -678,8 +677,8 @@ export function ComplianceTab() {
                   content={
                     <ChartTooltipContent
                       formatter={(value, name) => [
+                        name === "approved" ? "Approved: " : "Rejected: ",
                         `${value}`,
-                        name === "approved" ? "Approved" : "Rejected",
                       ]}
                     />
                   }

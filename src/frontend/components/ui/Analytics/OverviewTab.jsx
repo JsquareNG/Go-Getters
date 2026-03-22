@@ -381,10 +381,10 @@ function buildStatusSummary(statusBreakdown = []) {
       label: "Draft",
       description: "Applications not yet submitted by customers",
       count: getCount(["Draft"]),
-      dotClassName: "bg-neutral-500",
-      textClassName: "text-neutral-600",
-      rowClassName: "bg-neutral-50 border border-neutral-200/70",
-      barClassName: "bg-neutral-500",
+      dotClassName: "bg-blue-500",
+      textClassName: "text-blue-500",
+      rowClassName: "bg-blue-50 border border-neutral-200/70",
+      barClassName: "bg-blue-500",
     },
     {
       key: "Under Manual Review",
@@ -529,31 +529,27 @@ export function OverviewTab({ dateRange, preset }) {
           icon={<FileText className="h-5 w-5" />}
           title="Total Applications"
           value={overviewKPIs.totalApplications.toLocaleString()}
-          trend={overviewKPIs.totalApplicationsTrend}
-          trendLabel="vs last quarter"
+          trendLabel="Total Applications"
         />
         <KPICard
           icon={<CheckCircle2 className="h-5 w-5" />}
           title="Approval Rate"
           value={overviewKPIs.approvalRate}
           suffix="%"
-          trend={overviewKPIs.approvalRateTrend}
-          trendLabel="vs last quarter"
+          trendLabel="Approval Rate"
         />
         <KPICard
           icon={<Users className="h-5 w-5" />}
           title="Pending Review"
           value={overviewKPIs.pendingReview}
-          trend={overviewKPIs.pendingReviewTrend}
-          trendLabel="vs last week"
+          trendLabel="No. of Applications Pending Review"
         />
         <KPICard
           icon={<TrendingUp className="h-5 w-5" />}
           title="Conversion Rate"
           value={overviewKPIs.conversionRate}
           suffix="%"
-          trend={overviewKPIs.conversionRateTrend}
-          trendLabel="vs last quarter"
+          trendLabel="Conversion Rate"
         />
       </div>
 

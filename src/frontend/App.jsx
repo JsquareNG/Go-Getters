@@ -126,7 +126,7 @@ export default function App() {
         />
 
         {/* Admin Config Page */}
-        <Route
+        {/* <Route
           path="/admin-config"
           element={
             <RequireRole role="STAFF">
@@ -135,7 +135,7 @@ export default function App() {
               </LandingLayout>
             </RequireRole>
           }
-        />
+        /> */}
 
         <Route
           path="/rules-engine-configuration"
