@@ -1,16 +1,22 @@
 import React, { useMemo } from "react";
 import FormFieldGroup from "../components/FormFieldGroup";
-import SINGAPORE_CONFIG from "../config/singaporeConfig";
-import SINGAPORE_CONFIG2 from "../config/updatedSingaporeConfig";
+import FileUploadField from "../components/FileUploadField";
+import { SINGAPORE_CONFIG, INDONESIA_CONFIG } from "../config";
 
 /**
  * Step2FinancialDetails component
  * Fully Redux-driven
  */
 const Step2FinancialDetails = ({ data, onFieldChange, disabled = false }) => {
-  // ---- dynamic field config from Singapore config ----
+  const CONFIG_MAP = {
+    Singapore: SINGAPORE_CONFIG,
+    Indonesia: INDONESIA_CONFIG,
+  };
+
+  const activeConfig = CONFIG_MAP[data?.country] || SINGAPORE_CONFIG;
+
   const { financialFieldsConfig, repeatableSectionsConfig } = useMemo(() => {
-    const entity = SINGAPORE_CONFIG2.entities[data?.businessType] || {};
+    const entity = activeConfig.entities[data?.businessType] || {};
     const step3 = entity.steps?.find((s) => s.id === "step3") || {};
 
     const financialFields = {};
@@ -39,7 +45,7 @@ const Step2FinancialDetails = ({ data, onFieldChange, disabled = false }) => {
       financialFieldsConfig: financialFields,
       repeatableSectionsConfig: repeatableSections,
     };
-  }, [data?.businessType]);
+  }, [data?.businessType, data?.country]);
 
   // ---- recursive field renderer ----
   const renderField = (fieldName, fieldConfig, parentKey = null) => {

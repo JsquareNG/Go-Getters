@@ -1,104 +1,49 @@
 import React, { useEffect } from "react";
-import { useDispatch } from "react-redux";
-
 import FormFieldGroup from "../components/FormFieldGroup";
-import SINGAPORE_CONFIG from "../config/singaporeConfig";
-import SINGAPORE_CONFIG2 from "../config/updatedSingaporeConfig";
-import { useSelector } from "react-redux";
-import { selectUser } from "../../../../store/authSlice";
-import { getApplicationsByUserId } from "../../../../api/applicationApi";
-
-import {
-  // selectFormData,
-  saveDraft,
-  resetForm,
-  updateField,
-  startNewApplication,
-} from "@/store/applicationFormSlice";
+import { SINGAPORE_CONFIG, INDONESIA_CONFIG } from "../config";
 
 /**
  * Step0Brief component
  * Collects SME country of operation and business type
  */
 const Step0Brief = ({ data, onFieldChange, disabled = false }) => {
-  const dispatch = useDispatch();
-  const user = useSelector(selectUser);
-  const user_id = user.user_id;
-  // console.log(user);
-  const { currentApplicationId } = useSelector(
-    (state) => state.applicationForm,
-  );
-
   const currentCountry = data.country || "";
   const currentBusinessType = data.businessType || "";
+
+  const CONFIG_MAP = {
+    Singapore: SINGAPORE_CONFIG,
+    Indonesia: INDONESIA_CONFIG,
+  };
 
   // Country options
   const countryOptions = [
     {
-      label: SINGAPORE_CONFIG2.country?.name || "Singapore",
-      value: SINGAPORE_CONFIG2.country?.code || "SG",
+      label: SINGAPORE_CONFIG.country?.name || "Singapore",
+      value: SINGAPORE_CONFIG.country?.name || "Singapore",
+    },
+    {
+      label: INDONESIA_CONFIG.country?.name || "Indonesia",
+      value: INDONESIA_CONFIG.country?.name || "Indonesia",
     },
   ];
 
-  // Business types
-  const businessTypeOptions =
-    currentCountry === "SG" && SINGAPORE_CONFIG2.entities
-      ? Object.entries(SINGAPORE_CONFIG2.entities).map(([key, entity]) => ({
-          label: entity?.label || key,
-          value: key,
-        }))
-      : [];
+  const activeConfig = CONFIG_MAP[currentCountry] || {};
 
-  // Start new draft if none exists
+  const businessTypeOptions = activeConfig.entities
+    ? Object.entries(activeConfig.entities).map(([key, entity]) => ({
+        label: entity?.label || key,
+        value: key,
+      }))
+    : [];
+
   useEffect(() => {
-    const initApplication = async () => {
-      if (!user_id) return;
+    if (!currentCountry) return;
+    if (!currentBusinessType) return;
 
-      try {
-        const applications = await getApplicationsByUserId(user_id);
-
-        // Look for a draft (not submitted yet)
-        const draft = applications.find((app) => !app.submitted);
-
-        // if (draft) {
-        //   // Load draft into Redux
-        //   dispatch(setFormData(draft.data));
-        //   dispatch(setStepCompletion(draft.stepCompletion));
-        if (draft) {
-          dispatch(
-            saveDraft({
-              appId: draft.id,
-              data: draft.form_data || {},
-            }),
-          );
-        } else {
-          // Reset Redux and start new
-          dispatch(resetForm());
-          dispatch(startNewApplication());
-        }
-      } catch (err) {
-        console.error("Failed to fetch user applications", err);
-        // fallback: start new
-        dispatch(resetForm());
-        dispatch(startNewApplication());
-      }
-    };
-
-    initApplication();
-  }, [user_id, dispatch]);
-  // useEffect(() => {
-  //   if (!currentApplicationId) {
-  //     dispatch(resetForm());
-  //     dispatch(startNewApplication());
-  //   }
-  // }, [dispatch, currentApplicationId]);
-
-  // Reset business type if country changes
-  useEffect(() => {
-    if (currentCountry !== "SG" && currentBusinessType) {
-      dispatch(updateField({ field: "businessType", value: "" }));
+    if (!activeConfig.entities?.[currentBusinessType]) {
+      onFieldChange("businessType", "");
     }
-  }, [currentCountry, currentBusinessType, dispatch]);
+  }, [currentCountry]);
 
   return (
     <div>

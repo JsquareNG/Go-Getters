@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useCallback, useMemo } from "react";
 import { Button } from "../primitives/Button";
 import { Card, CardContent } from "../primitives/Card";
 import FormStepper from "./components/FormStepper";
@@ -8,10 +8,10 @@ import Step0Brief from "./steps/Step0Brief";
 import Step1BasicInformation from "./steps/Step1BasicInformation";
 import Step2FinancialDetails from "./steps/Step2FinancialDetails";
 import Step3ComplianceDocumentation from "./steps/Step3ComplianceDocumentation";
-import Step4ReviewSubmit from "./steps/Step4ReviewSubmit";
 import Step4 from "./steps/Step4";
-import SINGAPORE_CONFIG2 from "./config/updatedSingaporeConfig";
 
+import { SINGAPORE_CONFIG, INDONESIA_CONFIG } from "./config";
+import { snakeToCamelDeep } from "./utils/dataNormalizer";
 import { useToast } from "@/hooks/use-toast";
 import { useNavigate, useParams } from "react-router-dom";
 
@@ -19,19 +19,24 @@ import { useDispatch, useSelector } from "react-redux";
 import { selectUser } from "@/store/authSlice";
 import {
   selectCurrentApplication,
-  selectCurrentMode,
   selectFormData,
   selectCurrentStep,
   setCurrentStep,
   saveDraft as saveDraftAction,
   submitApplication,
   updateField,
+  loadApplication,
+  startNewApplication,
 } from "@/store/applicationFormSlice";
 
 import {
-  submitApplicationApi,
+  submitSmeApplicationApi,
   saveApplicationDraftApi,
+  getApplicationByAppId,
+  getApplicationsByUserId,
 } from "@/api/applicationApi";
+
+import { uploadDocumentApi, allDocuments } from "@/api/documentApi";
 
 const STEP_LABELS = [
   "To Get Started",
@@ -41,349 +46,1224 @@ const STEP_LABELS = [
   "Review & Submit",
 ];
 
+const CONFIG_MAP = {
+  Singapore: SINGAPORE_CONFIG,
+  Indonesia: INDONESIA_CONFIG,
+};
+
+const BASE_INDIVIDUAL_KEYS = [
+  "fullName",
+  "idNumber",
+  "idDocument",
+  "dateOfBirth",
+  "nationality",
+  "residentialAddress",
+];
+
+const FORM_META_KEYS_TO_REMOVE = [
+  "user_id",
+  "email",
+  "first_name",
+  "last_saved_step",
+  "previous_status",
+  "current_status",
+  "formData",
+  "form_data",
+  "userId",
+  "firstName",
+  "currentStatus",
+  "lastSavedStep",
+  "previousStatus",
+];
+
 const SMEApplicationForm = () => {
   const { toast } = useToast();
   const navigate = useNavigate();
   const dispatch = useDispatch();
+
   const formData = useSelector(selectFormData);
   const user = useSelector(selectUser);
   const currentApp = useSelector(selectCurrentApplication);
-  const currentMode = useSelector(selectCurrentMode);
   const currentStepFromRedux = useSelector(selectCurrentStep);
 
   const { appId, step: routeStep } = useParams();
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [existingDocuments, setExistingDocuments] = useState([]);
 
   const routeMode = window.location.pathname.includes("/application/view/")
     ? "view"
     : "edit";
 
   const routeStepNumber = parseInt(routeStep, 10);
-  const clampedStep = isNaN(routeStepNumber)
+  const clampedStep = Number.isNaN(routeStepNumber)
     ? 0
     : Math.max(0, Math.min(4, routeStepNumber));
-  const isViewOnly = routeMode === "view" || currentApp?.status === "Submitted";
 
-  // KYC guard for Step 1 only
-  const kycData = formData?.kycData || {};
-  const isStep1 = clampedStep === 1;
-  const isKycCompleted = kycData?.status === "completed";
-  const faceMatchScore = Number(kycData?.faceMatchScore ?? 0);
-  const canProceedFromStep1 = isKycCompleted && faceMatchScore >= 60;
+  const isViewOnly = routeMode === "view" || currentApp?.status === "Submitted";
 
   // --- Edit functionality ---
   const handleEditStep = (step) => {
     navigate(`/application/edit/${appId}/${step}`);
   };
 
-  /* ------------------------------------------------ */
-  /* REDUX FIELD UPDATE */
-  /* ------------------------------------------------ */
+  const handleFieldChange = useCallback(
+    (fieldPath, value) => {
+      if (!fieldPath) return;
+      dispatch(updateField({ field: fieldPath, value }));
+    },
+    [dispatch],
+  );
 
-  const handleFieldChange = (fieldPath, value) => {
-    if (!fieldPath) return;
-    dispatch(updateField({ field: fieldPath, value }));
+  const getMergedFormState = useCallback((rawFormData = {}) => {
+    const nested = rawFormData?.formData || {};
+    return {
+      ...rawFormData,
+      ...nested,
+      individuals: nested.individuals ?? rawFormData.individuals ?? [],
+    };
+  }, []);
+
+  const mergedFormData = useMemo(
+    () => getMergedFormState(formData),
+    [formData, getMergedFormState],
+  );
+
+  const selectedBusinessType =
+    mergedFormData?.businessType || mergedFormData?.business_type || "";
+
+  const selectedCountry =
+    mergedFormData?.country ||
+    mergedFormData?.businessCountry ||
+    mergedFormData?.business_country ||
+    "";
+
+  const activeConfig = CONFIG_MAP[selectedCountry] || SINGAPORE_CONFIG;
+  const isStep0Valid = Boolean(selectedCountry && selectedBusinessType);
+
+  // const activeConfig = CONFIG_MAP[formData?.country] || SINGAPORE_CONFIG;
+
+  // const isStep0Valid = Boolean(mergedFormData?.country && selectedBusinessType);
+
+  const entityConfig = useMemo(() => {
+    if (!selectedBusinessType) return null;
+    return activeConfig?.entities?.[selectedBusinessType] || null;
+  }, [activeConfig, selectedBusinessType]);
+
+  const hasConfigSteps =
+    Array.isArray(entityConfig?.steps) && entityConfig.steps.length > 0;
+
+  const flattenFieldKeys = useCallback((fields = {}) => {
+    const keys = new Set();
+
+    Object.entries(fields).forEach(([fieldKey, fieldConfig]) => {
+      keys.add(fieldKey);
+
+      if (fieldConfig?.conditionalFields) {
+        Object.values(fieldConfig.conditionalFields).forEach((nestedFields) => {
+          Object.keys(nestedFields || {}).forEach((k) => keys.add(k));
+        });
+      }
+
+      if (fieldKey === "conditionalFields" && typeof fieldConfig === "object") {
+        Object.values(fieldConfig).forEach((nestedFields) => {
+          Object.keys(nestedFields || {}).forEach((k) => keys.add(k));
+        });
+      }
+    });
+
+    return [...keys];
+  }, []);
+
+  //
+  // HELPER FUNCTIONS - FOR FILE UPLOADS
+  //
+
+  const buildExistingDocumentMap = (documents = []) => {
+    return documents.reduce((acc, doc) => {
+      acc[doc.document_type] = doc;
+      return acc;
+    }, {});
   };
 
-  /* ------------------------------------------------ */
-  /* SYNC ROUTE STEP -> REDUX STEP */
-  /* ------------------------------------------------ */
+  const unwrapFile = (value) => {
+    if (!value) return null;
+    if (value instanceof File) return value;
+    if (value.file instanceof File) return value.file;
+    return null;
+  };
+
+  const buildDocumentType = ({
+    sectionKey = null,
+    sectionConfig = null,
+    rowIndex = null,
+    fieldKey,
+  }) => {
+    if (!sectionKey) return fieldKey;
+
+    const roleValue = getSectionRoleValue(sectionKey, sectionConfig);
+
+    return `${roleValue}_${rowIndex + 1}_${fieldKey}`;
+  };
+
+  const collectFilesFromFieldSet = ({
+    fieldSet,
+    source,
+    sectionKey = null,
+    sectionConfig = null,
+    rowIndex = null,
+    uploads = [],
+  }) => {
+    Object.entries(fieldSet || {}).forEach(([fieldKey, fieldConfig]) => {
+      if (fieldKey === "conditionalFields") return;
+
+      const rawValue = source?.[fieldKey];
+
+      // normal file field
+      if (fieldConfig?.type === "file") {
+        const file = unwrapFile(rawValue);
+        if (file) {
+          uploads.push({
+            fieldPath: sectionKey
+              ? `${sectionKey}.${rowIndex}.${fieldKey}`
+              : fieldKey,
+            document_type: buildDocumentType({
+              sectionKey,
+              sectionConfig,
+              rowIndex,
+              fieldKey,
+            }),
+            file,
+          });
+        }
+      }
+
+      // field-level conditional fields
+      if (fieldConfig?.conditionalFields && rawValue) {
+        const nestedFieldSet = fieldConfig.conditionalFields[rawValue] || {};
+        collectFilesFromFieldSet({
+          fieldSet: nestedFieldSet,
+          source,
+          sectionKey,
+          sectionConfig,
+          rowIndex,
+          uploads,
+        });
+      }
+
+      // nested object block
+      if (
+        typeof fieldConfig === "object" &&
+        !fieldConfig.type &&
+        !fieldConfig.label &&
+        fieldKey !== "conditionalFields"
+      ) {
+        collectFilesFromFieldSet({
+          fieldSet: fieldConfig,
+          source: source?.[fieldKey] || {},
+          sectionKey,
+          sectionConfig,
+          rowIndex,
+          uploads,
+        });
+      }
+    });
+
+    return uploads;
+  };
+
+  const collectFileUploadEntries = (formData, activeConfig) => {
+    const businessType = formData?.businessType;
+    const entity = activeConfig?.entities?.[businessType];
+    if (!entity?.steps) return [];
+
+    const uploads = [];
+
+    entity.steps.forEach((step) => {
+      // top-level fields
+      collectFilesFromFieldSet({
+        fieldSet: step.fields || {},
+        source: formData,
+        uploads,
+      });
+
+      // repeatable sections
+      Object.entries(step.repeatableSections || {}).forEach(
+        ([sectionKey, sectionConfig]) => {
+          let rows = [];
+
+          if (sectionConfig?.storage === "individuals") {
+            const roleValue = getSectionRoleValue(sectionKey, sectionConfig);
+            rows = (formData?.individuals || []).filter(
+              (row) => row?.role === roleValue,
+            );
+          } else {
+            rows = Array.isArray(formData?.[sectionKey])
+              ? formData[sectionKey]
+              : [];
+          }
+
+          rows.forEach((row, rowIndex) => {
+            collectFilesFromFieldSet({
+              fieldSet: sectionConfig.fields || {},
+              source: row,
+              sectionKey,
+              sectionConfig,
+              rowIndex,
+              uploads,
+            });
+          });
+        },
+      );
+    });
+
+    return uploads;
+  };
+
+  const replaceDocumentById = async ({ documentId, file }) => {
+    const form = new FormData();
+    form.append("file", file);
+
+    const replaceRes = await fetch(
+      `http://127.0.0.1:8000/documents/replace-upload/${documentId}`,
+      {
+        method: "POST",
+        body: form,
+      },
+    );
+
+    if (!replaceRes.ok) {
+      throw new Error(`Failed to replace upload for document ${documentId}`);
+    }
+
+    return await replaceRes.json();
+  };
+
+  const initDocumentUpload = async ({ applicationId, documentType, file }) => {
+    const initRes = await fetch(
+      "http://127.0.0.1:8000/documents/init-persist-upload",
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          application_id: applicationId,
+          document_type: documentType,
+          filename: file.name,
+          mime_type: file.type || "application/octet-stream",
+        }),
+      },
+    );
+
+    if (!initRes.ok) {
+      throw new Error(`Failed to init upload for ${documentType}`);
+    }
+
+    return await initRes.json();
+  };
+
+  const uploadSingleDocument = async ({
+    applicationId,
+    documentType,
+    file,
+    existingDocumentMap = {},
+  }) => {
+    const existingDoc = existingDocumentMap[documentType];
+
+    if (existingDoc?.document_id) {
+      return await replaceDocumentById({
+        documentId: existingDoc.document_id,
+        file,
+      });
+    }
+
+    const initData = await initDocumentUpload({
+      applicationId,
+      documentType,
+      file,
+    });
+
+    if (!initData?.document_id) {
+      throw new Error(`No document_id returned for ${documentType}`);
+    }
+
+    return await replaceDocumentById({
+      documentId: initData.document_id,
+      file,
+    });
+  };
+
+  const uploadAllDocumentsFromFormData = async (
+    rawFormData,
+    activeConfig,
+    applicationId,
+  ) => {
+    const root = {
+      ...(rawFormData || {}),
+      ...((rawFormData || {}).formData || {}),
+      individuals:
+        rawFormData?.formData?.individuals ?? rawFormData?.individuals ?? [],
+    };
+
+    const uploadEntries = collectFileUploadEntries(root, activeConfig);
+
+    const uniqueUploadEntries = Object.values(
+      uploadEntries.reduce((acc, entry) => {
+        acc[entry.document_type] = entry;
+        return acc;
+      }, {}),
+    );
+
+    console.log("UPLOAD ENTRIES:", uniqueUploadEntries);
+
+    const existingDocs = await allDocuments(applicationId);
+    const existingDocumentMap = buildExistingDocumentMap(existingDocs);
+
+    const uploadedResults = [];
+
+    for (const entry of uniqueUploadEntries) {
+      const uploaded = await uploadSingleDocument({
+        applicationId,
+        documentType: entry.document_type,
+        file: entry.file,
+        existingDocumentMap,
+      });
+
+      uploadedResults.push({
+        ...entry,
+        uploaded,
+      });
+
+      if (uploaded?.document_id) {
+        existingDocumentMap[entry.document_type] = {
+          document_id: uploaded.document_id,
+          document_type: entry.document_type,
+        };
+      }
+    }
+
+    return uploadedResults;
+  };
+
+  useEffect(() => {
+    if (!appId || appId === "new") {
+      setExistingDocuments([]);
+      return;
+    }
+
+    const fetchDocuments = async () => {
+      try {
+        const docs = await allDocuments(appId);
+        setExistingDocuments(Array.isArray(docs) ? docs : []);
+      } catch (err) {
+        console.error("Failed to fetch documents:", err);
+        setExistingDocuments([]);
+      }
+    };
+
+    fetchDocuments();
+  }, [appId]);
+
+  const existingDocumentMap = useMemo(
+    () => buildExistingDocumentMap(existingDocuments),
+    [existingDocuments],
+  );
+
+  const hasUploadedDocument = useCallback(
+    ({ value, documentType }) => {
+      // local unsaved file in form state
+      const localFile = unwrapFile(value);
+      if (localFile) return true;
+
+      // already uploaded backend document
+      if (documentType && existingDocumentMap[documentType]) return true;
+
+      return false;
+    },
+    [existingDocumentMap],
+  );
+
+  const isIndividualLikeSection = useCallback(
+    (sectionConfig = {}) => {
+      const allKeys = flattenFieldKeys(sectionConfig.fields || {});
+      return BASE_INDIVIDUAL_KEYS.some((key) => allKeys.includes(key));
+    },
+    [flattenFieldKeys],
+  );
+
+  const getEntityConfig = useCallback((data, config) => {
+    const businessType = data?.businessType || data?.business_type;
+    if (!businessType) return null;
+    return config?.entities?.[businessType] || null;
+  }, []);
+
+  const getSectionRoleValue = useCallback((sectionKey, sectionConfig) => {
+    return sectionConfig?.fields?.role?.value || sectionKey;
+  }, []);
+
+  const mapIndividualsDynamic = useCallback(
+    (rawData, config) => {
+      const data = getMergedFormState(rawData);
+      const entityConfig = getEntityConfig(data, config);
+      if (!entityConfig?.steps) return [];
+
+      const allIndividuals = Array.isArray(data.individuals)
+        ? data.individuals
+        : [];
+
+      const individuals = [];
+
+      entityConfig.steps.forEach((step) => {
+        const repeatableSections = step.repeatableSections || {};
+
+        Object.entries(repeatableSections).forEach(
+          ([sectionKey, sectionConfig]) => {
+            if (!isIndividualLikeSection(sectionConfig)) return;
+
+            let sectionData = [];
+
+            if (sectionConfig?.storage === "individuals") {
+              const roleValue = getSectionRoleValue(sectionKey, sectionConfig);
+              sectionData = allIndividuals.filter(
+                (item) => item?.role === roleValue,
+              );
+            } else {
+              sectionData = Array.isArray(data[sectionKey])
+                ? data[sectionKey]
+                : [];
+            }
+
+            sectionData.forEach((item) => {
+              const individual = {};
+
+              Object.entries(sectionConfig.fields || {}).forEach(
+                ([fieldKey, fieldConfig]) => {
+                  if (fieldKey === "conditionalFields") return;
+
+                  individual[fieldKey] =
+                    item?.[fieldKey] ?? fieldConfig?.value ?? null;
+
+                  if (fieldConfig?.conditionalFields && item?.[fieldKey]) {
+                    Object.entries(
+                      fieldConfig.conditionalFields[item[fieldKey]] || {},
+                    ).forEach(([conditionalKey, conditionalConfig]) => {
+                      individual[conditionalKey] =
+                        item?.[conditionalKey] ??
+                        conditionalConfig?.value ??
+                        null;
+                    });
+                  }
+                },
+              );
+
+              const sectionConditionalFields =
+                sectionConfig.fields?.conditionalFields || null;
+
+              if (
+                sectionConditionalFields &&
+                item?.shareholderType &&
+                sectionConditionalFields[item.shareholderType]
+              ) {
+                Object.entries(
+                  sectionConditionalFields[item.shareholderType],
+                ).forEach(([conditionalKey, conditionalConfig]) => {
+                  individual[conditionalKey] =
+                    item?.[conditionalKey] ?? conditionalConfig?.value ?? null;
+                });
+              }
+
+              individual.role =
+                item?.role || getSectionRoleValue(sectionKey, sectionConfig);
+
+              individuals.push(individual);
+            });
+          },
+        );
+      });
+
+      return individuals;
+    },
+    [
+      getMergedFormState,
+      getEntityConfig,
+      isIndividualLikeSection,
+      getSectionRoleValue,
+    ],
+  );
+
+  const mapNonIndividualRepeatableData = useCallback(
+    (rawData, config) => {
+      const data = getMergedFormState(rawData);
+      const entityConfig = getEntityConfig(data, config);
+      if (!entityConfig?.steps) return {};
+
+      const mapped = {};
+
+      entityConfig.steps.forEach((step) => {
+        const repeatableSections = step.repeatableSections || {};
+
+        Object.entries(repeatableSections).forEach(
+          ([sectionKey, sectionConfig]) => {
+            if (isIndividualLikeSection(sectionConfig)) return;
+
+            const sectionData = Array.isArray(data[sectionKey])
+              ? data[sectionKey]
+              : [];
+
+            mapped[sectionKey] = sectionData.map((item) => {
+              const obj = {};
+
+              Object.entries(sectionConfig.fields || {}).forEach(
+                ([fieldKey, fieldConfig]) => {
+                  if (fieldKey === "conditionalFields") return;
+
+                  obj[fieldKey] =
+                    item?.[fieldKey] ?? fieldConfig?.value ?? null;
+
+                  if (fieldConfig?.conditionalFields && item?.[fieldKey]) {
+                    Object.entries(
+                      fieldConfig.conditionalFields[item[fieldKey]] || {},
+                    ).forEach(([conditionalKey, conditionalConfig]) => {
+                      obj[conditionalKey] =
+                        item?.[conditionalKey] ??
+                        conditionalConfig?.value ??
+                        null;
+                    });
+                  }
+                },
+              );
+
+              const sectionConditionalFields =
+                sectionConfig.fields?.conditionalFields || null;
+
+              if (
+                sectionConditionalFields &&
+                item?.shareholderType &&
+                sectionConditionalFields[item.shareholderType]
+              ) {
+                Object.entries(
+                  sectionConditionalFields[item.shareholderType],
+                ).forEach(([conditionalKey, conditionalConfig]) => {
+                  obj[conditionalKey] =
+                    item?.[conditionalKey] ?? conditionalConfig?.value ?? null;
+                });
+              }
+
+              return obj;
+            });
+          },
+        );
+      });
+
+      return mapped;
+    },
+    [getMergedFormState, getEntityConfig, isIndividualLikeSection],
+  );
+
+  const stripIndividualLikeFieldsFromRoot = useCallback(
+    (payload, rawData, config) => {
+      const data = getMergedFormState(rawData);
+      const entityConfig = getEntityConfig(data, config);
+      if (!entityConfig?.steps) return payload;
+
+      const cleaned = { ...payload };
+
+      entityConfig.steps.forEach((step) => {
+        const repeatableSections = step.repeatableSections || {};
+
+        Object.entries(repeatableSections).forEach(
+          ([sectionKey, sectionConfig]) => {
+            if (!isIndividualLikeSection(sectionConfig)) return;
+
+            delete cleaned[sectionKey];
+
+            Object.keys(sectionConfig.fields || {}).forEach((fieldKey) => {
+              delete cleaned[fieldKey];
+            });
+
+            if (sectionConfig.fields?.conditionalFields) {
+              Object.values(sectionConfig.fields.conditionalFields).forEach(
+                (nestedFields) => {
+                  Object.keys(nestedFields || {}).forEach((nestedKey) => {
+                    delete cleaned[nestedKey];
+                  });
+                },
+              );
+            }
+
+            Object.values(sectionConfig.fields || {}).forEach((fieldConfig) => {
+              if (fieldConfig?.conditionalFields) {
+                Object.values(fieldConfig.conditionalFields).forEach(
+                  (nestedFields) => {
+                    Object.keys(nestedFields || {}).forEach((nestedKey) => {
+                      delete cleaned[nestedKey];
+                    });
+                  },
+                );
+              }
+            });
+          },
+        );
+      });
+
+      return cleaned;
+    },
+    [getMergedFormState, getEntityConfig, isIndividualLikeSection],
+  );
+
+  const normalizeFormData = (data) => {
+    let flattened = { ...data };
+
+    while (flattened?.formData || flattened?.form_data) {
+      flattened = {
+        ...flattened,
+        ...(flattened.formData || {}),
+        ...(flattened.form_data || {}),
+      };
+
+      delete flattened.formData;
+      delete flattened.form_data;
+    }
+
+    return flattened;
+  };
+
+  const buildDynamicPayload = useCallback(
+    (rawFormData, config) => {
+      // const normalizedData = getMergedFormState(rawFormData);
+      const normalizedData = normalizeFormData(rawFormData);
+
+      const individuals = mapIndividualsDynamic(normalizedData, config);
+      const nonIndividualRepeatables = mapNonIndividualRepeatableData(
+        normalizedData,
+        config,
+      );
+
+      let payload = {
+        ...normalizedData,
+        ...nonIndividualRepeatables,
+        individuals,
+        provider_session_id: formData.provider_session_id || null,
+
+        businessName:
+          normalizedData.businessName || normalizedData.business_name || "",
+        businessType:
+          normalizedData.businessType || normalizedData.business_type || null,
+        businessCountry:
+          normalizedData.businessCountry ||
+          normalizedData.business_country ||
+          normalizedData.country ||
+          null,
+      };
+
+      FORM_META_KEYS_TO_REMOVE.forEach((key) => {
+        delete payload[key];
+      });
+
+      payload = stripIndividualLikeFieldsFromRoot(
+        payload,
+        normalizedData,
+        config,
+      );
+
+      // final cleanup safety
+      delete payload.formData;
+      delete payload.form_data;
+      delete payload.current_status;
+      delete payload.previous_status;
+      delete payload.email;
+      delete payload.first_name;
+      delete payload.user_id;
+      delete payload.last_saved_step;
+
+      return payload;
+    },
+    [
+      getMergedFormState,
+      mapIndividualsDynamic,
+      mapNonIndividualRepeatableData,
+      stripIndividualLikeFieldsFromRoot,
+    ],
+  );
+
+  const isEmptyValue = (value) => {
+    return (
+      value === null ||
+      value === undefined ||
+      (typeof value === "string" && value.trim() === "") ||
+      (Array.isArray(value) && value.length === 0)
+    );
+  };
+
+  const validateStepConfig = useCallback(
+    (stepConfig, rawData) => {
+      const data = getMergedFormState(rawData);
+      const missing = [];
+
+      if (!stepConfig) {
+        return { isValid: true, missing: [] };
+      }
+
+      // -----------------------------
+      // Top-level fields
+      // -----------------------------
+      for (const [key, fieldDef] of Object.entries(stepConfig.fields || {})) {
+        if (fieldDef?.required) {
+          if (fieldDef.type === "file") {
+            const documentType = buildDocumentType({ fieldKey: key });
+
+            if (
+              !hasUploadedDocument({
+                value: data[key],
+                documentType,
+              })
+            ) {
+              missing.push({
+                field: key,
+                label: fieldDef.label || key,
+                type: "file",
+                documentType,
+                scope: "top-level",
+              });
+            }
+          } else {
+            if (isEmptyValue(data[key])) {
+              missing.push({
+                field: key,
+                label: fieldDef.label || key,
+                type: fieldDef.type || "text",
+                scope: "top-level",
+              });
+            }
+          }
+        }
+
+        // conditional fields under top-level field
+        if (fieldDef?.conditionalFields && data[key]) {
+          const conditional = fieldDef.conditionalFields[data[key]] || {};
+
+          for (const [ck, cd] of Object.entries(conditional)) {
+            if (!cd?.required) continue;
+
+            if (cd.type === "file") {
+              const documentType = buildDocumentType({ fieldKey: ck });
+
+              if (
+                !hasUploadedDocument({
+                  value: data[ck],
+                  documentType,
+                })
+              ) {
+                missing.push({
+                  field: ck,
+                  label: cd.label || ck,
+                  parentField: key,
+                  type: "file",
+                  documentType,
+                  scope: "top-level-conditional",
+                });
+              }
+            } else {
+              if (isEmptyValue(data[ck])) {
+                missing.push({
+                  field: ck,
+                  label: cd.label || ck,
+                  parentField: key,
+                  type: cd.type || "text",
+                  scope: "top-level-conditional",
+                });
+              }
+            }
+          }
+        }
+      }
+
+      // -----------------------------
+      // Repeatable sections
+      // -----------------------------
+      for (const [sectionKey, section] of Object.entries(
+        stepConfig.repeatableSections || {},
+      )) {
+        let rows = [];
+
+        if (section?.storage === "individuals") {
+          const roleValue = getSectionRoleValue(sectionKey, section);
+          rows = (data.individuals || []).filter((x) => x?.role === roleValue);
+        } else {
+          rows = Array.isArray(data[sectionKey]) ? data[sectionKey] : [];
+        }
+
+        if ((section.min ?? 0) > rows.length) {
+          missing.push({
+            field: sectionKey,
+            label: `${section.label || sectionKey} (minimum ${section.min})`,
+            type: "repeatable-min",
+            scope: "repeatable-min",
+          });
+          continue;
+        }
+
+        for (let rowIndex = 0; rowIndex < rows.length; rowIndex++) {
+          const item = rows[rowIndex];
+
+          for (const [k, fDef] of Object.entries(section.fields || {})) {
+            if (fDef?.required) {
+              if (fDef.type === "file") {
+                const documentType = buildDocumentType({
+                  sectionKey,
+                  sectionConfig: section,
+                  rowIndex,
+                  fieldKey: k,
+                });
+
+                if (
+                  !hasUploadedDocument({
+                    value: item?.[k],
+                    documentType,
+                  })
+                ) {
+                  missing.push({
+                    field: `${sectionKey}[${rowIndex}].${k}`,
+                    label: `${section.label || sectionKey} ${rowIndex + 1} - ${fDef.label || k}`,
+                    type: "file",
+                    documentType,
+                    scope: "repeatable",
+                  });
+                }
+              } else {
+                if (isEmptyValue(item?.[k])) {
+                  missing.push({
+                    field: `${sectionKey}[${rowIndex}].${k}`,
+                    label: `${section.label || sectionKey} ${rowIndex + 1} - ${fDef.label || k}`,
+                    type: fDef.type || "text",
+                    scope: "repeatable",
+                  });
+                }
+              }
+            }
+
+            // conditional fields under repeatable field
+            if (fDef?.conditionalFields && item?.[k]) {
+              const conditional = fDef.conditionalFields[item[k]] || {};
+
+              for (const [ck, cd] of Object.entries(conditional)) {
+                if (!cd?.required) continue;
+
+                if (cd.type === "file") {
+                  const documentType = buildDocumentType({
+                    sectionKey,
+                    sectionConfig: section,
+                    rowIndex,
+                    fieldKey: ck,
+                  });
+
+                  if (
+                    !hasUploadedDocument({
+                      value: item?.[ck],
+                      documentType,
+                    })
+                  ) {
+                    missing.push({
+                      field: `${sectionKey}[${rowIndex}].${ck}`,
+                      label: `${section.label || sectionKey} ${rowIndex + 1} - ${cd.label || ck}`,
+                      parentField: k,
+                      type: "file",
+                      documentType,
+                      scope: "repeatable-conditional",
+                    });
+                  }
+                } else {
+                  if (isEmptyValue(item?.[ck])) {
+                    missing.push({
+                      field: `${sectionKey}[${rowIndex}].${ck}`,
+                      label: `${section.label || sectionKey} ${rowIndex + 1} - ${cd.label || ck}`,
+                      parentField: k,
+                      type: cd.type || "text",
+                      scope: "repeatable-conditional",
+                    });
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+
+      return {
+        isValid: missing.length === 0,
+        missing,
+      };
+    },
+    [getMergedFormState, getSectionRoleValue, hasUploadedDocument],
+  );
+
+  const buildValidationReport = useCallback(
+    (rawData) => {
+      const data = getMergedFormState(rawData);
+      const businessType = data.businessType || data.business_type;
+
+      // Step 0 only
+      const step0Missing = [];
+      if (!data.country) {
+        step0Missing.push({ field: "country", label: "Country" });
+      }
+      if (!businessType) {
+        step0Missing.push({ field: "businessType", label: "Business Type" });
+      }
+
+      const byStep = [
+        {
+          stepId: "step0",
+          stepLabel: "To Get Started",
+          missing: step0Missing,
+        },
+      ];
+
+      if (!businessType) {
+        return {
+          total: step0Missing.length,
+          byStep,
+        };
+      }
+
+      const entity = activeConfig?.entities?.[businessType];
+      if (
+        !entity ||
+        !Array.isArray(entity.steps) ||
+        entity.steps.length === 0
+      ) {
+        byStep.push({
+          stepId: "config",
+          stepLabel: "Form Configuration",
+          missing: [
+            {
+              field: "config",
+              label:
+                "No application form configuration found for selected business type",
+            },
+          ],
+        });
+
+        return {
+          total: step0Missing.length + 1,
+          byStep,
+        };
+      }
+
+      entity.steps.forEach((step, idx) => {
+        const result = validateStepConfig(step, rawData);
+        byStep.push({
+          stepId: step.id || `step${idx + 1}`,
+          stepLabel: STEP_LABELS[idx + 1] || `Step ${idx + 1}`,
+          missing: result.missing,
+        });
+      });
+
+      const total = byStep.reduce((sum, step) => sum + step.missing.length, 0);
+
+      return {
+        total,
+        byStep,
+      };
+    },
+    [activeConfig, getMergedFormState, validateStepConfig],
+  );
+
+  const validationReport = useMemo(
+    () => buildValidationReport(formData),
+    [formData, buildValidationReport],
+  );
+
+  const isIncomplete = validationReport.total > 0;
+
+  useEffect(() => {
+    console.log("VALIDATION REPORT:", validationReport);
+  }, [validationReport]);
+
+  const canSubmit =
+    clampedStep === 4 && isStep0Valid && hasConfigSteps && !isIncomplete;
+
+  const goToStep = useCallback(
+    (targetStep) => {
+      // Step 0 always accessible
+      if (targetStep === 0) {
+        navigate(`/application/${routeMode}/${appId}/${targetStep}`);
+        return;
+      }
+
+      // Steps 1-3 require Step 0 only
+      if (targetStep >= 1 && targetStep <= 3) {
+        if (!isStep0Valid) {
+          toast({
+            title: "Fill in missing fields first",
+            description:
+              "Please select country and business type before proceeding.",
+            variant: "destructive",
+          });
+          return;
+        }
+
+        navigate(`/application/${routeMode}/${appId}/${targetStep}`);
+        return;
+      }
+
+      // Step 4 requires all previous form steps valid
+      if (targetStep === 4) {
+        if (!isStep0Valid) {
+          toast({
+            title: "Fill in missing fields first",
+            description:
+              "Please select country and business type before proceeding.",
+            variant: "destructive",
+          });
+          return;
+        }
+
+        if (!hasConfigSteps) {
+          toast({
+            title: "Form structure unavailable",
+            description:
+              "Could not determine required fields for this application yet.",
+            variant: "destructive",
+          });
+          return;
+        }
+
+        navigate(`/application/${routeMode}/${appId}/${targetStep}`);
+      }
+    },
+    [
+      navigate,
+      routeMode,
+      appId,
+      isStep0Valid,
+      hasConfigSteps,
+      validationReport,
+      toast,
+    ],
+  );
+
+  useEffect(() => {
+    const initApplication = async () => {
+      try {
+        if (appId && appId !== "new") {
+          const app = await getApplicationByAppId(appId);
+
+          const flattenSavedFormData = (input = {}) => {
+            let flat = snakeToCamelDeep(input);
+
+            while (flat?.formData || flat?.form_data) {
+              flat = {
+                ...flat,
+                ...(flat.formData || {}),
+                ...(flat.form_data || {}),
+              };
+              delete flat.formData;
+              delete flat.form_data;
+            }
+
+            return flat;
+          };
+
+          const cleanedFormData = flattenSavedFormData(app?.form_data || {});
+          const mergedFormData = {
+            ...cleanedFormData,
+            businessName:
+              cleanedFormData.businessName ?? app?.business_name ?? "",
+            businessType:
+              cleanedFormData.businessType ?? app?.business_type ?? "",
+            businessCountry:
+              cleanedFormData.businessCountry ?? app?.business_country ?? "",
+            country: cleanedFormData.country ?? app?.business_country ?? "",
+            last_saved_step: app?.last_saved_step ?? 0,
+            previous_status: app?.previous_status ?? null,
+            current_status: app?.current_status ?? "Draft",
+          };
+
+          dispatch(
+            loadApplication({
+              applicationId: app.application_id,
+              formData: mergedFormData,
+              status: app.current_status || "Draft",
+            }),
+          );
+          return;
+        }
+
+        if (user?.user_id) {
+          const apps = await getApplicationsByUserId(user.user_id);
+          const existingDraft = (apps || []).find(
+            (a) => a.current_status === "Draft",
+          );
+
+          if (existingDraft?.application_id) {
+            navigate(
+              `/application/edit/${existingDraft.application_id}/${existingDraft.last_saved_step ?? 0}`,
+              { replace: true },
+            );
+            return;
+          }
+        }
+
+        dispatch(startNewApplication());
+      } catch (err) {
+        console.error("Failed to initialize application", err);
+        dispatch(startNewApplication());
+      }
+    };
+
+    initApplication();
+  }, [appId, user?.user_id, dispatch, navigate]);
+
   useEffect(() => {
     if (clampedStep !== currentStepFromRedux) {
       dispatch(setCurrentStep(clampedStep));
     }
   }, [clampedStep, currentStepFromRedux, dispatch]);
 
-  /* ------------------------------------------------ */
-  /* POPULATE PREVIOUS DRAFT */
-  /* ------------------------------------------------ */
-
-  useEffect(() => {
-    if (currentApp?.formData && Object.keys(formData).length === 0) {
-      const cleanData = {};
-
-      function flatten(obj) {
-        if (!obj || typeof obj !== "object") return;
-        Object.entries(obj).forEach(([key, value]) => {
-          if (value instanceof File) {
-            cleanData[key] = value;
-          } else if (Array.isArray(value)) {
-            cleanData[key] = value.map((v) =>
-              typeof v === "object" ? { ...v } : v,
-            );
-          } else if (typeof value === "object" && value !== null) {
-            flatten(value);
-          } else {
-            cleanData[key] = value === "" ? null : value;
-          }
-        });
-      }
-
-      flatten(currentApp.formData);
-
-      if ("null" in cleanData) delete cleanData.null;
-
-      Object.entries(cleanData).forEach(([key, value]) => {
-        handleFieldChange(key, value);
-      });
-
-      console.log("Cleaned and flattened draft loaded:", cleanData);
-    }
-  }, [currentApp, formData]);
-
-  /**
-   * Validate SME application form data
-   * Returns { isValid: boolean, errors: Record<string, string> }
-   */
-  const validateFormData = (data) => {
-    const errors = {};
-
-    if (!data.businessName || data.businessName.trim() === "") {
-      errors.businessName = "Business name is required";
-    }
-    if (!data.businessType || data.businessType.trim() === "") {
-      errors.businessType = "Business type is required";
-    }
-    if (!data.country || data.country.trim() === "") {
-      errors.country = "Country is required";
-    }
-    if (!data.email || data.email.trim() === "") {
-      errors.email = "Email is required";
-    } else if (!/^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}$/i.test(data.email)) {
-      errors.email = "Email is invalid";
-    }
-    if (!data.phone || data.phone.trim() === "") {
-      errors.phone = "Phone number is required";
-    } else if (!/^\d{6,15}$/.test(data.phone)) {
-      errors.phone = "Phone number must be 6-15 digits";
-    }
-
-    if (data.expectedMonthlyTransactionVolume) {
-      const value = Number(data.expectedMonthlyTransactionVolume);
-      if (isNaN(value) || value < 0) {
-        errors.expectedMonthlyTransactionVolume =
-          "Expected monthly transaction volume must be a positive number";
-      }
-    }
-
-    return { isValid: Object.keys(errors).length === 0, errors };
-  };
-
-  const getRequiredFields = (data) => {
-    const businessType = data.businessType;
-    if (!businessType) return [];
-
-    const steps = SINGAPORE_CONFIG2.entities[businessType]?.steps || [];
-    const requiredFields = [];
-
-    steps.forEach((step) => {
-      const fields = step.fields || {};
-      Object.entries(fields).forEach(([key, fieldDef]) => {
-        if (fieldDef.required) requiredFields.push(key);
-
-        if (fieldDef.conditionalFields && data[key]) {
-          Object.entries(fieldDef.conditionalFields[data[key]] || {}).forEach(
-            ([cKey, cDef]) => {
-              if (cDef.required) requiredFields.push(cKey);
-            },
-          );
-        }
-      });
-
-      const repeatableSections = step.repeatableSections || {};
-      Object.values(repeatableSections).forEach((section) => {
-        Object.entries(section.fields || {}).forEach(([key, fieldDef]) => {
-          if (fieldDef.required) requiredFields.push(key);
-
-          if (fieldDef.conditionalFields && data[key]) {
-            Object.entries(fieldDef.conditionalFields[data[key]] || {}).forEach(
-              ([cKey, cDef]) => {
-                if (cDef.required) requiredFields.push(cKey);
-              },
-            );
-          }
-        });
-      });
-    });
-
-    return requiredFields;
-  };
-
-  const hasNullFields = (data) => {
-    const requiredFields = getRequiredFields(data);
-
-    for (const field of requiredFields) {
-      if (
-        data[field] === null ||
-        data[field] === undefined ||
-        data[field] === ""
-      ) {
-        return true;
-      }
-    }
-
-    const individuals = mapIndividuals(data);
-    const individualFields = Object.keys(individuals);
-    for (const field of individualFields) {
-      if (individuals[field] === null || individuals[field] === undefined) {
-        return true;
-      }
-    }
-
-    return false;
-  };
-
-  function extractFileFields(config, path = []) {
-    let files = [];
-
-    for (const key in config) {
-      const field = config[key];
-
-      if (!field) continue;
-
-      if (field.type === "file") {
-        files.push({ path: [...path, key], field });
-      }
-
-      if (field.conditionalFields) {
-        for (const condKey in field.conditionalFields) {
-          files.push(
-            ...extractFileFields(field.conditionalFields[condKey], [
-              ...path,
-              key,
-              condKey,
-            ]),
-          );
-        }
-      }
-
-      if (field.fields && typeof field.fields === "object") {
-        files.push(...extractFileFields(field.fields, [...path, key]));
-      }
-    }
-
-    return files;
-  }
-
-  const extractFiles = (obj) => {
-    if (!obj || typeof obj !== "object") return obj;
-
-    if (obj instanceof File) return obj;
-
-    if ("file" in obj && obj.file instanceof File) return obj.file;
-
-    if (Array.isArray(obj)) return obj.map(extractFiles);
-
-    const result = {};
-    Object.entries(obj).forEach(([key, value]) => {
-      result[key] = extractFiles(value);
-    });
-
-    return result;
-  };
-
-  const mapIndividuals = (data) => {
-    const individual = {
-      fullName: data.fullName || null,
-      idNumber: data.idNumber || null,
-      nationality: data.nationality || null,
-      residentialAddress: data.residentialAddress || null,
-      dateOfBirth: data.dateOfBirth || null,
-      idDocument: data.idDocument || null,
-      role: "Owner",
-      ownership: "100%",
-    };
-
-    const declarations = [
-      "pepDeclaration",
-      "sanctionsDeclaration",
-      "fatcaDeclaration",
-    ];
-
-    declarations.forEach((decl) => {
-      if (data[decl]) {
-        individual[decl] = data[decl];
-
-        const configFields =
-          SINGAPORE_CONFIG2.entities.sole_proprietorship.steps[0]
-            .repeatableSections.owners.fields[decl]?.conditionalFields;
-
-        if (configFields?.[data[decl]]) {
-          Object.keys(configFields[data[decl]]).forEach((key) => {
-            individual[key] = data[key] ?? null;
-          });
-        }
-      }
-    });
-
-    return individual;
-  };
-
-  const buildFormPayload = (data) => {
-    const payload = { ...data };
-
-    const individuals = mapIndividuals(data);
-    payload.individuals = extractFiles(individuals);
-
-    [
-      "fullName",
-      "idNumber",
-      "nationality",
-      "residentialAddress",
-      "dateOfBirth",
-      "idDocument",
-      "pepDeclaration",
-      "sanctionsDeclaration",
-      "fatcaDeclaration",
-      "partners",
-      "managers",
-      "generalPartners",
-      "limitedPartners",
-      "directors",
-      "shareholders",
-    ].forEach((key) => delete payload[key]);
-
-    return payload;
-  };
-
-  /* ------------------------------------------------ */
-  /* SAVE DRAFT */
-  /* ------------------------------------------------ */
   const handleSaveDraft = async () => {
     try {
-      const cleanData = buildFormPayload(
-        formData,
-        SINGAPORE_CONFIG2,
-        formData.businessType,
-      );
+      let savedAppId = currentApp?.applicationId || appId;
 
-      const normalizedData = {
-        ...cleanData,
-        provider_session_id: formData.provider_session_id || null,
-        businessName: cleanData.businessName || cleanData.business_name || "",
-        businessType: cleanData.businessType || cleanData.business_type || "",
-        country: cleanData.country || cleanData.business_country || "",
-      };
+      const cleanedFormPayload = buildDynamicPayload(formData, activeConfig);
 
       const payload = {
+        ...(savedAppId && savedAppId !== "new"
+          ? { application_id: savedAppId }
+          : {}),
         user_id: user.user_id,
         email: user.email,
-        firstName: user.firstName,
-        business_name: cleanData.businessName || "",
-        business_type: cleanData.businessType || "",
-        business_country: cleanData.country || "",
-        form_data: { ...normalizedData },
-        last_saved_step: clampedStep,
-        application_id: appId !== "new" ? appId : undefined,
+        first_name: user.first_name ?? user.firstName ?? "",
+        last_saved_step: currentStepFromRedux,
+        previous_status: formData?.previous_status || null,
+        current_status: formData?.current_status || "Draft",
+
+        business_name: cleanedFormPayload.businessName || "",
+        business_country: cleanedFormPayload.businessCountry || "",
+        business_type: cleanedFormPayload.businessType || "",
+
+        form_data: cleanedFormPayload,
       };
 
-      console.log("Saving application draft payload:", payload);
+      console.log("SAVE DRAFT payload:", payload);
 
       const res = await saveApplicationDraftApi(payload);
+      savedAppId = res.application_id || savedAppId;
 
-      const savedAppId = res.application_id || appId;
+      const documents = await uploadAllDocumentsFromFormData(
+        formData,
+        activeConfig,
+        savedAppId,
+      );
+      console.log(documents);
 
       dispatch(saveDraftAction({ appId: savedAppId, data: formData }));
+
+      if (appId === "new" && savedAppId) {
+        navigate(`/application/edit/${savedAppId}/${currentStepFromRedux}`, {
+          replace: true,
+        });
+      }
 
       toast({
         title: "Draft Saved",
@@ -398,52 +1278,64 @@ const SMEApplicationForm = () => {
     }
   };
 
-  /* ------------------------------------------------ */
-  /* SUBMIT APPLICATION */
-  /* ------------------------------------------------ */
   const handleSubmitApplication = async () => {
     setIsSubmitting(true);
+
     try {
-      const cleanData = buildFormPayload(
-        formData,
-        SINGAPORE_CONFIG2,
-        formData.businessType,
-      );
+      let savedAppId = currentApp?.applicationId || appId;
+
+      const cleanedFormPayload = buildDynamicPayload(formData, activeConfig);
 
       const providerSessionId = formData.provider_session_id;
 
       if (!providerSessionId) {
         toast({
           title: "Identity Verification Required",
-          description: "Please complete identity verification before submitting.",
+          description:
+            "Please complete identity verification before submitting.",
           variant: "destructive",
         });
         return;
       }
 
       const payload = {
+        ...(savedAppId && savedAppId !== "new"
+          ? { application_id: savedAppId }
+          : {}),
         user_id: user.user_id,
         email: user.email,
-        firstName: user.firstName,
-        business_name: cleanData.businessName || "",
-        business_type: cleanData.businessType || "",
-        business_country: cleanData.country || "",
-        form_data: cleanData,
+        first_name: user.first_name ?? user.firstName ?? "",
+        last_saved_step: currentStepFromRedux,
+        previous_status: formData?.previous_status || null,
+        current_status: formData?.current_status || "Draft",
+
+        business_name: cleanedFormPayload.businessName || "",
+        business_country: cleanedFormPayload.businessCountry || "",
+        business_type: cleanedFormPayload.businessType || "",
+
+        form_data: cleanedFormPayload,
+
         provider_session_id: providerSessionId,
-        last_saved_step: clampedStep,
-        application_id: appId !== "new" ? appId : undefined,
       };
 
-      await submitApplicationApi(payload);
+      const res = await submitSmeApplicationApi(payload);
+      savedAppId = res?.application_id || savedAppId;
 
-      dispatch(submitApplication({ appId, data: formData }));
+      const documents = await uploadAllDocumentsFromFormData(
+        formData,
+        activeConfig,
+        savedAppId,
+      );
+      // console.log("submit documents successfully:", documents);
 
-      navigate(`/landingpage`);
+      dispatch(submitApplication({ appId: savedAppId, data: formData }));
 
       toast({
         title: "Application Submitted",
         description: "Your application has been submitted.",
       });
+
+      navigate(`/landingpage`);
     } catch (err) {
       toast({
         title: "Submission Failed",
@@ -455,21 +1347,21 @@ const SMEApplicationForm = () => {
     }
   };
 
-  /* ------------------------------------------------ */
-  /* STEP COMPONENT SWITCH */
-  /* ------------------------------------------------ */
-  const getStepComponent = () => {
-    const commonProps = {
+  const commonProps = useMemo(
+    () => ({
       data: formData,
       onFieldChange: handleFieldChange,
       disabled: isViewOnly,
-    };
+    }),
+    [formData, handleFieldChange, isViewOnly],
+  );
 
+  const getStepComponent = () => {
     switch (clampedStep) {
       case 0:
         return <Step0Brief {...commonProps} />;
       case 1:
-        return <Step1BasicInformation {...commonProps} />;
+        return <Step1BasicInformation {...commonProps} applicationId={appId} />;
       case 2:
         return <Step2FinancialDetails {...commonProps} />;
       case 3:
@@ -478,6 +1370,7 @@ const SMEApplicationForm = () => {
             {...commonProps}
             documents={formData.documents}
             documentsProgress={formData.documentsProgress}
+            applicationId={appId}
           />
         );
       case 4:
@@ -487,6 +1380,7 @@ const SMEApplicationForm = () => {
             onSubmit={handleSubmitApplication}
             isSubmitting={isSubmitting}
             onEdit={handleEditStep}
+            applicationId={appId}
           />
         );
       default:
@@ -494,9 +1388,46 @@ const SMEApplicationForm = () => {
     }
   };
 
-  /* ------------------------------------------------ */
-  /* UI */
-  /* ------------------------------------------------ */
+  const MissingSteps = ({ report }) => {
+    if (!report || report.total === 0) return null;
+
+    return (
+      <div className="mt-8">
+        <h2 className="font-semibold text-lg mb-2">
+          Some required fields are missing
+        </h2>
+        <p className="text-sm text-red-500 mb-3">
+          Please complete the following before submitting.
+        </p>
+
+        <div className="space-y-3 overflow-y-auto max-h-120 pr-2 pb-7">
+          {report.byStep
+            .filter((step) => step.missing.length > 0)
+            .map((step, index) => {
+              const prevStep = report.byStep[index +1];
+
+              return (
+                <div
+                  key={step.stepId}
+                  className="rounded-md border border-red-200 bg-red-50 p-3"
+                >
+                  <p className="font-medium text-red-800 mb-1">
+                    {/* {step.stepLabel} */}
+                    {prevStep ? prevStep.stepLabel : step.stepLabel}
+                  </p>
+                  <ul className="list-disc list-inside text-sm text-red-700 space-y-1">
+                    {step.missing.map((item, idx) => (
+                      <li key={`${step.stepId}-${idx}`}>{item.label}</li>
+                    ))}
+                  </ul>
+                </div>
+              );
+            })}
+        </div>
+      </div>
+    );
+  };
+
   return (
     <div className="h-[calc(100vh-4rem)] flex overflow-hidden bg-gray-50">
       <div className="hidden md:flex flex-col items-center w-96 border-r bg-white">
@@ -504,11 +1435,14 @@ const SMEApplicationForm = () => {
           <h1 className="text-3xl font-bold md:pb-6">
             SME Cross-Border Payment Application
           </h1>
+
           <FormStepper
             currentStep={clampedStep}
             totalSteps={5}
             stepLabels={STEP_LABELS}
           />
+
+          {!isViewOnly && <MissingSteps report={validationReport} />}
         </div>
       </div>
 
@@ -537,34 +1471,35 @@ const SMEApplicationForm = () => {
                     </Button>
 
                     <div className="flex gap-3">
-                      <Button
-                        variant="outline"
-                        onClick={handleSaveDraft}
-                        disabled={isSubmitting}
-                      >
-                        Save Draft
-                      </Button>
-
                       {clampedStep < 4 ? (
+                        <>
+                          <Button
+                            variant="outline"
+                            onClick={handleSaveDraft}
+                            disabled={isSubmitting}
+                          >
+                            Save Draft
+                          </Button>
+
+                          <Button onClick={() => goToStep(clampedStep + 1)}>
+                            Next
+                          </Button>
+                        </>
+                      ) : canSubmit ? (
                         <Button
-                          onClick={() =>
-                            navigate(
-                              `/application/${routeMode}/${appId}/${clampedStep + 1}`,
-                            )
-                          }
-                          disabled={isStep1 && !canProceedFromStep1}
+                          onClick={handleSubmitApplication}
+                          disabled={isSubmitting}
                         >
-                          Next
+                          Submit
                         </Button>
                       ) : (
-                        !hasNullFields(formData) && (
-                          <Button
-                            onClick={handleSubmitApplication}
-                            disabled={isSubmitting || !formData.provider_session_id}
-                          >
-                            Submit
-                          </Button>
-                        )
+                        <Button
+                          variant="outline"
+                          onClick={handleSaveDraft}
+                          disabled={isSubmitting}
+                        >
+                          Save Draft
+                        </Button>
                       )}
                     </div>
                   </div>
