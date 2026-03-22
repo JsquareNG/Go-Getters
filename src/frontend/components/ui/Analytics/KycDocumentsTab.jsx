@@ -6,15 +6,6 @@ import {
   CardTitle,
   CardDescription,
 } from "../primitives/Card";
-import { Badge } from "../primitives/Badge";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "../primitives/table";
 import {
   Clock,
   CheckCircle2,
@@ -38,22 +29,26 @@ import {
   CartesianGrid,
   BarChart,
   Bar,
-  LineChart,
-  Line,
   Cell,
 } from "recharts";
 import { getAllLivenessDetections } from "../../../api/livenessDetectionApi";
 
-const volumeConfig = {
-  verifications: { label: "Verifications", color: "hsl(var(--primary))" },
+const COLORS = {
+  verificationVolume: "hsl(217, 91%, 60%)", // blue-500
+  verificationVolumeFill: "hsl(217, 91%, 60%)",
+  riskFlag: "hsl(262, 83%, 58%)", // violet-500
+  success: "#34d399", // emerald-400
+  danger: "#ef4444", // red-500
+  warning: "#f59e0b", // amber-500
+  neutral: "#64748b", // slate-500
 };
 
-const scoreTrendConfig = {
-  livenessScore: { label: "Avg Liveness Score", color: "hsl(var(--primary))" },
+const volumeConfig = {
+  verifications: { label: "Verifications", color: COLORS.verificationVolume },
 };
 
 const riskFlagConfig = {
-  count: { label: "Count", color: "hsl(var(--primary))" },
+  count: { label: "Count", color: COLORS.riskFlag },
 };
 
 const demographicsConfig = {
@@ -106,19 +101,6 @@ function parseBackendDateTime(value) {
   );
 }
 
-function formatDateTime(value) {
-  const date = parseBackendDateTime(value);
-  if (!date) return value || "-";
-
-  return date.toLocaleString("en-SG", {
-    year: "numeric",
-    month: "short",
-    day: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
-}
-
 function normalizeCountryCode(value) {
   return String(value || "").trim().toUpperCase();
 }
@@ -148,20 +130,6 @@ function isFailed(status) {
   return ["declined", "failed", "rejected"].includes(
     String(status || "").toLowerCase()
   );
-}
-
-function statusTone(status) {
-  const s = String(status || "").toLowerCase();
-
-  if (s === "approved") {
-    return "bg-status-approved/10 text-status-approved border-status-approved/20";
-  }
-
-  if (["declined", "failed", "rejected"].includes(s)) {
-    return "bg-status-requires-action/10 text-status-requires-action border-status-requires-action/20";
-  }
-
-  return "bg-status-in-review/10 text-status-in-review border-status-in-review/20";
 }
 
 function isWithinDateRange(row, dateRange) {
@@ -201,64 +169,6 @@ function buildDailyVerificationVolume(rows) {
   return Array.from(map.values())
     .sort((a, b) => new Date(a.key) - new Date(b.key))
     .map(({ key, ...rest }) => rest);
-}
-
-function buildDailyAverageLivenessScore(rows) {
-  const map = new Map();
-
-  rows.forEach((row) => {
-    const date = parseBackendDateTime(row.created_at);
-    if (!date) return;
-
-    const key = `${date.getFullYear()}-${date.getMonth()}-${date.getDate()}`;
-
-    if (!map.has(key)) {
-      map.set(key, {
-        key,
-        date: date.toLocaleDateString("en-SG", {
-          month: "short",
-          day: "numeric",
-        }),
-        totalScore: 0,
-        count: 0,
-      });
-    }
-
-    const entry = map.get(key);
-    entry.totalScore += safeNumber(row.liveness_score, 0);
-    entry.count += 1;
-  });
-
-  return Array.from(map.values())
-    .sort((a, b) => new Date(a.key) - new Date(b.key))
-    .map(({ key, totalScore, count, ...rest }) => ({
-      ...rest,
-      livenessScore: count > 0 ? Number((totalScore / count).toFixed(2)) : 0,
-    }));
-}
-
-function buildWorkflowTracking(rows) {
-  const total = rows.length;
-
-  const idApproved = rows.filter((r) => isApproved(r.id_verification_status)).length;
-  const livenessApproved = rows.filter((r) => isApproved(r.liveness_status)).length;
-  const faceMatchApproved = rows.filter((r) => isApproved(r.face_match_status)).length;
-  const manualReview = rows.filter((r) => !!r.manual_review_required).length;
-  const duplicateHits = rows.filter(
-    (r) => !!r.has_duplicate_identity_hit || !!r.has_duplicate_face_hit
-  ).length;
-
-  const pct = (count) =>
-    total > 0 ? Number(((count / total) * 100).toFixed(1)) : 0;
-
-  return [
-    { step: "Total", count: total, percentage: 100 },
-    { step: "ID Verification Approved", count: idApproved, percentage: pct(idApproved) },
-    { step: "Liveness Approved", count: livenessApproved, percentage: pct(livenessApproved) },
-    { step: "Face Match Approved", count: faceMatchApproved, percentage: pct(faceMatchApproved) },
-    { step: "Manual Review", count: manualReview, percentage: pct(manualReview) },
-    { step: "Duplicate Hits", count: duplicateHits, percentage: pct(duplicateHits) },
-  ];
 }
 
 function buildCountryBreakdown(rows) {
@@ -703,18 +613,34 @@ export function KycDocumentsTab({ dateRange, preset }) {
             >
               <defs>
                 <linearGradient id="volumeFill" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor="hsl(var(--primary))" stopOpacity={0.2} />
-                  <stop offset="100%" stopColor="hsl(var(--primary))" stopOpacity={0} />
+                  <stop
+                    offset="0%"
+                    stopColor={COLORS.verificationVolumeFill}
+                    stopOpacity={0.2}
+                  />
+                  <stop
+                    offset="100%"
+                    stopColor={COLORS.verificationVolumeFill}
+                    stopOpacity={0}
+                  />
                 </linearGradient>
               </defs>
               <CartesianGrid strokeDasharray="3 3" className="stroke-border/40" />
-              <XAxis dataKey="date" tick={{ fontSize: 11 }} className="text-muted-foreground" />
-              <YAxis tick={{ fontSize: 11 }} className="text-muted-foreground" allowDecimals={false} />
+              <XAxis
+                dataKey="date"
+                tick={{ fontSize: 11 }}
+                className="text-muted-foreground"
+              />
+              <YAxis
+                tick={{ fontSize: 11 }}
+                className="text-muted-foreground"
+                allowDecimals={false}
+              />
               <ChartTooltip content={<ChartTooltipContent />} />
               <Area
                 type="monotone"
                 dataKey="verifications"
-                stroke="hsl(var(--primary))"
+                stroke={COLORS.verificationVolume}
                 strokeWidth={2}
                 fill="url(#volumeFill)"
                 dot={{ r: 0 }}
@@ -761,8 +687,11 @@ export function KycDocumentsTab({ dateRange, preset }) {
                   </div>
                   <div className="h-2 overflow-hidden rounded-full bg-muted">
                     <div
-                      className="h-full rounded-full bg-primary transition-all"
-                      style={{ width: `${c.percentage}%` }}
+                      className="h-full rounded-full transition-all"
+                      style={{
+                        width: `${c.percentage}%`,
+                        backgroundColor: COLORS.verificationVolume,
+                      }}
                     />
                   </div>
                 </div>
@@ -801,7 +730,11 @@ export function KycDocumentsTab({ dateRange, preset }) {
                   allowDecimals={false}
                 />
                 <ChartTooltip content={<ChartTooltipContent />} />
-                <Bar dataKey="count" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
+                <Bar
+                  dataKey="count"
+                  fill={COLORS.riskFlag}
+                  radius={[4, 4, 0, 0]}
+                />
               </BarChart>
             </ChartContainer>
           </CardContent>
@@ -909,7 +842,7 @@ export function KycDocumentsTab({ dateRange, preset }) {
                     </span>
                     <div className="h-2 flex-1 overflow-hidden rounded-full bg-slate-200">
                       <div
-                        className="h-full rounded-full bg-red-500"
+                        className="h-full rounded-full bg-blue-500"
                         style={{ width: `${d.percentage}%` }}
                       />
                     </div>
