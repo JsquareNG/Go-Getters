@@ -61,11 +61,27 @@ function normalizeStatus(value) {
   return "Unknown";
 }
 
+function isWithinDateRange(app, dateRange) {
+  if (!dateRange?.from && !dateRange?.to) return true;
+
+  const createdAt = app?.created_at || app?.updated_at;
+  if (!createdAt) return false;
+
+  const date = new Date(createdAt);
+  if (Number.isNaN(date.getTime())) return false;
+
+  if (dateRange?.from && date < dateRange.from) return false;
+  if (dateRange?.to && date > dateRange.to) return false;
+
+  return true;
+}
+
 function normalizeStageLabel(value) {
   const v = String(value || "").trim().toLowerCase();
 
   if (!v) return "Started";
   if (["start", "started", "landing"].includes(v)) return "Started";
+
   if (
     [
       "step1",
@@ -77,6 +93,7 @@ function normalizeStageLabel(value) {
   ) {
     return "Basic Information";
   }
+
   if (
     [
       "step2",
@@ -88,6 +105,7 @@ function normalizeStageLabel(value) {
   ) {
     return "Business Details";
   }
+
   if (
     [
       "step3",
@@ -99,6 +117,7 @@ function normalizeStageLabel(value) {
   ) {
     return "Document Upload";
   }
+
   if (
     [
       "step4",
@@ -341,7 +360,7 @@ function buildSummaryCards(metrics) {
   ];
 }
 
-export function PipelineTab() {
+export function PipelineTab({ dateRange, preset }) {
   const [applications, setApplications] = useState([]);
   const [loading, setLoading] = useState(true);
 
@@ -368,24 +387,45 @@ export function PipelineTab() {
     loadApplications();
   }, []);
 
+  const pipelineDescription = useMemo(() => {
+    switch (preset) {
+      case "last-7":
+        return "Onboarding metrics for the last 7 days";
+      case "last-30":
+        return "Onboarding metrics for the last 30 days";
+      case "last-quarter":
+        return "Onboarding metrics for the last quarter";
+      case "last-year":
+        return "Onboarding metrics for the last year";
+      case "custom":
+        if (dateRange?.from && dateRange?.to) {
+          return `Onboarding metrics from ${dateRange.from.toLocaleDateString()} to ${dateRange.to.toLocaleDateString()}`;
+        }
+        return "Onboarding metrics for selected range";
+      default:
+        return "Onboarding metrics";
+    }
+  }, [preset, dateRange]);
+
+  const filteredApplications = useMemo(() => {
+    return applications.filter((app) => isWithinDateRange(app, dateRange));
+  }, [applications, dateRange]);
+
   const metrics = useMemo(
-    () => buildOutcomeMetrics(applications),
-    [applications],
+    () => buildOutcomeMetrics(filteredApplications),
+    [filteredApplications],
   );
 
-  const summaryCards = useMemo(
-    () => buildSummaryCards(metrics),
-    [metrics],
-  );
+  const summaryCards = useMemo(() => buildSummaryCards(metrics), [metrics]);
 
   const pipelineStages = useMemo(
-    () => buildPipelineStages(applications),
-    [applications],
+    () => buildPipelineStages(filteredApplications),
+    [filteredApplications],
   );
 
   const draftDropoffStages = useMemo(
-    () => buildDraftDropoff(applications),
-    [applications],
+    () => buildDraftDropoff(filteredApplications),
+    [filteredApplications],
   );
 
   const outcomeRateChart = useMemo(
@@ -405,6 +445,10 @@ export function PipelineTab() {
 
   return (
     <div className="space-y-6">
+      <div>
+        <p className="text-sm text-muted-foreground">{pipelineDescription}</p>
+      </div>
+
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-5">
         {summaryCards.map((item) => (
           <Card key={item.title}>
@@ -413,7 +457,9 @@ export function PipelineTab() {
                 <p className="text-xs font-medium text-muted-foreground">
                   {item.title}
                 </p>
-                <p className={cn("mt-2 text-2xl font-bold tabular-nums", item.tone)}>
+                <p
+                  className={cn("mt-2 text-2xl font-bold tabular-nums", item.tone)}
+                >
                   {item.value}
                 </p>
                 <p className="mt-1 text-xs text-muted-foreground">
@@ -440,7 +486,9 @@ export function PipelineTab() {
             {pipelineStages.map((stage) => (
               <div key={stage.stage} className="space-y-1.5">
                 <div className="flex items-center justify-between text-sm">
-                  <span className="font-medium text-foreground">{stage.stage}</span>
+                  <span className="font-medium text-foreground">
+                    {stage.stage}
+                  </span>
                   <span className="font-semibold tabular-nums text-foreground">
                     {stage.count}
                   </span>
@@ -477,6 +525,45 @@ export function PipelineTab() {
               Where incomplete onboarding applications are currently dropping off
             </CardDescription>
           </CardHeader>
+
+          <CardContent>
+            <div className="space-y-3">
+              {draftDropoffStages.map((stage) => (
+                <div key={stage.stage} className="space-y-1">
+                  <div className="flex justify-between text-sm">
+                    <span className="font-medium text-foreground">
+                      {stage.stage}
+                    </span>
+
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs text-muted-foreground">
+                        {stage.percentage}%
+                      </span>
+                      <span className="font-semibold tabular-nums text-foreground">
+                        {stage.count}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="h-2 w-full overflow-hidden rounded-full bg-slate-400/20">
+                    <div
+                      className="h-full rounded-full transition-all"
+                      style={{
+                        width: `${(stage.count / maxDraftDropoffCount) * 100}%`,
+                        backgroundColor: stage.color,
+                      }}
+                    />
+                  </div>
+                </div>
+              ))}
+
+              {draftDropoffStages.every((item) => item.count === 0) ? (
+                <div className="rounded-lg border border-dashed p-6 text-center text-sm text-muted-foreground">
+                  No draft applications found.
+                </div>
+              ) : null}
+            </div>
+          </CardContent>
         </Card>
 
         <Card>
@@ -490,7 +577,10 @@ export function PipelineTab() {
           </CardHeader>
 
           <CardContent>
-            <ChartContainer config={outcomeChartConfig} className="h-[280px] w-full">
+            <ChartContainer
+              config={outcomeChartConfig}
+              className="h-[280px] w-full"
+            >
               <BarChart
                 data={outcomeRateChart}
                 margin={{ left: 8, right: 8, top: 8 }}
