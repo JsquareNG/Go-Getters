@@ -33,12 +33,22 @@ import {
 } from "recharts";
 import { getAllLivenessDetections } from "../../../api/livenessDetectionApi";
 
+const COLORS = {
+  verificationVolume: "hsl(217, 91%, 60%)", // blue-500
+  verificationVolumeFill: "hsl(217, 91%, 60%)",
+  riskFlag: "hsl(262, 83%, 58%)", // violet-500
+  success: "#34d399", // emerald-400
+  danger: "#ef4444", // red-500
+  warning: "#f59e0b", // amber-500
+  neutral: "#64748b", // slate-500
+};
+
 const volumeConfig = {
-  verifications: { label: "Verifications", color: "hsl(var(--primary))" },
+  verifications: { label: "Verifications", color: COLORS.verificationVolume },
 };
 
 const riskFlagConfig = {
-  count: { label: "Count", color: "hsl(var(--primary))" },
+  count: { label: "Count", color: COLORS.riskFlag },
 };
 
 const demographicsConfig = {
@@ -603,18 +613,34 @@ export function KycDocumentsTab({ dateRange, preset }) {
             >
               <defs>
                 <linearGradient id="volumeFill" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor="hsl(var(--primary))" stopOpacity={0.2} />
-                  <stop offset="100%" stopColor="hsl(var(--primary))" stopOpacity={0} />
+                  <stop
+                    offset="0%"
+                    stopColor={COLORS.verificationVolumeFill}
+                    stopOpacity={0.2}
+                  />
+                  <stop
+                    offset="100%"
+                    stopColor={COLORS.verificationVolumeFill}
+                    stopOpacity={0}
+                  />
                 </linearGradient>
               </defs>
               <CartesianGrid strokeDasharray="3 3" className="stroke-border/40" />
-              <XAxis dataKey="date" tick={{ fontSize: 11 }} className="text-muted-foreground" />
-              <YAxis tick={{ fontSize: 11 }} className="text-muted-foreground" allowDecimals={false} />
+              <XAxis
+                dataKey="date"
+                tick={{ fontSize: 11 }}
+                className="text-muted-foreground"
+              />
+              <YAxis
+                tick={{ fontSize: 11 }}
+                className="text-muted-foreground"
+                allowDecimals={false}
+              />
               <ChartTooltip content={<ChartTooltipContent />} />
               <Area
                 type="monotone"
                 dataKey="verifications"
-                stroke="hsl(var(--primary))"
+                stroke={COLORS.verificationVolume}
                 strokeWidth={2}
                 fill="url(#volumeFill)"
                 dot={{ r: 0 }}
@@ -661,8 +687,11 @@ export function KycDocumentsTab({ dateRange, preset }) {
                   </div>
                   <div className="h-2 overflow-hidden rounded-full bg-muted">
                     <div
-                      className="h-full rounded-full bg-primary transition-all"
-                      style={{ width: `${c.percentage}%` }}
+                      className="h-full rounded-full transition-all"
+                      style={{
+                        width: `${c.percentage}%`,
+                        backgroundColor: COLORS.verificationVolume,
+                      }}
                     />
                   </div>
                 </div>
@@ -701,7 +730,11 @@ export function KycDocumentsTab({ dateRange, preset }) {
                   allowDecimals={false}
                 />
                 <ChartTooltip content={<ChartTooltipContent />} />
-                <Bar dataKey="count" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
+                <Bar
+                  dataKey="count"
+                  fill={COLORS.riskFlag}
+                  radius={[4, 4, 0, 0]}
+                />
               </BarChart>
             </ChartContainer>
           </CardContent>

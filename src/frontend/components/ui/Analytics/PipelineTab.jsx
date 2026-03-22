@@ -182,15 +182,14 @@ function buildPipelineStages(applications = []) {
   });
 
   const stageMeta = [
-    { stage: "Draft", color: "hsl(215, 16%, 65%)" },
-    { stage: "Under Review", color: "hsl(210, 100%, 50%)" },
-    { stage: "Under Manual Review", color: "hsl(38, 92%, 50%)" },
-    { stage: "Requires Action", color: "hsl(262, 83%, 58%)" },
-    { stage: "Approved", color: "hsl(142, 71%, 45%)" },
-    { stage: "Rejected", color: "hsl(0, 84%, 60%)" },
-    { stage: "Withdrawn", color: "hsl(285, 60%, 55%)" },
-    { stage: "Deleted", color: "hsl(0, 0%, 55%)" },
-  ];
+  { stage: "Draft", color: "hsl(217, 91%, 60%)" },            // blue-500
+  { stage: "Under Manual Review", color: "hsl(38, 92%, 50%)" }, // amber-500
+  { stage: "Requires Action", color: "hsl(348, 83%, 47%)" },  // rose-600
+  { stage: "Approved", color: "hsl(160, 84%, 39%)" },         // emerald-400 (approx adjusted for charts)
+  { stage: "Rejected", color: "hsl(0, 84%, 60%)" },           // red-500
+  { stage: "Withdrawn", color: "hsl(262, 83%, 58%)" },        // violet-500
+  { stage: "Deleted", color: "hsl(215, 16%, 47%)" },          // slate-500
+];
 
   return stageMeta.map((item) => ({
     ...item,
@@ -609,9 +608,8 @@ export function PipelineTab({ dateRange, preset }) {
                   content={
                     <ChartTooltipContent
                       formatter={(value, _name, item) => [
-                        item?.payload?.label,
-                        ": ",
                         `${value}%`,
+                        item?.payload?.label,
                       ]}
                     />
                   }
