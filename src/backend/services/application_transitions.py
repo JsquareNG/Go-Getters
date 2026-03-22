@@ -9,6 +9,7 @@ from backend.models.bellNotifications import BellNotification
 from backend.models.user import User
 from backend.api.resend import send_email
 from backend.api.notification import *
+from backend.services.audit_service import create_audit_log
 
 EXCLUDED_STATUSES = ("Withdrawn", "Approved", "Rejected")  # not "active"
 
@@ -59,6 +60,11 @@ def pick_least_loaded_staff_id(db: Session) -> str | None:
 
     return chosen
 
+def get_users_by_id(db: Session, userID: str):
+    user = db.query(User).filter(User.user_id == userID).first()
+
+    return f"{user.first_name} {user.last_name}"
+
 def approve_application_service(
     db: Session,
     background_tasks: BackgroundTasks,
@@ -76,15 +82,18 @@ def approve_application_service(
     if not app:
         raise HTTPException(status_code=404, detail="Application not found")
 
+    old_status = app.current_status
+    approval_mode = "MANUAL" if old_status == "Under Manual Review" else "AUTO"
+
     # Only require reason if approving from Under Manual Review
-    if app.current_status == "Under Manual Review":
+    if old_status == "Under Manual Review":
         if reason is None or str(reason).strip() == "":
             raise HTTPException(
                 status_code=400,
                 detail="reason is required when approving from Under Manual Review",
             )
 
-    app.previous_status = app.current_status
+    app.previous_status = old_status
     app.current_status = "Approved"
 
     if app.form_data is None:
@@ -98,6 +107,20 @@ def approve_application_service(
         to_status="Approved",
         message="Your application has been approved."
     ))
+
+    username = get_users_by_id(db, app.reviewer_id)
+
+    create_audit_log(
+        db=db,
+        application_id=app.application_id,
+        actor_id=app.reviewer_id if approval_mode == "MANUAL" else None,
+        actor_type= f"{username} (Reviewer)" if approval_mode == "MANUAL" else "SYSTEM",
+        event_type="APPLICATION_APPROVED",
+        entity_type="APPLICATION",
+        from_status=old_status,
+        to_status="Approved",
+        description="Application was approved."
+    )
 
     db.commit()
     db.refresh(app)
@@ -160,6 +183,10 @@ def need_manual_review_service(
     assigns reviewer if missing, writes bell notifications, and notifies user + staff.
     """
 
+    old_status = None
+    old_reviewer_id = None
+    reviewer_assigned_now = False
+
     # start a transaction block
     with db.begin_nested():
         app = (
@@ -176,12 +203,16 @@ def need_manual_review_service(
         if app.current_status != "Under Review":
             return app, {"user": False, "staff": False}, [f"No status change; current_status is '{app.current_status}'"]
 
+        old_status = app.current_status
+        old_reviewer_id = app.reviewer_id
+
         # assign reviewer if empty
         if not app.reviewer_id:
             chosen_staff_id = pick_least_loaded_staff_id(db)
             if not chosen_staff_id:
                 raise HTTPException(status_code=409, detail="No STAFF available to assign")
             app.reviewer_id = chosen_staff_id
+            reviewer_assigned_now = True
 
         app.previous_status = "Under Review"
         app.current_status = "Under Manual Review"
@@ -203,6 +234,36 @@ def need_manual_review_service(
                 to_status=app.current_status,
                 message="You have an active application due for manual review."
             ))
+
+        # audit: sent to manual review
+        create_audit_log(
+            db=db,
+            application_id=app.application_id,
+            actor_id=None,
+            actor_type="SYSTEM",
+            event_type="APPLICATION_SENT_TO_MANUAL_REVIEW",
+            entity_type="APPLICATION",
+            from_status=old_status,
+            to_status=app.current_status,
+            description="Application flagged for manual review."
+        )
+
+        # audit: reviewer assigned
+        username = get_users_by_id(db, app.reviewer_id)
+
+        if reviewer_assigned_now:
+            create_audit_log(
+                db=db,
+                application_id=app.application_id,
+                actor_id=None,
+                actor_type="SYSTEM",
+                event_type="REVIEWER_ASSIGNED",
+                entity_type="APPLICATION",
+                from_status=None,
+                to_status=None,
+                #add reviweer name
+                description=f"Application assigned to compliance reviewer {username}."
+            )
 
         db.flush()
 

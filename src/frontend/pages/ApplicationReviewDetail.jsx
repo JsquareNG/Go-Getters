@@ -9,8 +9,6 @@ import {
   Upload,
   User,
   MapPin,
-  Mail,
-  Phone,
   FileQuestion,
   CheckCircle2,
   XCircle,
@@ -44,8 +42,12 @@ import {
   getQnA,
   getReviewJob,
 } from "@/api/applicationApi";
+import { getAuditTrail } from "@/api/auditTrailApi";
 import { allDocuments, downloadDocuments } from "./../api/documentApi";
+import { getKYCdetails } from "@/api/livenessDetectionApi";
 import RequestDocumentsDialog from "../components/ui/features/RequestDocumentsDialog";
+import { AuditTrail } from "../components/ui/features/AuditTrail";
+import { KycVerificationCard } from "../components/ui/features/kycVerificationCard";
 
 const formatBusinessType = (value) => {
   if (!value) return "-";
@@ -53,6 +55,17 @@ const formatBusinessType = (value) => {
     .split("_")
     .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
     .join(" ");
+};
+
+const formatBool = (value) => {
+  if (value === true) return "Yes";
+  if (value === false) return "No";
+  return "-";
+};
+
+const formatValue = (value) => {
+  if (value === null || value === undefined || value === "") return "-";
+  return value;
 };
 
 export default function ApplicationReviewDetail() {
@@ -72,9 +85,17 @@ export default function ApplicationReviewDetail() {
   const [riskLoading, setRiskLoading] = useState(false);
   const [riskError, setRiskError] = useState(null);
 
+  const [kycDetails, setKycDetails] = useState(null);
+  const [kycLoading, setKycLoading] = useState(false);
+  const [kycError, setKycError] = useState(null);
+
   const [actionRequestsData, setActionRequestsData] = useState(null);
   const [qnaLoading, setQnaLoading] = useState(false);
   const [qnaError, setQnaError] = useState(null);
+
+  const [auditEntries, setAuditEntries] = useState([]);
+  const [auditLoading, setAuditLoading] = useState(false);
+  const [auditError, setAuditError] = useState(null);
 
   const [requestDocsOpen, setRequestDocsOpen] = useState(false);
 
@@ -122,7 +143,7 @@ export default function ApplicationReviewDetail() {
   }, [id]);
 
   // -----------------------------
-  // Fetch Risk Assessment via getReviewJob
+  // Fetch Risk Assessment
   // -----------------------------
   useEffect(() => {
     const fetchReviewJob = async () => {
@@ -147,7 +168,7 @@ export default function ApplicationReviewDetail() {
           err?.response?.data?.detail ||
             err?.response?.data?.message ||
             err?.message ||
-            "Could not retrieve risk assessment."
+            "Could not retrieve risk assessment.",
         );
         setRules(null);
       } finally {
@@ -159,7 +180,44 @@ export default function ApplicationReviewDetail() {
   }, [id, application]);
 
   // -----------------------------
-  // Fetch Action Requests (QnA) via getQnA
+  // Fetch KYC Details by Application ID
+  // -----------------------------
+  useEffect(() => {
+    const fetchKycDetails = async () => {
+      try {
+        setKycLoading(true);
+        setKycError(null);
+
+        const appIdToUse = application?.application_id || application?.id || id;
+        if (!appIdToUse) return;
+
+        const data = await getKYCdetails(appIdToUse);
+        setKycDetails(data && typeof data === "object" ? data : null);
+      } catch (err) {
+        console.error("Error fetching KYC details:", {
+          message: err?.message,
+          status: err?.response?.status,
+          data: err?.response?.data,
+          url: err?.config?.url,
+        });
+
+        setKycError(
+          err?.response?.data?.detail ||
+            err?.response?.data?.message ||
+            err?.message ||
+            "Could not retrieve KYC details.",
+        );
+        setKycDetails(null);
+      } finally {
+        setKycLoading(false);
+      }
+    };
+
+    if (id && application) fetchKycDetails();
+  }, [id, application]);
+
+  // -----------------------------
+  // Fetch Action Requests (QnA)
   // -----------------------------
   useEffect(() => {
     const fetchQnA = async () => {
@@ -184,7 +242,7 @@ export default function ApplicationReviewDetail() {
           err?.response?.data?.detail ||
             err?.response?.data?.message ||
             err?.message ||
-            "Could not retrieve questions & answers."
+            "Could not retrieve questions & answers.",
         );
         setActionRequestsData(null);
       } finally {
@@ -193,6 +251,43 @@ export default function ApplicationReviewDetail() {
     };
 
     if (id && application) fetchQnA();
+  }, [id, application]);
+
+  // -----------------------------
+  // Fetch Audit Trail
+  // -----------------------------
+  useEffect(() => {
+    const fetchAuditTrail = async () => {
+      try {
+        setAuditLoading(true);
+        setAuditError(null);
+
+        const appIdToUse = application?.application_id || application?.id || id;
+        if (!appIdToUse) return;
+
+        const data = await getAuditTrail(appIdToUse);
+        setAuditEntries(Array.isArray(data) ? data : []);
+      } catch (err) {
+        console.error("Error fetching audit trail:", {
+          message: err?.message,
+          status: err?.response?.status,
+          data: err?.response?.data,
+          url: err?.config?.url,
+        });
+
+        setAuditError(
+          err?.response?.data?.detail ||
+            err?.response?.data?.message ||
+            err?.message ||
+            "Could not retrieve audit trail.",
+        );
+        setAuditEntries([]);
+      } finally {
+        setAuditLoading(false);
+      }
+    };
+
+    if (id && application) fetchAuditTrail();
   }, [id, application]);
 
   // -----------------------------
@@ -276,7 +371,7 @@ export default function ApplicationReviewDetail() {
 
   const riskTone = useMemo(() => {
     switch (riskGrade) {
-      case "Enhanced Due Diligence (EDD)":
+      case "Enhanced CDD":
         return {
           badge: "bg-red-500 text-white border-red-500",
           soft: "border-red-500/20 bg-red-500/5",
@@ -284,14 +379,12 @@ export default function ApplicationReviewDetail() {
           icon: "text-red-500",
         };
       case "Standard CDD":
-      case "Standard EDD":
         return {
           badge: "bg-orange-400 text-white border-orange-400",
           soft: "border-orange-400/20 bg-orange-400/5",
           text: "text-orange-500",
           icon: "text-orange-500",
         };
-      case "Simplified EDD":
       case "Simplified CDD":
         return {
           badge: "bg-emerald-600 text-white border-emerald-600",
@@ -349,6 +442,8 @@ export default function ApplicationReviewDetail() {
       };
     });
   }, [documents, sortedActionRequestsAsc]);
+
+  const shouldShowKycBanner = !!kycDetails && !kycLoading && !kycError;
 
   // -----------------------------
   // Handlers
@@ -430,7 +525,9 @@ export default function ApplicationReviewDetail() {
       await approveApplication(appIdToUse, reason.trim());
 
       toast.success("Application Approved", {
-        description: `${application?.business_name || formData?.businessName || "Application"} has been approved.`,
+        description: `${
+          application?.business_name || formData?.businessName || "Application"
+        } has been approved.`,
       });
 
       navigate("/staff-landingpage");
@@ -459,7 +556,9 @@ export default function ApplicationReviewDetail() {
       await rejectApplication(appIdToUse, reason.trim());
 
       toast.success("Application Rejected", {
-        description: `${application?.business_name || formData?.businessName || "Application"} has been rejected.`,
+        description: `${
+          application?.business_name || formData?.businessName || "Application"
+        } has been rejected.`,
       });
 
       navigate("/staff-landingpage");
@@ -521,9 +620,7 @@ export default function ApplicationReviewDetail() {
                   </h1>
                   <StatusBadge status={currentStatus} />
                 </div>
-                <p className="mt-1 text-muted-foreground">
-                  Application ID: {appDisplayId}
-                </p>
+                <p className="mt-1 text-muted-foreground">Application ID: {appDisplayId}</p>
 
                 <div className="mt-2 flex flex-wrap items-center gap-3">
                   <span className="flex items-center gap-1.5 text-sm text-muted-foreground">
@@ -541,7 +638,23 @@ export default function ApplicationReviewDetail() {
           </div>
         </div>
 
-        <div className="pb-20">
+        <div className="space-y-6 pb-20">
+          {kycLoading ? (
+            <Card>
+              <CardContent className="py-4">
+                <p className="text-sm text-muted-foreground">Loading KYC details...</p>
+              </CardContent>
+            </Card>
+          ) : kycError ? (
+            <Card>
+              <CardContent className="py-4">
+                <p className="text-sm text-red-500">{kycError}</p>
+              </CardContent>
+            </Card>
+          ) : shouldShowKycBanner ? (
+            <KycVerificationCard kyc={kycDetails} />
+          ) : null}
+
           <Card>
             <Tabs defaultValue="overview" className="w-full">
               <CardHeader className="pb-3">
@@ -557,6 +670,9 @@ export default function ApplicationReviewDetail() {
                   </TabsTrigger>
                   <TabsTrigger value="qna" className="text-xs sm:text-sm">
                     Questions & Answers
+                  </TabsTrigger>
+                  <TabsTrigger value="audit" className="text-xs sm:text-sm">
+                    Audit Trail
                   </TabsTrigger>
                   {currentStatus === "Requires Action" && actionReason && (
                     <TabsTrigger value="response" className="text-xs sm:text-sm">
@@ -576,9 +692,7 @@ export default function ApplicationReviewDetail() {
                     <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
                       <div>
                         <p className="text-xs text-muted-foreground">Registration Number / UEN</p>
-                        <p className="text-sm font-medium text-foreground">
-                          {formData?.uen || "-"}
-                        </p>
+                        <p className="text-sm font-medium text-foreground">{formData?.uen || "-"}</p>
                       </div>
                       <div>
                         <p className="text-xs text-muted-foreground">Business Name</p>
@@ -624,15 +738,11 @@ export default function ApplicationReviewDetail() {
                       </div>
                       <div>
                         <p className="text-xs text-muted-foreground">Email</p>
-                        <p className="text-sm font-medium text-foreground">
-                          {formData?.email || "-"}
-                        </p>
+                        <p className="text-sm font-medium text-foreground">{formData?.email || "-"}</p>
                       </div>
                       <div>
                         <p className="text-xs text-muted-foreground">Phone</p>
-                        <p className="text-sm font-medium text-foreground">
-                          {formData?.phone || "-"}
-                        </p>
+                        <p className="text-sm font-medium text-foreground">{formData?.phone || "-"}</p>
                       </div>
                       <div>
                         <p className="text-xs text-muted-foreground">Account Currency</p>
@@ -973,7 +1083,7 @@ export default function ApplicationReviewDetail() {
                           <Badge className="border bg-muted text-foreground">
                             {resubmissionGroups.reduce(
                               (sum, group) => sum + group.documents.length,
-                              0
+                              0,
                             )}{" "}
                             file(s)
                           </Badge>
@@ -1113,6 +1223,16 @@ export default function ApplicationReviewDetail() {
                       ))
                     )}
                   </div>
+                </TabsContent>
+
+                <TabsContent value="audit" className="mt-0">
+                  {auditLoading ? (
+                    <p className="text-sm text-muted-foreground">Loading audit trail...</p>
+                  ) : auditError ? (
+                    <p className="text-sm text-red-500">{auditError}</p>
+                  ) : (
+                    <AuditTrail entries={auditEntries} />
+                  )}
                 </TabsContent>
 
                 {currentStatus === "Requires Action" && actionReason && (

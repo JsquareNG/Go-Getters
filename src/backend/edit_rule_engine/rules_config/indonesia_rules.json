@@ -1,0 +1,26 @@
+[
+  {
+    "code": "ID001",
+    "description": "Foreign SME onboarding",
+    "field": "country",
+    "operator": "equals",
+    "value": "Indonesia",
+    "score": 20
+  },
+  {
+    "code": "ID002",
+    "description": "NIB license missing",
+    "field": "nib_present",
+    "operator": "boolean",
+    "value": false,
+    "score": 40
+  },
+  {
+    "code": "ID003",
+    "description": "NPWP tax number missing",
+    "field": "npwp_present",
+    "operator": "boolean",
+    "value": false,
+    "score": 30
+  }
+]

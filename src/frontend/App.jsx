@@ -5,12 +5,12 @@ import Home from "./pages/Home";
 import LandingPage from "./pages/LandingPage";
 import HomeLayout from "./layouts/HomeLayout";
 import LandingLayout from "./layouts/LandingLayout";
-import AccountsPage from "./pages/AccountsPage";
 import ApplicationDetail from "./pages/ApplicationDetail";
 import StaffLandingPage from "./pages/StaffLandingPage";
 import ApplicationReviewDetail from "./pages/ApplicationReviewDetail";
 import Dashboard from "./pages/Dashboard";
 import AdminConfigPage from "./pages/AdminConfigPage";
+import RulesEngineConfiguration from "./pages/RulesEngineConfiguration";
 // import TestDocumentMulti from "./pages/TestDocument";
 // import ViewSubmittedApplication from "./pages/OneDocument";
 import { Toaster } from "./components/ui/primitives/Toaster";
@@ -63,17 +63,6 @@ export default function App() {
             <RequireRole role="SME">
               <LandingLayout>
                 <ApplicationDetail />
-              </LandingLayout>
-            </RequireRole>
-          }
-        />
-
-        <Route
-          path="/accountspage"
-          element={
-            <RequireRole role="SME">
-              <LandingLayout>
-                <AccountsPage />
               </LandingLayout>
             </RequireRole>
           }
@@ -143,6 +132,17 @@ export default function App() {
             <RequireRole role="STAFF">
               <LandingLayout>
                 <AdminConfigPage />
+              </LandingLayout>
+            </RequireRole>
+          }
+        />
+
+        <Route
+          path="/rules-engine-configuration"
+          element={
+            <RequireRole role="STAFF">
+              <LandingLayout>
+                <RulesEngineConfiguration />
               </LandingLayout>
             </RequireRole>
           }

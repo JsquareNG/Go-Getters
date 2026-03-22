@@ -11,6 +11,12 @@ from backend.models.user import User
 from backend.models.reviewJobs import ReviewJobs
 from backend.models.bellNotifications import BellNotification
 from backend.models.action_requests import ActionRequestItem, ActionRequest
+from backend.models.auditTrail import AuditTrail
+from backend.models.risk_config_list import RiskConfigList
+from backend.models.risk_rule import RiskRule
+from backend.models.risk_rule_condition import RiskRuleCondition
+from backend.models.liveness_detection import LivenessDetection
+
 from alembic import context
 
 load_dotenv() 
