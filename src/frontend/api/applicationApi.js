@@ -3,8 +3,17 @@ import axiosClient from "./axiosClient";
 
 export const getApplicationsByUserId = async (userId) => {
   // Using the specific endpoint you provided
-  const res = await axiosClient.get(`/applications/byUserID/${userId}`);
-  return res.data;
+  // const res = await axiosClient.get(`/applications/byUserID/${userId}`);
+  // return res.data;
+  try {
+    const res = await axiosClient.get(`/applications/byUserID/${userId}`);
+    return res.data;
+  } catch (err) {
+    if (err?.response?.status === 404) {
+      return [];
+    }
+    throw err;
+  }
 };
 
 export const getApplicationByAppId = async (id) => {
@@ -45,7 +54,7 @@ export const saveApplicationDraftApi = async (payload) => {
 
   // console.log("draft payload", draftPayload)
 
-  const {application_id} = payload
+  const { application_id } = payload;
 
   try {
     const res = application_id
@@ -56,7 +65,7 @@ export const saveApplicationDraftApi = async (payload) => {
       : await axiosClient.post("/applications/firstSave", payload);
 
     console.log("API response:", res.data); // log backend response
-    console.log("payload", payload)
+    console.log("payload", payload);
 
     return res.data;
   } catch (err) {

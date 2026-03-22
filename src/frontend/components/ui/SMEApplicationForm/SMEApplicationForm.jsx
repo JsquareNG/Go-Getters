@@ -1143,8 +1143,109 @@ const SMEApplicationForm = () => {
     ],
   );
 
+  // to lock step 0. after users enter fields -> helps with redux startapplication function
+  const persistApplication = async ({ isInitial = false } = {}) => {
+    try {
+      let savedAppId = currentApp?.applicationId || appId;
+
+      if (isInitial) {
+        if (!selectedCountry || !selectedBusinessType) {
+          toast({
+            title: "Missing required fields",
+            description: "Please select country and business type first.",
+            variant: "destructive",
+          });
+          return null;
+        }
+
+        const initialPayload = {
+          ...(savedAppId && savedAppId !== "new"
+            ? { application_id: savedAppId }
+            : {}),
+          user_id: user.user_id,
+          form_data: {
+            country: selectedCountry,
+            businessType: selectedBusinessType,
+            businessCountry: selectedCountry,
+            businessName: "",
+          },
+        };
+
+        const res = await saveApplicationDraftApi(initialPayload);
+        savedAppId = res.application_id || savedAppId;
+
+        dispatch(
+          loadApplication({
+            applicationId: savedAppId,
+            formData: {
+              country: selectedCountry,
+              businessType: selectedBusinessType,
+              businessCountry: selectedCountry,
+              businessName: "",
+              last_saved_step: 0,
+              previous_status: null,
+              current_status: "Draft",
+            },
+            status: "Draft",
+          }),
+        );
+
+        return savedAppId;
+      }
+
+      const cleanedFormPayload = buildDynamicPayload(formData, activeConfig);
+
+      // const providerSessionId = formData.provider_session_id || null;
+
+      const payload = {
+        ...(savedAppId && savedAppId !== "new"
+          ? { application_id: savedAppId }
+          : {}),
+        user_id: user.user_id,
+        email: user.email,
+        first_name: user.first_name ?? user.firstName ?? "",
+        last_saved_step: currentStepFromRedux,
+        previous_status: formData?.previous_status || null,
+        current_status: formData?.current_status || "Draft",
+        form_data: cleanedFormPayload,
+
+        // provider_session_id: providerSessionId,
+      };
+
+      const res = await saveApplicationDraftApi(payload);
+      savedAppId = res.application_id || savedAppId;
+
+      await uploadAllDocumentsFromFormData(formData, activeConfig, savedAppId);
+
+      dispatch(saveDraftAction({ appId: savedAppId, data: formData }));
+
+      return savedAppId;
+    } catch (err) {
+      toast({
+        title: isInitial ? "Failed to start application" : "Save Failed",
+        description:
+          err?.message ||
+          (isInitial
+            ? "Could not create draft application."
+            : "Failed to save draft."),
+        variant: "destructive",
+      });
+      return null;
+    }
+  };
+
+  const handleStartApplication = async () => {
+    const savedAppId = await persistApplication({ isInitial: true });
+
+    if (savedAppId) {
+      navigate(`/application/edit/${savedAppId}/1`, { replace: true });
+    }
+  };
+
   useEffect(() => {
     const initApplication = async () => {
+      // clear stale form state immediately before loading anything new
+      dispatch(startNewApplication());
       try {
         if (appId && appId !== "new") {
           const app = await getApplicationByAppId(appId);
@@ -1222,61 +1323,78 @@ const SMEApplicationForm = () => {
   }, [clampedStep, currentStepFromRedux, dispatch]);
 
   const handleSaveDraft = async () => {
-    try {
-      let savedAppId = currentApp?.applicationId || appId;
+    const savedAppId = await persistApplication({ isInitial: false });
 
-      const cleanedFormPayload = buildDynamicPayload(formData, activeConfig);
+    if (savedAppId && appId === "new") {
+      navigate(`/application/edit/${savedAppId}/${currentStepFromRedux}`, {
+        replace: true,
+      });
+    }
 
-      const payload = {
-        ...(savedAppId && savedAppId !== "new"
-          ? { application_id: savedAppId }
-          : {}),
-        user_id: user.user_id,
-        email: user.email,
-        first_name: user.first_name ?? user.firstName ?? "",
-        last_saved_step: currentStepFromRedux,
-        previous_status: formData?.previous_status || null,
-        current_status: formData?.current_status || "Draft",
-
-        business_name: cleanedFormPayload.businessName || "",
-        business_country: cleanedFormPayload.businessCountry || "",
-        business_type: cleanedFormPayload.businessType || "",
-
-        form_data: cleanedFormPayload,
-      };
-
-      console.log("SAVE DRAFT payload:", payload);
-
-      const res = await saveApplicationDraftApi(payload);
-      savedAppId = res.application_id || savedAppId;
-
-      const documents = await uploadAllDocumentsFromFormData(
-        formData,
-        activeConfig,
-        savedAppId,
-      );
-      console.log(documents);
-
-      dispatch(saveDraftAction({ appId: savedAppId, data: formData }));
-
-      if (appId === "new" && savedAppId) {
-        navigate(`/application/edit/${savedAppId}/${currentStepFromRedux}`, {
-          replace: true,
-        });
-      }
-
+    if (savedAppId) {
       toast({
         title: "Draft Saved",
         description: "Your draft has been saved successfully.",
       });
-    } catch (err) {
-      toast({
-        title: "Save Failed",
-        description: err?.message || "Failed to save draft.",
-        variant: "destructive",
-      });
     }
   };
+
+  // const handleSaveDraft = async () => {
+  //   try {
+  //     let savedAppId = currentApp?.applicationId || appId;
+
+  //     const cleanedFormPayload = buildDynamicPayload(formData, activeConfig);
+
+  //     const payload = {
+  //       ...(savedAppId && savedAppId !== "new"
+  //         ? { application_id: savedAppId }
+  //         : {}),
+  //       user_id: user.user_id,
+  //       email: user.email,
+  //       first_name: user.first_name ?? user.firstName ?? "",
+  //       last_saved_step: currentStepFromRedux,
+  //       previous_status: formData?.previous_status || null,
+  //       current_status: formData?.current_status || "Draft",
+
+  //       // business_name: cleanedFormPayload.businessName || "",
+  //       // business_country: cleanedFormPayload.businessCountry || "",
+  //       // business_type: cleanedFormPayload.businessType || "",
+
+  //       form_data: cleanedFormPayload,
+  //     };
+
+  //     console.log("SAVE DRAFT payload:", payload);
+
+  //     const res = await saveApplicationDraftApi(payload);
+  //     savedAppId = res.application_id || savedAppId;
+
+  //     const documents = await uploadAllDocumentsFromFormData(
+  //       formData,
+  //       activeConfig,
+  //       savedAppId,
+  //     );
+  //     console.log(documents);
+
+  //     dispatch(saveDraftAction({ appId: savedAppId, data: formData }));
+
+  //     if (appId === "new" && savedAppId) {
+  //       navigate(`/application/edit/${savedAppId}/${currentStepFromRedux}`, {
+  //         replace: true,
+  //       });
+  //     }
+
+  //     toast({
+  //       title: "Draft Saved",
+  //       description: "Your draft has been saved successfully.",
+  //     });
+  //   } catch (err) {
+  //     toast({
+  //       title: "Save Failed",
+  //       description: err?.message || "Failed to save draft.",
+  //       variant: "destructive",
+  //     });
+  //   }
+  // };
 
   const handleSubmitApplication = async () => {
     setIsSubmitting(true);
@@ -1309,9 +1427,9 @@ const SMEApplicationForm = () => {
         previous_status: formData?.previous_status || null,
         current_status: formData?.current_status || "Draft",
 
-        business_name: cleanedFormPayload.businessName || "",
-        business_country: cleanedFormPayload.businessCountry || "",
-        business_type: cleanedFormPayload.businessType || "",
+        // business_name: cleanedFormPayload.businessName || "",
+        // business_country: cleanedFormPayload.businessCountry || "",
+        // business_type: cleanedFormPayload.businessType || "",
 
         form_data: cleanedFormPayload,
 
@@ -1356,10 +1474,12 @@ const SMEApplicationForm = () => {
     [formData, handleFieldChange, isViewOnly],
   );
 
+  const isStep0Locked = Boolean(appId && appId !== "new");
+
   const getStepComponent = () => {
     switch (clampedStep) {
       case 0:
-        return <Step0Brief {...commonProps} />;
+        return <Step0Brief {...commonProps} locked={isStep0Locked} />;
       case 1:
         return <Step1BasicInformation {...commonProps} applicationId={appId} />;
       case 2:
@@ -1404,7 +1524,7 @@ const SMEApplicationForm = () => {
           {report.byStep
             .filter((step) => step.missing.length > 0)
             .map((step, index) => {
-              const prevStep = report.byStep[index +1];
+              const prevStep = report.byStep[index + 1];
 
               return (
                 <div
@@ -1471,7 +1591,14 @@ const SMEApplicationForm = () => {
                     </Button>
 
                     <div className="flex gap-3">
-                      {clampedStep < 4 ? (
+                      {clampedStep === 0 ? (
+                        <Button
+                          onClick={handleStartApplication}
+                          disabled={isSubmitting || !isStep0Valid}
+                        >
+                          Start Application
+                        </Button>
+                      ) : clampedStep < 4 ? (
                         <>
                           <Button
                             variant="outline"
@@ -1501,6 +1628,36 @@ const SMEApplicationForm = () => {
                           Save Draft
                         </Button>
                       )}
+                      {/* {clampedStep < 4 ? (
+                        <>
+                          <Button
+                            variant="outline"
+                            onClick={handleSaveDraft}
+                            disabled={isSubmitting}
+                          >
+                            Save Draft
+                          </Button>
+
+                          <Button onClick={() => goToStep(clampedStep + 1)}>
+                            Next
+                          </Button>
+                        </>
+                      ) : canSubmit ? (
+                        <Button
+                          onClick={handleSubmitApplication}
+                          disabled={isSubmitting}
+                        >
+                          Submit
+                        </Button>
+                      ) : (
+                        <Button
+                          variant="outline"
+                          onClick={handleSaveDraft}
+                          disabled={isSubmitting}
+                        >
+                          Save Draft
+                        </Button>
+                      )} */}
                     </div>
                   </div>
                 )}

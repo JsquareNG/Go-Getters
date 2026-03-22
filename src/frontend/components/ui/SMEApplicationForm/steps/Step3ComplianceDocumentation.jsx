@@ -163,11 +163,77 @@ const Step3ComplianceDocumentation = ({
     return await classifyAndExtractApi(file);
   };
 
-  const validateClassificationResult = (fieldPath, result) => {
-    const expectedType = normalizeDocumentType(
-      inferExpectedDocumentType(fieldPath),
-    );
+  // const validateClassificationResult = (fieldPath, result) => {
+  //   // const expectedType = normalizeDocumentType(
+  //   //   // inferExpectedDocumentType(fieldPath),
+  //   // );
 
+  //   const detectedType = normalizeDocumentType(
+  //     result?.document_type ||
+  //       result?.classified_as ||
+  //       result?.doc_type ||
+  //       result?.label,
+  //   );
+
+  //   const isValidDocument =
+  //     result?.is_valid_document ?? result?.valid ?? result?.is_valid ?? true;
+
+  //   if (!isValidDocument) {
+  //     return {
+  //       ok: false,
+  //       error:
+  //         "This file does not appear to be a valid document. Please upload again.",
+  //       // expectedType,
+  //       detectedType,
+  //     };
+  //   }
+
+  //   // only compare if backend returned a type
+  //   if (detectedType && expectedType && detectedType !== expectedType) {
+  //     return {
+  //       ok: false,
+  //       error: `Wrong document uploaded. Expected ${expectedType}, but detected ${detectedType}. Please upload the correct file.`,
+  //       expectedType,
+  //       detectedType,
+  //     };
+  //   }
+
+  //   return {
+  //     ok: true,
+  //     expectedType,
+  //     detectedType,
+  //   };
+  // };
+
+  //   const isValidDocument =
+  //     result?.is_valid_document ?? result?.valid ?? result?.is_valid ?? true;
+
+  //   if (!isValidDocument) {
+  //     return {
+  //       ok: false,
+  //       error:
+  //         "This file does not appear to be a valid document. Please upload again.",
+  //       expectedType,
+  //       detectedType,
+  //     };
+  //   }
+
+  //   if (detectedType && expectedType && detectedType !== expectedType) {
+  //     return {
+  //       ok: false,
+  //       error: `Wrong document uploaded. Expected ${expectedType}, but detected ${detectedType}.`,
+  //       expectedType,
+  //       detectedType,
+  //     };
+  //   }
+
+  //   return {
+  //     ok: true,
+  //     expectedType,
+  //     detectedType,
+  //   };
+  // };
+  const validateClassificationResult = (result) => {
     const detectedType = normalizeDocumentType(
       result?.document_type ||
         result?.classified_as ||
@@ -175,32 +241,20 @@ const Step3ComplianceDocumentation = ({
         result?.label,
     );
 
-    const isValidDocument =
-      result?.is_valid_document ?? result?.valid ?? result?.is_valid ?? true;
+    const isSupported = result?.is_supported === true;
+    const isUnknown = detectedType === "unknown" || !detectedType;
 
-    if (!isValidDocument) {
+    if (!isSupported || isUnknown) {
       return {
         ok: false,
         error:
-          "This file does not appear to be a valid document. Please upload again.",
-        expectedType,
-        detectedType,
-      };
-    }
-
-    // only compare if backend returned a type
-    if (detectedType && expectedType && detectedType !== expectedType) {
-      return {
-        ok: false,
-        error: `Wrong document uploaded. Expected ${expectedType}, but detected ${detectedType}. Please upload the correct file.`,
-        expectedType,
+          "This document type is not supported. Please upload a valid document.",
         detectedType,
       };
     }
 
     return {
       ok: true,
-      expectedType,
       detectedType,
     };
   };
@@ -217,7 +271,6 @@ const Step3ComplianceDocumentation = ({
         status: "idle",
         message: "",
         detectedType: null,
-        expectedType: inferExpectedDocumentType(fieldPath),
       });
       handleFieldChange(fieldPath, null);
       return;
@@ -227,7 +280,6 @@ const Step3ComplianceDocumentation = ({
       status: "verifying",
       message: "Verifying document...",
       detectedType: null,
-      expectedType: inferExpectedDocumentType(fieldPath),
     });
 
     try {
@@ -241,7 +293,6 @@ const Step3ComplianceDocumentation = ({
           status: "failed",
           message: validation.error,
           detectedType: validation.detectedType,
-          expectedType: validation.expectedType,
         });
 
         // IMPORTANT: invalid file should NOT be stored in form state
@@ -256,7 +307,6 @@ const Step3ComplianceDocumentation = ({
         verificationStatus: "verified",
         verificationMessage: "Document verified successfully.",
         detectedType: validation.detectedType,
-        expectedType: validation.expectedType,
         classificationResult: result,
       };
 
@@ -266,7 +316,6 @@ const Step3ComplianceDocumentation = ({
         status: "verified",
         message: "Document verified successfully.",
         detectedType: validation.detectedType,
-        expectedType: validation.expectedType,
       });
     } catch (err) {
       console.error("Document verification failed:", err);
@@ -276,7 +325,6 @@ const Step3ComplianceDocumentation = ({
         message:
           err?.message || "Verification failed. Please upload the file again.",
         detectedType: null,
-        expectedType: inferExpectedDocumentType(fieldPath),
       });
 
       // IMPORTANT: failed file should NOT be stored in form state
@@ -285,8 +333,8 @@ const Step3ComplianceDocumentation = ({
   }, []);
 
   const hasUsableLocalFile = (value) => {
-  return !!value && (value instanceof File || value?.file instanceof File);
-};
+    return !!value && (value instanceof File || value?.file instanceof File);
+  };
 
   const getDisplayedFileValue = (fieldPath) => {
     const localValue =
@@ -331,8 +379,6 @@ const Step3ComplianceDocumentation = ({
         status: localValue.verificationStatus,
         message: localValue.verificationMessage || "",
         detectedType: localValue.detectedType || null,
-        expectedType:
-          localValue.expectedType || inferExpectedDocumentType(fieldPath),
       };
     }
 
@@ -343,7 +389,6 @@ const Step3ComplianceDocumentation = ({
         detectedType: normalizeDocumentType(
           existingDocumentMap[fieldPath]?.document_type,
         ),
-        expectedType: inferExpectedDocumentType(fieldPath),
       };
     }
 
@@ -351,7 +396,6 @@ const Step3ComplianceDocumentation = ({
       status: "idle",
       message: "",
       detectedType: null,
-      expectedType: inferExpectedDocumentType(fieldPath),
     };
   };
 

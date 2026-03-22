@@ -1,38 +1,52 @@
+import axiosClient from "./axiosClient";
 
+// Extract basic business info (ACRA / NIB)
 export const extractProfileApi = async (file) => {
   const formData = new FormData();
   formData.append("file", file);
 
-  const res = await fetch(
-    "http://127.0.0.1:8000/extract/universal-basic-info",
-    {
-      method: "POST",
-      body: formData,
-    },
-  );
+  try {
+    const res = await axiosClient.post(
+      "/extract/universal-basic-info",
+      formData,
+      {
+        headers: {
+          "Content-Type": "multipart/form-data",
+        },
+      }
+    );
 
-  if (!res.ok) {
-    throw new Error("OCR extraction failed");
+    return res.data;
+  } catch (err) {
+    console.error("extractProfileApi error:", err?.response?.data || err.message);
+    throw new Error(
+      err?.response?.data?.detail || "OCR extraction failed"
+    );
   }
-
-  return await res.json();
 };
 
+
+// Classify + full extract
 export const classifyAndExtractApi = async (file) => {
-  const form = new FormData();
-  form.append("file", file);
+  const formData = new FormData();
+  formData.append("file", file);
 
-  const res = await fetch(
-    "http://127.0.0.1:8000/extract/classify-and-extract",
-    {
-      method: "POST",
-      body: form,
-    }
-  );
+  try {
+    const res = await axiosClient.post(
+      "/extract/classify-and-extract",
+      formData,
+      {
+        headers: {
+          "Content-Type": "multipart/form-data",
+        },
+      }
+    );
 
-  if (!res.ok) {
-    throw new Error("Failed to classify document");
+    return res.data;
+  } catch (err) {
+    console.error("classifyAndExtractApi error:", err?.response?.data || err.message);
+    throw new Error(
+      err?.response?.data?.detail || "Failed to classify document"
+    );
   }
-
-  return await res.json();
 };

@@ -14,18 +14,18 @@ const YES_NO_OPTIONS = ["Yes", "No"].map((opt) => ({
 }));
 
 const KBLI_OPTIONS = [
-  { label: "Retail sale via internet (47911)", value: "47911" },
-  { label: "Retail store / minimarket (47111)", value: "47111" },
-  { label: "Wholesale food & beverages (46339)", value: "46339" },
-  { label: "Restaurant activities (56101)", value: "56101" },
-  { label: "Cafe / beverage service (56301)", value: "56301" },
-  { label: "Software development (62011)", value: "62011" },
-  { label: "IT consulting (62021)", value: "62021" },
-  { label: "Business management consulting (70209)", value: "70209" },
-  { label: "Real estate buying / selling (68110)", value: "68110" },
-  { label: "Property rental and leasing (68200)", value: "68200" },
-  { label: "Freight forwarding / logistics (52291)", value: "52291" },
-  { label: "Wholesale computers & electronics (46491)", value: "46491" },
+  { label: "Retail sale via internet (47911)", value: "Retail sale via internet (47911)" },
+  { label: "Retail store / minimarket (47111)", value: "Retail store / minimarket (47111)" },
+  { label: "Wholesale food & beverages (46339)", value: "Wholesale food & beverages (46339)" },
+  { label: "Restaurant activities (56101)", value: "Restaurant activities (56101)" },
+  { label: "Cafe / beverage service (56301)", value: "Cafe / beverage service (56301)" },
+  { label: "Software development (62011)", value: "Software development (62011)" },
+  { label: "IT consulting (62021)", value: "IT consulting (62021)" },
+  { label: "Business management consulting (70209)", value: "Business management consulting (70209)" },
+  { label: "Real estate buying / selling (68110)", value: "Real estate buying / selling (68110)" },
+  { label: "Property rental and leasing (68200)", value: "Property rental and leasing (68200)" },
+  { label: "Freight forwarding / logistics (52291)", value: "Freight forwarding / logistics (52291)" },
+  { label: "Wholesale computers & electronics (46491)", value: "Wholesale computers & electronics (46491)" },
 ];
 
 function getBasicBusinessFields() {
@@ -136,6 +136,57 @@ function getCoreFinancialFields() {
   };
 }
 
+function getComplianceDeclarations() {
+  return {
+    pepDeclaration: {
+      type: "select",
+      label: "Politically Exposed Person (PEP)",
+      required: true,
+      options: YES_NO_OPTIONS,
+      conditionalFields: {
+        Yes: {
+          country: {
+            type: "select",
+            label: "Country",
+            options: COUNTRIES(),
+            required: true,
+          },
+          position: { type: "text", label: "Position Held", required: true },
+          relationship: {
+            type: "text",
+            label: "Relationship Type",
+            required: true,
+          },
+          period: { type: "text", label: "Period", required: true },
+        },
+      },
+    },
+    sanctionsDeclaration: {
+      type: "select",
+      label: "Subject to Sanctions",
+      required: true,
+
+      options: YES_NO_OPTIONS,
+      conditionalFields: {
+        Yes: {
+          details: {
+            type: "textarea",
+            label: "Provide Details",
+            required: true,
+          },
+        },
+      },
+    },
+    fatcaDeclaration: {
+      type: "select",
+      required: true,
+
+      label: "U.S. Citizen / Tax Resident",
+      options: YES_NO_OPTIONS,
+    },
+  };
+}
+
 ///////////////////////////////
 // INDONESIA CONFIG
 ///////////////////////////////
@@ -201,6 +252,7 @@ const INDONESIA_CONFIG = {
                   readonly: true,
                 },
                 ...getIndividualFields(),
+                ...getComplianceDeclarations(),
               },
             },
           },
@@ -292,6 +344,7 @@ const INDONESIA_CONFIG = {
                   required: true,
                 },
                 ...getIndividualFields(),
+                ...getComplianceDeclarations(),
               },
             },
             limitedPartners: {
@@ -313,6 +366,7 @@ const INDONESIA_CONFIG = {
                   required: true,
                 },
                 ...getIndividualFields(),
+                ...getComplianceDeclarations(),
               },
             },
           },
@@ -433,6 +487,7 @@ const INDONESIA_CONFIG = {
                   required: true,
                 },
                 ...getIndividualFields(),
+                ...getComplianceDeclarations(),
               },
             },
             directors: {
@@ -443,7 +498,7 @@ const INDONESIA_CONFIG = {
                 role: {
                   type: "text",
                   label: "Role",
-                  value: "Directory",
+                  value: "Director",
                   readonly: true,
                 },
                 sharePercentage: {
@@ -454,6 +509,7 @@ const INDONESIA_CONFIG = {
                   required: true,
                 },
                 ...getIndividualFields(),
+                ...getComplianceDeclarations(),
                 position: { type: "text", label: "Position", required: true },
                 authorizedSignatory: {
                   type: "select",
@@ -499,177 +555,6 @@ const INDONESIA_CONFIG = {
               label: "IDs of Directors & Shareholders",
               required: true,
             },
-            proofOfBusinessAddress: {
-              type: "file",
-              label: "Proof of Business Address",
-              required: true,
-            },
-            bankStatement: {
-              type: "file",
-              label: "Bank Statement (Last 3 months)",
-              required: true,
-            },
-          },
-        },
-      ],
-    },
-
-    foreign_company_branch: {
-      label: "Foreign Company / Branch",
-      steps: [
-        {
-          id: "step1",
-          label: "To Get Started",
-          fields: {
-            countryOfOperation: {
-              type: "text",
-              label: "Country of Operation",
-              value: "Indonesia",
-              readonly: true,
-            },
-            businessType: {
-              type: "text",
-              label: "Business Type",
-              value: "Foreign Company / Branch",
-              readonly: true,
-            },
-          },
-        },
-        {
-          id: "step2",
-          label: "Basic Information",
-          fields: {
-            incorporationUpload: {
-              type: "file",
-              label:
-                "Upload Parent Company Incorporation Document (OCR autofill)",
-              required: true,
-              ocrTarget: "business_profile",
-            },
-            parentCompanyName: {
-              type: "text",
-              label: "Parent Company Name",
-              required: true,
-            },
-            countryOfIncorporation: {
-              type: "text",
-              label: "Country of Incorporation",
-              required: true,
-            },
-            companyRegistrationNumber: {
-              type: "text",
-              label: "Company Registration Number",
-              required: true,
-            },
-            registeredAddress: {
-              type: "textarea",
-              label: "Registered Address",
-              required: true,
-            },
-            indonesianBranchNumber: {
-              type: "text",
-              label: "Indonesian Branch Registration Number",
-              required: true,
-            },
-            npwp: { type: "text", label: "NPWP", required: true },
-            email: { type: "email", label: "Email", required: true },
-            phone: { type: "text", label: "Phone", required: true },
-            primaryBusinessActivity: {
-              type: "select",
-              label: "Primary Business Activity (KBLI Code)",
-              options: KBLI_OPTIONS,
-              required: true,
-            },
-            activityDescription: {
-              type: "textarea",
-              label: "Description",
-              required: true,
-            },
-          },
-          repeatableSections: {
-            parentCompanyDirectors: {
-              label: "Parent Company Director",
-              storage: "individuals",
-              min: 1,
-              fields: {
-                ...getIndividualFields(),
-                role: {
-                  type: "text",
-                  label: "Role",
-                  value: "Director",
-                  readonly: true,
-                },
-                sharePercentage: {
-                  type: "number",
-                  label: "Share Percentage (%)",
-                  min: 0,
-                  max: 100,
-                  required: true,
-                },
-              },
-            },
-            localRepresentatives: {
-              label: "Indonesian Branch Representative",
-              storage: "individuals",
-              min: 1,
-              fields: {
-                ...getIndividualFields(),
-                residencyPermit: {
-                  type: "text",
-                  label: "Residency Permit (KITAS)",
-                },
-                role: {
-                  type: "text",
-                  label: "Role",
-                  value: "Local Representative",
-                  readonly: true,
-                },
-                sharePercentage: {
-                  type: "number",
-                  label: "Share Percentage (%)",
-                  min: 0,
-                  max: 100,
-                  required: true,
-                },
-              },
-            },
-          },
-        },
-        {
-          id: "step3",
-          label: "Financial Details",
-          fields: { ...getCoreFinancialFields() },
-        },
-        {
-          id: "step4",
-          label: "Required Documents",
-          fields: {
-            parentCompanyIncorporation: {
-              type: "file",
-              label: "Parent Company Certificate of Incorporation",
-              required: true,
-            },
-            foreignBusinessRegistrationExtract: {
-              type: "file",
-              label: "Foreign Business Registration Extract",
-              required: true,
-            },
-            branchRegistration: {
-              type: "file",
-              label: "Indonesian Branch Registration",
-              required: true,
-            },
-            businessLicense: {
-              type: "file",
-              label: "Business License (NIB)",
-              required: true,
-            },
-            directorsPassport: {
-              type: "file",
-              label: "Passport of Directors",
-              required: true,
-            },
-            kitas: { type: "file", label: "KITAS (if applicable)" },
             proofOfBusinessAddress: {
               type: "file",
               label: "Proof of Business Address",

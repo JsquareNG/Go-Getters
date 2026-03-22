@@ -378,7 +378,7 @@ export default function ApplicationReviewDetail() {
           text: "text-red-500",
           icon: "text-red-500",
         };
-      case "Standard CDD":
+      // case "Standard CDD":
       case "Standard CDD":
         return {
           badge: "bg-orange-400 text-white border-orange-400",

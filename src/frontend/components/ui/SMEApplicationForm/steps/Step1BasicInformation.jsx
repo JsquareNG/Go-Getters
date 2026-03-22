@@ -12,8 +12,6 @@ import { SINGAPORE_CONFIG, INDONESIA_CONFIG } from "../config";
 import { allDocuments } from "@/api/documentApi";
 import { extractProfileApi } from "@/api/ocrApi";
 
-// const ACRA_WITH_TABLES_ENDPOINT =
-//   "http://127.0.0.1:8000/document-ai/extract-acra-bizprofile";
 const BUSINESS_PROFILE_EXTRACTORS = {
   Singapore: {
     title: "Autofill with Business Profile",
@@ -248,6 +246,38 @@ const Step1BasicInformation = ({
     }
   };
 
+  // HELPER FUNCTIONS
+  const indoDateToISO = (value) => {
+    if (!value) return "";
+
+    const months = {
+      januari: "01",
+      februari: "02",
+      maret: "03",
+      april: "04",
+      mei: "05",
+      juni: "06",
+      juli: "07",
+      agustus: "08",
+      september: "09",
+      oktober: "10",
+      november: "11",
+      desember: "12",
+    };
+
+    const match = String(value)
+      .trim()
+      .match(/^(\d{1,2})\s+([A-Za-z]+)\s+(\d{4})$/i);
+    if (!match) return value;
+
+    const [, day, monthName, year] = match;
+    const month = months[monthName.toLowerCase()];
+    if (!month) return value;
+
+    return `${day.padStart(2, "0")}-${month}-${year}`;
+  };
+
+  // SG DATES
   const ddMmmYyyyToISO = (s) => {
     if (!s) return "";
 
@@ -277,66 +307,60 @@ const Step1BasicInformation = ({
     return `${m[3]}-${mm}-${day}`;
   };
 
-  const normalizeStatus = (s) => {
-    if (!s) return "";
-    const v = String(s).trim().toUpperCase();
+  // const normalizeStatus = (s) => {
+  //   if (!s) return "";
+  //   const v = String(s).trim().toUpperCase();
 
-    if (v === "LIVE" || v === "ACTIVE") return "Active";
-    if (v === "INACTIVE") return "Inactive";
-    if (v === "DISSOLVED") return "Dissolved";
-    if (v === "LIQUIDATED") return "Liquidated";
-    if (v === "IN RECEIVERSHIP") return "InReceivership";
-    if (v === "STRUCK OFF") return "StruckOff";
+  //   if (v === "LIVE" || v === "ACTIVE") return "Active";
+  //   if (v === "INACTIVE") return "Inactive";
+  //   if (v === "DISSOLVED") return "Dissolved";
+  //   if (v === "LIQUIDATED") return "Liquidated";
+  //   if (v === "IN RECEIVERSHIP") return "InReceivership";
+  //   if (v === "STRUCK OFF") return "StruckOff";
 
-    return "";
+  //   return "";
+  // };
+
+  const getOcrPayload = (result) => {
+    if (!result || typeof result !== "object") return {};
+    return result.data || {};
   };
 
-  const mapBusinessProfileResultToForm = (result) => {
-    const rawKv = result?.data?.data || {};
-    const kv = {};
+  const mapBusinessProfilePayloadToForm = (payload) => {
+    if (!payload || Object.keys(payload).length === 0) {
+      throw new Error("No structured OCR data returned.");
+    }
 
-    Object.keys(rawKv).forEach((k) => {
-      kv[k.toLowerCase().trim()] = rawKv[k];
-    });
+    console.log("Converted registration date:", indoDateToISO(payload.date_of_registration));
+    if (data?.country === "Indonesia") {
+      setIfEmpty("businessName", payload.business_name);
+      setIfEmpty("registrationNumber", payload.business_registration_number);
+      setIfEmpty("registeredAddress", payload.registered_address);
+      setIfEmpty(
+        "registrationDate",
+        indoDateToISO(payload.date_of_registration),
+      );
+      setIfEmpty("npwp", payload.npwp);
+      setIfEmpty("phone", payload.phone);
+      setIfEmpty("email", payload.email);
+      // setIfEmpty("nib", payload.business_registration_number);
+      setIfEmpty("businessStatus", payload.business_status);
+      return;
+    }
 
-    const ownerName =
-      result?.data?.data?.owners?.name || result?.data?.owner?.owner_name || "";
-
-    const ownerId =
-      result?.data?.data?.owners?.id_number ||
-      result?.data?.owner?.identification_number ||
-      "";
-
-    setIfEmpty("businessName", kv["name"] || kv["business name"]);
-    setIfEmpty(
-      "registeredAddress",
-      kv["address"] ||
-        kv["registered address"] ||
-        kv["principal place of business"],
-    );
-
-    const isoDate = ddMmmYyyyToISO(
-      kv["registration_date"] ||
-        kv["commencement date"] ||
-        kv["date of registration"],
-    );
-    if (isoDate) setIfEmpty("registrationDate", isoDate);
-
-    const mappedStatus = normalizeStatus(
-      kv["status"] || kv["business status"] || kv["status of business"],
-    );
-    if (mappedStatus) setIfEmpty("businessStatus", mappedStatus);
-
-    setIfEmpty("uen", kv["uen"]);
-    setIfEmpty("nib", kv["nib"]);
-    setIfEmpty(
-      "businessRegistrationNumber",
-      kv["uen"] || kv["nib"] || kv["registration number"],
-    );
-    setIfEmpty("npwp", kv["npwp"]);
-
-    if (ownerName) setIfEmpty("fullName", ownerName);
-    if (ownerId) setIfEmpty("idNumber", ownerId);
+    if (data?.country === "Singapore") {
+      setIfEmpty("businessName", payload.business_name);
+      setIfEmpty("uen", payload.business_registration_number);
+      setIfEmpty("uen", payload.business_registration_number);
+      setIfEmpty("registeredAddress", payload.registered_address);
+      setIfEmpty(
+        "registrationDate",
+        ddMmmYyyyToISO(payload.date_of_registration),
+      );
+      setIfEmpty("phone", payload.phone);
+      setIfEmpty("email", payload.email);
+      setIfEmpty("businessStatus", payload.business_status);
+    }
   };
 
   const handleChooseBusinessProfile = () => fileRef.current?.click();
@@ -379,13 +403,22 @@ const Step1BasicInformation = ({
       const result = await extractProfileApi(businessProfileFile);
       console.log("BUSINESS PROFILE OCR RESPONSE:", result);
 
-      mapBusinessProfileResultToForm(result);
+      if (!result?.document_type || result.document_type === "UNKNOWN") {
+        throw new Error(
+          "This uploaded document is not supported for autofill.",
+        );
+      }
+
+      const payload = getOcrPayload(result);
+      console.log("OCR PAYLOAD:", payload);
+
+      mapBusinessProfilePayloadToForm(payload);
 
       setBusinessProfileSuccessMsg(
         "Autofill completed. Please review before proceeding.",
       );
     } catch (err) {
-      setAcraError(err?.message || "Failed to autofill.");
+      setBusinessProfileError(err?.message || "Failed to autofill.");
     } finally {
       setBusinessProfileUploading(false);
     }
@@ -436,6 +469,7 @@ const Step1BasicInformation = ({
           body: JSON.stringify(payload),
         },
       );
+      // console.log("debug", response)
 
       console.log("Backend response status:", response.status);
 

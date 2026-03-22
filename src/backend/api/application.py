@@ -160,14 +160,14 @@ def get_simulation_applications(db: Session = Depends(get_db)):
 def save_application(data: dict = Body(...), db: Session = Depends(get_db)):
     
     form_data = data.get("form_data", {})
-    provider_session_id = data.get("provider_session_id")
+    # provider_session_id = data.get("provider_session_id")
 
 
     new_app = ApplicationForm(
         business_country=form_data["country"],
         business_name=form_data['businessName'],
         business_type=form_data['businessType'],
-        provider_session_id=provider_session_id,
+        # provider_session_id=provider_session_id,
         user_id=data["user_id"],
         form_data=form_data,
         previous_status=None,      
@@ -201,13 +201,13 @@ def save_application(data: dict = Body(...), db: Session = Depends(get_db)):
     )
 
 
-    liveness_row = (
-        db.query(LivenessDetection)
-        .filter(LivenessDetection.provider_session_id == provider_session_id)
-        .first()
-    )
+    # liveness_row = (
+    #     db.query(LivenessDetection)
+    #     .filter(LivenessDetection.provider_session_id == provider_session_id)
+    #     .first()
+    # )
 
-    liveness_row.application_id = new_app.application_id
+    # liveness_row.application_id = new_app.application_id
 
     db.commit()
     db.refresh(new_app)

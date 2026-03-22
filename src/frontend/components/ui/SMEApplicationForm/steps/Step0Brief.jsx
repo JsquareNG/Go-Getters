@@ -1,12 +1,19 @@
 import React, { useEffect } from "react";
 import FormFieldGroup from "../components/FormFieldGroup";
+import { Info } from "lucide-react";
 import { SINGAPORE_CONFIG, INDONESIA_CONFIG } from "../config";
 
 /**
  * Step0Brief component
  * Collects SME country of operation and business type
  */
-const Step0Brief = ({ data, onFieldChange, disabled = false }) => {
+const Step0Brief = ({
+  data,
+  onFieldChange,
+  disabled = false,
+  locked,
+  ...props
+}) => {
   const currentCountry = data.country || "";
   const currentBusinessType = data.businessType || "";
 
@@ -51,6 +58,15 @@ const Step0Brief = ({ data, onFieldChange, disabled = false }) => {
         Before we get started, tell us about your business.
       </h2>
 
+      {/* Info panel */}
+      <div className=" flex items-start gap-2 rounded-md border border-blue-200 bg-blue-50 px-3 py-2 mb-5">
+        <Info className="h-4 w-4 text-blue-500 mt-0.5" />
+
+        <p className="text-xs text-blue-700">
+          These fields cannot be changed after starting the application.
+        </p>
+      </div>
+
       {/* Country Selection */}
       <FormFieldGroup
         fieldName="country"
@@ -60,7 +76,7 @@ const Step0Brief = ({ data, onFieldChange, disabled = false }) => {
         type="select"
         options={countryOptions}
         required
-        disabled={disabled}
+        disabled={disabled || locked}
       />
 
       {/* Business Type */}
@@ -72,7 +88,7 @@ const Step0Brief = ({ data, onFieldChange, disabled = false }) => {
         type="select"
         options={businessTypeOptions}
         required
-        disabled={!data.country || disabled}
+        disabled={!data.country || disabled || locked}
       />
     </div>
   );
