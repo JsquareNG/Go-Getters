@@ -379,14 +379,12 @@ export default function ApplicationReviewDetail() {
           icon: "text-red-500",
         };
       case "Standard CDD":
-      case "Standard CDD":
         return {
           badge: "bg-orange-400 text-white border-orange-400",
           soft: "border-orange-400/20 bg-orange-400/5",
           text: "text-orange-500",
           icon: "text-orange-500",
         };
-      case "Simplified EDD":
       case "Simplified CDD":
         return {
           badge: "bg-emerald-600 text-white border-emerald-600",
