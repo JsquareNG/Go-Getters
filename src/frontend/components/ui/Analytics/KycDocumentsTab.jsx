@@ -791,7 +791,6 @@ export function KycDocumentsTab({ dateRange, preset }) {
                   dataKey="label"
                   tick={{ fontSize: 10 }}
                   className="text-muted-foreground"
-                  angle={-20}
                   textAnchor="end"
                   interval={0}
                   height={90}
