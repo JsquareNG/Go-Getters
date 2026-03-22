@@ -1,10 +1,11 @@
-import { useState } from "react";
-import { format } from "date-fns";
+import { useEffect, useMemo, useState } from "react";
+import { format, startOfDay, endOfDay, subDays, subMonths, subYears } from "date-fns";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../components/ui/primitives/Tabs";
 import { OverviewTab } from "../components/ui/Analytics/OverviewTab";
 import { PipelineTab } from "../components/ui/Analytics/PipelineTab";
+import { KycDocumentsTab } from "../components/ui/Analytics/KycDocumentsTab";
+import { OperationsTab } from "../components/ui/Analytics/OperationsTab";
 import { ComplianceTab } from "../components/ui/Analytics/ComplianceTab";
-import { PerformanceTab } from "../components/ui/Analytics/PerformanceTab";
 import { Button } from "../components/ui/primitives/Button";
 import { Calendar } from "../components/ui/primitives/Calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "../components/ui/features/Popover";
@@ -22,45 +23,99 @@ import {
   Gauge,
   Download,
   CalendarIcon,
+  Users,
+  FileSearch
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { exportAnalyticsToExcel } from "@/lib/exportExcel";
 
+function getPresetDateRange(value) {
+  const now = new Date();
+
+  switch (value) {
+    case "last-7":
+      return {
+        from: startOfDay(subDays(now, 6)), // includes today = 7 days total
+        to: endOfDay(now),
+      };
+
+    case "last-30":
+      return {
+        from: startOfDay(subDays(now, 29)), // includes today = 30 days total
+        to: endOfDay(now),
+      };
+
+    case "last-quarter":
+      return {
+        from: startOfDay(subMonths(now, 3)),
+        to: endOfDay(now),
+      };
+
+    case "last-year":
+      return {
+        from: startOfDay(subYears(now, 1)),
+        to: endOfDay(now),
+      };
+
+    default:
+      return {
+        from: undefined,
+        to: undefined,
+      };
+  }
+}
+
 export default function Analytics() {
-  const [dateRange, setDateRange] = useState({ from: undefined, to: undefined });
   const [preset, setPreset] = useState("last-quarter");
+  const [dateRange, setDateRange] = useState(() => getPresetDateRange("last-quarter"));
+
+  useEffect(() => {
+    if (preset === "custom") return;
+    setDateRange(getPresetDateRange(preset));
+  }, [preset]);
 
   const handlePreset = (value) => {
     setPreset(value);
-    const now = new Date();
-    let from;
 
-    switch (value) {
-      case "last-7":
-        from = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 7);
-        break;
-      case "last-30":
-        from = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 30);
-        break;
-      case "last-quarter":
-        from = new Date(now.getFullYear(), now.getMonth() - 3, now.getDate());
-        break;
-      case "last-year":
-        from = new Date(now.getFullYear() - 1, now.getMonth(), now.getDate());
-        break;
-      case "custom":
-        return;
-      default:
-        from = undefined;
+    if (value === "custom") {
+      return;
     }
 
-    setDateRange({ from, to: now });
+    setDateRange(getPresetDateRange(value));
   };
 
-  const dateLabel =
-    dateRange.from && dateRange.to
-      ? `${format(dateRange.from, "MMM d, yyyy")} – ${format(dateRange.to, "MMM d, yyyy")}`
-      : "Select date range";
+  const handleCustomRangeSelect = (range) => {
+    setPreset("custom");
+    setDateRange({
+      from: range?.from ? startOfDay(range.from) : undefined,
+      to: range?.to ? endOfDay(range.to) : undefined,
+    });
+  };
+
+  const dateLabel = useMemo(() => {
+    if (dateRange.from && dateRange.to) {
+      return `${format(dateRange.from, "MMM d, yyyy")} – ${format(dateRange.to, "MMM d, yyyy")}`;
+    }
+
+    if (dateRange.from) {
+      return `${format(dateRange.from, "MMM d, yyyy")} – ...`;
+    }
+
+    return "Select date range";
+  }, [dateRange]);
+
+  const analyticsFilter = useMemo(
+    () => ({
+      preset,
+      from: dateRange.from,
+      to: dateRange.to,
+    }),
+    [preset, dateRange]
+  );
+
+  const handleExport = () => {
+    exportAnalyticsToExcel(analyticsFilter);
+  };
 
   return (
     <div className="min-h-screen bg-background">
@@ -76,12 +131,11 @@ export default function Analytics() {
           </div>
 
           <div className="flex flex-wrap items-center gap-2">
-            {/* Preset selector */}
             <Select value={preset} onValueChange={handlePreset}>
-              <SelectTrigger className="h-9 w-[150px] text-sm">
+              <SelectTrigger className="h-9 w-[150px] text-sm bg-slate-300">
                 <SelectValue placeholder="Period" />
               </SelectTrigger>
-              <SelectContent>
+              <SelectContent className="bg-slate-300">
                 <SelectItem value="last-7">Last 7 days</SelectItem>
                 <SelectItem value="last-30">Last 30 days</SelectItem>
                 <SelectItem value="last-quarter">Last quarter</SelectItem>
@@ -90,7 +144,6 @@ export default function Analytics() {
               </SelectContent>
             </Select>
 
-            {/* Custom date picker */}
             {preset === "custom" && (
               <Popover>
                 <PopoverTrigger asChild>
@@ -110,13 +163,11 @@ export default function Analytics() {
                 <PopoverContent className="w-auto p-0" align="end">
                   <Calendar
                     mode="range"
-                    selected={dateRange}
-                    onSelect={(range) =>
-                      setDateRange({
-                        from: range?.from,
-                        to: range?.to,
-                      })
-                    }
+                    selected={{
+                      from: dateRange.from,
+                      to: dateRange.to,
+                    }}
+                    onSelect={handleCustomRangeSelect}
                     numberOfMonths={2}
                     className={cn("pointer-events-auto p-3")}
                   />
@@ -124,12 +175,11 @@ export default function Analytics() {
               </Popover>
             )}
 
-            {/* Export button */}
             <Button
               variant="outline"
               size="sm"
-              className="h-9 gap-2"
-              onClick={exportAnalyticsToExcel}
+              className="h-9 gap-2 bg-slate-300"
+              onClick={handleExport}
             >
               <Download className="h-4 w-4" />
               Export Excel
@@ -148,11 +198,27 @@ export default function Analytics() {
             </TabsTrigger>
 
             <TabsTrigger
-              value="pipeline"
+              value="onboardingFunnel"
               className="gap-2 data-[state=active]:bg-card"
             >
               <GitBranch className="h-4 w-4" />
-              Pipeline
+              Onboarding Funnel
+            </TabsTrigger>
+
+            <TabsTrigger
+              value="operations"
+              className="gap-2 data-[state=active]:bg-card"
+            >
+              <Users className="h-4 w-4" />
+              Operations
+            </TabsTrigger>
+
+            <TabsTrigger
+              value="kyc"
+              className="gap-2 data-[state=active]:bg-card"
+            >
+              <FileSearch className="h-4 w-4" />
+              KYC & Documents
             </TabsTrigger>
 
             <TabsTrigger
@@ -160,32 +226,28 @@ export default function Analytics() {
               className="gap-2 data-[state=active]:bg-card"
             >
               <Shield className="h-4 w-4" />
-              Compliance & Risk
-            </TabsTrigger>
-
-            <TabsTrigger
-              value="performance"
-              className="gap-2 data-[state=active]:bg-card"
-            >
-              <Gauge className="h-4 w-4" />
-              Performance
+              Compliance
             </TabsTrigger>
           </TabsList>
 
           <TabsContent value="overview">
-            <OverviewTab />
+            <OverviewTab dateRange={dateRange} preset={preset} />
           </TabsContent>
 
-          <TabsContent value="pipeline">
-            <PipelineTab />
+          <TabsContent value="onboardingFunnel">
+            <PipelineTab dateRange={dateRange} preset={preset} />
           </TabsContent>
 
+          <TabsContent value="operations">
+            <OperationsTab dateRange={dateRange} preset={preset} />
+          </TabsContent>
+
+          <TabsContent value="kyc">
+            <KycDocumentsTab dateRange={dateRange} preset={preset} />
+          </TabsContent>
+          
           <TabsContent value="compliance">
-            <ComplianceTab />
-          </TabsContent>
-
-          <TabsContent value="performance">
-            <PerformanceTab />
+            <ComplianceTab dateRange={dateRange} preset={preset} />
           </TabsContent>
         </Tabs>
       </main>

@@ -266,12 +266,6 @@ const LandingNavBar = () => {
       roles: ["SME"],
     },
     {
-      icon: Wallet,
-      label: "Accounts",
-      to: "/accountspage",
-      roles: ["SME"],
-    },
-    {
       icon: Columns3Cog,
       label: "Rules Engine Configuration",
       to: "/rules-engine-configuration",

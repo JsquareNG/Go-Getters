@@ -19,3 +19,8 @@ export const getRuleFieldOptions = async (category) => {
   const response = await axiosClient.get(`/risk-rules/field-options/${category}`);
   return response.data;
 };
+
+export const getAllRules = async () => {
+  const res = await axiosClient.get("/risk-rules/");
+  return res.data;
+};

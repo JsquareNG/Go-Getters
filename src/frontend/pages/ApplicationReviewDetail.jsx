@@ -386,7 +386,6 @@ export default function ApplicationReviewDetail() {
           text: "text-orange-500",
           icon: "text-orange-500",
         };
-      case "Simplified EDD":
       case "Simplified CDD":
         return {
           badge: "bg-emerald-600 text-white border-emerald-600",
