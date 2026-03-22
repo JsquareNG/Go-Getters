@@ -15,15 +15,24 @@ def run_review_job(application_id: str):
     db: Session = SessionLocal()
 
     try:
-        job = db.query(ReviewJobs).filter(
-            ReviewJobs.application_id == application_id
-        ).first()
+        # job = db.query(ReviewJobs).filter(
+        #     ReviewJobs.application_id == application_id
+        # ).first()
+        job = (
+            db.query(ReviewJobs)
+            .filter(ReviewJobs.application_id == application_id)
+            .with_for_update()
+            .first()
+        )
 
         app = db.query(ApplicationForm).filter(
             ApplicationForm.application_id == application_id
         ).first()
 
         if not job or not app:
+            return
+        
+        if job.status in ["RUNNING", "COMPLETED"]:
             return
 
         # 🔄 Mark job as running
@@ -45,6 +54,8 @@ def run_review_job(application_id: str):
         db.commit()
 
         form = app.form_data or {}
+        kyc_data = form.get("kycData", {}) or {}
+        kyc_overall_status = kyc_data.get("overallStatus")
 
         individuals = []
 
@@ -149,14 +160,35 @@ def run_review_job(application_id: str):
                 to_status="Completed",
                 description="Automated review process completed."
             )
-            
-            approve_application_service(
-                db=db,
-                background_tasks=None,
-                application_id=application_id,
-                reason="Auto-approved by rules engine",
-                send_email_now=True,
-            )
+
+            if kyc_overall_status == "Declined":
+                create_audit_log(
+                    db=db,
+                    application_id=application_id,
+                    actor_id=None,
+                    actor_type="SYSTEM",
+                    event_type="REVIEW_JOB_COMPLETED",
+                    entity_type="REVIEW_JOB",
+                    entity_id=job.job_id,
+                    from_status=app.current_status,
+                    to_status="COMPLETED",
+                    description="SDD but KYC Declined → routed to manual review",
+                )
+
+                need_manual_review_service(
+                    db=db,
+                    background_tasks=None,
+                    application_id=application_id,
+                    send_email_now=True,
+                )
+            else:
+                approve_application_service(
+                    db=db,
+                    background_tasks=None,
+                    application_id=application_id,
+                    reason="Auto-approved by rules engine",
+                    send_email_now=True,
+                )
         else:
             create_audit_log(
                 db=db,

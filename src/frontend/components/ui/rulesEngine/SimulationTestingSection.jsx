@@ -1039,6 +1039,7 @@ function SimulationComparisonCard({ item, expanded, onToggle }) {
             </div>
           ) : (
             <div className="space-y-4 p-5">
+              <ChangeSummary comparison={item.comparison} />
               <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
                 <ComparisonResultCard
                   title="Original Review Result"
@@ -1059,7 +1060,7 @@ function SimulationComparisonCard({ item, expanded, onToggle }) {
                 />
               </div>
 
-              <ChangeSummary comparison={item.comparison} />
+              
             </div>
           )}
         </>
@@ -1085,7 +1086,7 @@ function ComparisonResultCard({
       </div>
 
       <div className="space-y-4 p-4">
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
           <MiniStat
             label="Risk Score"
             value={score ?? "-"}

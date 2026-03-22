@@ -1052,7 +1052,7 @@ def withdraw_application(
 
     reviewer = None
 
-    if getattr(app, "user_id", None):
+    if getattr(app, "reviewer_id", None):
         reviewer = db.query(User).filter(User.user_id == app.reviewer_id).first()
 
     if reviewer and getattr(reviewer, "email", None):
