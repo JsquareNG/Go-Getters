@@ -6,7 +6,6 @@ from backend.services.gemini_basic_extractor import (
     classify_business_document,
     parse_basic_info_document,
 )
-from backend.services.normalisation import normalize_proof_of_address
 
 router = APIRouter(prefix="/extract", tags=["OCR Extraction"])
 
@@ -63,8 +62,8 @@ async def classify_and_extract_document(file: UploadFile = File(...)):
         final_data = parse_universal_document(raw_text, detected_doc_type)
 
         # 8. Normalize proof-of-address documents
-        if detected_doc_type in ["UTILITY_BILL", "TENANCY_AGREEMENT", "OFFICE_LEASE"]:
-            final_data = normalize_proof_of_address(detected_doc_type, final_data)
+        # if detected_doc_type in ["UTILITY_BILL", "TENANCY_AGREEMENT", "OFFICE_LEASE"]:
+        #     final_data = normalize_proof_of_address(detected_doc_type, final_data)
 
         # 9. Return all in one response
         response["data"] = final_data
