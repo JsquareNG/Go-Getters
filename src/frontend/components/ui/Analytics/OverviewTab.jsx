@@ -14,10 +14,9 @@ import { KPICard } from "./KPICard";
 import {
   FileText,
   CheckCircle2,
-  Clock,
-  AlertTriangle,
   TrendingUp,
   Users,
+  ChartNoAxesColumn,
 } from "lucide-react";
 import { getAllApplications } from "../../../api/applicationApi";
 import {
@@ -43,10 +42,6 @@ const trendChartConfig = {
 };
 
 const industryChartConfig = {
-  count: { label: "Applications", color: "hsl(210, 100%, 50%)" },
-};
-
-const statusChartConfig = {
   count: { label: "Applications", color: "hsl(210, 100%, 50%)" },
 };
 
@@ -216,8 +211,47 @@ function buildBusinessTypeBreakdown(applications = []) {
     });
 }
 
-function buildMonthlyTrends(applications = []) {
-  const monthMap = new Map();
+function buildDailyTrends(applications = [], dateRange) {
+  const dayMap = new Map();
+
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  let startDate;
+  let endDate;
+
+  if (dateRange?.from || dateRange?.to) {
+    startDate = dateRange?.from ? new Date(dateRange.from) : new Date(today);
+    endDate = dateRange?.to ? new Date(dateRange.to) : new Date(today);
+  } else {
+    endDate = new Date(today);
+    startDate = new Date(today);
+    startDate.setDate(endDate.getDate() - 29);
+  }
+
+  startDate.setHours(0, 0, 0, 0);
+  endDate.setHours(0, 0, 0, 0);
+
+  const cursor = new Date(startDate);
+
+  while (cursor <= endDate) {
+    const key = cursor.toISOString().split("T")[0];
+
+    dayMap.set(key, {
+      date: key,
+      day: cursor.toLocaleDateString("en-US", {
+        month: "short",
+        day: "numeric",
+      }),
+      applications: 0,
+      approved: 0,
+      rejected: 0,
+      withdrawn: 0,
+      sortDate: cursor.getTime(),
+    });
+
+    cursor.setDate(cursor.getDate() + 1);
+  }
 
   applications.forEach((app) => {
     const createdAt = getCreatedAt(app);
@@ -226,22 +260,16 @@ function buildMonthlyTrends(applications = []) {
     const date = new Date(createdAt);
     if (Number.isNaN(date.getTime())) return;
 
-    const monthKey = `${date.getFullYear()}-${date.getMonth()}`;
-    const monthLabel = date.toLocaleString("en-US", { month: "short" });
+    date.setHours(0, 0, 0, 0);
+
+    if (date < startDate || date > endDate) return;
+
+    const key = date.toISOString().split("T")[0];
     const status = String(getStatus(app)).toLowerCase();
 
-    if (!monthMap.has(monthKey)) {
-      monthMap.set(monthKey, {
-        month: monthLabel,
-        applications: 0,
-        approved: 0,
-        rejected: 0,
-        withdrawn: 0,
-        sortDate: new Date(date.getFullYear(), date.getMonth(), 1).getTime(),
-      });
-    }
+    if (!dayMap.has(key)) return;
 
-    const row = monthMap.get(monthKey);
+    const row = dayMap.get(key);
     row.applications += 1;
 
     if (status === "approved") row.approved += 1;
@@ -249,9 +277,8 @@ function buildMonthlyTrends(applications = []) {
     if (status === "withdrawn") row.withdrawn += 1;
   });
 
-  return Array.from(monthMap.values())
+  return Array.from(dayMap.values())
     .sort((a, b) => a.sortDate - b.sortDate)
-    .slice(-12)
     .map(({ sortDate, ...rest }) => rest);
 }
 
@@ -340,6 +367,64 @@ function buildStatusBreakdown(applications = []) {
     });
 }
 
+function buildStatusSummary(statusBreakdown = []) {
+  const total = statusBreakdown.reduce((sum, item) => sum + item.count, 0);
+
+  const getCount = (statuses) =>
+    statusBreakdown
+      .filter((item) => statuses.includes(item.status))
+      .reduce((sum, item) => sum + item.count, 0);
+
+  const items = [
+    {
+      key: "Draft",
+      label: "Draft",
+      description: "Applications not yet submitted by customers",
+      count: getCount(["Draft"]),
+      dotClassName: "bg-neutral-500",
+      textClassName: "text-neutral-600",
+      rowClassName: "bg-neutral-50 border border-neutral-200/70",
+      barClassName: "bg-neutral-500",
+    },
+    {
+      key: "Under Manual Review",
+      label: "Under Manual Review",
+      description: "Awaiting staff review and decision",
+      count: getCount(["Pending", "Under Manual Review", "Requires Action"]),
+      dotClassName: "bg-amber-500",
+      textClassName: "text-amber-600",
+      rowClassName: "bg-amber-50 border border-amber-100",
+      barClassName: "bg-amber-500",
+    },
+    {
+      key: "Approved",
+      label: "Approved",
+      description: "Successfully onboarded accounts",
+      count: getCount(["Approved"]),
+      dotClassName: "bg-emerald-600",
+      textClassName: "text-emerald-600",
+      rowClassName: "bg-emerald-50 border border-emerald-100",
+      barClassName: "bg-emerald-600",
+    },
+    {
+      key: "Rejected",
+      label: "Rejected",
+      description: "Applications that did not meet requirements",
+      count: getCount(["Rejected"]),
+      dotClassName: "bg-red-500",
+      textClassName: "text-red-600",
+      rowClassName: "bg-red-50 border border-red-100",
+      barClassName: "bg-red-500",
+    },
+  ];
+
+  return items.map((item) => ({
+    ...item,
+    percentage:
+      total > 0 ? Number(((item.count / total) * 100).toFixed(0)) : 0,
+  }));
+}
+
 export function OverviewTab({ dateRange, preset }) {
   const [selectedCountry, setSelectedCountry] = useState("All");
   const [applications, setApplications] = useState([]);
@@ -397,9 +482,9 @@ export function OverviewTab({ dateRange, preset }) {
     [filteredApplications],
   );
 
-  const monthlyTrends = useMemo(
-    () => buildMonthlyTrends(filteredApplications),
-    [filteredApplications],
+  const dailyTrends = useMemo(
+    () => buildDailyTrends(filteredApplications, dateRange),
+    [filteredApplications, dateRange],
   );
 
   const countryBreakdown = useMemo(
@@ -422,6 +507,11 @@ export function OverviewTab({ dateRange, preset }) {
     [filteredApplications],
   );
 
+  const statusSummary = useMemo(
+    () => buildStatusSummary(statusBreakdown),
+    [statusBreakdown],
+  );
+
   const filteredBusinessTypes =
     selectedCountry === "All"
       ? businessTypeBreakdown
@@ -434,7 +524,7 @@ export function OverviewTab({ dateRange, preset }) {
 
   return (
     <div className="space-y-6">
-      <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 gap-4 lg:grid-cols-3 xl:grid-cols-4">
         <KPICard
           icon={<FileText className="h-5 w-5" />}
           title="Total Applications"
@@ -475,8 +565,11 @@ export function OverviewTab({ dateRange, preset }) {
           <CardDescription>{trendDescription}</CardDescription>
         </CardHeader>
         <CardContent>
-          <ChartContainer config={trendChartConfig} className="h-[300px] w-full">
-            <AreaChart data={monthlyTrends}>
+          <ChartContainer
+            config={trendChartConfig}
+            className="h-[300px] w-full"
+          >
+            <AreaChart data={dailyTrends}>
               <defs>
                 <linearGradient id="gradApproved" x1="0" y1="0" x2="0" y2="1">
                   <stop
@@ -511,11 +604,16 @@ export function OverviewTab({ dateRange, preset }) {
               </defs>
               <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
               <XAxis
-                dataKey="month"
+                dataKey="day"
+                tick={{ fontSize: 12 }}
+                className="fill-muted-foreground"
+                minTickGap={24}
+                tickMargin={8}
+              />
+              <YAxis
                 tick={{ fontSize: 12 }}
                 className="fill-muted-foreground"
               />
-              <YAxis tick={{ fontSize: 12 }} className="fill-muted-foreground" />
               <ChartTooltip content={<ChartTooltipContent />} />
               <Area
                 type="monotone"
@@ -544,58 +642,75 @@ export function OverviewTab({ dateRange, preset }) {
         </CardContent>
       </Card>
 
-      <Card>
-        <CardHeader className="pb-2">
-          <CardTitle className="text-base font-medium">
-            Applications by Status
-          </CardTitle>
-          <CardDescription>
-            Current application counts by onboarding status
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <ChartContainer config={statusChartConfig} className="h-[300px] w-full">
-            <BarChart data={statusBreakdown}>
-              <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
-              <XAxis
-                dataKey="status"
-                tick={{ fontSize: 11 }}
-                className="fill-muted-foreground"
-              />
-              <YAxis tick={{ fontSize: 11 }} className="fill-muted-foreground" />
-              <ChartTooltip content={<ChartTooltipContent />} />
-              <Bar dataKey="count" radius={[4, 4, 0, 0]} name="Applications">
-                {statusBreakdown.map((item) => (
-                  <Cell
-                    key={item.status}
-                    fill={
-                      item.status === "Approved"
-                        ? "hsl(142, 71%, 45%)"
-                        : item.status === "Rejected"
-                          ? "hsl(0, 84%, 60%)"
-                          : item.status === "Under Manual Review"
-                            ? "hsl(38, 92%, 50%)"
-                            : item.status === "Requires Action"
-                              ? "hsl(210, 100%, 50%)"
-                              : item.status === "Withdrawn"
-                                ? "hsl(270, 60%, 55%)"
-                                : item.status === "Draft"
-                                  ? "hsl(215, 16%, 65%)"
-                                  : item.status === "Pending"
-                                    ? "hsl(200, 80%, 60%)"
-                                    : item.status === "Deleted"
-                                      ? "hsl(0, 0%, 55%)"
-                                      : "hsl(215, 16%, 65%)"
-                    }
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+        <Card className="overflow-hidden border-border/60 shadow-sm">
+          <CardHeader className="pb-4">
+            <div className="flex items-start gap-3">
+              <div className="mt-0.5 rounded-xl bg-muted p-2 text-muted-foreground">
+                <ChartNoAxesColumn className="h-5 w-5" />
+              </div>
+              <div>
+                <CardTitle className="text-base font-medium">
+                  Applications by Status
+                </CardTitle>
+                <CardDescription className="mt-1">
+                  Current application counts by onboarding status
+                </CardDescription>
+              </div>
+            </div>
+          </CardHeader>
+
+          <CardContent className="space-y-3">
+            <div className="h-2 w-full overflow-hidden rounded-full bg-muted">
+              <div className="flex h-full w-full">
+                {statusSummary.map((item) => (
+                  <div
+                    key={item.key}
+                    className={item.barClassName}
+                    style={{ width: `${item.percentage}%` }}
                   />
                 ))}
-              </Bar>
-            </BarChart>
-          </ChartContainer>
-        </CardContent>
-      </Card>
+              </div>
+            </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <div className="space-y-2">
+              {statusSummary.map((item) => (
+                <div
+                  key={item.key}
+                  className={cn(
+                    "flex items-center justify-between rounded-xl px-4 py-3",
+                    item.rowClassName,
+                  )}
+                >
+                  <div className="flex items-center gap-2">
+                    <span
+                      className={cn("h-3 w-3 rounded-full", item.dotClassName)}
+                    />
+
+                    <div>
+                      <p className={cn("text-sm font-medium", item.textClassName)}>
+                        {item.label}
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        {item.description}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="text-right">
+                    <p className="text-xl font-semibold tabular-nums text-foreground">
+                      {item.count}
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      {item.percentage}%
+                    </p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-base font-medium">
@@ -606,7 +721,10 @@ export function OverviewTab({ dateRange, preset }) {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <ChartContainer config={countryChartConfig} className="h-[260px] w-full">
+            <ChartContainer
+              config={countryChartConfig}
+              className="h-[260px] w-full"
+            >
               <PieChart>
                 <Pie
                   data={countryBreakdown}
@@ -621,29 +739,37 @@ export function OverviewTab({ dateRange, preset }) {
                   {countryBreakdown.map((_, index) => (
                     <Cell
                       key={index}
-                      fill={COUNTRY_COLORS[index] || `hsl(${index * 60}, 70%, 50%)`}
+                      fill={
+                        COUNTRY_COLORS[index] || `hsl(${index * 60}, 70%, 50%)`
+                      }
                     />
                   ))}
                 </Pie>
-                <ChartTooltip content={<ChartTooltipContent nameKey="country" />} />
+                <ChartTooltip
+                  content={<ChartTooltipContent nameKey="country" />}
+                />
                 <Legend
                   iconType="circle"
                   iconSize={8}
                   formatter={(value) => (
-                    <span className="text-xs text-muted-foreground">{value}</span>
+                    <span className="text-xs text-muted-foreground">
+                      {value}
+                    </span>
                   )}
                 />
               </PieChart>
             </ChartContainer>
 
-            <div className="grid grid-cols-2 gap-3 mt-4">
+            <div className="mt-4 grid grid-cols-2 gap-3">
               {countryBreakdown.map((c) => (
                 <div
                   key={c.code}
-                  className="p-3 rounded-lg bg-slate-300/50 space-y-1"
+                  className="space-y-1 rounded-lg bg-slate-300/50 p-3"
                 >
-                  <p className="text-sm font-medium text-foreground">{c.country}</p>
-                  <p className="text-2xl font-semibold text-foreground tabular-nums">
+                  <p className="text-sm font-medium text-foreground">
+                    {c.country}
+                  </p>
+                  <p className="text-2xl font-semibold tabular-nums text-foreground">
                     {c.applications}
                   </p>
                   <p className="text-xs text-muted-foreground">
@@ -652,6 +778,67 @@ export function OverviewTab({ dateRange, preset }) {
                       ? ((c.approved / c.applications) * 100).toFixed(1)
                       : "0.0"}
                     %)
+                  </p>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+        <Card>
+          <CardHeader className="pb-2">
+            <div className="flex items-center justify-between">
+              <div>
+                <CardTitle className="text-base font-medium">
+                  Business Type Distribution
+                </CardTitle>
+                <CardDescription>
+                  Breakdown of entity types by incorporation country
+                </CardDescription>
+              </div>
+              <div className="flex gap-1.5">
+                {["All", "Singapore", "Indonesia"].map((filter) => (
+                  <button
+                    key={filter}
+                    onClick={() => setSelectedCountry(filter)}
+                    className={cn(
+                      "rounded-full border px-3 py-1 text-xs font-medium transition-colors",
+                      selectedCountry === filter
+                        ? "border-transparent bg-foreground text-background"
+                        : "border-border bg-background text-muted-foreground hover:bg-secondary",
+                    )}
+                  >
+                    {filter}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+              {filteredBusinessTypes.map((bt) => (
+                <div
+                  key={`${bt.country}-${bt.type}`}
+                  className="space-y-1 rounded-lg border bg-muted/30 p-4"
+                >
+                  <p className="text-xs font-medium text-muted-foreground">
+                    {bt.country === "Singapore"
+                      ? "🇸🇬"
+                      : bt.country === "Indonesia"
+                        ? "🇮🇩"
+                        : "🌍"}{" "}
+                    {bt.country}
+                  </p>
+                  <p className="text-sm font-medium text-foreground">
+                    {bt.type}
+                  </p>
+                  <p className="text-xl font-semibold tabular-nums text-foreground">
+                    {bt.count}
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    {bt.percentage}% of {bt.country} total
                   </p>
                 </div>
               ))}
@@ -669,8 +856,15 @@ export function OverviewTab({ dateRange, preset }) {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <ChartContainer config={industryChartConfig} className="h-[380px] w-full">
-              <BarChart data={industryBreakdown} layout="vertical" margin={{ left: 10 }}>
+            <ChartContainer
+              config={industryChartConfig}
+              className="h-[380px] w-full"
+            >
+              <BarChart
+                data={industryBreakdown}
+                layout="vertical"
+                margin={{ left: 10 }}
+              >
                 <CartesianGrid
                   strokeDasharray="3 3"
                   className="stroke-border"
@@ -702,63 +896,6 @@ export function OverviewTab({ dateRange, preset }) {
           </CardContent>
         </Card>
       </div>
-
-      <Card>
-        <CardHeader className="pb-2">
-          <div className="flex items-center justify-between">
-            <div>
-              <CardTitle className="text-base font-medium">
-                Business Type Distribution
-              </CardTitle>
-              <CardDescription>
-                Breakdown of entity types by incorporation country
-              </CardDescription>
-            </div>
-            <div className="flex gap-1.5">
-              {["All", "Singapore", "Indonesia"].map((filter) => (
-                <button
-                  key={filter}
-                  onClick={() => setSelectedCountry(filter)}
-                  className={cn(
-                    "px-3 py-1 rounded-full text-xs font-medium transition-colors border",
-                    selectedCountry === filter
-                      ? "bg-foreground text-background border-transparent"
-                      : "bg-background text-muted-foreground border-border hover:bg-secondary",
-                  )}
-                >
-                  {filter}
-                </button>
-              ))}
-            </div>
-          </div>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-            {filteredBusinessTypes.map((bt) => (
-              <div
-                key={`${bt.country}-${bt.type}`}
-                className="p-4 rounded-lg border bg-muted/30 space-y-1"
-              >
-                <p className="text-xs text-muted-foreground font-medium">
-                  {bt.country === "Singapore"
-                    ? "🇸🇬"
-                    : bt.country === "Indonesia"
-                      ? "🇮🇩"
-                      : "🌍"}{" "}
-                  {bt.country}
-                </p>
-                <p className="text-sm font-medium text-foreground">{bt.type}</p>
-                <p className="text-xl font-semibold text-foreground tabular-nums">
-                  {bt.count}
-                </p>
-                <p className="text-xs text-muted-foreground">
-                  {bt.percentage}% of {bt.country} total
-                </p>
-              </div>
-            ))}
-          </div>
-        </CardContent>
-      </Card>
     </div>
   );
 }

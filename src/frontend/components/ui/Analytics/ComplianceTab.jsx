@@ -6,13 +6,12 @@ import {
   XAxis,
   YAxis,
   CartesianGrid,
-  Tooltip,
   ResponsiveContainer,
   Cell,
-  LabelList,
   Legend,
+  PieChart,
+  Pie,
 } from "recharts";
-
 import {
   Card,
   CardContent,
@@ -20,6 +19,11 @@ import {
   CardTitle,
   CardDescription,
 } from "../primitives/Card";
+import {
+  ChartContainer,
+  ChartTooltip,
+  ChartTooltipContent,
+} from "../primitives/chart";
 import { Badge } from "../primitives/Badge";
 import {
   Table,
@@ -83,6 +87,19 @@ const riskScoreBarColors = [
   "hsl(var(--status-requires-action))",
   "hsl(var(--destructive))",
 ];
+
+const riskScoreChartConfig = {
+  bucket1: { label: "0-50", color: "hsl(var(--status-submitted))" },
+  bucket2: { label: "51-100", color: "hsl(var(--status-approved))" },
+  bucket3: { label: "101-150", color: "hsl(var(--status-in-review))" },
+  bucket4: { label: "151-200", color: "hsl(var(--status-requires-action))" },
+  bucket5: { label: "201+", color: "hsl(var(--destructive))" },
+};
+
+const riskScoreVsApprovalChartConfig = {
+  approved: { label: "Approved", color: "hsl(var(--status-approved))" },
+  rejected: { label: "Rejected", color: "hsl(var(--destructive))" },
+};
 
 function normalizeRiskGrade(value) {
   return String(value || "").trim().toLowerCase();
@@ -194,7 +211,7 @@ function getTopTriggeredRules(reviewJobs, topN = 6) {
     (job) =>
       job.status === "COMPLETED" &&
       Array.isArray(job.rules_triggered) &&
-      job.rules_triggered.length > 0
+      job.rules_triggered.length > 0,
   );
 
   const ruleMap = new Map();
@@ -227,7 +244,7 @@ function getTopTriggeredRules(reviewJobs, topN = 6) {
       percentage:
         totalTriggeredOccurrences > 0
           ? Number(
-              ((rule.triggered / totalTriggeredOccurrences) * 100).toFixed(1)
+              ((rule.triggered / totalTriggeredOccurrences) * 100).toFixed(1),
             )
           : 0,
     }))
@@ -264,15 +281,18 @@ function getRiskScoreDistribution(reviewJobs) {
     buckets[bucket] += 1;
   });
 
+  const total = Object.values(buckets).reduce((sum, count) => sum + count, 0);
+
   return Object.entries(buckets).map(([range, count]) => ({
     range,
     count,
+    percentage: total > 0 ? Number(((count / total) * 100).toFixed(1)) : 0,
   }));
 }
 
 function getRiskScoreVsApproval(reviewJobs, applications) {
   const applicationMap = new Map(
-    applications.map((app) => [app.application_id, app])
+    applications.map((app) => [app.application_id, app]),
   );
 
   const approvalBuckets = {
@@ -419,7 +439,7 @@ export function ComplianceTab() {
                   key={dd.type}
                   className={cn(
                     "flex items-center justify-between rounded-lg p-3",
-                    ddBgColors[dd.type]
+                    ddBgColors[dd.type],
                   )}
                 >
                   <div className="flex items-center gap-3">
@@ -431,7 +451,7 @@ export function ComplianceTab() {
                       <p
                         className={cn(
                           "text-sm font-semibold",
-                          ddTextColors[dd.type]
+                          ddTextColors[dd.type],
                         )}
                       >
                         {dd.type}
@@ -526,26 +546,93 @@ export function ComplianceTab() {
             </CardDescription>
           </CardHeader>
 
-          <CardContent className="h-[320px]">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={riskScoreDistribution}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="range" />
-                <YAxis />
-                <Tooltip />
-                <Bar dataKey="count" radius={[6, 6, 0, 0]}>
-                  {riskScoreDistribution.map((entry, index) => (
-                    <Cell
-                      key={entry.range}
-                      fill={
-                        riskScoreBarColors[index % riskScoreBarColors.length]
+          <CardContent>
+            <div className="grid grid-cols-1 gap-5 xl:grid-cols-[220px_minmax(0,1fr)] xl:items-center">
+              <div className="mx-auto w-full max-w-[220px]">
+                <ChartContainer
+                  config={riskScoreChartConfig}
+                  className="h-[220px] w-full"
+                >
+                  <PieChart>
+                    <Pie
+                      data={riskScoreDistribution}
+                      dataKey="count"
+                      nameKey="range"
+                      cx="50%"
+                      cy="50%"
+                      innerRadius={58}
+                      outerRadius={88}
+                      paddingAngle={3}
+                      stroke="transparent"
+                    >
+                      {riskScoreDistribution.map((entry, index) => (
+                        <Cell
+                          key={entry.range}
+                          fill={
+                            riskScoreBarColors[index % riskScoreBarColors.length]
+                          }
+                        />
+                      ))}
+                    </Pie>
+
+                    <ChartTooltip
+                      content={
+                        <ChartTooltipContent
+                          formatter={(value, _name, item) => [
+                            `${value} jobs`,
+                            item?.payload?.range,
+                          ]}
+                        />
                       }
                     />
-                  ))}
-                  <LabelList dataKey="count" position="top" />
-                </Bar>
-              </BarChart>
-            </ResponsiveContainer>
+                  </PieChart>
+                </ChartContainer>
+              </div>
+
+              <div className="space-y-3">
+                {riskScoreDistribution.map((bucket, index) => (
+                  <div
+                    key={bucket.range}
+                    className="flex items-center justify-between rounded-lg border bg-card p-3"
+                  >
+                    <div className="flex items-center gap-3">
+                      <div
+                        className="h-3 w-3 rounded-full"
+                        style={{
+                          backgroundColor:
+                            riskScoreBarColors[
+                              index % riskScoreBarColors.length
+                            ],
+                        }}
+                      />
+                      <div>
+                        <p className="text-sm font-semibold text-foreground">
+                          {bucket.range}
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          Risk score bucket
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="text-right">
+                      <p className="tabular-nums text-lg font-bold text-foreground">
+                        {bucket.count}
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        {bucket.percentage}%
+                      </p>
+                    </div>
+                  </div>
+                ))}
+
+                {riskScoreDistribution.every((bucket) => bucket.count === 0) ? (
+                  <div className="rounded-lg border border-dashed p-6 text-center text-sm text-muted-foreground">
+                    No risk score distribution data found.
+                  </div>
+                ) : null}
+              </div>
+            </div>
           </CardContent>
         </Card>
 
@@ -559,40 +646,72 @@ export function ComplianceTab() {
             </CardDescription>
           </CardHeader>
 
-          <CardContent className="h-[320px]">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={riskScoreVsApproval}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="range" />
-                <YAxis />
-                <Tooltip />
-                <Legend />
+          <CardContent>
+            <ChartContainer
+              config={riskScoreVsApprovalChartConfig}
+              className="h-[320px] w-full"
+            >
+              <BarChart
+                data={riskScoreVsApproval}
+                barCategoryGap={18}
+                margin={{ top: 12, right: 12, left: 0, bottom: 0 }}
+              >
+                <CartesianGrid
+                  strokeDasharray="3 3"
+                  className="stroke-border"
+                />
+
+                <XAxis
+                  dataKey="range"
+                  tick={{ fontSize: 12 }}
+                  className="fill-muted-foreground"
+                  tickMargin={8}
+                />
+
+                <YAxis
+                  tick={{ fontSize: 12 }}
+                  className="fill-muted-foreground"
+                  allowDecimals={false}
+                />
+
+                <ChartTooltip
+                  content={
+                    <ChartTooltipContent
+                      formatter={(value, name) => [
+                        `${value}`,
+                        name === "approved" ? "Approved" : "Rejected",
+                      ]}
+                    />
+                  }
+                />
+
+                <Legend
+                  iconType="circle"
+                  iconSize={8}
+                  formatter={(value) => (
+                    <span className="text-xs text-muted-foreground">
+                      {value === "approved" ? "Approved" : "Rejected"}
+                    </span>
+                  )}
+                />
+
                 <Bar
                   dataKey="approved"
-                  name="Approved"
-                  stackId="a"
-                  fill="hsl(var(--status-approved))"
-                >
-                  <LabelList
-                    dataKey="approvalRate"
-                    position="top"
-                    formatter={(v) => `${v}%`}
-                  />
-                </Bar>
+                  name="approved"
+                  fill="var(--color-approved)"
+                  radius={[6, 6, 0, 0]}
+                  maxBarSize={28}
+                />
+
                 <Bar
                   dataKey="rejected"
-                  name="Rejected"
-                  stackId="a"
-                  fill="hsl(var(--destructive))"
-                >
-                  <LabelList
-                    dataKey="rejectedRate"
-                    position="top"
-                    formatter={(v) => `${v}%`}
-                  />
-                </Bar>
+                  name="rejected"
+                  fill="var(--color-rejected)"
+                  radius={[6, 6, 0, 0]}
+                  maxBarSize={28}
+                />
               </BarChart>
-            </ResponsiveContainer>
+            </ChartContainer>
           </CardContent>
         </Card>
       </div>
@@ -616,7 +735,7 @@ export function ComplianceTab() {
                 className="cursor-pointer rounded-lg border bg-card p-3 transition-shadow hover:shadow-md"
                 onClick={() =>
                   setExpandedCategory(
-                    expandedCategory === cat.category ? null : cat.category
+                    expandedCategory === cat.category ? null : cat.category,
                   )
                 }
               >
@@ -627,7 +746,7 @@ export function ComplianceTab() {
                       "border text-xs font-medium",
                       categoryBadgeColorClasses[
                         index % categoryBadgeColorClasses.length
-                      ]
+                      ],
                     )}
                   >
                     {formatCategoryDisplayName(cat.category)}
@@ -663,7 +782,7 @@ export function ComplianceTab() {
                       "h-full rounded-full",
                       categoryBarColorClasses[
                         index % categoryBarColorClasses.length
-                      ]
+                      ],
                     )}
                     style={{
                       width: `${
@@ -711,7 +830,7 @@ export function ComplianceTab() {
                             "border text-[10px] font-medium",
                             rule.status === "active"
                               ? "bg-[hsl(var(--status-approved)/0.1)] text-[hsl(var(--status-approved))] border-[hsl(var(--status-approved)/0.2)]"
-                              : "border-border bg-muted text-muted-foreground"
+                              : "border-border bg-muted text-muted-foreground",
                           )}
                         >
                           {rule.status}

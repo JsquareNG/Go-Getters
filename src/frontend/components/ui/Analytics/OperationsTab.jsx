@@ -15,13 +15,17 @@ import {
   TableRow,
 } from "../primitives/table";
 import { Badge } from "../primitives/Badge";
+import {
+  ChartContainer,
+  ChartTooltip,
+  ChartTooltipContent,
+} from "../primitives/chart";
 import { KPICard } from "./KPICard";
 import {
   AlertTriangle,
   Users,
   Zap,
   CheckCircle2,
-  Clock,
 } from "lucide-react";
 import {
   getAuditMetricsOverview,
@@ -33,14 +37,11 @@ import {
   getAllJob,
 } from "../../../api/applicationApi";
 import {
-  LineChart,
-  Line,
+  AreaChart,
+  Area,
   XAxis,
   YAxis,
   CartesianGrid,
-  Tooltip,
-  ResponsiveContainer,
-  LabelList,
 } from "recharts";
 import { cn } from "@/lib/utils";
 
@@ -49,6 +50,10 @@ const rankColors = [
   "bg-muted text-foreground",
   "bg-status-in-review/40 text-foreground",
 ];
+
+const processingTrendChartConfig = {
+  value: { label: "Avg Processing Time", color: "hsl(var(--accent))" },
+};
 
 function formatDurationFromDays(days) {
   const value = Number(days || 0);
@@ -117,11 +122,11 @@ function getMonthLabel(monthKey) {
 
 function buildProcessingTimeByMonth(reviewJobs, applications, dateRange) {
   const filteredApplications = applications.filter((app) =>
-    isWithinDateRangeFromCreatedAt(app, dateRange)
+    isWithinDateRangeFromCreatedAt(app, dateRange),
   );
 
   const applicationMap = new Map(
-    filteredApplications.map((app) => [app.application_id, app])
+    filteredApplications.map((app) => [app.application_id, app]),
   );
 
   const processingByMonth = {};
@@ -235,13 +240,13 @@ export function OperationsTab({ dateRange, preset }) {
             : [];
 
         const filteredApplications = allApplications.filter((app) =>
-          isWithinDateRangeFromCreatedAt(app, dateRange)
+          isWithinDateRangeFromCreatedAt(app, dateRange),
         );
 
         const stpApplications = filteredApplications.filter(
           (app) =>
             isUnderReview(app.previous_status) &&
-            isApproved(app.current_status)
+            isApproved(app.current_status),
         );
 
         const nextStpRate =
@@ -252,7 +257,7 @@ export function OperationsTab({ dateRange, preset }) {
         setStpRate(Number(nextStpRate.toFixed(1)));
 
         setProcessingTime(
-          buildProcessingTimeByMonth(allReviewJobs, allApplications, dateRange)
+          buildProcessingTimeByMonth(allReviewJobs, allApplications, dateRange),
         );
 
         const leaderboard = Array.isArray(leaderboardRes) ? leaderboardRes : [];
@@ -271,7 +276,7 @@ export function OperationsTab({ dateRange, preset }) {
 
               const assignedApplications = reviewerApps.length;
               const applicationsLeft = reviewerApps.filter((app) =>
-                isUnderManualReview(app.current_status)
+                isUnderManualReview(app.current_status),
               ).length;
 
               return {
@@ -286,7 +291,7 @@ export function OperationsTab({ dateRange, preset }) {
                 applicationsLeft: 0,
               };
             }
-          })
+          }),
         );
 
         const sortedLeaderboard = [...enrichedLeaderboard]
@@ -294,7 +299,9 @@ export function OperationsTab({ dateRange, preset }) {
             if ((b.processed ?? 0) !== (a.processed ?? 0)) {
               return (b.processed ?? 0) - (a.processed ?? 0);
             }
-            return String(a.staffId || "").localeCompare(String(b.staffId || ""));
+            return String(a.staffId || "").localeCompare(
+              String(b.staffId || ""),
+            );
           })
           .map((member, index) => ({
             ...member,
@@ -371,9 +378,8 @@ export function OperationsTab({ dateRange, preset }) {
       </div>
 
       <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-base font-medium">
-            <Clock className="h-4 w-4 text-primary" />
+        <CardHeader className="pb-2">
+          <CardTitle className="text-base font-medium">
             Application Processing Time Trend
           </CardTitle>
           <CardDescription>
@@ -381,30 +387,69 @@ export function OperationsTab({ dateRange, preset }) {
           </CardDescription>
         </CardHeader>
 
-        <CardContent className="h-[300px]">
-          <ResponsiveContainer width="100%" height="100%">
-            <LineChart data={processingTime}>
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="month" />
-              <YAxis
-                label={{ value: "Days", angle: -90, position: "insideLeft" }}
+        <CardContent>
+          <ChartContainer
+            config={processingTrendChartConfig}
+            className="h-[300px] w-full"
+          >
+            <AreaChart data={processingTime}>
+              <defs>
+                <linearGradient
+                  id="gradProcessingTime"
+                  x1="0"
+                  y1="0"
+                  x2="0"
+                  y2="1"
+                >
+                  <stop
+                    offset="5%"
+                    stopColor="var(--color-value)"
+                    stopOpacity={0.3}
+                  />
+                  <stop
+                    offset="95%"
+                    stopColor="var(--color-value)"
+                    stopOpacity={0}
+                  />
+                </linearGradient>
+              </defs>
+
+              <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
+
+              <XAxis
+                dataKey="month"
+                tick={{ fontSize: 12 }}
+                className="fill-muted-foreground"
+                minTickGap={24}
+                tickMargin={8}
               />
-              <Tooltip formatter={(v) => `${Number(v).toFixed(1)} days`} />
-              <Line
+
+              <YAxis
+                tick={{ fontSize: 12 }}
+                className="fill-muted-foreground"
+                tickFormatter={(value) => `${Number(value).toFixed(1)}`}
+              />
+
+              <ChartTooltip
+                content={
+                  <ChartTooltipContent
+                    formatter={(value) => [
+                      "Avg Time: ",
+                      `${Number(value).toFixed(1)} days`,
+                    ]}
+                  />
+                }
+              />
+
+              <Area
                 type="monotone"
                 dataKey="value"
-                stroke="hsl(var(--accent))"
-                strokeWidth={3}
-                dot
-              >
-                <LabelList
-                  dataKey="value"
-                  position="top"
-                  formatter={(v) => `${Number(v).toFixed(1)}`}
-                />
-              </Line>
-            </LineChart>
-          </ResponsiveContainer>
+                stroke="var(--color-value)"
+                fill="url(#gradProcessingTime)"
+                strokeWidth={2}
+              />
+            </AreaChart>
+          </ChartContainer>
         </CardContent>
       </Card>
 
