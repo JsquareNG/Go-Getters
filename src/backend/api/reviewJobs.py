@@ -13,6 +13,7 @@ from backend.database import get_db
 router = APIRouter(prefix="/reviewJobs", tags=["reviewJobs"])
 SUPABASE_URL = os.getenv("SUPABASE_URL")
 
+
 @router.get("/getReviewJob/{application_id}")
 def get_review_by_application_id(
     application_id: str,
@@ -41,3 +42,27 @@ def get_review_by_application_id(
         "created_at": job.created_at,
         "updated_at": job.updated_at
     }
+
+
+@router.get("/")
+def get_all_review_jobs(db: Session = Depends(get_db)):
+    rows = (
+        db.query(ReviewJobs)
+        .order_by(ReviewJobs.created_at.desc(), ReviewJobs.job_id.desc())
+        .all()
+    )
+
+    return [
+        {
+            "job_id": job.job_id,
+            "application_id": job.application_id,
+            "status": job.status,
+            "risk_score": job.risk_score,
+            "risk_grade": job.risk_grade,
+            "rules_triggered": job.rules_triggered or [],
+            "completed_at": job.completed_at,
+            "created_at": job.created_at,
+            "updated_at": job.updated_at
+        }
+        for job in rows
+    ]
