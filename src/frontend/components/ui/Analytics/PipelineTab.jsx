@@ -609,8 +609,9 @@ export function PipelineTab({ dateRange, preset }) {
                   content={
                     <ChartTooltipContent
                       formatter={(value, _name, item) => [
-                        `${value}%`,
                         item?.payload?.label,
+                        ": ",
+                        `${value}%`,
                       ]}
                     />
                   }
