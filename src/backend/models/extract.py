@@ -276,31 +276,75 @@ class AktaPendirianData(BaseModel):
             normalized.append(item)
         return normalized
 
+class UBODeclarationOwner(BaseModel):
+    full_name: str = Field(default="", description="Full legal name of the beneficial owner / controlling person")
+    nationality: str = Field(default="", description="Nationality or citizenship if shown")
+    date_of_birth: str = Field(default="", description="Date of birth if shown")
+    id_type: str = Field(default="", description="Type of identification document, e.g. NRIC, Passport")
+    id_number: str = Field(default="", description="Identification number if shown")
+    residential_address: str = Field(default="", description="Residential address if shown")
+    country_of_residence: str = Field(default="", description="Country of residence if shown")
+    ownership_percentage: Optional[float] = Field(
+        default=None,
+        description="Direct or indirect ownership percentage if explicitly stated"
+    )
+    ownership_type: Optional[str] = Field(
+        default="",
+        description="DIRECT, INDIRECT, CONTROL, or OTHER if stated or clearly inferable from the declaration"
+    )
+    control_description: Optional[str] = Field(
+        default="",
+        description="Short description of control basis, e.g. shares, voting rights, other means"
+    )
+    politically_exposed_person: Optional[bool] = Field(
+        default=None,
+        description="Whether the person is declared as a PEP, if explicitly stated"
+    )
+    pep_details: Optional[str] = Field(default="", description="PEP details if stated")
+    sanctions_declared: Optional[bool] = Field(
+        default=None,
+        description="Whether sanctions/adverse declaration is indicated, if explicitly stated"
+    )
+    tax_residency: str = Field(default="", description="Tax residency if shown")
+    source_of_wealth: str = Field(default="", description="Source of wealth if shown")
+    source_of_funds: str = Field(default="", description="Source of funds if shown")
 
+
+class UBODeclarationData(BaseModel):
+    company_name: str = Field(default="", description="Company/entity name the declaration relates to")
+    registration_number: str = Field(default="", description="UEN, business registration number, or equivalent if shown")
+    declaration_date: str = Field(default="", description="Date of declaration or form completion")
+    form_title: str = Field(default="", description="Title of the document/form")
+    jurisdiction: str = Field(default="", description="Jurisdiction/country if shown")
+    declares_no_ubo: Optional[bool] = Field(
+        default=None,
+        description="True if the form explicitly states there is no UBO meeting the threshold"
+    )
+    ubo_threshold_percentage: Optional[float] = Field(
+        default=None,
+        description="Threshold used in the declaration, e.g. 25"
+    )
+    beneficial_owners: List[UBODeclarationOwner] = Field(
+        default_factory=list,
+        description="List of declared ultimate beneficial owners / controlling persons"
+    )
+    declarant_name: str = Field(default="", description="Name of the person signing/completing the declaration")
+    declarant_role: str = Field(default="", description="Role/capacity of the declarant, e.g. Director, Authorised Signatory")
+    signature_date: str = Field(default="", description="Date of signature if shown")
+    contact_details: str = Field(default="", description="Email / phone / contact details if shown")
+    additional_data: Dict[str, Any] = Field(
+        default_factory=dict,
+        description="Any other relevant declarations, checkboxes, certifications, or notes"
+    )
+    
 class UnknownDocumentData(BaseModel):
     best_guess_document_type: str = Field(
         default="",
-        description="Best-effort guess of what the unknown document is, e.g. INVOICE, PAYSLIP, TAX_INVOICE, RECEIPT"
+        description="Best-effort guess of what the unknown document is, e.g. INVOICE, PAYSLIP, TAX_INVOICE, RECEIPT, else OTHERS"
     )
     display_label: str = Field(
         default="Unsupported Document",
         description="Frontend-friendly label to show users"
-    )
-    reasoning: str = Field(
-        default="",
-        description="Short explanation of why the document is unsupported and what it seems to be"
-    )
-    key_identifiers: List[str] = Field(
-        default_factory=list,
-        description="Important identifiers or keywords seen in the document"
-    )
-    suggested_action: str = Field(
-        default="UPLOAD_SUPPORTED_DOCUMENT",
-        description="Suggested frontend action code"
-    )
-    additional_data: Dict[str, Any] = Field(
-        default_factory=dict,
-        description="Optional extra metadata for unsupported documents"
     )
 
 
@@ -316,6 +360,8 @@ DOCUMENT_SCHEMA_REGISTRY: Dict[str, Type[BaseModel]] = {
     "BOARD_RESOLUTION": BoardResolutionData,
     "NPWP_CERTIFICATE": NPWPCertificateData,
     "AKTA_PENDIRIAN": AktaPendirianData,
+    "UBO_DECLARATION": UBODeclarationData,
+    "UNKNOWN": UnknownDocumentData
 }
 
 
