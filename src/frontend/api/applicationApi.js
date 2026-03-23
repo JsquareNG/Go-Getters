@@ -188,6 +188,13 @@ export const getReviewJob = async (applicationId) => {
   return res.data;
 };
 
+export const getAllJob = async () => {
+  const res = await axiosClient.get(
+    `/reviewJobs/`,
+  );
+  return res.data;
+};
+
 export const getMissingItems = async (applicationId) => {
   const res = await axiosClient.get(
     `/applications/getRequired/${applicationId}`,
@@ -208,4 +215,9 @@ export const getQnA = async (applicationId) => {
     `/applications/getActionRequests/${applicationId}`,
   );
   return res.data;
+};
+
+export const getAllApplications = async () => {
+  const response = await axiosClient.get("/applications/");
+  return response.data;
 };

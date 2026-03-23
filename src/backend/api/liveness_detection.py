@@ -240,3 +240,23 @@ def get_liveness_detection_by_application_id(
         )
 
     return model_to_dict(row)
+
+@router.get("/")
+def get_all_liveness_detections(
+    from_date: str | None = None,
+    to_date: str | None = None,
+    db: Session = Depends(get_db)
+):
+    query = db.query(LivenessDetection).filter(
+        LivenessDetection.application_id.isnot(None)
+    )
+
+    if from_date:
+        query = query.filter(LivenessDetection.created_at >= from_date)
+
+    if to_date:
+        query = query.filter(LivenessDetection.created_at <= to_date)
+
+    rows = query.order_by(LivenessDetection.created_at.desc()).all()
+
+    return [model_to_dict(row) for row in rows]

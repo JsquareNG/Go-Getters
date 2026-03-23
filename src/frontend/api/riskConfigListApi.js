@@ -9,3 +9,13 @@ export const saveRiskConfigListChanges = async (payload) => {
   const res = await axiosClient.put(`/risk-config-list/save-changes`, payload);
   return res.data;
 };
+
+export const getRiskConfigListNames = async () => {
+  const response = await axiosClient.get("/risk-config-list/list-names");
+  return response.data;
+};
+
+export const getAllRiskConfigListNames = async () => {
+  const response = await axiosClient.get("/risk-config-list/all-list-names");
+  return response.data;
+};

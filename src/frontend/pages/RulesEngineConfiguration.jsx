@@ -1,11 +1,12 @@
 import React, { useState } from "react";
 import ConfigListSection from "../components/ui/rulesEngine/ConfigListSection";
 import RulesListSection from "../components/ui/rulesEngine/RulesListSection";
+import SimulationTestingSection from "../components/ui/rulesEngine/SimulationTestingSection";
 
 const MAIN_TABS = [
   { key: "rules", label: "Rules Engine" },
   { key: "config-list", label: "Config List" },
-  { key: "live-simulation", label: "Live Simulation" },
+  { key: "live-simulation", label: "Simulation Testing" },
 ];
 
 export default function RulesEngineConfiguration() {
@@ -13,7 +14,7 @@ export default function RulesEngineConfiguration() {
 
   return (
     <div className="min-h-screen bg-gray-50 p-6">
-      <div className="mx-auto max-w-7xl rounded-2xl bg-white p-6 shadow-sm">
+      <div className="mx-auto max-w-[1500px] rounded-2xl bg-white p-6 shadow-sm">
         <div className="mb-6">
           <h1 className="text-2xl font-semibold text-gray-900">
             Rules Engine Configuration
@@ -46,7 +47,7 @@ export default function RulesEngineConfiguration() {
 
         {activeMainTab === "config-list" && <ConfigListSection />}
 
-        {activeMainTab === "live-simulation"}
+        {activeMainTab === "live-simulation" && <SimulationTestingSection/>}
       </div>
     </div>
   );

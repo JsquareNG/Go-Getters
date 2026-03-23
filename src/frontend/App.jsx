@@ -5,7 +5,6 @@ import Home from "./pages/Home";
 import LandingPage from "./pages/LandingPage";
 import HomeLayout from "./layouts/HomeLayout";
 import LandingLayout from "./layouts/LandingLayout";
-import AccountsPage from "./pages/AccountsPage";
 import ApplicationDetail from "./pages/ApplicationDetail";
 import StaffLandingPage from "./pages/StaffLandingPage";
 import ApplicationReviewDetail from "./pages/ApplicationReviewDetail";
@@ -69,17 +68,6 @@ export default function App() {
           }
         />
 
-        <Route
-          path="/accountspage"
-          element={
-            <RequireRole role="SME">
-              <LandingLayout>
-                <AccountsPage />
-              </LandingLayout>
-            </RequireRole>
-          }
-        />
-
         {/* SME application form - edit/view mode routing */}
         <Route
           path="/application/edit/:appId/:step"
@@ -138,7 +126,7 @@ export default function App() {
         />
 
         {/* Admin Config Page */}
-        <Route
+        {/* <Route
           path="/admin-config"
           element={
             <RequireRole role="STAFF">
@@ -147,7 +135,7 @@ export default function App() {
               </LandingLayout>
             </RequireRole>
           }
-        />
+        /> */}
 
         <Route
           path="/rules-engine-configuration"

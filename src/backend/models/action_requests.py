@@ -44,7 +44,7 @@ class ActionRequest(Base):
 
     __table_args__ = (
         CheckConstraint(
-            "status IN ('OPEN','SUBMITTED','CLOSED')",
+            "status IN ('OPEN','SUBMITTED','CLOSED', 'WITHDRAWN')",
             name="chk_action_requests_status",
         ),
     )
