@@ -2,7 +2,18 @@ from pydantic import BaseModel, Field, field_validator
 from typing import List, Dict, Type, Any, Optional
 import re
 
-
+class ShareholderEntry(BaseModel):
+    name: str = Field(default="", description="Name of founder/shareholder")
+    entity_type: str = Field(default="", description="INDIVIDUAL or COMPANY")
+    id_number: str = Field(default="", description="ID number if individual and clearly shown")
+    registration_number: str = Field(default="", description="Company/entity registration number if clearly shown")
+    address: str = Field(default="", description="Address of shareholder if clearly shown")
+    share_count: Optional[int] = Field(default=None, description="Number of shares subscribed")
+    nominal_value_idr: Optional[float] = Field(default=None, description="Nominal subscription amount in IDR")
+    ownership_percentage: Optional[float] = Field(
+        default=None,
+        description="Ownership percentage if explicitly stated or safely derivable",
+    )
 # 1. ACRA Schema
 class ACRAExtractionData(BaseModel):
     company_name: str = Field(description="Registered name of the business")
@@ -11,6 +22,8 @@ class ACRAExtractionData(BaseModel):
     business_start_date: str = Field(description="Date of registration")
     address: str = Field(description="Registered office address")
     primary_business_activity: str = Field(description="Primary activity")
+    shareholders: Optional[List[ShareholderEntry]] = Field(default_factory=list, description="List of shareholders shown in the ACRA Business Profile")
+    
 
     @field_validator("uen")
     @classmethod
@@ -148,7 +161,6 @@ class LPAgreementData(BaseModel):
     limited_partners: List[str] = Field(default_factory=list, description="Names of limited partners")
     agreement_date: str = Field(default="", description="Date of LP agreement")
     registered_address: str = Field(default="", description="Registered/business address")
-    business_purpose: str = Field(default="", description="Nature/purpose of business")
     capital_contributions: List[Dict[str, Any]] = Field(default_factory=list, description="Partner contributions")
     duration_or_term: str = Field(default="", description="Term/duration if specified")
     signing_parties: List[str] = Field(default_factory=list, description="Agreement signatories")
@@ -204,8 +216,10 @@ class ShareholderEntry(BaseModel):
     entity_type: str = Field(default="", description="INDIVIDUAL or COMPANY")
     id_number: str = Field(default="", description="ID number if individual and clearly shown")
     registration_number: str = Field(default="", description="Company/entity registration number if clearly shown")
-    address: str = Field(default="", description="Address if clearly shown")
-    share_count: Optional[int] = Field(default=None, description="Number of shares subscribed")
+    address: str = Field(default="", description="Address of shareholder if clearly shown")
+    nationality_or_place_of_origin: str = Field(default="", description="Nationality or place of origin of individual")
+    registered_address: str = Field(default="", description="Address of individual or corporate entity")
+    share_percentage: float = Field(default=0.0, description="Percentage of shares")
     nominal_value_idr: Optional[float] = Field(default=None, description="Nominal subscription amount in IDR")
     ownership_percentage: Optional[float] = Field(
         default=None,

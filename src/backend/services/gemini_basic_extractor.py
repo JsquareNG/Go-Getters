@@ -97,7 +97,8 @@ def parse_basic_info_document(raw_text: str, doc_type: str) -> dict:
     - shareholders:
       - If person, shareholder_type = "INDIVIDUAL"
       - If company, shareholder_type = "CORPORATE"
-      - Put percentage into share_percentage if available.
+      - share_percentage is the number of shares of shareholder divide by total shares of all shareholders
+      - Nationality also includes citizenship e.g. Singapore Citizen or Permanent Resident 
     - Do not force empty objects into unrelated sections; use empty lists or null.
 
     Additional extraction rules for NIB:
