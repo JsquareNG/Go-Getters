@@ -36,17 +36,42 @@ class Shareholder(BaseModel):
         description="Ownership percentage if explicitly stated or safely derivable",
     )
 
+class KBLIDetail(BaseModel):
+    kbli_code: str = Field(default="", description="5-digit KBLI code")
+    kbli_title: str = Field(default="", description="English title/description of the KBLI activity")
+    business_location: str = Field(default="", description="Business location for this activity")
+    risk_classification: str = Field(default="", description="Risk classification of the activity")
+    activity_type: str = Field(default="", description="Activity type if shown")
+    business_permit_legality: str = Field(default="", description="Permit legality / permit status if shown")
+
+    @field_validator("kbli_code")
+    @classmethod
+    def validate_kbli_code(cls, v: str) -> str:
+        if not v:
+            return ""
+        cleaned = re.sub(r"\D", "", v)
+        if cleaned and not re.match(r"^\d{5}$", cleaned):
+            raise ValueError(f"Invalid KBLI code: '{v}'. Must be 5 digits.")
+        return cleaned
 
 
-# -----------------------------
-# NIB Basic Info Schema
-# -----------------------------
 class NIBExtractionData(BaseModel):
     company_name: str = Field(description="Name of the business")
     nib_number: str = Field(description="13-digit Nomor Induk Berusaha")
     company_status: str = Field(description="Status (e.g., PMA or PMDN)")
     address: str = Field(description="Registered address")
-    kbli_codes: List[str] = Field(description="List of 5-digit KBLI codes")
+    kbli_codes: List[str] = Field(default_factory=list, description="List of 5-digit KBLI codes")
+
+    phone_number: str = Field(default="", description="Business phone number if present")
+    email: str = Field(default="", description="Business email address if present")
+    issued_date: str = Field(default="", description="Issued date in DD-MM-YYYY if safely inferable")
+    printed_date: str = Field(default="", description="Printed date in DD-MM-YYYY if safely inferable")
+    issuer: str = Field(default="", description="Issuing authority shown on the NIB document")
+
+    kbli_details: List[KBLIDetail] = Field(
+        default_factory=list,
+        description="Detailed KBLI activity rows shown in the NIB document"
+    )
 
     @field_validator("nib_number")
     @classmethod
@@ -73,11 +98,10 @@ class NIBExtractionData(BaseModel):
         default_factory=dict,
         description="""
         Extract ALL other information, fields, and tables from the document that are not
-        explicitly requested above. Group them logically (e.g., 'officers', 'activities',
-        'financials'). Use clear, snake_case keys.
+        explicitly requested above. Group them logically using clear snake_case keys.
+        Only put truly non-essential extra fields here.
         """,
     )
-
 
 # -----------------------------
 # ACRA Basic Info Schema

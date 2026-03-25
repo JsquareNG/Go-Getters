@@ -89,7 +89,7 @@ def parse_basic_info_document(raw_text: str, doc_type: str) -> dict:
     - Do NOT translate proper nouns or identifiers, including: company names, person names, registration numbers, tax numbers, codes, UEN, NIB, NPWP, KBLI codes, and addresses.
     - Keep names and addresses in their original form as shown in the document.
     - For non-English documents, translate narrative text, labels, statuses, activity descriptions, notes, and legal boilerplate into English.
-    - For dates written with non-English month names, normalize them into YYYY-MM-DD if safely inferable; otherwise translate month names into English.
+    - For dates written with non-English month names, normalize them into DD-MM-YYYY if safely inferable; otherwise translate month names into English.
     - Return JSON keys exactly as defined by the schema.
 
     Additional extraction rules for ACRA:
