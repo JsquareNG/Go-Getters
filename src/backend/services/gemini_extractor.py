@@ -121,6 +121,13 @@ def parse_universal_document(raw_text: str, doc_type: str) -> dict:
     - Put long narrative clauses, legal boilerplate, and less critical provisions into additional_data
     - For lists of people, return only names where possible
     - For numeric identifiers, preserve the exact number as shown, but remove obvious OCR spacing artifacts when needed
+    - If the source document is not in English, translate descriptive field values into natural English.
+    - Do NOT translate proper nouns or identifiers, including:
+      company names, person names, registration numbers, tax numbers, codes, UEN, NIB, NPWP, KBLI codes, and addresses.
+    - Keep names and addresses in their original form as shown in the document.
+    - For non-English documents, translate narrative text, labels, statuses, activity descriptions, notes, and legal boilerplate into English.
+    - For dates written with non-English month names, normalize them into YYYY-MM-DD if safely inferable; otherwise translate month names into English.
+    - Return JSON keys exactly as defined by the schema.
  
     Additional extraction rules for ACRA:
     - For shareholders, share_percentage is the number of shares of shareholder divide by total shares of all shareholders
