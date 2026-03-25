@@ -254,12 +254,6 @@ const LandingNavBar = () => {
       roles: ["STAFF"],
     },
     {
-      icon: Columns3Cog,
-      label: "Admin Config",
-      to: "/admin-config",
-      roles: ["STAFF"],
-    },
-    {
       icon: LayoutGrid,
       label: "Applications",
       to: "/landingpage",

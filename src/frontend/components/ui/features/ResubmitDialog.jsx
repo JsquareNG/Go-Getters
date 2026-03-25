@@ -205,7 +205,7 @@ export function ResubmitDialog({
       <DialogContent className="sm:max-w-3xl">
         <DialogHeader className="space-y-1">
           <DialogTitle className="text-xl">Upload Documents</DialogTitle>
-          <DialogDescription className="text-sm leading-relaxed">
+          <DialogDescription className="text-sm leading-relaxed mb-2">
             Upload the required documents and answer the additional questions for review.
           </DialogDescription>
         </DialogHeader>
@@ -213,7 +213,7 @@ export function ResubmitDialog({
         <div className="max-h-[65vh] overflow-y-auto pr-2 space-y-5">
           {actionRequired && (
             <div className="rounded-lg border border-red-200 bg-red-50/60 px-4 py-3">
-              <p className="text-sm font-semibold text-red-600 mb-1">What&apos;s needed</p>
+              <p className="text-sm font-semibold text-red-600 mb-1">Reason for Escalation</p>
               <p className="text-sm text-foreground leading-relaxed">{actionRequired}</p>
               <p className="text-xs text-muted-foreground mt-2">
                 {docsCount} document{docsCount === 1 ? "" : "s"} & {qnsCount} question

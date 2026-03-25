@@ -1166,7 +1166,14 @@ export default function ApplicationDetail() {
                         <AlertCircle className="h-4 w-4" />
                         <p className="text-sm font-semibold">Action Required</p>
                       </div>
-                      <p className="text-sm text-foreground">{actionReason}</p>
+                      <div className="space-y-1">
+                        <p className="text-xs font-semibold uppercase tracking-wide text-rose-400">
+                          Reason for Escalation:
+                        </p>
+                        <p className="text-sm font-medium text-foreground">
+                          {actionReason}
+                        </p>
+                      </div>
                     </div>
 
                     <div>

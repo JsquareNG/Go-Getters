@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
-import { Loader2, FileSearch, AlertCircle, Search } from "lucide-react";
+import { useLocation, useNavigate } from "react-router-dom";
+import { Loader2, FileSearch, AlertCircle, Search, CheckCircle2, XCircle } from "lucide-react";
 import { getApplicationByReviewer, getReviewJob } from "../api/applicationApi";
 import { useSelector } from "react-redux";
 import { selectUser } from "../store/authSlice";
@@ -30,6 +30,9 @@ export default function StaffLandingPage() {
 
   const [selectedStatus, setSelectedStatus] = useState("Total Pending");
   const [searchQuery, setSearchQuery] = useState("");
+
+  const location = useLocation();
+  const banner = location.state?.banner;
 
   const handleReview = (id) => {
     navigate(`/staff-landingpage/${id}`);
@@ -240,6 +243,32 @@ export default function StaffLandingPage() {
             View applications assigned to you for review
           </p>
         </div>
+
+        {banner && (
+          <div
+            className={`mb-6 flex items-center justify-between rounded-lg border px-4 py-3 ${
+              banner.type === "success"
+                ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+                : "border-red-200 bg-red-50 text-red-700"
+            }`}
+          >
+            <div className="flex items-center gap-2">
+              {banner.type === "success" ? (
+                <CheckCircle2 className="h-5 w-5" />
+              ) : (
+                <XCircle className="h-5 w-5" />
+              )}
+              <p className="text-sm font-medium">{banner.message}</p>
+            </div>
+
+            <button
+              onClick={() => navigate(location.pathname, { replace: true })}
+              className="text-xs font-medium opacity-70 hover:opacity-100"
+            >
+              Dismiss
+            </button>
+          </div>
+        )}
 
         <div className="mb-8">
           <StaffStats
