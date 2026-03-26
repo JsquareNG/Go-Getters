@@ -1,12 +1,11 @@
 from fastapi import APIRouter, UploadFile, File, HTTPException
 from backend.services.gemini_extractor import parse_universal_document, classify_document
 from backend.services.document_ai import extract_document_layout
-
+from backend.models.extract import DOCUMENT_SCHEMA_REGISTRY
 from backend.services.gemini_basic_extractor import (
     classify_business_document,
     parse_basic_info_document,
 )
-from backend.services.normalisation import normalize_proof_of_address
 
 router = APIRouter(prefix="/extract", tags=["OCR Extraction"])
 
@@ -55,20 +54,14 @@ async def classify_and_extract_document(file: UploadFile = File(...)):
             "data": None,
         }
 
-        # 6. If unsupported, return metadata only
-        if not is_supported:
-            return response
+       # 6. Extract structured info for both supported and unknown documents
+        parse_doc_type = detected_doc_type if detected_doc_type in DOCUMENT_SCHEMA_REGISTRY else "UNKNOWN"
+        final_data = parse_universal_document(raw_text, parse_doc_type)
 
-        # 7. Extract structured info
-        final_data = parse_universal_document(raw_text, detected_doc_type)
-
-        # 8. Normalize proof-of-address documents
-        if detected_doc_type in ["UTILITY_BILL", "TENANCY_AGREEMENT", "OFFICE_LEASE"]:
-            final_data = normalize_proof_of_address(detected_doc_type, final_data)
-
-        # 9. Return all in one response
+        # 7. Return all in one response
         response["data"] = final_data
         return response
+
 
     except ValueError as ve:
         raise HTTPException(
