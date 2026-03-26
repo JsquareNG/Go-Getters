@@ -45,10 +45,12 @@ import {
   getQnA,
   withdrawApplication,
   deleteApplication,
+  getReviewJob,
 } from "./../api/applicationApi";
 import { allDocuments, downloadDocuments } from "./../api/documentApi";
 import { userInfo } from "./../api/usersApi";
 import { getAuditTrail } from "./../api/auditTrailApi";
+import { generateAlternativeDocumentOptions } from "./../api/smartAI";
 import { ResubmitDialog } from "../components/ui/features/ResubmitDialog";
 import { AuditTrail } from "../components/ui/features/AuditTrail";
 
@@ -95,28 +97,115 @@ export default function ApplicationDetail() {
   const [isWithdrawing, setIsWithdrawing] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
 
+  const [pageBanner, setPageBanner] = useState(null);
+  const [activeTab, setActiveTab] = useState("overview");
+
+  const [rules, setRules] = useState(null);
+  const [riskLoading, setRiskLoading] = useState(false);
+  const [riskError, setRiskError] = useState(null);
+
+  // AI alternative-document states
+  const [alternativeDocOptionsByItemId, setAlternativeDocOptionsByItemId] = useState({});
+  const [alternativeDocsLoading, setAlternativeDocsLoading] = useState(false);
+  const [alternativeDocsError, setAlternativeDocsError] = useState(null);
+  const [hasLoadedAlternativeDocs, setHasLoadedAlternativeDocs] = useState(false);
+
   // -----------------------------
   // Fetch application
   // -----------------------------
-  useEffect(() => {
-    const fetchApplication = async () => {
-      try {
-        setIsLoading(true);
-        const data = await getApplicationByAppId(id);
-        setApplication(data);
-        setError(null);
-      } catch (err) {
-        console.error("Error fetching application:", err);
-        setError("Could not retrieve application details.");
-      } finally {
-        setIsLoading(false);
-      }
-    };
+  const fetchApplication = async (showLoader = true) => {
+    try {
+      if (showLoader) setIsLoading(true);
+      const data = await getApplicationByAppId(id);
+      setApplication(data);
+      setError(null);
+      return data;
+    } catch (err) {
+      console.error("Error fetching application:", err);
+      setError("Could not retrieve application details.");
+      return null;
+    } finally {
+      if (showLoader) setIsLoading(false);
+    }
+  };
 
+  const fetchDocuments = async () => {
+    try {
+      setDocsLoading(true);
+      setDocsError(null);
+
+      const docs = await allDocuments(id);
+      setDocuments(Array.isArray(docs) ? docs : []);
+    } catch (err) {
+      console.error("Error fetching documents:", err);
+      setDocsError("Could not retrieve documents.");
+      setDocuments([]);
+    } finally {
+      setDocsLoading(false);
+    }
+  };
+
+  const fetchQnA = async (appIdToUse) => {
+    try {
+      setQnaLoading(true);
+      setQnaError(null);
+
+      if (!appIdToUse) return;
+
+      const data = await getQnA(appIdToUse);
+      setActionRequestsData(data && typeof data === "object" ? data : null);
+    } catch (err) {
+      console.error("Error fetching QnA:", {
+        message: err?.message,
+        status: err?.response?.status,
+        data: err?.response?.data,
+        url: err?.config?.url,
+      });
+
+      setQnaError(
+        err?.response?.data?.detail ||
+          err?.response?.data?.message ||
+          err?.message ||
+          "Could not retrieve questions & answers.",
+      );
+      setActionRequestsData(null);
+    } finally {
+      setQnaLoading(false);
+    }
+  };
+
+  const fetchAuditEntries = async (appIdToUse) => {
+    try {
+      setAuditLoading(true);
+      setAuditError(null);
+
+      if (!appIdToUse) return;
+
+      const data = await getAuditTrail(appIdToUse);
+      setAuditEntries(Array.isArray(data) ? data : []);
+    } catch (err) {
+      console.error("Error fetching audit trail:", {
+        message: err?.message,
+        status: err?.response?.status,
+        data: err?.response?.data,
+        url: err?.config?.url,
+      });
+
+      setAuditError(
+        err?.response?.data?.detail ||
+          err?.response?.data?.message ||
+          err?.message ||
+          "Could not retrieve audit trail.",
+      );
+      setAuditEntries([]);
+    } finally {
+      setAuditLoading(false);
+    }
+  };
+
+  useEffect(() => {
     if (id) fetchApplication();
   }, [id]);
-
-  console.log(application);
 
   const formData = application?.form_data || {};
 
@@ -173,96 +262,60 @@ export default function ApplicationDetail() {
   // Fetch documents
   // -----------------------------
   useEffect(() => {
-    const fetchDocuments = async () => {
-      try {
-        setDocsLoading(true);
-        setDocsError(null);
-
-        const docs = await allDocuments(id);
-        setDocuments(Array.isArray(docs) ? docs : []);
-      } catch (err) {
-        console.error("Error fetching documents:", err);
-        setDocsError("Could not retrieve documents.");
-      } finally {
-        setDocsLoading(false);
-      }
-    };
-
     if (id) fetchDocuments();
   }, [id]);
 
   // -----------------------------
-  // Fetch QnA
+  // Fetch review job / risk
   // -----------------------------
   useEffect(() => {
-    const fetchQnA = async () => {
+    const fetchReviewJob = async () => {
       try {
-        setQnaLoading(true);
-        setQnaError(null);
+        setRiskLoading(true);
+        setRiskError(null);
 
         const appIdToUse = application?.application_id || application?.id || id;
         if (!appIdToUse) return;
 
-        const data = await getQnA(appIdToUse);
-        setActionRequestsData(data && typeof data === "object" ? data : null);
+        const data = await getReviewJob(appIdToUse);
+        setRules(data && typeof data === "object" ? data : null);
       } catch (err) {
-        console.error("Error fetching QnA:", {
+        console.error("Error fetching review job:", {
           message: err?.message,
           status: err?.response?.status,
           data: err?.response?.data,
           url: err?.config?.url,
         });
 
-        setQnaError(
+        setRiskError(
           err?.response?.data?.detail ||
             err?.response?.data?.message ||
             err?.message ||
-            "Could not retrieve questions & answers.",
+            "Could not retrieve risk assessment."
         );
-        setActionRequestsData(null);
+        setRules(null);
       } finally {
-        setQnaLoading(false);
+        setRiskLoading(false);
       }
     };
 
-    if (id && application) fetchQnA();
+    if (id && application) fetchReviewJob();
+  }, [id, application]);
+
+  // -----------------------------
+  // Fetch QnA
+  // -----------------------------
+  useEffect(() => {
+    const appIdToUse = application?.application_id || application?.id || id;
+    if (id && application) fetchQnA(appIdToUse);
   }, [id, application]);
 
   // -----------------------------
   // Fetch Audit Trail
   // -----------------------------
   useEffect(() => {
-    const fetchAuditEntries = async () => {
-      try {
-        setAuditLoading(true);
-        setAuditError(null);
-
-        const appIdToUse = application?.application_id || application?.id || id;
-        if (!appIdToUse) return;
-
-        const data = await getAuditTrail(appIdToUse);
-        setAuditEntries(Array.isArray(data) ? data : []);
-      } catch (err) {
-        console.error("Error fetching audit trail:", {
-          message: err?.message,
-          status: err?.response?.status,
-          data: err?.response?.data,
-          url: err?.config?.url,
-        });
-
-        setAuditError(
-          err?.response?.data?.detail ||
-            err?.response?.data?.message ||
-            err?.message ||
-            "Could not retrieve audit trail.",
-        );
-        setAuditEntries([]);
-      } finally {
-        setAuditLoading(false);
-      }
-    };
-
-    if (id && application) fetchAuditEntries();
+    const appIdToUse = application?.application_id || application?.id || id;
+    if (id && application) fetchAuditEntries(appIdToUse);
   }, [id, application]);
 
   // -----------------------------
@@ -310,6 +363,14 @@ export default function ApplicationDetail() {
 
   const actionReason =
     latestRelevantRequest?.reason || application?.reason || "";
+
+  useEffect(() => {
+    if (showActionRequired && actionReason) {
+      setActiveTab("response");
+    } else {
+      setActiveTab("overview");
+    }
+  }, [showActionRequired, actionReason]);
 
   const allQuestions = useMemo(() => {
     const rows = [];
@@ -389,6 +450,108 @@ export default function ApplicationDetail() {
       };
     });
   }, [documents, sortedActionRequestsAsc]);
+
+  const alternativeDocumentsAIPayload = useMemo(() => {
+    return {
+      requested_documents: requiredDocs.map((doc) => ({
+        item_id: doc?.item_id,
+        document_name: doc?.document_name,
+        document_desc: doc?.document_desc || null,
+      })),
+      application_data: application?.form_data || {},
+      risk_assessment: {
+        risk_grade: rules?.risk_grade || null,
+        risk_score: rules?.risk_score ?? null,
+        triggered_rules: Array.isArray(rules?.rules_triggered)
+          ? rules.rules_triggered
+          : [],
+      },
+      documents: Array.isArray(documents) ? documents : [],
+      action_requests: Array.isArray(actionRequestsData?.action_requests)
+        ? actionRequestsData.action_requests
+        : [],
+    };
+  }, [requiredDocs, application, rules, documents, actionRequestsData]);
+
+  const requiredDocsWithAlternatives = useMemo(() => {
+    return requiredDocs.map((doc) => ({
+      ...doc,
+      alternativeDocumentOptions:
+        alternativeDocOptionsByItemId[doc.item_id] || [],
+    }));
+  }, [requiredDocs, alternativeDocOptionsByItemId]);
+
+  // Reset AI alternatives when application / active request changes
+  useEffect(() => {
+    setAlternativeDocOptionsByItemId({});
+    setAlternativeDocsError(null);
+    setHasLoadedAlternativeDocs(false);
+  }, [id, latestRelevantRequest?.action_request_id]);
+
+  // Prefetch AI alternatives once the page is ready for a Requires Action case
+  useEffect(() => {
+    const fetchAlternativeDocumentOptions = async () => {
+      try {
+        setAlternativeDocsLoading(true);
+        setAlternativeDocsError(null);
+
+        const response = await generateAlternativeDocumentOptions(
+          alternativeDocumentsAIPayload,
+        );
+
+        const results = Array.isArray(response?.data?.results)
+          ? response.data.results
+          : [];
+
+        const mapped = results.reduce((acc, item) => {
+          acc[item.item_id] = Array.isArray(item.alternative_document_options)
+            ? item.alternative_document_options
+            : [];
+          return acc;
+        }, {});
+
+        setAlternativeDocOptionsByItemId(mapped);
+        setHasLoadedAlternativeDocs(true);
+      } catch (err) {
+        console.error("Error generating alternative document options:", {
+          message: err?.message,
+          status: err?.response?.status,
+          data: err?.response?.data,
+          url: err?.config?.url,
+        });
+
+        setAlternativeDocsError(
+          err?.response?.data?.detail ||
+            err?.response?.data?.message ||
+            err?.message ||
+            "Could not generate alternative document options.",
+        );
+
+        setAlternativeDocOptionsByItemId({});
+      } finally {
+        setAlternativeDocsLoading(false);
+      }
+    };
+
+    if (!showActionRequired) return;
+    if (!actionReason) return;
+    if (hasLoadedAlternativeDocs) return;
+    if (!application) return;
+    if (requiredDocs.length === 0) return;
+    if (docsLoading || qnaLoading || riskLoading) return;
+
+    fetchAlternativeDocumentOptions();
+  }, [
+    showActionRequired,
+    actionReason,
+    hasLoadedAlternativeDocs,
+    application,
+    requiredDocs,
+    docsLoading,
+    qnaLoading,
+    riskLoading,
+    alternativeDocumentsAIPayload,
+  ]);
 
   // -----------------------------
   // Handlers
@@ -471,6 +634,22 @@ export default function ApplicationDetail() {
     }
   };
 
+  const handleResubmitSuccess = async () => {
+    const refreshedApp = await fetchApplication(false);
+    const appIdToUse = refreshedApp?.application_id || refreshedApp?.id || id;
+
+    await Promise.all([
+      fetchDocuments(),
+      fetchQnA(appIdToUse),
+      fetchAuditEntries(appIdToUse),
+    ]);
+
+    setPageBanner({
+      type: "success",
+      message: `You have successfully submitted your application.`,
+    });
+  };
+
   // -----------------------------
   // Loading / error states
   // -----------------------------
@@ -540,6 +719,27 @@ export default function ApplicationDetail() {
                     </Badge>
                   )}
                 </div>
+
+                {pageBanner && (
+                  <div
+                    className={`mt-3 flex items-center rounded-lg border px-4 py-3 animate-fade-in ${
+                      pageBanner.type === "success"
+                        ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+                        : "border-red-200 bg-red-50 text-red-700"
+                    }`}
+                  >
+                    <p className="flex-1 text-sm font-medium">
+                      {pageBanner.message}
+                    </p>
+
+                    <button
+                      onClick={() => setPageBanner(null)}
+                      className="ml-auto flex items-center pl-6 text-xs font-medium opacity-70 hover:underline hover:opacity-100"
+                    >
+                      Dismiss
+                    </button>
+                  </div>
+                )}
               </div>
             </div>
 
@@ -556,7 +756,8 @@ export default function ApplicationDetail() {
         <div className="space-y-6 pb-20">
           <Card>
             <Tabs
-              defaultValue={showActionRequired ? "response" : "overview"}
+              value={activeTab}
+              onValueChange={setActiveTab}
               className="w-full"
             >
               <CardHeader className="pb-3">
@@ -1243,6 +1444,18 @@ export default function ApplicationDetail() {
                         Upload Documents
                       </Button>
                     </div>
+
+                    {alternativeDocsLoading && (
+                      <p className="text-sm text-muted-foreground">
+                        Preparing suggested alternative documents...
+                      </p>
+                    )}
+
+                    {alternativeDocsError && (
+                      <p className="text-sm text-amber-600">
+                        Could not load suggested alternative documents. You can still continue with the original upload flow.
+                      </p>
+                    )}
                   </TabsContent>
                 )}
               </CardContent>
@@ -1364,8 +1577,9 @@ export default function ApplicationDetail() {
           email={user?.email}
           firstName={user?.first_name}
           actionRequired={actionReason}
-          requiredDocuments={requiredDocs}
+          requiredDocuments={requiredDocsWithAlternatives}
           requiredQuestions={requiredQns}
+          onSuccess={handleResubmitSuccess}
         />
       </main>
     </div>

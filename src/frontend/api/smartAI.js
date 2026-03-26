@@ -7,3 +7,11 @@ export const generateManualReviewSuggestions = async (payload) => {
   );
   return response.data;
 };
+
+export const generateAlternativeDocumentOptions = async (payload) => {
+  const response = await axiosClient.post(
+    "http://127.0.0.1:8000/manual-review-ai/alternative-documents",
+    payload
+  );
+  return response.data;
+};

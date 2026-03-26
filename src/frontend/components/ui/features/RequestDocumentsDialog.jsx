@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useMemo, useState } from "react";
 import {
   FileQuestion,
   Plus,
@@ -59,6 +59,68 @@ const RequestDocumentsDialog = ({
     questions: [""],
     form: "",
   });
+
+  const normalizeAiPayload = (payload) => {
+    if (!payload || typeof payload !== "object") return null;
+
+    const normalizedDocuments = Array.isArray(payload.documents)
+      ? payload.documents.map((doc) => ({
+          document_id: doc?.document_id ?? null,
+          document_type: doc?.document_type ?? "",
+          storage_path: doc?.storage_path ?? "",
+          mime_type: doc?.mime_type ?? "",
+          extracted_data: doc?.extracted_data ?? [],
+        }))
+      : [];
+
+    const normalizedActionRequests = Array.isArray(payload.action_requests)
+      ? payload.action_requests
+          .map((request) => {
+            const normalizedQuestions = Array.isArray(request?.questions)
+              ? request.questions
+                  .filter((q) => {
+                    const questionText = String(q?.question_text ?? "").trim();
+                    const answerText = String(q?.answer_text ?? "").trim();
+                    return questionText || answerText;
+                  })
+                  .map((q) => ({
+                    item_id: q?.item_id ?? null,
+                    question_text: q?.question_text ?? "",
+                    answer_text: q?.answer_text ?? "",
+                    fulfilled_at: q?.fulfilled_at ?? null,
+                  }))
+              : [];
+
+            return {
+              action_request_id: request?.action_request_id ?? null,
+              reason: request?.reason ?? "",
+              questions: normalizedQuestions,
+            };
+          })
+          .filter((request) => request.questions.length > 0)
+      : [];
+
+    return {
+      application_data: payload.application_data ?? {},
+      risk_assessment: {
+        risk_grade: payload?.risk_assessment?.risk_grade ?? "",
+        risk_score: payload?.risk_assessment?.risk_score ?? null,
+        triggered_rules: Array.isArray(payload?.risk_assessment?.triggered_rules)
+          ? payload.risk_assessment.triggered_rules.map((rule) => ({
+              code: rule?.code ?? "",
+              description: rule?.description ?? "",
+            }))
+          : [],
+      },
+      documents: normalizedDocuments,
+      action_requests: normalizedActionRequests,
+    };
+  };
+
+  const normalizedAiPayload = useMemo(
+    () => normalizeAiPayload(aiPayload),
+    [aiPayload]
+  );
 
   const hasReason = String(reason ?? "").trim().length > 0;
 
@@ -230,9 +292,12 @@ const RequestDocumentsDialog = ({
   };
 
   const handleGenerateAISuggestions = async () => {
-    console.log("AI PAYLOAD:", JSON.parse(JSON.stringify(aiPayload)));
+    console.log(
+      "AI PAYLOAD:",
+      JSON.parse(JSON.stringify(normalizedAiPayload))
+    );
 
-    if (!aiPayload) {
+    if (!normalizedAiPayload) {
       toast.error("AI payload is not ready yet.");
       return;
     }
@@ -240,7 +305,7 @@ const RequestDocumentsDialog = ({
     try {
       setIsGeneratingAI(true);
 
-      const response = await generateManualReviewSuggestions(aiPayload);
+      const response = await generateManualReviewSuggestions(normalizedAiPayload);
       const aiData = response?.data || response;
 
       console.log("AI RESPONSE:", aiData);
@@ -542,7 +607,6 @@ const RequestDocumentsDialog = ({
                       Additional Documents Required
                     </Label>
                   </div>
-                  
 
                   <Button
                     variant="outline"
@@ -730,7 +794,7 @@ const RequestDocumentsDialog = ({
             <p className="mb-2 text-sm text-muted-foreground">
               Please review your request carefully before sending. This will notify the applicant.
             </p>
-            
+
             <DialogFooter className="m-0 gap-2 p-0 sm:gap-2">
               <Button
                 variant="outline"

@@ -18,52 +18,38 @@ import { secondSubmit } from "../../../api/applicationApi";
 
 import ResubmitDocumentUploadField from "./ResubmitDocumentUploadField";
 
-const formatDocumentLabel = (value) => {
-  if (!value) return "-";
-
-  return String(value)
-    .replace(/_/g, " ")
-    .replace(/\s+/g, " ")
-    .trim()
-    .split(" ")
-    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
-    .join(" ");
-};
-
 const getAlternativeOptionsForDocument = (doc) => {
-  if (
-    Array.isArray(doc?.alternativeDocumentOptions) &&
-    doc.alternativeDocumentOptions.length > 0
-  ) {
+  // Later, replace this with Gemini-generated alternatives from backend.
+  // Example supported shapes:
+  // doc.alternative_documents = ["Utility Bill", "Tenancy Agreement"]
+  // doc.alternativeDocumentOptions = [{ label: "Utility Bill", value: "utility_bill" }]
+  if (Array.isArray(doc?.alternativeDocumentOptions) && doc.alternativeDocumentOptions.length > 0) {
     return doc.alternativeDocumentOptions.map((item) => {
       if (typeof item === "string") {
-        return {
-          label: formatDocumentLabel(item),
-          value: item,
-          description: "",
-        };
+        return { label: item, value: item };
       }
-
       return {
-        label: item.label || formatDocumentLabel(item.value) || "Alternative Document",
+        label: item.label || item.value || "Alternative Document",
         value: item.value || item.label || "Alternative Document",
-        description: item.description || "",
       };
     });
   }
 
-  if (
-    Array.isArray(doc?.alternative_documents) &&
-    doc.alternative_documents.length > 0
-  ) {
+  if (Array.isArray(doc?.alternative_documents) && doc.alternative_documents.length > 0) {
     return doc.alternative_documents.map((item) => ({
-      label: formatDocumentLabel(item),
+      label: item,
       value: item,
-      description: "",
     }));
   }
 
-  return [];
+  // Temporary fallback options until Gemini/backend is wired in
+  return [
+    { label: "Bank Statement", value: "Bank Statement" },
+    { label: "Utility Bill", value: "Utility Bill" },
+    { label: "Tenancy Agreement", value: "Tenancy Agreement" },
+    { label: "Government Letter", value: "Government Letter" },
+    { label: "Other Supporting Document", value: "Other Supporting Document" },
+  ];
 };
 
 export function ResubmitDialog({
@@ -85,6 +71,7 @@ export function ResubmitDialog({
   const [documentErrorsById, setDocumentErrorsById] = useState({});
   const [questionErrorsById, setQuestionErrorsById] = useState({});
 
+  // New states for alternative-document flow
   const [useAlternativeByDocId, setUseAlternativeByDocId] = useState({});
   const [alternativeReasonByDocId, setAlternativeReasonByDocId] = useState({});
   const [alternativeTypeByDocId, setAlternativeTypeByDocId] = useState({});
@@ -180,6 +167,7 @@ export function ResubmitDialog({
       const nextValue = !prev[docId];
 
       if (nextValue) {
+        // switching to alternative mode: clear normal upload + error
         setFilesByDocId((current) => ({
           ...current,
           [docId]: null,
@@ -189,6 +177,7 @@ export function ResubmitDialog({
           [docId]: "",
         }));
       } else {
+        // switching back to normal mode: clear alternative fields + errors
         setAlternativeReasonByDocId((current) => ({
           ...current,
           [docId]: "",
@@ -274,8 +263,7 @@ export function ResubmitDialog({
           const docAltErrors = {};
 
           if (!reason) {
-            docAltErrors.reason =
-              "Please explain why you cannot provide the original document.";
+            docAltErrors.reason = "Please explain why you cannot provide the original document.";
             hasError = true;
           }
 
@@ -322,6 +310,92 @@ export function ResubmitDialog({
     return true;
   };
 
+  // const handleSubmit = async () => {
+
+
+  //   if (!validate()) return;
+
+    
+
+  //   return;
+  //   // setIsSubmitting(true);
+
+  //   // try {
+  //   //   for (const doc of requiredDocuments) {
+  //   //     const docId = doc.item_id;
+  //   //     const isAlternative = !!useAlternativeByDocId[docId];
+  //   //     const originalFile = filesByDocId[docId];
+  //   //     const alternativeFile = alternativeFilesByDocId[docId];
+
+  //   //     const fileToUpload = isAlternative ? alternativeFile : originalFile;
+  //   //     if (!fileToUpload) continue;
+
+  //   //     await uploadDocument({
+  //   //       applicationId,
+  //   //       // Keep original document name for now so existing backend flow is not broken.
+  //   //       // Later you can extend backend to accept:
+  //   //       // requestedDocumentName, submittedDocumentType, substituteReason, isAlternative
+  //   //       documentType: doc.document_name,
+  //   //       file: fileToUpload,
+  //   //       onProgress: (pct) => {
+  //   //         if (isAlternative) {
+  //   //           setAlternativeProgressByDocId((prev) => ({ ...prev, [docId]: pct }));
+  //   //         } else {
+  //   //           setProgressByDocId((prev) => ({ ...prev, [docId]: pct }));
+  //   //         }
+  //   //       },
+  //   //     });
+  //   //   }
+
+  //   //   const payload = {
+  //   //     email,
+  //   //     firstName,
+  //   //     question_answers: requiredQuestions.map((q) => ({
+  //   //       item_id: q.item_id,
+  //   //       answer_text: (answersByQId[q.item_id] || "").trim(),
+  //   //     })),
+
+  //   //     // Do NOT send this to backend unless your API supports it.
+  //   //     // Keeping it in frontend console for now so you can wire it later.
+  //   //     // alternative_document_responses: requiredDocuments
+  //   //     //   .filter((doc) => useAlternativeByDocId[doc.item_id])
+  //   //     //   .map((doc) => ({
+  //   //     //     item_id: doc.item_id,
+  //   //     //     requested_document_name: doc.document_name,
+  //   //     //     substitute_reason: (alternativeReasonByDocId[doc.item_id] || "").trim(),
+  //   //     //     substitute_document_type: (alternativeTypeByDocId[doc.item_id] || "").trim(),
+  //   //     //   })),
+  //   //   };
+
+  //   //   console.log("[ResubmitDialog] Alternative document data:", requiredDocuments
+  //   //     .filter((doc) => useAlternativeByDocId[doc.item_id])
+  //   //     .map((doc) => ({
+  //   //       item_id: doc.item_id,
+  //   //       requested_document_name: doc.document_name,
+  //   //       substitute_reason: (alternativeReasonByDocId[doc.item_id] || "").trim(),
+  //   //       substitute_document_type: (alternativeTypeByDocId[doc.item_id] || "").trim(),
+  //   //     }))
+  //   //   );
+
+  //   //   console.log("[ResubmitDialog] Calling secondSubmit with:", payload);
+
+  //   //   await secondSubmit(applicationId, payload);
+
+  //   //   if (onSuccess) {
+  //   //     await onSuccess();
+  //   //   }
+
+  //   //   toast.success("Resubmission sent successfully.");
+  //   //   resetAndClose();
+  //   // } catch (err) {
+  //   //   console.error("[ResubmitDialog] Resubmit failed:", err?.response?.data || err);
+  //   //   toast.error("Failed to submit resubmission.", {
+  //   //     description: err?.response?.data?.detail || err?.message || "Unknown error",
+  //   //   });
+  //   //   setIsSubmitting(false);
+  //   // }
+  // };
+
   const handleSubmit = async () => {
     console.log("[ResubmitDialog] Submit clicked", {
       applicationId,
@@ -337,6 +411,7 @@ export function ResubmitDialog({
     setIsSubmitting(true);
 
     try {
+      // 1) Upload files
       for (const doc of requiredDocuments) {
         const docId = doc.item_id;
         const isAlternative = !!useAlternativeByDocId[docId];
@@ -347,20 +422,13 @@ export function ResubmitDialog({
 
         if (!fileToUpload) continue;
 
-        const selectedValue = (alternativeTypeByDocId[docId] || "").trim();
-        const alternativeOptions = getAlternativeOptionsForDocument(doc);
-
-        const matchedOption = alternativeOptions.find(
-          (option) => option.value === selectedValue
-        );
-
         const documentType = isAlternative
-          ? (matchedOption?.label || selectedValue)
+          ? (alternativeTypeByDocId[docId] || "").trim()
           : doc.document_name;
 
         await uploadDocument({
           applicationId,
-          documentType,
+          documentType, // ✅ FIXED HERE
           file: fileToUpload,
           onProgress: (pct) => {
             if (isAlternative) {
@@ -378,35 +446,27 @@ export function ResubmitDialog({
         });
       }
 
+      // 2) Build payload
       const payload = {
         email,
         firstName,
+
         question_answers: requiredQuestions.map((q) => ({
           item_id: q.item_id,
           answer_text: (answersByQId[q.item_id] || "").trim(),
         })),
+
         alternative_documents: requiredDocuments
-        .filter((doc) => useAlternativeByDocId[doc.item_id])
-        .map((doc) => {
-          const selectedValue = (alternativeTypeByDocId[doc.item_id] || "").trim();
-
-          const options = getAlternativeOptionsForDocument(doc);
-
-          const matchedOption = options.find(
-            (opt) => opt.value === selectedValue
-          );
-
-          return {
+          .filter((doc) => useAlternativeByDocId[doc.item_id])
+          .map((doc) => ({
             item_id: doc.item_id,
-
-            // ✅ send label instead of raw value
-            substitute_document_type: matchedOption?.label || selectedValue,
-
+            substitute_document_type: (
+              alternativeTypeByDocId[doc.item_id] || ""
+            ).trim(),
             substitute_reason: (
               alternativeReasonByDocId[doc.item_id] || ""
             ).trim(),
-          };
-        }),
+          })),
       };
 
       console.log("=== FINAL PAYLOAD ===");
@@ -481,7 +541,6 @@ export function ResubmitDialog({
                   const altProgress = alternativeProgressByDocId[docId] ?? 0;
                   const altErrors = alternativeErrorsByDocId[docId] || {};
                   const alternativeOptions = getAlternativeOptionsForDocument(doc);
-                  const hasAlternativeOptions = alternativeOptions.length > 0;
 
                   return (
                     <div
@@ -545,12 +604,6 @@ export function ResubmitDialog({
                             Submit an alternative document for review. It may be accepted, or we may request more information.
                           </div>
 
-                          {!hasAlternativeOptions && (
-                            <div className="rounded-lg border border-muted bg-muted/40 px-3 py-2 text-sm text-muted-foreground">
-                              No suggested alternative documents are available for this request at the moment.
-                            </div>
-                          )}
-
                           <div className="space-y-2">
                             <Label className="text-sm font-semibold">
                               Why can’t you provide this document? <span className="text-red-500">*</span>
@@ -590,7 +643,7 @@ export function ResubmitDialog({
                               Select an alternative document <span className="text-red-500">*</span>
                             </Label>
                             <select
-                              disabled={isSubmitting || !hasAlternativeOptions}
+                              disabled={isSubmitting}
                               value={altType}
                               onChange={(e) => {
                                 const value = e.target.value;
@@ -608,36 +661,15 @@ export function ResubmitDialog({
                               }}
                               className={`flex h-10 w-full rounded-xl border bg-background px-3 py-2 text-sm outline-none transition-colors focus-visible:ring-2 focus-visible:ring-red-500 focus-visible:border-red-400 ${
                                 altErrors.type ? "!border-red-500" : "border-input"
-                              } ${
-                                isSubmitting || !hasAlternativeOptions
-                                  ? "cursor-not-allowed opacity-50"
-                                  : ""
-                              }`}
+                              } ${isSubmitting ? "cursor-not-allowed opacity-50" : ""}`}
                             >
-                              <option value="">
-                                {hasAlternativeOptions
-                                  ? "Select an alternative document"
-                                  : "No alternative documents available"}
-                              </option>
-
+                              <option value="">Select an alternative document</option>
                               {alternativeOptions.map((option) => (
                                 <option key={option.value} value={option.value}>
                                   {option.label}
                                 </option>
                               ))}
                             </select>
-
-                            {altType &&
-                              alternativeOptions.find((option) => option.value === altType)?.description && (
-                                <p className="text-xs text-muted-foreground">
-                                  {
-                                    alternativeOptions.find(
-                                      (option) => option.value === altType
-                                    )?.description
-                                  }
-                                </p>
-                              )}
-
                             {altErrors.type && (
                               <p className="text-sm text-red-500">{altErrors.type}</p>
                             )}
@@ -649,13 +681,11 @@ export function ResubmitDialog({
                               label="Upload Alternative Document"
                               description={
                                 altType
-                                  ? `Selected alternative: ${formatDocumentLabel(altType)}`
+                                  ? `Selected alternative: ${altType}`
                                   : "Upload the substitute document for review."
                               }
                               file={altFile}
-                              onChange={(selectedFile) =>
-                                updateAlternativeFileForDoc(docId, selectedFile)
-                              }
+                              onChange={(selectedFile) => updateAlternativeFileForDoc(docId, selectedFile)}
                               uploadProgress={altProgress}
                               required
                               disabled={isSubmitting}

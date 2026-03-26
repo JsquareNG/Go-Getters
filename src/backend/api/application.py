@@ -429,16 +429,38 @@ def close_open_action_request_and_update_answers(db: Session, application_id: st
 
     now = datetime.now(ZoneInfo("Asia/Singapore")).replace(tzinfo=None)
 
-    # Split requested items
     doc_items = [i for i in items if i.item_type == "DOCUMENT"]
-    q_items   = [i for i in items if i.item_type == "QUESTION"]
+    alt_docs = data.get("alternative_documents") or []
+    alt_map = {
+        d.get("item_id"): d
+        for d in alt_docs
+        if d.get("item_id")
+    }
 
-    # ---------------------------
-    # DOCUMENTS: only if requested
-    # ---------------------------
     for it in doc_items:
-        it.fulfilled = True
+        alt = alt_map.get(it.item_id)
+
+        if alt:
+            # ✅ Alternative path
+            it.is_substitute = True
+            it.submitted_document_name = (
+                alt.get("substitute_document_type") or ""
+            ).strip()
+            it.substitution_reason = (
+                alt.get("substitute_reason") or ""
+            ).strip()
+
+        else:
+            # ✅ Normal path
+            it.is_substitute = False
+            it.submitted_document_name = None
+            it.substitution_reason = None
+
+        # mark fulfilled regardless (since frontend enforces upload)
         it.fulfilled_at = now
+
+    # Split requested items
+    q_items   = [i for i in items if i.item_type == "QUESTION"]
 
     # ---------------------------
     # QUESTIONS: only if requested

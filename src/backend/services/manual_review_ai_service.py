@@ -68,7 +68,8 @@ IMPORTANT GUIDELINES
   • business profile (industry, country, structure)
   • declarations and onboarding data
   • submitted documents and extracted document data
-  • previous escalation requests, previously requested documents, and previous questions/answers
+  • previous question-based action requests and previous questions/answers
+  • submitted documents already available in the current application
 - Provide actionable next steps suitable for SME onboarding for cross-border payment accounts
 
 4. Be specific and professional
@@ -107,20 +108,19 @@ IMPORTANT GUIDELINES
 - Prefer suggesting only documents that are still missing, still unresolved, clarifying, or necessary for enhanced due diligence
 
 9. Consider past action requests carefully
-- Review previous escalations, previously requested documents, and previous questions/answers
-- If there are past action requests, treat them as evidence that the SME was already asked for further clarification or documents
+- Review previous question-based action requests and previous questions/answers
+- Treat past action requests as evidence of what clarifications were already requested from the SME
 - Do NOT repeat previously asked questions unless:
   • the answer is missing
   • the answer is unclear
   • the answer is inconsistent with other information
   • clarification is genuinely still needed
-- Do NOT re-request previously requested documents unless they remain missing, insufficient, inconsistent, invalid, or unresolved
-- Consider whether newly submitted documents or answers sufficiently resolve earlier concerns
+- Do NOT suggest documents that are already present in the submitted documents list unless they remain insufficient, inconsistent, invalid, or unresolved- Consider whether newly submitted documents or answers sufficiently resolve earlier concerns
 - If earlier concerns appear resolved, you may recommend approve or reject instead of escalating again
 - If earlier concerns remain unresolved, you may recommend escalate again, but only for the unresolved gaps
 
 10. Analyze current outcome after prior escalation(s)
-- If past escalation responses, uploaded documents, or answers sufficiently resolve the concerns, recommend approve if risk is acceptable
+- If prior answers and the currently submitted documents sufficiently resolve the concerns, recommend approve if risk is acceptable
 - If past escalation responses reveal unacceptable risk, false information, or serious unresolved contradictions, recommend reject
 - If important gaps still remain after reviewing past escalations and newly submitted materials, recommend escalate again
 - Escalate again only for specific unresolved items, not for issues already adequately addressed
@@ -140,6 +140,11 @@ IMPORTANT GUIDELINES
 - suggested_documents MUST be structured as objects with document_name and document_description
 - Do NOT return plain strings for documents
 - short_reason must be concise (1–2 sentences max)
+
+14. Date interpretation
+- All dates are in YYYY-MM-DD format
+- Interpret dates strictly using this format
+- If dates appear unusual or inconsistent (e.g. unrealistic age, future registration date), treat them as potential data inconsistencies requiring clarification
 
 -----------------------------------
 OUTPUT REQUIREMENTS
@@ -225,16 +230,17 @@ RISK ASSESSMENT:
 SUBMITTED DOCUMENTS:
 {json.dumps(documents, indent=2, default=str)}
 
-PAST ACTION REQUESTS / ESCALATIONS:
+PAST QUESTION-BASED ACTION REQUESTS:
 {json.dumps(action_requests, indent=2, default=str)}
 
 Instructions:
 - Review which documents have already been submitted
 - Identify which relevant documents are still missing, unresolved, or insufficient
 - Do not suggest documents that are already submitted unless they are invalid, inconsistent, incomplete, or a supporting version is genuinely needed
-- Review past action requests to see what has already been asked from the SME
+- Review past question-based action requests to see what clarifications have already been asked from the SME
 - Do not repeat previously asked questions unless the answer is missing, unclear, inconsistent, or still requires clarification
-- Consider whether newly submitted documents or answers sufficiently resolve earlier concerns
+- Use the submitted documents list to determine what documents are already available
+- Consider whether the submitted documents and past answers sufficiently resolve earlier concerns
 - Based on the full current state, recommend the most appropriate next step: approve, reject, or escalate again
 - Escalate again only if additional information is genuinely still needed
 - If approving or rejecting, usually return empty arrays for suggested_documents and suggested_questions unless there is a strong reason otherwise
