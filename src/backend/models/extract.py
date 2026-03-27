@@ -2,7 +2,18 @@ from pydantic import BaseModel, Field, field_validator
 from typing import List, Dict, Type, Any, Optional
 import re
 
-
+class ShareholderEntry(BaseModel):
+    name: str = Field(default="", description="Name of founder/shareholder")
+    entity_type: str = Field(default="", description="INDIVIDUAL or COMPANY")
+    id_number: str = Field(default="", description="ID number if individual and clearly shown")
+    registration_number: str = Field(default="", description="Company/entity registration number if clearly shown")
+    address: str = Field(default="", description="Address of shareholder if clearly shown")
+    share_count: Optional[int] = Field(default=None, description="Number of shares subscribed")
+    nominal_value_idr: Optional[float] = Field(default=None, description="Nominal subscription amount in IDR")
+    ownership_percentage: Optional[float] = Field(
+        default=None,
+        description="Ownership percentage if explicitly stated or safely derivable",
+    )
 # 1. ACRA Schema
 class ACRAExtractionData(BaseModel):
     company_name: str = Field(description="Registered name of the business")
@@ -11,6 +22,8 @@ class ACRAExtractionData(BaseModel):
     business_start_date: str = Field(description="Date of registration")
     address: str = Field(description="Registered office address")
     primary_business_activity: str = Field(description="Primary activity")
+    shareholders: Optional[List[ShareholderEntry]] = Field(default_factory=list, description="List of shareholders shown in the ACRA Business Profile")
+    
 
     @field_validator("uen")
     @classmethod
@@ -31,12 +44,42 @@ class ACRAExtractionData(BaseModel):
 
 
 # 2. Indonesian NIB Schema
+class KBLIDetail(BaseModel):
+    kbli_code: str = Field(default="", description="5-digit KBLI code")
+    kbli_title: str = Field(default="", description="English title/description of the KBLI activity")
+    business_location: str = Field(default="", description="Business location for this activity")
+    risk_classification: str = Field(default="", description="Risk classification of the activity")
+    activity_type: str = Field(default="", description="Activity type if shown")
+    business_permit_legality: str = Field(default="", description="Permit legality / permit status if shown")
+
+    @field_validator("kbli_code")
+    @classmethod
+    def validate_kbli_code(cls, v: str) -> str:
+        if not v:
+            return ""
+        cleaned = re.sub(r"\D", "", v)
+        if cleaned and not re.match(r"^\d{5}$", cleaned):
+            raise ValueError(f"Invalid KBLI code: '{v}'. Must be 5 digits.")
+        return cleaned
+
+
 class NIBExtractionData(BaseModel):
     company_name: str = Field(description="Name of the business")
     nib_number: str = Field(description="13-digit Nomor Induk Berusaha")
     company_status: str = Field(description="Status (e.g., PMA or PMDN)")
     address: str = Field(description="Registered address")
-    kbli_codes: List[str] = Field(description="List of 5-digit KBLI codes")
+    kbli_codes: List[str] = Field(default_factory=list, description="List of 5-digit KBLI codes")
+
+    phone_number: str = Field(default="", description="Business phone number if present")
+    email: str = Field(default="", description="Business email address if present")
+    issued_date: str = Field(default="", description="Issued date in DD-MM-YYYY if safely inferable")
+    printed_date: str = Field(default="", description="Printed date in DD-MM-YYYY if safely inferable")
+    issuer: str = Field(default="", description="Issuing authority shown on the NIB document")
+
+    kbli_details: List[KBLIDetail] = Field(
+        default_factory=list,
+        description="Detailed KBLI activity rows shown in the NIB document"
+    )
 
     @field_validator("nib_number")
     @classmethod
@@ -63,8 +106,8 @@ class NIBExtractionData(BaseModel):
         default_factory=dict,
         description="""
         Extract ALL other information, fields, and tables from the document that are not
-        explicitly requested above. Group them logically (e.g., 'officers', 'activities',
-        'financials'). Use clear, snake_case keys.
+        explicitly requested above. Group them logically using clear snake_case keys.
+        Only put truly non-essential extra fields here.
         """,
     )
 
@@ -148,7 +191,6 @@ class LPAgreementData(BaseModel):
     limited_partners: List[str] = Field(default_factory=list, description="Names of limited partners")
     agreement_date: str = Field(default="", description="Date of LP agreement")
     registered_address: str = Field(default="", description="Registered/business address")
-    business_purpose: str = Field(default="", description="Nature/purpose of business")
     capital_contributions: List[Dict[str, Any]] = Field(default_factory=list, description="Partner contributions")
     duration_or_term: str = Field(default="", description="Term/duration if specified")
     signing_parties: List[str] = Field(default_factory=list, description="Agreement signatories")
@@ -204,8 +246,10 @@ class ShareholderEntry(BaseModel):
     entity_type: str = Field(default="", description="INDIVIDUAL or COMPANY")
     id_number: str = Field(default="", description="ID number if individual and clearly shown")
     registration_number: str = Field(default="", description="Company/entity registration number if clearly shown")
-    address: str = Field(default="", description="Address if clearly shown")
-    share_count: Optional[int] = Field(default=None, description="Number of shares subscribed")
+    address: str = Field(default="", description="Address of shareholder if clearly shown")
+    nationality_or_place_of_origin: str = Field(default="", description="Nationality or place of origin of individual")
+    registered_address: str = Field(default="", description="Address of individual or corporate entity")
+    share_percentage: float = Field(default=0.0, description="Percentage of shares")
     nominal_value_idr: Optional[float] = Field(default=None, description="Nominal subscription amount in IDR")
     ownership_percentage: Optional[float] = Field(
         default=None,
