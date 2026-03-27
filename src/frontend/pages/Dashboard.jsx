@@ -55,12 +55,12 @@ const Dashboard = () => {
   const [applicationsByCountry,setApplicationsByCountry] = useState([]);
   const [applicationsByBusinessType,setApplicationsByBusinessType] = useState([]);
   const [conversionRates,setConversionRates] = useState([]);
-  const [monthlyApplications,setMonthlyApplications] = useState([]);
+  const [processingTime, setProcessingTime] = useState([]);
 
   const [riskGrades,setRiskGrades] = useState([]);
   const [riskScoreBuckets,setRiskScoreBuckets] = useState([]);
   const [riskRules,setRiskRules] = useState([]);
-  const [riskScatter,setRiskScatter] = useState([]);
+  const [riskApproval, setRiskApproval] = useState([]);
 
   // KPI mock data (keep your existing mock for other KPIs)
  
@@ -234,32 +234,49 @@ const Dashboard = () => {
     setApplicationsByBusinessType(typeData);
 
 
-    /* ===============================
-       MONTHLY APPLICATION TREND
-    =============================== */
+    /* APPLICATION PROCESSING TIME */
 
-    const monthCounts = {};
+        const processingByMonth = {};
 
-    applications.forEach(app => {
+        reviewJobs.forEach(job => {
 
-      const date = new Date(app.created_at);
-      const month = date.toLocaleString("default",{month:"short"});
+          if (!job.completed_at) return;
 
-      monthCounts[month] = (monthCounts[month] || 0) + 1;
+          const app = applications.find(
+            a => a.application_id === job.application_id
+          );
 
-    });
+          if (!app) return;
 
-    const monthData = Object.entries(monthCounts).map(([month,value]) => ({
-      month,
-      value
-    }));
+          const created = new Date(app.created_at);
+          const completed = new Date(job.completed_at);
 
-    setMonthlyApplications(monthData);
+          const diffDays = (completed - created) / (1000 * 60 * 60 * 24);
 
+          const month = created.toLocaleString("default", { month: "short" });
 
-    /* ===============================
-       RISK GRADE DISTRIBUTION
-    =============================== */
+          if (!processingByMonth[month]) {
+            processingByMonth[month] = {
+              totalDays: 0,
+              count: 0
+            };
+          }
+
+          processingByMonth[month].totalDays += diffDays;
+          processingByMonth[month].count += 1;
+
+        });
+
+        const processingData = Object.entries(processingByMonth).map(
+          ([month, data]) => ({
+            month,
+            value: data.totalDays / data.count // avg days
+          })
+        );
+
+      setProcessingTime(processingData);
+
+    /* RISK GRADE DISTRIBUTION */
 
     if(reviewJobs){
 
@@ -281,9 +298,7 @@ const Dashboard = () => {
       setRiskGrades(gradeData);
 
 
-      /* ===============================
-         RISK SCORE DISTRIBUTION
-      =============================== */
+      /* RISK SCORE DISTRIBUTION*/
 
       const buckets = {
         "0-20":0,
@@ -313,9 +328,7 @@ const Dashboard = () => {
       setRiskScoreBuckets(bucketData);
 
 
-      /* ===============================
-         TOP TRIGGERED RULES
-      =============================== */
+      /* TOP TRIGGERED RULES*/
 
       const ruleCounts = {};
 
@@ -351,27 +364,63 @@ const Dashboard = () => {
           name,
           count
         }))
-        .sort((a, b) => b.count - a.count); // highest first
+        .sort((a, b) => b.count - a.count)
+        .slice(0, 5); // ✅ only top 5 // highest first
 
       setRiskRules(ruleData);
 
 
-      /* ===============================
-         RISK SCORE VS APPROVAL
-      =============================== */
+      /*RISK SCORE VS APPROVAL */
 
-      const scatterData = reviewJobs.map(job => {
+        const bucketsAppr = {
+          "0-20": { approved: 0, rejected: 0 },
+          "21-40": { approved: 0, rejected: 0 },
+          "41-60": { approved: 0, rejected: 0 },
+          "61-80": { approved: 0, rejected: 0 },
+          "81-100": { approved: 0, rejected: 0 }
+        };
 
-        const app = applications.find(a => a.application_id === job.application_id);
+        reviewJobs.forEach(job => {
 
-        return {
-          risk_score: job.risk_score,
-          approval: app?.current_status === "Approved" ? 1 : 0
-        }
+          const app = applications.find(
+            a => a.application_id === job.application_id
+          );
 
-      });
+          if (!app) return;
 
-      setRiskScatter(scatterData);
+          const score = job.risk_score || 0;
+
+          let bucket = "";
+
+          if (score <= 20) bucket = "0-20";
+          else if (score <= 40) bucket = "21-40";
+          else if (score <= 60) bucket = "41-60";
+          else if (score <= 80) bucket = "61-80";
+          else bucket = "81-100";
+
+          if (app.current_status === "Approved") {
+            bucketsAppr[bucket].approved++;
+          } else {
+            bucketsAppr[bucket].rejected++;
+          }
+
+        });
+
+        const riskApprovalData = Object.entries(bucketsAppr).map(
+          ([range, values]) => {
+            const total = values.approved + values.rejected;
+
+            return {
+              range,
+              approved: values.approved,
+              rejected: values.rejected,
+              approvalRate: total === 0 ? 0 : (values.approved / total) * 100,
+              rejectedRate: total === 0 ? 0 : (values.rejected / total) * 100
+            };
+          }
+        );
+
+        setRiskApproval(riskApprovalData);
 
     }
 
@@ -380,6 +429,14 @@ const Dashboard = () => {
   fetchData();
 
 }, []);
+
+const COLORS = [
+  "#3b82f6", // blue
+  "#22c55e", // green
+  "#f59e0b", // yellow
+  "#ef4444", // red
+  "#8b5cf6"  // purple
+];
 
   return (
     <div className="min-h-screen bg-background">
@@ -453,6 +510,22 @@ const Dashboard = () => {
                       <YAxis />
                       <Tooltip />
                       <Bar dataKey="value">
+                        {applicationsByStatus.map((entry, index) => (
+                          <Cell
+                            key={`cell-${index}`}
+                            fill={
+                              entry.name === "Approved"
+                                ? "#22c55e"
+                                : entry.name === "Rejected"
+                                ? "#ef4444"
+                                : entry.name === "Under Review"
+                                ? "#f59e0b"
+                                : entry.name === "Under Manual Review"
+                                ? "#3b82f6"
+                                : "#94a3b8" 
+                            }
+                          />
+                        ))}
                         <LabelList dataKey="value" position="top"/>
                       </Bar>
                     </BarChart>
@@ -483,8 +556,8 @@ const Dashboard = () => {
                             key={`cell-${index}`}
                             fill={
                               entry.name === "Manual Review"
-                                ? "hsl(var(--status-warning))"
-                                : "hsl(var(--status-success))"
+                                ? "#22c55e"
+                                : "#ef4444"
                             }
                           />
                         ))}
@@ -518,6 +591,22 @@ const Dashboard = () => {
                       <YAxis/>
                       <Tooltip/>
                       <Bar dataKey="value">
+                        {applicationsByCountry.map((entry, index) => (
+                        <Cell
+                          key={`cell-${index}`}
+                          fill={
+                            entry.name === "Indonesia"
+                              ? "#22c55e"
+                              : entry.name === "SG"
+                              ? "#ef4444"
+                              : entry.name === "ID"
+                              ? "#f59e0b"
+                              : entry.name === "Singapore"
+                              ? "#3b82f6"
+                              : "#94a3b8" // fallback (grey)
+                          }
+                        />
+                      ))}
                         <LabelList dataKey="value" position="top"/>
                       </Bar>
                     </BarChart>
@@ -548,19 +637,21 @@ const Dashboard = () => {
 
                       <Tooltip formatter={(v)=>`${v.toFixed(1)}%`} />
 
-                      <Bar dataKey="autoRate" name="Auto Approved">
+                      <Bar dataKey="autoRate" name="Auto Approved" fill="#22c55e">
                         <LabelList
                           dataKey="autoRate"
                           formatter={(v)=>`${v.toFixed(1)}%`}
                           position="top"
+                          fill="#22c55e"
                         />
                       </Bar>
 
-                      <Bar dataKey="manualRate" name="Manual Review">
+                      <Bar dataKey="manualRate" name="Manual Review" fill="#ef4444">
                         <LabelList
                           dataKey="manualRate"
                           formatter={(v)=>`${v.toFixed(1)}%`}
                           position="top"
+                          fill="#ef4444"
                         />
                       </Bar>
 
@@ -579,34 +670,84 @@ const Dashboard = () => {
                 <CardContent className="h-[300px]">
                   <ResponsiveContainer width="100%" height="100%">
                     <PieChart>
+
                       <Pie
                         data={applicationsByBusinessType}
                         dataKey="value"
                         nameKey="name"
                         outerRadius={100}
-                        label
+                        label={({ name, percent }) =>
+                          `${name.replaceAll("_", " ")}: ${(percent * 100).toFixed(0)}%`
+                        }
+                      >
+                        {applicationsByBusinessType.map((entry, index) => (
+                          <Cell
+                            key={`cell-${index}`}
+                            fill={[
+                              "#22c55e",
+                              "#ef4444",
+                              "#f59e0b",
+                            ][index % 5]}
+                          />
+                        ))}
+                      </Pie>
+
+                      <Tooltip
+                        formatter={(value, name) => [
+                          value,
+                          name.replaceAll("_", " "),
+                        ]}
                       />
-                      <Tooltip/>
+
+                      <Legend
+                        verticalAlign="bottom"
+                        height={36}
+                        formatter={(value) =>
+                          value.replaceAll("_", " ").replace(/\b\w/g, (c) => c.toUpperCase())
+                        }
+                      />
+
                     </PieChart>
                   </ResponsiveContainer>
                 </CardContent>
               </Card>
 
 
-              {/* Monthly Applications */}
+              {/* Applications processing time */}
               <Card>
                 <CardHeader>
-                  <CardTitle>Applications Trend</CardTitle>
+                  <CardTitle>Application Processing Time</CardTitle>
                 </CardHeader>
 
                 <CardContent className="h-[300px]">
                   <ResponsiveContainer width="100%" height="100%">
-                    <LineChart data={monthlyApplications}>
-                      <CartesianGrid strokeDasharray="3 3"/>
-                      <XAxis dataKey="month"/>
-                      <YAxis/>
-                      <Tooltip/>
-                      <Line dataKey="value" strokeWidth={3}/>
+                    <LineChart data={processingTime}>
+                      <CartesianGrid strokeDasharray="3 3" />
+
+                      <XAxis dataKey="month" />
+
+                      <YAxis
+                        label={{ value: "Days", angle: -90, position: "insideLeft" }}
+                      />
+
+                      <Tooltip
+                        formatter={(v) => `${v.toFixed(1)} days`}
+                      />
+
+                      <Line
+                        type="monotone"
+                        dataKey="value"
+                        stroke="hsl(var(--accent))"
+                        strokeWidth={3}
+                        dot
+                      >
+                        <LabelList
+                          dataKey="value"
+                          position="top"
+                          formatter={(v) => `${v.toFixed(1)}`}
+                        />
+                      </Line>
+
                     </LineChart>
                   </ResponsiveContainer>
                 </CardContent>
@@ -629,14 +770,34 @@ const Dashboard = () => {
                 <CardContent className="h-[300px]">
                   <ResponsiveContainer width="100%" height="100%">
                     <PieChart>
+
                       <Pie
                         data={riskGrades}
                         dataKey="value"
                         nameKey="name"
                         outerRadius={100}
-                        label
-                      />
-                      <Tooltip/>
+                        label={({ name, percent }) =>
+                          `${name}: ${(percent * 100).toFixed(0)}%`
+                        }
+                      >
+                        {riskGrades.map((entry, index) => (
+                          <Cell
+                            key={`cell-${index}`}
+                            fill={
+                              entry.name === "Simplified CDD"
+                                ? "#22c55e"
+                                : entry.name === "Standard CDD"
+                                ? "#f59e0b"
+                                : "#ef4444"
+                            }
+                          />
+                        ))}
+                      </Pie>
+
+                      <Tooltip />
+
+                      <Legend verticalAlign="bottom" height={36} />
+
                     </PieChart>
                   </ResponsiveContainer>
                 </CardContent>
@@ -657,7 +818,14 @@ const Dashboard = () => {
                       <YAxis/>
                       <Tooltip/>
                       <Bar dataKey="count">
-                        <LabelList dataKey="count" position="top"/>
+                        {riskScoreBuckets.map((entry, index) => (
+                          <Cell
+                            key={`cell-${index}`}
+                            fill={COLORS[index % COLORS.length]}
+                          />
+                        ))}
+
+                        <LabelList dataKey="count" position="top" />
                       </Bar>
                     </BarChart>
                   </ResponsiveContainer>
@@ -688,6 +856,13 @@ const Dashboard = () => {
                       <Tooltip />
 
                       <Bar dataKey="count">
+                        {riskRules.map((entry, index) => (
+                          <Cell
+                            key={`cell-${index}`}
+                            fill={COLORS[index % COLORS.length]}
+                          />
+                        ))}
+
                         <LabelList dataKey="count" position="top" />
                       </Bar>
 
@@ -705,13 +880,42 @@ const Dashboard = () => {
 
                 <CardContent className="h-[300px]">
                   <ResponsiveContainer width="100%" height="100%">
-                    <ScatterChart>
-                      <CartesianGrid/>
-                      <XAxis dataKey="risk_score"/>
-                      <YAxis dataKey="approval"/>
-                      <Tooltip/>
-                      <Scatter data={riskScatter}/>
-                    </ScatterChart>
+                    <BarChart data={riskApproval}>
+                      <CartesianGrid strokeDasharray="3 3" />
+
+                      <XAxis dataKey="range" />
+
+                      <YAxis />
+
+                      <Tooltip />
+
+                      <Legend />
+
+                      <Bar
+                        dataKey="approved"
+                        stackId="a"
+                        fill="#22c55e"   // ✅ force green (see fix below)
+                      >
+                        <LabelList
+                          dataKey="approvalRate"
+                          position="top"
+                          formatter={(v) => `${v.toFixed(0)}%`}
+                        />
+                      </Bar>
+
+                      <Bar
+                        dataKey="rejected"
+                        stackId="a"
+                        fill="#ef4444"
+                      >
+                        <LabelList
+                          dataKey="rejectedRate"
+                          position="top"
+                          formatter={(v) => `${v.toFixed(0)}%`}
+                        />
+                      </Bar>
+
+                    </BarChart>
                   </ResponsiveContainer>
                 </CardContent>
               </Card>
