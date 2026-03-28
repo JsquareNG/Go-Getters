@@ -57,3 +57,4 @@ jobs:
       - name: Build frontend
         working-directory: src/frontend
         run: npm run build
+        
