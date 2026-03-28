@@ -260,6 +260,8 @@ def test_second_submit_invalid_status_raises_400(monkeypatch):
 
     db.set_query(application_module.ApplicationForm, first=app)
 
+    monkeypatch.setattr(application_module, "get_users_by_id", lambda db, user_id: "John Doe")
+
     with pytest.raises(HTTPException) as exc:
         application_module.second_submit(
             application_id="APP-1",
@@ -315,7 +317,7 @@ def test_second_submit_first_submit_moves_draft_to_under_review(monkeypatch):
     assert app.form_data["businessName"] == "New Biz"
     assert app.form_data["country"] == "ID"
     assert db.committed is True
-    assert len(background_tasks.tasks) >= 2  # review job + email
+    assert len(background_tasks.tasks) >= 2
 
 
 def test_second_submit_resubmission_moves_to_under_manual_review(monkeypatch):
@@ -410,8 +412,8 @@ def test_withdraw_application_closes_open_action_requests(monkeypatch):
     db.set_query(application_module.ApplicationForm, first=app)
     db.set_query(application_module.ActionRequest, all=[open_ar_1, open_ar_2])
 
-    # FakeDB returns one query per model, so we override query dynamically for User
     original_query = db.query
+    user_calls = {"count": 0}
 
     def query_override(*models):
         if models[0] == application_module.User:
@@ -420,11 +422,8 @@ def test_withdraw_application_closes_open_action_requests(monkeypatch):
                     return self
 
                 def first(self):
-                    # first call returns applicant, second call reviewer
-                    if not hasattr(self, "_count"):
-                        self._count = 0
-                    self._count += 1
-                    return applicant if self._count == 1 else reviewer
+                    user_calls["count"] += 1
+                    return applicant if user_calls["count"] == 1 else reviewer
             return UserQuery()
         return original_query(*models)
 
@@ -526,21 +525,6 @@ def test_get_action_requests_groups_items_per_request():
         ],
     }
 
-    class ActionRequestItemsQuery:
-        def __init__(self):
-            self.current_action_request_id = None
-
-        def filter(self, *args, **kwargs):
-            return self
-
-        def order_by(self, *args, **kwargs):
-            return self
-
-        def all(self):
-            # this query object will be replaced per loop call below
-            return []
-
-    # Override db.query to return dynamic item lists
     original_query = db.query
     db.set_query(application_module.ActionRequest, all=[ar1, ar2])
 
