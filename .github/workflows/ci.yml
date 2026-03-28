@@ -2,7 +2,7 @@ name: CI
 
 on:
   push:
-    branches: [main, develop, shihui-cicid]
+    branches: [main, develop, shihui-cicd]
   pull_request:
     branches: [main, develop]
 
@@ -58,4 +58,3 @@ jobs:
         working-directory: src/frontend
         run: npm run build
 
-        
