@@ -186,7 +186,10 @@ def _resolve_universal_parse_doc_type(detected_doc_type: str) -> str:
 
 
 @router.post("/classify-and-extract")
-async def classify_and_extract_document(file: UploadFile = File(...)):
+async def classify_and_extract_document(
+    file: UploadFile = File(...),
+    expected_doc_type: str = Form(None)  # 👈 ADD THIS
+):
     try:
         # 1. Shared initial processing
         _, doc_ai_result, raw_text = await _run_initial_document_processing(file)
@@ -198,7 +201,8 @@ async def classify_and_extract_document(file: UploadFile = File(...)):
         # 3. Light validation
         upload_validation = _light_upload_validation(
             raw_text=raw_text,
-            detected_doc_type=detected_doc_type
+            detected_doc_type=detected_doc_type,
+            expected_doc_type=expected_doc_type  
         )
 
         # 4. Universal extraction
