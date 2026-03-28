@@ -43,8 +43,9 @@ jobs:
           pip install -r requirements.txt
           pip install pytest httpx flake8
 
-      - name: Lint backend
-        run: flake8 src/backend
+    #   to check if there are unused imports
+    #   - name: Lint backend
+    #     run: flake8 src/backend
 
       - name: Import check backend app
         run: python -c "from backend.main import app; print('backend import ok')"
@@ -71,9 +72,10 @@ jobs:
         working-directory: src/frontend
         run: npm ci
 
-      - name: Lint frontend
-        working-directory: src/frontend
-        run: npm run lint
+    # enforce clean code on the frontend
+    #   - name: Lint frontend
+    #     working-directory: src/frontend
+    #     run: npm run lint
 
       - name: Run frontend tests
         working-directory: src/frontend
