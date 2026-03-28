@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 
 // Replace with your actual import
-import { validateDuplicates } from "../utils/validation";
+import { validateDuplicates } from "../components/ui/SMEApplicationForm/config/validationRules";
 
 describe("validation helpers", () => {
   it("detects duplicates", () => {

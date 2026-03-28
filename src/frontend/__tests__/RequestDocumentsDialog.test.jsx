@@ -2,7 +2,7 @@ import { render, screen, fireEvent } from "@testing-library/react";
 import { describe, it, expect, vi } from "vitest";
 
 // Replace with your actual import
-import RequestDocumentsDialog from "../components/RequestDocumentsDialog";
+import RequestDocumentsDialog from "../components/ui/features/RequestDocumentsDialog";
 
 describe("RequestDocumentsDialog", () => {
   it("shows error when reason is empty", () => {

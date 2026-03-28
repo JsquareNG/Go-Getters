@@ -2,7 +2,7 @@ import { render, screen, fireEvent } from "@testing-library/react";
 import { describe, it, expect, vi } from "vitest";
 
 // Replace with your actual import
-import ResubmitDialog from "../components/ResubmitDialog";
+import ResubmitDialog from "../components/ui/features/ResubmitDialog";
 
 describe("ResubmitDialog", () => {
   it("shows error when required document missing", () => {

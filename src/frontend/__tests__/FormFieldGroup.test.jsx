@@ -2,7 +2,7 @@ import { render, screen, fireEvent } from "@testing-library/react";
 import { describe, it, expect, vi } from "vitest";
 
 // Replace with your actual import
-import FormFieldGroup from "../components/FormFieldGroup";
+import FormFieldGroup from "../components/ui/SMEApplicationForm/components/FormFieldGroup";
 
 describe("FormFieldGroup", () => {
   it("renders label and value", () => {
