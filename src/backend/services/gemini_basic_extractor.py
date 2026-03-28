@@ -85,6 +85,12 @@ def parse_basic_info_document(raw_text: str, doc_type: str) -> dict:
     - Preserve names and addresses as faithfully as possible from OCR.
     - Normalize obvious OCR formatting issues where safe.
     - Do not invent data.
+    - If the source document is not in English, translate descriptive field values into natural English.
+    - Do NOT translate proper nouns or identifiers, including: company names, person names, registration numbers, tax numbers, codes, UEN, NIB, NPWP, KBLI codes, and addresses.
+    - Keep names and addresses in their original form as shown in the document.
+    - For non-English documents, translate narrative text, labels, statuses, activity descriptions, notes, and legal boilerplate into English.
+    - For dates written with non-English month names, normalize them into DD-MM-YYYY if safely inferable; otherwise translate month names into English.
+    - Return JSON keys exactly as defined by the schema.
 
     Additional extraction rules for ACRA:
     - Extract entity_type if visible.
@@ -97,7 +103,8 @@ def parse_basic_info_document(raw_text: str, doc_type: str) -> dict:
     - shareholders:
       - If person, shareholder_type = "INDIVIDUAL"
       - If company, shareholder_type = "CORPORATE"
-      - Put percentage into share_percentage if available.
+      - share_percentage is the number of shares of shareholder divide by total shares of all shareholders
+      - Nationality also includes citizenship e.g. Singapore Citizen or Permanent Resident 
     - Do not force empty objects into unrelated sections; use empty lists or null.
 
     Additional extraction rules for NIB:
