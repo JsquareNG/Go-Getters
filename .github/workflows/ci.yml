@@ -13,13 +13,12 @@ on:
   workflow_dispatch:
 
 jobs:
-  backend-tests:
+  backend-checks:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     env:
       PYTHONPATH: src
       DATABASE_URL: sqlite:///./test.db
-
-      # Fake test values to prevent import-time crashes
       SUPABASE_URL: https://example.supabase.co
       SUPABASE_ANON_KEY: fake-anon-key
       SUPABASE_SERVICE_ROLE_KEY: fake-service-role-key
@@ -42,13 +41,20 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
-          pip install pytest httpx
+          pip install pytest httpx flake8
 
-      - name: Run backend tests
+      - name: Lint backend
+        run: flake8 src/backend
+
+      - name: Import check backend app
+        run: python -c "from backend.main import app; print('backend import ok')"
+
+      - name: Run backend unit tests
         run: pytest src/backend/unittest -q
 
   frontend-checks:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
 
     steps:
       - name: Checkout code
@@ -65,14 +71,13 @@ jobs:
         working-directory: src/frontend
         run: npm ci
 
-      - name: Run frontend tests if configured
+      - name: Lint frontend
         working-directory: src/frontend
-        run: |
-          if npm run | grep -q " test"; then
-            npm test
-          else
-            echo "No frontend test script configured, skipping tests."
-          fi
+        run: npm run lint
+
+      - name: Run frontend tests
+        working-directory: src/frontend
+        run: npm test
 
       - name: Build frontend
         working-directory: src/frontend
