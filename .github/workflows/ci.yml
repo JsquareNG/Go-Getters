@@ -16,12 +16,15 @@ jobs:
   backend-tests:
     runs-on: ubuntu-latest
     env:
-      DATABASE_URL: sqlite:///./test.db
-      SUPABASE_URL: https://example.supabase.co
-      SUPABASE_SERVICE_ROLE_KEY: fake-service-role-key
-      SUPABASE_KEY: fake-anon-key
-      BUCKET: test-bucket
       PYTHONPATH: src
+      DATABASE_URL: sqlite:///./test.db
+
+      # Fake test values to prevent import-time crashes
+      SUPABASE_URL: https://example.supabase.co
+      SUPABASE_ANON_KEY: fake-anon-key
+      SUPABASE_SERVICE_ROLE_KEY: fake-service-role-key
+      SUPABASE_KEY: fake-generic-key
+      BUCKET: test-bucket
 
     steps:
       - name: Checkout code
