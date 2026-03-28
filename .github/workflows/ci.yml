@@ -30,7 +30,7 @@ jobs:
 
       - name: Run backend tests
         run: |
-          PYTHONPATH=src pytest src/backend/tests -q
+          PYTHONPATH=src pytest src/backend/unittest -q
 
   frontend-tests:
     runs-on: ubuntu-latest
