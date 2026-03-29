@@ -1245,7 +1245,7 @@ const SMEApplicationForm = () => {
   useEffect(() => {
     const initApplication = async () => {
       // clear stale form state immediately before loading anything new
-      dispatch(startNewApplication());
+      // dispatch(startNewApplication());
       try {
         if (appId && appId !== "new") {
           const app = await getApplicationByAppId(appId);

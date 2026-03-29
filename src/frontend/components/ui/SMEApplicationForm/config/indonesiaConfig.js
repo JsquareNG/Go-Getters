@@ -6,7 +6,7 @@
 //////////////////////////
 // HELPER FIELD SETS //
 //////////////////////////
-import { COUNTRIES } from "../utils/countries";
+import { COUNTRIES, NATIONALITIES } from "../utils/countries";
 
 const YES_NO_OPTIONS = ["Yes", "No"].map((opt) => ({
   label: opt,
@@ -14,84 +14,209 @@ const YES_NO_OPTIONS = ["Yes", "No"].map((opt) => ({
 }));
 
 const KBLI_OPTIONS = [
-  { label: "Retail sale via internet (47911)", value: "Retail sale via internet (47911)" },
-  { label: "Retail store / minimarket (47111)", value: "Retail store / minimarket (47111)" },
-  { label: "Wholesale food & beverages (46339)", value: "Wholesale food & beverages (46339)" },
-  { label: "Restaurant activities (56101)", value: "Restaurant activities (56101)" },
-  { label: "Cafe / beverage service (56301)", value: "Cafe / beverage service (56301)" },
-  { label: "Software development (62011)", value: "Software development (62011)" },
+  {
+    label: "Retail sale via internet (47911)",
+    value: "Retail sale via internet (47911)",
+  },
+  {
+    label: "Retail store / minimarket (47111)",
+    value: "Retail store / minimarket (47111)",
+  },
+  {
+    label: "Wholesale food & beverages (46339)",
+    value: "Wholesale food & beverages (46339)",
+  },
+  {
+    label: "Restaurant activities (56101)",
+    value: "Restaurant activities (56101)",
+  },
+  {
+    label: "Cafe / beverage service (56301)",
+    value: "Cafe / beverage service (56301)",
+  },
+  {
+    label: "Software development (62011)",
+    value: "Software development (62011)",
+  },
   { label: "IT consulting (62021)", value: "IT consulting (62021)" },
-  { label: "Business management consulting (70209)", value: "Business management consulting (70209)" },
-  { label: "Real estate buying / selling (68110)", value: "Real estate buying / selling (68110)" },
-  { label: "Property rental and leasing (68200)", value: "Property rental and leasing (68200)" },
-  { label: "Freight forwarding / logistics (52291)", value: "Freight forwarding / logistics (52291)" },
-  { label: "Wholesale computers & electronics (46491)", value: "Wholesale computers & electronics (46491)" },
+  {
+    label: "Business management consulting (70209)",
+    value: "Business management consulting (70209)",
+  },
+  {
+    label: "Real estate buying / selling (68110)",
+    value: "Real estate buying / selling (68110)",
+  },
+  {
+    label: "Property rental and leasing (68200)",
+    value: "Property rental and leasing (68200)",
+  },
+  {
+    label: "Freight forwarding / logistics (52291)",
+    value: "Freight forwarding / logistics (52291)",
+  },
+  {
+    label: "Wholesale computers & electronics (46491)",
+    value: "Wholesale computers & electronics (46491)",
+  },
 ];
 
 function getBasicBusinessFields() {
   return {
-    businessName: { type: "text", label: "Business Name", required: true },
+    businessRegistrationUpload: {
+      type: "file",
+      label: "Upload Business Registration / NIB",
+      required: true,
+      ocr: true,
+      ocrTarget: "business_profile",
+      placeholder: "Upload PDF, then click Autofill",
+    },
+    businessName: {
+      type: "text",
+      label: "Business Name",
+      required: true,
+      placeholder: "Enter your registered business name",
+    },
     registrationNumber: {
       type: "text",
       label: "Business Registration Number / NIB",
       required: true,
+      placeholder: "Enter NIB / Registration Number",
     },
-    npwp: { type: "text", label: "NPWP (Tax ID)", required: true },
+    npwp: {
+      type: "text",
+      label: "NPWP (Tax ID)",
+      required: true,
+      placeholder: "NPWP/TIN may appear in 15-digit or 16-digit format",
+    },
     registrationDate: {
       type: "date",
       label: "Date of Registration",
       required: true,
     },
-    businessStatus: { type: "text", label: "Business Status", required: true },
+    businessStatus: {
+      type: "select",
+      label: "Business Status",
+      required: true,
+      options: ["Low Risk", "Medium-Low Risk", "Medium-High Risk", "High Risk"],
+    },
     registeredAddress: {
       type: "textarea",
       label: "Registered Address",
       required: true,
+      placeholder: "Enter your business's registered address",
     },
-    email: { type: "email", label: "Email", required: true },
-    phone: { type: "text", label: "Phone", required: true },
-    primaryBusinessActivity: {
-      type: "select",
-      label: "Primary Business Activity (KBLI Code)",
-      options: KBLI_OPTIONS,
+    email: {
+      type: "email",
+      label: "Email",
       required: true,
-      placeholder: "Select primary business activity",
+      placeholder: "Enter your email",
     },
-    activityDescription: {
-      type: "textarea",
-      label: "Description",
-      placeholder: "E.g., Online sale of cosmetics through Shopee marketplace",
+    phone: {
+      type: "text",
+      label: "Phone",
       required: true,
+      placeholder: "Enter your phone number",
     },
-    additionalBusinessActivities: {
-      type: "repeatable",
-      label: "Additional Business Activities",
-      fields: {
-        kbliCode: {
-          type: "select",
-          label: "KBLI Code",
-          options: KBLI_OPTIONS,
+    repeatableSections: {
+      primaryBusinessActivity: {
+        label: "Business Actvitiy",
+        storage: "business_activities",
+        min: 1,
+        fields: {
+          businessActivity: {
+            type: "select",
+            label: "Primary Business Activity (KBLI Code)",
+            options: KBLI_OPTIONS,
+            required: true,
+            placeholder: "Select primary business activity",
+          },
+          activityDescription: {
+            type: "textarea",
+            label: "Description",
+            placeholder:
+              "E.g., Online sale of cosmetics through Shopee marketplace",
+            required: true,
+          },
         },
-        description: { type: "text", label: "Description" },
       },
+      additionalBusinessActivities: {
+        label: "Additional Business Activities",
+        storage: "business_activities",
+        min: 0,
+        fields: {
+          kbliCode: {
+            type: "select",
+            label: "KBLI Code",
+            options: KBLI_OPTIONS,
+          },
+          description: {
+            type: "text",
+            label: "Description",
+            placeholder:
+              "E.g., Online sale of cosmetics through Shopee marketplace",
+          },
+        },
+      },
+      // primaryBusinessActivity: {
+      //   type: "select",
+      //   label: "Primary Business Activity (KBLI Code)",
+      //   options: KBLI_OPTIONS,
+      //   required: true,
+      //   placeholder: "Select primary business activity",
+      // },
+      // activityDescription: {
+      //   type: "textarea",
+      //   label: "Description",
+      //   placeholder: "E.g., Online sale of cosmetics through Shopee marketplace",
+      //   required: true,
+      // },
+      // additionalBusinessActivities: {
+      //   type: "repeatable",
+      //   label: "Additional Business Activities",
+      //   fields: {
+      //     kbliCode: {
+      //       type: "select",
+      //       label: "KBLI Code",
+      //       options: KBLI_OPTIONS,
+      //     },
+      //     description: { type: "text", label: "Description" },
+      //   },
     },
   };
 }
 
 function getIndividualFields() {
   return {
-    fullName: { type: "text", label: "Full Name", required: true },
-    idNumber: { type: "text", label: "KTP / Passport Number", required: true },
+    fullName: {
+      type: "text",
+      label: "Full Name",
+      required: true,
+      placeholder: "Enter your full legal name",
+    },
+    idNumber: {
+      type: "text",
+      label: "KTP / Passport Number",
+      required: true,
+      placeholder: "For Indonesian citizens, use the 16-digit NIK from the KTP",
+    },
     idDocument: {
       type: "file",
       label: "KTP / Passport Document",
       required: true,
     },
-    nationality: { type: "text", label: "Nationality", required: true },
+    nationality: {
+      type: "select",
+      label: "Nationality",
+      required: true,
+      options: NATIONALITIES,
+      placeholder: "Select your nationality",
+    },
     residentialAddress: {
       type: "textarea",
       label: "Residential Address",
       required: true,
+      placeholder: "Enter your residential address",
     },
     dateOfBirth: { type: "date", label: "Date of Birth", required: true },
   };
@@ -103,35 +228,49 @@ function getCoreFinancialFields() {
       type: "text",
       label: "Bank Account Number",
       required: true,
+      placeholder: "Enter your bank account number",
     },
-    swiftBic: { type: "text", label: "SWIFT / BIC", required: true },
+    swiftBic: {
+      type: "text",
+      label: "SWIFT / BIC",
+      required: true,
+      placeholder:
+        "Enter the SWIFT/BIC code if applicable for international banking, e.g., BMRIIDJA",
+    },
     accountCurrency: {
       type: "text",
       label: "Account Currency",
       required: true,
     },
-    annualRevenue: { type: "number", label: "Annual Revenue", required: true },
-    npwp: {
-      type: "text",
-      label: "Tax Identification Number (NPWP)",
+    annualRevenue: {
+      type: "number",
+      label: "Annual Revenue",
       required: true,
+      placeholder: "Enter your annual revenue",
     },
+    // npwp: {
+    //   type: "text",
+    //   label: "Tax Identification Number (NPWP)",
+    //   required: true,
+    //   placeholder: "NPWP/TIN may appear in 15-digit or 16-digit format",
+    // },
     expectedMonthlyTransactionVolume: {
       type: "number",
       label: "Expected Monthly Transaction Volume",
       required: true,
+      placeholder: "Enter your expected monthly transaction volume",
     },
     sourceOfFunds: {
       type: "textarea",
       label: "Source of Funds",
       required: true,
+      placeholder: "Enter your main source of funds",
     },
     expectedCountriesOfTransactionActivity: {
-      type: "select",
+      type: "checkbox",
       label: "Expected Countries of Transactions",
       options: COUNTRIES(),
       required: true,
-      multiple: true,
     },
   };
 }
@@ -165,7 +304,6 @@ function getComplianceDeclarations() {
       type: "select",
       label: "Subject to Sanctions",
       required: true,
-
       options: YES_NO_OPTIONS,
       conditionalFields: {
         Yes: {
@@ -180,7 +318,6 @@ function getComplianceDeclarations() {
     fatcaDeclaration: {
       type: "select",
       required: true,
-
       label: "U.S. Citizen / Tax Resident",
       options: YES_NO_OPTIONS,
     },
@@ -199,6 +336,7 @@ const INDONESIA_CONFIG = {
   },
 
   entities: {
+    // 1st business type
     usaha_dagang: {
       label: "Usaha Dagang (UD) – Sole Proprietorship",
       steps: [
@@ -239,6 +377,10 @@ const INDONESIA_CONFIG = {
               min: 1,
               max: 1,
               fields: {
+                kyc: {
+                  type: "kyc",
+                  label: "Liveness Detection Test",
+                },
                 role: {
                   type: "text",
                   label: "Role",
@@ -266,11 +408,6 @@ const INDONESIA_CONFIG = {
           id: "step4",
           label: "Required Documents",
           fields: {
-            businessLicense: {
-              type: "file",
-              label: "Business License (NIB)",
-              required: true,
-            },
             npwpCertificate: {
               type: "file",
               label: "NPWP Certificate",
@@ -279,7 +416,9 @@ const INDONESIA_CONFIG = {
             proofOfBusinessAddress: {
               type: "file",
               label: "Proof of Business Address",
-              required: true,
+              placeholder:
+                "* Mandatory if operating address differs from registered address",
+              required: false,
             },
             bankStatement: {
               type: "file",
@@ -290,7 +429,7 @@ const INDONESIA_CONFIG = {
         },
       ],
     },
-
+    // 2nd business type
     commanditaire_vennootschap: {
       label: "Commanditaire Vennootschap (CV) – Limited Partnership",
       steps: [
@@ -325,11 +464,47 @@ const INDONESIA_CONFIG = {
             ...getBasicBusinessFields(),
           },
           repeatableSections: {
+            // partners: {
+            //   label: "Partner",
+            //   storage: "individuals",
+            //   min: 2,
+            //   fields: {
+            //     kyc: {
+            //       type: "kyc",
+            //       label: "Liveness Detection Test",
+            //     },
+            //     role: {
+            //       type: "select",
+            //       label: "Role",
+            //       options: [
+            //         { label: "General Partner", value: "General Partner" },
+            //         { label: "Limited Partner", value: "Limited Partner" },
+            //       ],
+            //       placeholder: "Select your role",
+            //       required: true,
+
+            //       // value: "Partner",
+            //       // readonly: true,
+            //     },
+            //     sharePercentage: {
+            //       type: "number",
+            //       label: "Share Percentage (%)",
+            //       min: 0,
+            //       max: 100,
+            //       required: true,
+            //     },
+            //     ...getIndividualFields(),
+            //     ...getComplianceDeclarations(),
+
             generalPartners: {
               label: "General Partner",
               storage: "individuals",
               min: 1,
               fields: {
+                kyc: {
+                  type: "kyc",
+                  label: "Liveness Detection Test",
+                },
                 role: {
                   type: "text",
                   label: "Role",
@@ -352,6 +527,10 @@ const INDONESIA_CONFIG = {
               storage: "individuals",
               min: 0,
               fields: {
+                kyc: {
+                  type: "kyc",
+                  label: "Liveness Detection Test",
+                },
                 role: {
                   type: "text",
                   label: "Role",
@@ -375,42 +554,14 @@ const INDONESIA_CONFIG = {
           id: "step3",
           label: "Financial Details",
           fields: { ...getCoreFinancialFields() },
-          repeatableSections: {
-            partnerFinancials: {
-              label: "Partner Financials",
-              min: 1,
-              fields: {
-                capitalContribution: {
-                  type: "number",
-                  label: "Capital Contribution (%)",
-                  required: true,
-                },
-                profitSharingRatio: {
-                  type: "number",
-                  label: "Profit Sharing Ratio (%)",
-                  required: true,
-                },
-              },
-            },
-          },
         },
         {
           id: "step4",
           label: "Required Documents",
           fields: {
-            partnerIdDocuments: {
+            deedOfEstablishment: {
               type: "file",
-              label: "IDs of All Partners (KTP / Passport)",
-              required: true,
-            },
-            partnershipAgreement: {
-              type: "file",
-              label: "Partnership Deed / CV Agreement",
-              required: true,
-            },
-            businessLicense: {
-              type: "file",
-              label: "Business License (NIB)",
+              label: "Deed of Establishment (Akta Pendirian Perusahaan)",
               required: true,
             },
             npwpCertificate: {
@@ -421,7 +572,9 @@ const INDONESIA_CONFIG = {
             proofOfBusinessAddress: {
               type: "file",
               label: "Proof of Business Address",
-              required: true,
+              placeholder:
+                "* Mandatory if operating address differs from registered address",
+              required: false,
             },
             bankStatement: {
               type: "file",
@@ -432,7 +585,7 @@ const INDONESIA_CONFIG = {
         },
       ],
     },
-
+    // 3rd business type
     perseroan_terbatas: {
       label: "Perseroan Terbatas (PT) – Limited Liability Company",
       steps: [
@@ -468,33 +621,15 @@ const INDONESIA_CONFIG = {
             ...getBasicBusinessFields(),
           },
           repeatableSections: {
-            shareholders: {
-              label: "Shareholder",
-              storage: "individuals",
-              min: 1,
-              fields: {
-                role: {
-                  type: "text",
-                  label: "Role",
-                  value: "Shareholder",
-                  readonly: true,
-                },
-                sharePercentage: {
-                  type: "number",
-                  label: "Share Percentage (%)",
-                  min: 0,
-                  max: 100,
-                  required: true,
-                },
-                ...getIndividualFields(),
-                ...getComplianceDeclarations(),
-              },
-            },
             directors: {
               label: "Director / Authorized Signatory",
               storage: "individuals",
               min: 1,
               fields: {
+                kyc: {
+                  type: "kyc",
+                  label: "Liveness Detection Test",
+                },
                 role: {
                   type: "text",
                   label: "Role",
@@ -519,6 +654,93 @@ const INDONESIA_CONFIG = {
                 },
               },
             },
+            shareholders: {
+              label: "Shareholder",
+              storage: "individuals",
+              min: 2,
+              fields: {
+                role: {
+                  type: "select",
+                  label: "Role",
+                  // value: "Shareholder",
+                  options: [
+                    {
+                      label: "Individual Shareholder",
+                      value: "Individual Shareholder",
+                    },
+                    {
+                      label: "Corporate Shareholder",
+                      value: "Corporate Shareholder",
+                    },
+                  ],
+                  placeholder: "Select your role",
+                  required: true,
+                  // readonly: true,
+                },
+                sharePercentage: {
+                  type: "number",
+                  label: "Share Percentage (%)",
+                  min: 0,
+                  max: 100,
+                  required: true,
+                },
+                ...getIndividualFields(),
+                ...getComplianceDeclarations(),
+              },
+            },
+            ubo: {
+              label:
+                "Ultimate Beneficial Owner (Owns 25% or more of the company OR Exercises control through other means)",
+              storage: "individuals",
+              min: 1,
+              fields: {
+                kyc: {
+                  type: "kyc",
+                  label: "Liveness Detection Test",
+                },
+                role: {
+                  type: "text",
+                  label: "Role",
+                  value: "Ultimate Beneficial Owner",
+                  readonly: true,
+                },
+                sharePercentage: {
+                  type: "number",
+                  label: "Share Percentage (%)",
+                  min: 0,
+                  max: 100,
+                  required: true,
+                },
+                basisOfControl: {
+                  type: "select",
+                  label: "Basis of Control",
+                  options: [
+                    {
+                      label: "Direct ownership (≥25%)",
+                      value: "Direct ownership (≥25%)",
+                    },
+                    {
+                      label: "Indirect ownership through another entity",
+                      value: "Indirect ownership through another entity",
+                    },
+                    {
+                      label: "Control through voting rights",
+                      value: "Control through voting rights",
+                    },
+                    {
+                      label: "Control through agreements",
+                      value: "Control through agreements",
+                    },
+                    {
+                      label: "Senior managing official (fallback)",
+                      value: "Senior managing official (fallback)",
+                    },
+                  ],
+                },
+                ...getIndividualFields(),
+                ...getComplianceDeclarations(),
+              },
+            },
           },
         },
         {
@@ -530,35 +752,27 @@ const INDONESIA_CONFIG = {
           id: "step4",
           label: "Required Documents",
           fields: {
-            certificateOfIncorporation: {
-              type: "file",
-              label: "Certificate of Incorporation",
-              required: true,
-            },
-            articlesOfAssociation: {
-              type: "file",
-              label: "Articles of Association",
-              required: true,
-            },
-            businessLicense: {
-              type: "file",
-              label: "Business License (NIB)",
-              required: true,
-            },
             npwpCertificate: {
               type: "file",
               label: "NPWP Certificate",
               required: true,
             },
-            directorShareholderIds: {
+            deedOfEstablishment: {
               type: "file",
-              label: "IDs of Directors & Shareholders",
+              label: "Deed of Establishment (Akta Pendirian Perusahaan)",
+              required: true,
+            },
+            uboDeclaration: {
+              type: "file",
+              label: "UBO Declaration",
               required: true,
             },
             proofOfBusinessAddress: {
               type: "file",
               label: "Proof of Business Address",
-              required: true,
+              placeholder:
+                "*Mandatory if operating address differs from registered address",
+              required: false,
             },
             bankStatement: {
               type: "file",

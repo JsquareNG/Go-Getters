@@ -39,7 +39,9 @@ export const setIn = (obj, path, value) => {
       const idx = Number(key);
 
       if (!Array.isArray(ref)) {
-        throw new Error(`Expected array at segment "${key}" for path "${path}"`);
+        throw new Error(
+          `Expected array at segment "${key}" for path "${path}"`,
+        );
       }
 
       if (ref[idx] == null) {
@@ -63,7 +65,9 @@ export const setIn = (obj, path, value) => {
   if (!Number.isNaN(Number(lastKey))) {
     const idx = Number(lastKey);
     if (!Array.isArray(ref)) {
-      throw new Error(`Expected array at final segment "${lastKey}" for path "${path}"`);
+      throw new Error(
+        `Expected array at final segment "${lastKey}" for path "${path}"`,
+      );
     }
     ref[idx] = value;
   } else {
@@ -98,6 +102,24 @@ const applicationFormSlice = createSlice({
     //     lastModified: new Date().toISOString(),
     //   };
     // },
+    // loadApplication: (state, action) => {
+    //   const { applicationId, formData = {}, status = "Draft" } = action.payload;
+
+    //   const realAppId = applicationId ? String(applicationId) : null;
+    //   if (!realAppId) return;
+
+    //   state.currentApplicationId = realAppId;
+    //   state.currentMode = status === "Submitted" ? "view" : "edit";
+    //   state.hasUnsavedChanges = false;
+
+    //   state.drafts = {
+    //     [realAppId]: {
+    //       formData: { ...formData },
+    //       status,
+    //       lastModified: new Date().toISOString(),
+    //     },
+    //   };
+    // },
     loadApplication: (state, action) => {
       const { applicationId, formData = {}, status = "Draft" } = action.payload;
 
@@ -108,12 +130,10 @@ const applicationFormSlice = createSlice({
       state.currentMode = status === "Submitted" ? "view" : "edit";
       state.hasUnsavedChanges = false;
 
-      state.drafts = {
-        [realAppId]: {
-          formData: { ...formData },
-          status,
-          lastModified: new Date().toISOString(),
-        },
+      state.drafts[realAppId] = {
+        formData: { ...formData },
+        status,
+        lastModified: new Date().toISOString(),
       };
     },
     // startNewApplication: (state) => {
@@ -124,23 +144,34 @@ const applicationFormSlice = createSlice({
 
     //   state.drafts = {};
     // },
-
     startNewApplication: (state) => {
       state.currentApplicationId = "temp_draft";
       state.currentMode = "edit";
       state.currentStep = 0;
       state.hasUnsavedChanges = false;
 
-      if (!state.drafts["temp_draft"]) {
-        state.drafts = {
-          temp_draft: {
-            formData: {},
-            status: "Draft",
-            lastModified: new Date().toISOString(),
-          },
-        };
-      }
+      state.drafts["temp_draft"] = {
+        formData: {},
+        status: "Draft",
+        lastModified: new Date().toISOString(),
+      };
     },
+    // startNewApplication: (state) => {
+    //   state.currentApplicationId = "temp_draft";
+    //   state.currentMode = "edit";
+    //   state.currentStep = 0;
+    //   state.hasUnsavedChanges = false;
+
+    //   if (!state.drafts["temp_draft"]) {
+    //     state.drafts = {
+    //       temp_draft: {
+    //         formData: {},
+    //         status: "Draft",
+    //         lastModified: new Date().toISOString(),
+    //       },
+    //     };
+    //   }
+    // },
     resetForm: (state) => {
       state.drafts = {};
       state.currentApplicationId = null;
@@ -266,12 +297,17 @@ const applicationFormSlice = createSlice({
         state.drafts[realAppId]?.formData ||
         {};
 
-      state.drafts = {
-        [realAppId]: {
-          formData: data && Object.keys(data).length ? data : existingFormData,
-          status: "Draft",
-          lastModified: new Date().toISOString(),
-        },
+      // state.drafts = {
+      //   [realAppId]: {
+      //     formData: data && Object.keys(data).length ? data : existingFormData,
+      //     status: "Draft",
+      //     lastModified: new Date().toISOString(),
+      //   },
+      // };
+      state.drafts[realAppId] = {
+        formData: data && Object.keys(data).length ? data : existingFormData,
+        status: "Draft",
+        lastModified: new Date().toISOString(),
       };
 
       state.currentApplicationId = realAppId;

@@ -6,6 +6,7 @@ import { SINGAPORE_CONFIG, INDONESIA_CONFIG } from "../config";
 /**
  * Step0Brief component
  * Collects SME country of operation and business type
+ * Once "start application", these fields will not change
  */
 const Step0Brief = ({
   data,
@@ -63,7 +64,7 @@ const Step0Brief = ({
         <Info className="h-4 w-4 text-blue-500 mt-0.5" />
 
         <p className="text-xs text-blue-700">
-          These fields cannot be changed after starting the application.
+          These fields cannot be changed after starting the application. Please delete application if you wish to restart.
         </p>
       </div>
 

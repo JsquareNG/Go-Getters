@@ -1,7 +1,7 @@
 import React, { useMemo, useState, useEffect } from "react";
 import { useSelector } from "react-redux";
 import { CheckCircle2, AlertCircle } from "lucide-react";
-import { generateDocKey } from "../utils/formHelpers";
+
 import { SINGAPORE_CONFIG, INDONESIA_CONFIG } from "../config";
 
 import { allDocuments } from "@/api/documentApi";
@@ -332,20 +332,7 @@ const Step4 = ({ onEdit, disabled = false, applicationId }) => {
     // --- Top-level fields ---
     processFields(stepConfig.fields, stepData);
 
-    // --- Repeatable sections (like Owners) ---
-    // Object.entries(stepConfig.repeatableSections || {}).forEach(
-    //   ([sectionKey, sectionCfg]) => {
-    //     const items = getSectionItems(stepData, sectionKey, sectionCfg);
-
-    //     items.forEach((item, idx) => {
-    //       processFields(
-    //         sectionCfg.fields,
-    //         item,
-    //         `${sectionCfg.label} ${idx + 1} - `,
-    //       );
-    //     });
-    //   },
-    // );
+    // --- Repeatable sections ---
     Object.entries(stepConfig.repeatableSections || {}).forEach(
       ([sectionKey, sectionCfg]) => {
         const items = getSectionItems(stepData, sectionKey, sectionCfg);
@@ -376,13 +363,6 @@ const Step4 = ({ onEdit, disabled = false, applicationId }) => {
             }
 
             if (cfg.type === "file") {
-              // const displayedDoc = getDisplayedRepeatableDocumentValue({
-              //   sectionKey,
-              //   sectionConfig: sectionCfg,
-              //   rowIndex: idx,
-              //   fieldKey: key,
-              //   item,
-              // });
               const displayedDoc = getDisplayedDocument({
                 cfg,
                 fieldKey: key,
@@ -428,142 +408,6 @@ const Step4 = ({ onEdit, disabled = false, applicationId }) => {
   /* ------------------------------------------------ */
   /* REVIEW FIELDS */
   /* ------------------------------------------------ */
-
-  // const isStepComplete = (stepConfig, formData = {}) => {
-  //   if (!stepConfig) return true;
-
-  //   const checkFields = (fields, data) => {
-  //     for (const [key, cfg] of Object.entries(fields || {})) {
-  //       const value = data?.[key];
-
-  //       // Conditional fields
-  //       if (cfg.conditionalFields && value in cfg.conditionalFields) {
-  //         if (!checkFields(cfg.conditionalFields[value], data[key] || {})) {
-  //           return false;
-  //         }
-  //       }
-
-  //       // Required field check
-  //       if (cfg.required) {
-  //         if (
-  //           value === null ||
-  //           value === undefined ||
-  //           (typeof value === "string" && value.trim() === "") ||
-  //           (Array.isArray(value) && value.length === 0)
-  //         ) {
-  //           return false;
-  //         }
-  //       }
-  //     }
-  //     return true;
-  //   };
-
-  //   // Check normal fields
-  //   if (!checkFields(stepConfig.fields, formData)) return false;
-
-  //   // Check repeatable sections
-  //   for (const [sectionKey, sectionCfg] of Object.entries(
-  //     stepConfig.repeatableSections || {},
-  //   )) {
-  //     // const items = formData?.[sectionKey] || [];
-  //     const items = getSectionItems(formData, sectionKey, sectionCfg);
-
-  //     if ((sectionCfg.min ?? 0) > items.length) return false;
-
-  //     for (const item of items) {
-  //       if (!checkFields(sectionCfg.fields, item)) return false;
-  //     }
-  //   }
-
-  //   // Check documents
-  //   for (const doc of stepConfig.documents || []) {
-  //     const key = generateDocKey(doc);
-  //     const fileWrapper = formData?.documents?.[key];
-  //     const file = fileWrapper?.file || formData?.[key];
-  //     if (!file) return false;
-  //   }
-
-  //   return true;
-  // };
-  // const isStepComplete = (stepConfig, formData = {}) => {
-  //   if (!stepConfig) return true;
-
-  //   const checkFields = ({
-  //     fields,
-  //     data,
-  //     sectionKey = null,
-  //     sectionConfig = null,
-  //     rowIndex = null,
-  //   }) => {
-  //     for (const [sectionKey, sectionCfg] of Object.entries(
-  //       stepConfig.repeatableSections || {},
-  //     )) {
-  //       const items = getSectionItems(formData, sectionKey, sectionCfg);
-
-  //       if ((sectionCfg.min ?? 0) > items.length) return false;
-
-  //       for (let idx = 0; idx < items.length; idx++) {
-  //         const item = items[idx];
-
-  //         for (const [key, cfg] of Object.entries(sectionCfg.fields || {})) {
-  //           const value = item?.[key];
-
-  //           if (cfg.required) {
-  //             if (cfg.type === "file") {
-  //               const displayedDoc = getDisplayedRepeatableDocumentValue({
-  //                 sectionKey,
-  //                 sectionConfig: sectionCfg,
-  //                 rowIndex: idx,
-  //                 fieldKey: key,
-  //                 item,
-  //               });
-
-  //               if (!displayedDoc) return false;
-  //             } else {
-  //               if (
-  //                 value === null ||
-  //                 value === undefined ||
-  //                 (typeof value === "string" && value.trim() === "") ||
-  //                 (Array.isArray(value) && value.length === 0)
-  //               ) {
-  //                 return false;
-  //               }
-  //             }
-  //           }
-  //         }
-  //       }
-  //     }
-
-  //     return true;
-  //   };
-
-  //   if (!checkFields({ fields: stepConfig.fields, data: formData }))
-  //     return false;
-
-  //   for (const [sectionKey, sectionCfg] of Object.entries(
-  //     stepConfig.repeatableSections || {},
-  //   )) {
-  //     const items = getSectionItems(formData, sectionKey, sectionCfg);
-
-  //     if ((sectionCfg.min ?? 0) > items.length) return false;
-
-  //     for (let idx = 0; idx < items.length; idx++) {
-  //       if (
-  //         !checkFields({
-  //           fields: sectionCfg.fields,
-  //           data: items[idx],
-  //           sectionKey,
-  //           sectionConfig: sectionCfg,
-  //           rowIndex: idx,
-  //         })
-  //       ) {
-  //         return false;
-  //       }
-  //     }
-  //   }
-
-  //   return true;
-  // };
   const isEmptyValue = (value) => {
     return (
       value === null ||
