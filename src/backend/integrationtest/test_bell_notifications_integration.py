@@ -3,8 +3,10 @@ from datetime import datetime
 from backend.models.user import User
 from backend.models.bellNotifications import BellNotification
 
+TEST_USER_ID = "USER0001"
 
-def seed_user(db_session, user_id="U1", email="user@example.com", role="SME"):
+
+def seed_user(db_session, user_id=TEST_USER_ID, email="user@example.com", role="SME"):
     user = User(
         user_id=user_id,
         first_name="Jane",
@@ -21,7 +23,7 @@ def seed_user(db_session, user_id="U1", email="user@example.com", role="SME"):
 def seed_notification(
     db_session,
     application_id="APP-1",
-    recipient_id="U1",
+    recipient_id=TEST_USER_ID,
     from_status="Draft",
     to_status="Under Review",
     message="Status changed",
@@ -43,12 +45,12 @@ def seed_notification(
 
 
 def test_get_unread_notifications(client, db_session):
-    seed_user(db_session, user_id="U1")
-    seed_notification(db_session, application_id="APP-1", recipient_id="U1", is_read=False)
-    seed_notification(db_session, application_id="APP-2", recipient_id="U1", is_read=False)
-    seed_notification(db_session, application_id="APP-3", recipient_id="U1", is_read=True)
+    seed_user(db_session)
+    seed_notification(db_session, application_id="APP-1", recipient_id=TEST_USER_ID, is_read=False)
+    seed_notification(db_session, application_id="APP-2", recipient_id=TEST_USER_ID, is_read=False)
+    seed_notification(db_session, application_id="APP-3", recipient_id=TEST_USER_ID, is_read=True)
 
-    response = client.get("/bell/unread/U1")
+    response = client.get(f"/bell/unread/{TEST_USER_ID}")
 
     assert response.status_code == 200
     data = response.json()
@@ -57,11 +59,11 @@ def test_get_unread_notifications(client, db_session):
 
 
 def test_get_all_notifications(client, db_session):
-    seed_user(db_session, user_id="U1")
-    seed_notification(db_session, application_id="APP-1", recipient_id="U1", is_read=False)
-    seed_notification(db_session, application_id="APP-2", recipient_id="U1", is_read=True)
+    seed_user(db_session)
+    seed_notification(db_session, application_id="APP-1", recipient_id=TEST_USER_ID, is_read=False)
+    seed_notification(db_session, application_id="APP-2", recipient_id=TEST_USER_ID, is_read=True)
 
-    response = client.get("/bell/all/U1")
+    response = client.get(f"/bell/all/{TEST_USER_ID}")
 
     assert response.status_code == 200
     data = response.json()
@@ -71,25 +73,25 @@ def test_get_all_notifications(client, db_session):
 
 
 def test_mark_one_read(client, db_session):
-    seed_user(db_session, user_id="U1")
-    seed_notification(db_session, application_id="APP-1", recipient_id="U1", is_read=False)
+    seed_user(db_session)
+    seed_notification(db_session, application_id="APP-1", recipient_id=TEST_USER_ID, is_read=False)
 
     response = client.put("/bell/read-one/APP-1")
     assert response.status_code == 200
     assert response.json() == {"message": "ok"}
 
-    unread = client.get("/bell/unread/U1").json()
+    unread = client.get(f"/bell/unread/{TEST_USER_ID}").json()
     assert unread["total"] == 0
 
 
 def test_mark_all_read(client, db_session):
-    seed_user(db_session, user_id="U1")
-    seed_notification(db_session, application_id="APP-1", recipient_id="U1", is_read=False)
-    seed_notification(db_session, application_id="APP-2", recipient_id="U1", is_read=False)
+    seed_user(db_session)
+    seed_notification(db_session, application_id="APP-1", recipient_id=TEST_USER_ID, is_read=False)
+    seed_notification(db_session, application_id="APP-2", recipient_id=TEST_USER_ID, is_read=False)
 
-    response = client.put("/bell/read-all/U1")
+    response = client.put(f"/bell/read-all/{TEST_USER_ID}")
     assert response.status_code == 200
     assert response.json() == {"message": "ok"}
 
-    unread = client.get("/bell/unread/U1").json()
+    unread = client.get(f"/bell/unread/{TEST_USER_ID}").json()
     assert unread["total"] == 0

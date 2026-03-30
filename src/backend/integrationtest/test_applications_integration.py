@@ -1,4 +1,20 @@
-from backend.models.application import ApplicationForm
+from backend.models.user import User
+
+TEST_USER_ID = "USER0001"
+
+
+def seed_user(db_session, user_id=TEST_USER_ID, email="user@example.com", role="SME"):
+    user = User(
+        user_id=user_id,
+        first_name="Jane",
+        last_name="Tan",
+        email=email,
+        password="hashed-password",
+        user_role=role,
+    )
+    db_session.add(user)
+    db_session.commit()
+    return user
 
 
 def minimal_form_data():
@@ -10,9 +26,11 @@ def minimal_form_data():
     }
 
 
-def test_first_save_creates_draft_application(client):
+def test_first_save_creates_draft_application(client, db_session):
+    seed_user(db_session)
+
     payload = {
-        "user_id": "U1",
+        "user_id": TEST_USER_ID,
         "form_data": minimal_form_data(),
     }
 
@@ -20,16 +38,16 @@ def test_first_save_creates_draft_application(client):
 
     assert response.status_code == 200, response.text
     data = response.json()
-
     assert "application_id" in data
-    # adjust this key if your route returns a slightly different field name
     if "current_status" in data:
         assert data["current_status"] == "Draft"
 
 
-def test_first_submit_creates_under_review_application(client):
+def test_first_submit_creates_under_review_application(client, db_session):
+    seed_user(db_session)
+
     payload = {
-        "user_id": "U1",
+        "user_id": TEST_USER_ID,
         "form_data": minimal_form_data(),
         "provider_session_id": "didit-session-123",
     }
@@ -38,16 +56,16 @@ def test_first_submit_creates_under_review_application(client):
 
     assert response.status_code == 200, response.text
     data = response.json()
-
     assert "application_id" in data
     if "current_status" in data:
         assert data["current_status"] == "Under Review"
 
 
-def test_withdraw_application_changes_status(client):
-    # create draft first
+def test_withdraw_application_changes_status(client, db_session):
+    seed_user(db_session)
+
     create_payload = {
-        "user_id": "U1",
+        "user_id": TEST_USER_ID,
         "form_data": minimal_form_data(),
     }
 
@@ -60,7 +78,6 @@ def test_withdraw_application_changes_status(client):
     withdraw_response = client.put(f"/applications/withdraw/{application_id}")
     assert withdraw_response.status_code == 200, withdraw_response.text
 
-    # read back application if your API supports it
     get_response = client.get(f"/applications/byAppID/{application_id}")
     assert get_response.status_code == 200, get_response.text
     app_data = get_response.json()
@@ -69,9 +86,11 @@ def test_withdraw_application_changes_status(client):
         assert app_data["current_status"] == "Withdrawn"
 
 
-def test_get_all_applications_includes_created_application(client):
+def test_get_all_applications_includes_created_application(client, db_session):
+    seed_user(db_session)
+
     payload = {
-        "user_id": "U1",
+        "user_id": TEST_USER_ID,
         "form_data": minimal_form_data(),
     }
 
