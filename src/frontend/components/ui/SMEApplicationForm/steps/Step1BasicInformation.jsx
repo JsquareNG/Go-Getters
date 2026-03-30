@@ -340,6 +340,8 @@ const Step1BasicInformation = ({
     residentialAddress: detection?.formatted_address || "",
   });
 
+  const individualsSignature = JSON.stringify(getFormDataRoot()?.individuals || []);
+
   useEffect(() => {
     if (!applicationId || applicationId === "new") return;
 
@@ -373,9 +375,11 @@ const Step1BasicInformation = ({
         if (!detection) return;
 
         const person = nextFormRoot.individuals[index];
+        console.log("person", person);
+
         const nextKyc = mapDetectionToKyc(detection);
         const mappedFields = mapDetectionToIndividualFields(detection);
-        console.log("mappedFields:", mappedFields);
+        console.log("mappedFields", mappedFields);
 
         nextFormRoot = {
           ...nextFormRoot,
@@ -388,7 +392,8 @@ const Step1BasicInformation = ({
                     detection?.provider_session_id ||
                     "",
                   kyc: nextKyc,
-                  fullName: p?.fullName || mappedFields.fullName,
+                  // fullName: p?.fullName || mappedFields.fullName,
+                  fullName: mappedFields.fullName || p?.fullName,
                   idNumber: p?.idNumber || mappedFields.idNumber,
                   dateOfBirth: p?.dateOfBirth || mappedFields.dateOfBirth,
                   nationality: p?.nationality || mappedFields.nationality,
@@ -408,7 +413,7 @@ const Step1BasicInformation = ({
     };
 
     hydrateIndividualsFromSessions();
-  }, [applicationId]);
+  }, [applicationId, individualsSignature]);
 
   useEffect(() => {
     Object.entries(basicFieldsConfig).forEach(([fieldKey, fieldConfig]) => {
