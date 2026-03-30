@@ -642,9 +642,6 @@ export function OverviewTab({ dateRange, preset }) {
         <Card className="overflow-hidden border-border/60 shadow-sm">
           <CardHeader className="pb-4">
             <div className="flex items-start gap-3">
-              <div className="mt-0.5 rounded-xl bg-muted p-2 text-muted-foreground">
-                <ChartNoAxesColumn className="h-5 w-5" />
-              </div>
               <div>
                 <CardTitle className="text-base font-medium">
                   Applications by Status

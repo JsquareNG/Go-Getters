@@ -24,6 +24,9 @@ jobs:
       SUPABASE_SERVICE_ROLE_KEY: fake-service-role-key
       SUPABASE_KEY: fake-generic-key
       BUCKET: test-bucket
+      SENDGRID_API_KEY: fake-sendgrid-key
+      DIDIT_API_KEY: fake-didit-key
+      DIDIT_WORKFLOW_ID: fake-workflow-id
 
     steps:
       - name: Checkout code

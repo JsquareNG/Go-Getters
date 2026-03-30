@@ -27,7 +27,6 @@ import {
   FileSearch
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { exportAnalyticsToExcel } from "@/lib/exportExcel";
 
 function getPresetDateRange(value) {
   const now = new Date();
@@ -113,10 +112,6 @@ export default function Analytics() {
     [preset, dateRange]
   );
 
-  const handleExport = () => {
-    exportAnalyticsToExcel(analyticsFilter);
-  };
-
   return (
     <div className="min-h-screen bg-background">
       <main className="container mx-auto px-6 py-12">
@@ -174,16 +169,6 @@ export default function Analytics() {
                 </PopoverContent>
               </Popover>
             )}
-
-            <Button
-              variant="outline"
-              size="sm"
-              className="h-9 gap-2 bg-slate-300"
-              onClick={handleExport}
-            >
-              <Download className="h-4 w-4" />
-              Export Excel
-            </Button>
           </div>
         </div>
 
@@ -191,7 +176,7 @@ export default function Analytics() {
           <TabsList className="h-auto flex-wrap gap-1 bg-muted p-1">
             <TabsTrigger
               value="overview"
-              className="gap-2 data-[state=active]:bg-card"
+              className="gap-2 data-[state=active]:bg-slate-200"
             >
               <BarChart3 className="h-4 w-4" />
               Overview
@@ -199,7 +184,7 @@ export default function Analytics() {
 
             <TabsTrigger
               value="onboardingFunnel"
-              className="gap-2 data-[state=active]:bg-card"
+              className="gap-2 data-[state=active]:bg-slate-200"
             >
               <GitBranch className="h-4 w-4" />
               Onboarding Funnel
@@ -207,7 +192,7 @@ export default function Analytics() {
 
             <TabsTrigger
               value="operations"
-              className="gap-2 data-[state=active]:bg-card"
+              className="gap-2 data-[state=active]:bg-slate-200"
             >
               <Users className="h-4 w-4" />
               Operations
@@ -215,7 +200,7 @@ export default function Analytics() {
 
             <TabsTrigger
               value="kyc"
-              className="gap-2 data-[state=active]:bg-card"
+              className="gap-2 data-[state=active]:bg-slate-200"
             >
               <FileSearch className="h-4 w-4" />
               KYC & Documents
@@ -223,7 +208,7 @@ export default function Analytics() {
 
             <TabsTrigger
               value="compliance"
-              className="gap-2 data-[state=active]:bg-card"
+              className="gap-2 data-[state=active]:bg-slate-200"
             >
               <Shield className="h-4 w-4" />
               Compliance
