@@ -1,7 +1,7 @@
 import React from "react";
 import { render, screen } from "@testing-library/react";
 import { describe, it, expect } from "vitest";
-import { Button } from "../src/components/ui/primitives/Button"; // adjust path if needed
+import { Button } from "../components/ui/primitives/Button"; // adjust path if needed
 
 describe("Button", () => {
   it("renders button text", () => {
