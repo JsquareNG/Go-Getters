@@ -1,13 +1,14 @@
+from datetime import datetime, timezone
+
 from backend.models.user import User
 from backend.models.liveness_detection import LivenessDetection
 
-TEST_USER_ID = "USER0001"
+
 TEST_PROVIDER_SESSION_ID = "didit-session-123"
 
 
-def seed_user(db_session, user_id=TEST_USER_ID, email="user@example.com", role="SME"):
+def seed_user(db_session, email="user@example.com", role="SME"):
     user = User(
-        user_id=user_id,
         first_name="Jane",
         last_name="Tan",
         email=email,
@@ -16,16 +17,20 @@ def seed_user(db_session, user_id=TEST_USER_ID, email="user@example.com", role="
     )
     db_session.add(user)
     db_session.commit()
+    db_session.refresh(user)
     return user
 
 
 def seed_liveness_detection(
     db_session,
     provider_session_id=TEST_PROVIDER_SESSION_ID,
+    application_id=None,
 ):
     row = LivenessDetection(
+        application_id=application_id,
+        provider="didit",
         provider_session_id=provider_session_id,
-        status="approved",
+        created_at=datetime.now(timezone.utc),
     )
     db_session.add(row)
     db_session.commit()
@@ -43,11 +48,11 @@ def minimal_form_data():
 
 
 def test_first_save_creates_draft_application(client, db_session):
-    seed_user(db_session)
+    user = seed_user(db_session)
     seed_liveness_detection(db_session)
 
     payload = {
-        "user_id": TEST_USER_ID,
+        "user_id": user.user_id,
         "provider_session_id": TEST_PROVIDER_SESSION_ID,
         "form_data": minimal_form_data(),
     }
@@ -60,11 +65,11 @@ def test_first_save_creates_draft_application(client, db_session):
 
 
 def test_first_submit_creates_under_review_application(client, db_session):
-    seed_user(db_session)
+    user = seed_user(db_session)
     seed_liveness_detection(db_session)
 
     payload = {
-        "user_id": TEST_USER_ID,
+        "user_id": user.user_id,
         "provider_session_id": TEST_PROVIDER_SESSION_ID,
         "form_data": minimal_form_data(),
     }
@@ -77,11 +82,11 @@ def test_first_submit_creates_under_review_application(client, db_session):
 
 
 def test_withdraw_application_changes_status(client, db_session):
-    seed_user(db_session)
+    user = seed_user(db_session)
     seed_liveness_detection(db_session)
 
     create_payload = {
-        "user_id": TEST_USER_ID,
+        "user_id": user.user_id,
         "provider_session_id": TEST_PROVIDER_SESSION_ID,
         "form_data": minimal_form_data(),
     }
@@ -102,11 +107,11 @@ def test_withdraw_application_changes_status(client, db_session):
 
 
 def test_get_all_applications_includes_created_application(client, db_session):
-    seed_user(db_session)
+    user = seed_user(db_session)
     seed_liveness_detection(db_session)
 
     payload = {
-        "user_id": TEST_USER_ID,
+        "user_id": user.user_id,
         "provider_session_id": TEST_PROVIDER_SESSION_ID,
         "form_data": minimal_form_data(),
     }
