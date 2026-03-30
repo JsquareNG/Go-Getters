@@ -16,7 +16,7 @@ export const buildDynamicPayload = ({
   const normalizedData = normalizeFormData(rawFormData);
 
   const individuals = mapIndividualsDynamic(normalizedData, config);
-  const nonIndividualRepeatables = mapNonIndividualRepeatData(
+  const nonIndividualRepeatables = mapNonIndividualRepeatableData(
     normalizedData,
     config,
   );

@@ -32,13 +32,47 @@ const FieldRenderer = ({
   };
 
   if (fieldConfig.type === "kyc") {
+    const providerSessionField =
+      fieldConfig.providerSessionField || "provider_session_id";
+
+    const kycDataField = fieldConfig.kycDataField || fieldKey;
+
+    const sourceData = context.rowData || context.data || {};
+    const rowPrefix = context.rowPrefix || "";
+
     return (
       <KYCVerificationCard
-        data={context.data}
+        data={{
+          ...sourceData,
+          provider_session_id: sourceData?.[providerSessionField] ?? "",
+          kycData: sourceData?.[kycDataField] ?? {},
+        }}
+        applicationId={context?.applicationId}
         disabled={disabled}
         onFieldChange={(key, val) => {
-          onChange(fieldKey, val);
+          if (key === "provider_session_id") {
+            onChange(providerSessionField, val);
+            return;
+          }
+
+          if (key === "kyc") {
+            onChange(kycDataField, val);
+            return;
+          }
+
+          onChange(key, val);
         }}
+        onPersistKycResult={
+          context?.onPersistKycResult
+            ? (payload) =>
+                context.onPersistKycResult({
+                  ...payload,
+                  providerSessionField,
+                  kycDataField,
+                  rowPrefix,
+                })
+            : undefined
+        }
       />
     );
   }

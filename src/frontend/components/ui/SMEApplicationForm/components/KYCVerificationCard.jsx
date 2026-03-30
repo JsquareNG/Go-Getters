@@ -19,13 +19,17 @@ const MIN_FACE_MATCH_SCORE = 60;
 
 const KycVerificationCard = ({
   data,
+  applicationId,
   disabled = false,
   onFieldChange,
+  onPersistKycResult,
 }) => {
   const processedDiditSessionRef = useRef("");
   const latestKycDataRef = useRef(DEFAULT_KYC_DATA);
 
-  const kycData = data?.kycData || DEFAULT_KYC_DATA;
+  //   const kycData = data?.kycData || DEFAULT_KYC_DATA;
+  const kycData = data?.kyc || data?.kycData || DEFAULT_KYC_DATA;
+  console.log("Rendering KYCVerificationCard with kycData:", kycData);
   const kycStatus = kycData.status || "idle";
   const kycLoading = kycData.loading || false;
   const kycOverallStatus = kycData.overallStatus || "";
@@ -54,12 +58,73 @@ const KycVerificationCard = ({
     latestKycDataRef.current = kycData;
   }, [kycData]);
 
-  const updateKycData = (patch) => {
-    onFieldChange("kycData", {
+  //   const updateKycData = (patch) => {
+  //     onFieldChange("kyc", {
+  //       ...DEFAULT_KYC_DATA,
+  //       ...(latestKycDataRef.current || {}),
+  //       ...patch,
+  //     });
+  //   };
+  const writeKycData = (nextValue) => {
+    latestKycDataRef.current = nextValue;
+    onFieldChange("kyc", nextValue);
+    console.log("[KYC CARD] writeKycData:", nextValue);
+  };
+
+  const patchKycData = (patch) => {
+    const nextValue = {
       ...DEFAULT_KYC_DATA,
       ...(latestKycDataRef.current || {}),
       ...patch,
-    });
+    };
+
+    latestKycDataRef.current = nextValue;
+    onFieldChange("kyc", nextValue);
+  };
+
+  const getKycStorageKey = (sessionId) => `kyc:${sessionId}`;
+
+  const saveKycToSessionStorage = (sessionId, value) => {
+    if (!sessionId) return;
+    try {
+      sessionStorage.setItem(
+        getKycStorageKey(sessionId),
+        JSON.stringify(value),
+      );
+    } catch (err) {
+      console.error("Failed to save KYC to sessionStorage:", err);
+    }
+  };
+
+  const loadKycFromSessionStorage = (sessionId) => {
+    if (!sessionId) return null;
+    try {
+      const raw = sessionStorage.getItem(getKycStorageKey(sessionId));
+      return raw ? JSON.parse(raw) : null;
+    } catch (err) {
+      console.error("Failed to read KYC from sessionStorage:", err);
+      return null;
+    }
+  };
+
+  const clearKycFromSessionStorage = (sessionId) => {
+    if (!sessionId) return;
+    try {
+      sessionStorage.removeItem(getKycStorageKey(sessionId));
+    } catch (err) {
+      console.error("Failed to clear KYC from sessionStorage:", err);
+    }
+  };
+
+  const mapDiditToFormFields = (diditData) => {
+    const idv = diditData?.id_verifications?.[0] || {};
+
+    return {
+      fullName: idv?.full_name || "",
+      idNumber: idv?.document_number || "",
+      dateOfBirth: idv?.date_of_birth || "",
+      residentialAddress: idv?.formatted_address || "",
+    };
   };
 
   const mapDiditToPayload = (diditData) => {
@@ -131,29 +196,65 @@ const KycVerificationCard = ({
     };
   };
 
+  const buildKycSummary = (
+    diditData,
+    verificationSessionId,
+    returnedStatus,
+  ) => {
+    const idv = diditData?.id_verifications?.[0] || {};
+    const live = diditData?.liveness_checks?.[0] || {};
+    const face = diditData?.face_matches?.[0] || {};
+
+    return {
+      status: "completed",
+      loading: false,
+      sessionId: verificationSessionId,
+      overallStatus: diditData?.status || returnedStatus || "",
+      idVerificationStatus: idv?.status || "",
+      livenessStatus: live?.status || "",
+      livenessScore: live?.score ?? null,
+      faceMatchStatus: face?.status || "",
+      faceMatchScore: face?.score ?? null,
+    };
+  };
+
   const handleStartKyc = async () => {
-    updateKycData({
+    const previousSessionId =
+      data?.provider_session_id ||
+      data?.providerSessionId ||
+      kycData?.sessionId;
+
+    clearKycFromSessionStorage(previousSessionId);
+
+    // updateKycData({
+    //   status: "idle",
+    //   loading: true,
+    //   sessionId: "",
+    //   overallStatus: "",
+    //   idVerificationStatus: "",
+    //   livenessStatus: "",
+    //   livenessScore: null,
+    //   faceMatchStatus: "",
+    //   faceMatchScore: null,
+    // });
+    writeKycData({
+      ...DEFAULT_KYC_DATA,
       status: "idle",
       loading: true,
       sessionId: "",
-      overallStatus: "",
-      idVerificationStatus: "",
-      livenessStatus: "",
-      livenessScore: null,
-      faceMatchStatus: "",
-      faceMatchScore: null,
     });
 
     onFieldChange("provider_session_id", null);
 
     try {
-      const applicationId =
-        data?.application_id || data?.applicationId || data?.appId || "";
+      //   const applicationId =
+      //     data?.application_id || data?.applicationId || data?.appId || "";
+      const resolvedApplicationId = applicationId || "";
 
       const callbackUrl = window.location.href.split("?")[0];
 
-      const payload = applicationId
-        ? { application_id: applicationId, callback_url: callbackUrl }
+      const payload = resolvedApplicationId
+        ? { application_id: resolvedApplicationId, callback_url: callbackUrl }
         : { callback_url: callbackUrl };
 
       const response = await fetch(
@@ -170,29 +271,84 @@ const KycVerificationCard = ({
       }
 
       const result = await response.json();
+      const nextSessionId = result.session_id || "";
 
-      updateKycData({
-        sessionId: result.session_id || "",
+      //   updateKycData({
+      //     sessionId: nextSessionId,
+      //   });
+      patchKycData({
+        sessionId: nextSessionId,
+      });
+
+      onFieldChange("provider_session_id", nextSessionId);
+
+      saveKycToSessionStorage(nextSessionId, {
+        ...DEFAULT_KYC_DATA,
+        status: "pending",
+        loading: false,
+        sessionId: nextSessionId,
       });
 
       if (result.verification_url) {
-        updateKycData({
+        // updateKycData({
+        //   status: "pending",
+        //   sessionId: nextSessionId,
+        //   loading: false,
+        // });
+        writeKycData({
+          ...DEFAULT_KYC_DATA,
           status: "pending",
-          sessionId: result.session_id || "",
           loading: false,
+          sessionId: nextSessionId,
         });
+
         window.location.href = result.verification_url;
       } else {
-        updateKycData({ status: "idle", loading: false });
+        // updateKycData({ status: "idle", loading: false });
+        writeKycData({
+          ...DEFAULT_KYC_DATA,
+          status: "idle",
+          loading: false,
+        });
         alert("No verification_url returned. Check console and backend logs.");
       }
     } catch (error) {
       console.error("Start KYC frontend error:", error);
-      updateKycData({ status: "idle", loading: false });
-    } finally {
-      updateKycData({ loading: false });
+      //   updateKycData({ status: "idle", loading: false });
+      writeKycData({
+        ...DEFAULT_KYC_DATA,
+        status: "idle",
+        loading: false,
+      });
+      // } finally {
+      //   updateKycData({ loading: false });
     }
   };
+
+  // Restore already-saved KYC state after reload
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const callbackSessionId = params.get("verificationSessionId");
+    const existingSessionId =
+      callbackSessionId ||
+      data?.provider_session_id ||
+      data?.providerSessionId ||
+      kycData?.sessionId ||
+      "";
+
+    if (!existingSessionId) return;
+    if (kycData?.status === "completed") return;
+
+    const cached = loadKycFromSessionStorage(existingSessionId);
+    if (!cached) return;
+
+    // updateKycData(cached);
+    writeKycData(cached);
+
+    if (!data?.provider_session_id && !data?.providerSessionId) {
+      onFieldChange("provider_session_id", existingSessionId);
+    }
+  }, [data?.provider_session_id, data?.providerSessionId, kycData?.status]);
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -207,10 +363,16 @@ const KycVerificationCard = ({
 
     const processDiditReturn = async () => {
       try {
-        updateKycData({
+        const pendingState = {
+          ...DEFAULT_KYC_DATA,
+          ...(latestKycDataRef.current || {}),
           loading: true,
           sessionId: verificationSessionId,
-        });
+        };
+
+        // updateKycData(pendingState);
+        writeKycData(pendingState);
+        saveKycToSessionStorage(verificationSessionId, pendingState);
 
         onFieldChange("provider_session_id", verificationSessionId);
 
@@ -223,33 +385,50 @@ const KycVerificationCard = ({
         }
 
         const diditData = await response.json();
-        const idv = diditData?.id_verifications?.[0] || {};
-        const live = diditData?.liveness_checks?.[0] || {};
-        const face = diditData?.face_matches?.[0] || {};
+        const nextKycData = buildKycSummary(
+          diditData,
+          verificationSessionId,
+          returnedStatus,
+        );
 
-        updateKycData({
-          status: "completed",
-          loading: false,
-          sessionId: verificationSessionId,
-          overallStatus: diditData?.status || returnedStatus || "",
-          idVerificationStatus: idv?.status || "",
-          livenessStatus: live?.status || "",
-          livenessScore: live?.score ?? null,
-          faceMatchStatus: face?.status || "",
-          faceMatchScore: face?.score ?? null,
-        });
+        // updateKycData(nextKycData);
+        writeKycData(nextKycData);
+        saveKycToSessionStorage(verificationSessionId, nextKycData);
 
         const payload = mapDiditToPayload(diditData);
         await livenessDetectionApi(payload);
+
+        const mappedFields = mapDiditToFormFields(diditData);
+
+        if (onPersistKycResult) {
+          await onPersistKycResult({
+            provider_session_id: verificationSessionId,
+            kycData: nextKycData,
+            diditPayload: payload,
+            mappedFields,
+          });
+        }
       } catch (error) {
         console.error("Error processing Didit return:", error);
-      } finally {
-        updateKycData({ loading: false });
+
+        const failedState = {
+          ...DEFAULT_KYC_DATA,
+          ...(latestKycDataRef.current || {}),
+          status: "idle",
+          loading: false,
+          sessionId: verificationSessionId,
+        };
+
+        // updateKycData(failedState);
+        writeKycData(failedState);
+        saveKycToSessionStorage(verificationSessionId, failedState);
+        //   } finally {
+        //     // updateKycData({ loading: false });
       }
     };
 
     processDiditReturn();
-  }, [onFieldChange]);
+  }, [onFieldChange, onPersistKycResult]);
 
   return (
     <Card
@@ -319,16 +498,47 @@ const KycVerificationCard = ({
 
               {kycStatus === "completed" && (
                 <div className="mt-3 space-y-1 text-xs text-muted-foreground">
-                  <p><span className="font-medium text-foreground">Overall Status:</span> {kycOverallStatus || "N/A"}</p>
-                  <p><span className="font-medium text-foreground">ID Verification:</span> {kycIdVerificationStatus || "N/A"}</p>
-                  <p><span className="font-medium text-foreground">Liveness:</span> {kycLivenessStatus || "N/A"}</p>
-                  <p><span className="font-medium text-foreground">Liveness Score:</span> {kycLivenessScore ?? "N/A"}</p>
-                  <p><span className="font-medium text-foreground">Face Match:</span> {kycFaceMatchStatus || "N/A"}</p>
-                  <p><span className="font-medium text-foreground">Similarity Score:</span> {numericFaceMatchScore ?? "N/A"}%</p>
+                  <p>
+                    <span className="font-medium text-foreground">
+                      Overall Status:
+                    </span>{" "}
+                    {kycOverallStatus || "N/A"}
+                  </p>
+                  <p>
+                    <span className="font-medium text-foreground">
+                      ID Verification:
+                    </span>{" "}
+                    {kycIdVerificationStatus || "N/A"}
+                  </p>
+                  <p>
+                    <span className="font-medium text-foreground">
+                      Liveness:
+                    </span>{" "}
+                    {kycLivenessStatus || "N/A"}
+                  </p>
+                  <p>
+                    <span className="font-medium text-foreground">
+                      Liveness Score:
+                    </span>{" "}
+                    {kycLivenessScore ?? "N/A"}
+                  </p>
+                  <p>
+                    <span className="font-medium text-foreground">
+                      Face Match:
+                    </span>{" "}
+                    {kycFaceMatchStatus || "N/A"}
+                  </p>
+                  <p>
+                    <span className="font-medium text-foreground">
+                      Similarity Score:
+                    </span>{" "}
+                    {numericFaceMatchScore ?? "N/A"}%
+                  </p>
 
                   {isKycFailed && (
                     <p className="pt-2 font-medium text-red-600">
-                      Face match score must be at least {MIN_FACE_MATCH_SCORE}% before you can proceed to the next step.
+                      Face match score must be at least {MIN_FACE_MATCH_SCORE}%
+                      before you can proceed to the next step.
                     </p>
                   )}
                 </div>
@@ -350,13 +560,23 @@ const KycVerificationCard = ({
             )}
 
             {kycStatus === "pending" && (
-              <Button type="button" variant="outline" disabled className="gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                disabled
+                className="gap-2"
+              >
                 Verifying...
               </Button>
             )}
 
             {isKycPassed && (
-              <Button type="button" variant="outline" className="gap-2" disabled>
+              <Button
+                type="button"
+                variant="outline"
+                className="gap-2"
+                disabled
+              >
                 Verified
                 <ArrowRight className="h-4 w-4" />
               </Button>

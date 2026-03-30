@@ -1,4 +1,10 @@
-import React, { useEffect, useMemo, useRef, useState, useCallback } from "react";
+import React, {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  useCallback,
+} from "react";
 
 import FieldRenderer from "../components/FieldRenderer";
 import ConditionalFieldsRenderer from "../components/ConditionalFieldsRenderer";
@@ -8,12 +14,14 @@ import { SINGAPORE_CONFIG, INDONESIA_CONFIG } from "../config";
 
 import { allDocuments } from "@/api/documentApi";
 import { extractProfileApi, classifyAndExtractApi } from "@/api/ocrApi";
+import { getLivenessDetectionBySessionId } from "@/api/livenessDetectionApi";
 
 const Step1BasicInformation = ({
   data,
   onFieldChange,
   disabled = false,
   applicationId,
+  onPersistKycResult,
 }) => {
   const [existingDocuments, setExistingDocuments] = useState([]);
   const [ocrState, setOcrState] = useState({});
@@ -132,10 +140,9 @@ const Step1BasicInformation = ({
         const isSupported = result?.is_supported === true;
 
         if (!isSupported) {
-          const errorMessage =
-            detectedType
-              ? `Detected document type "${detectedType}" is not supported.`
-              : "This document is not supported.";
+          const errorMessage = detectedType
+            ? `Detected document type "${detectedType}" is not supported.`
+            : "This document is not supported.";
 
           setFieldVerificationState(fieldKey, {
             status: "failed",
@@ -189,12 +196,12 @@ const Step1BasicInformation = ({
   const getSelectedVerifiedFileForField = (fieldKey) => {
     const formDataRoot = getFormDataRoot();
     const fileValue =
-      getNestedValue(formDataRoot, fieldKey) ??
-      getNestedValue(data, fieldKey);
+      getNestedValue(formDataRoot, fieldKey) ?? getNestedValue(data, fieldKey);
 
     const selectedFile = fileValue?.file || fileValue;
     const isVerified =
-      fileValue?.verificationStatus === "verified" || fileValue?.verified === true;
+      fileValue?.verificationStatus === "verified" ||
+      fileValue?.verified === true;
 
     if (!(selectedFile instanceof File)) return null;
     if (!isVerified) return null;
@@ -239,12 +246,12 @@ const Step1BasicInformation = ({
   const handleOcrAutofill = async (fieldKey, fieldConfig) => {
     const formDataRoot = getFormDataRoot();
     const fileValue =
-      getNestedValue(formDataRoot, fieldKey) ??
-      getNestedValue(data, fieldKey);
+      getNestedValue(formDataRoot, fieldKey) ?? getNestedValue(data, fieldKey);
 
     const selectedFile = fileValue?.file || fileValue;
     const isVerified =
-      fileValue?.verificationStatus === "verified" || fileValue?.verified === true;
+      fileValue?.verificationStatus === "verified" ||
+      fileValue?.verified === true;
 
     if (!(selectedFile instanceof File) || !isVerified) {
       return;
@@ -310,6 +317,99 @@ const Step1BasicInformation = ({
     }
   };
 
+  const mapDetectionToKyc = (detection) => ({
+    status:
+      detection?.overall_status || detection?.id_verification_status
+        ? "completed"
+        : "idle",
+    loading: false,
+    sessionId: detection?.provider_session_id || "",
+    overallStatus: detection?.overall_status || "",
+    idVerificationStatus: detection?.id_verification_status || "",
+    livenessStatus: detection?.liveness_status || "",
+    livenessScore: detection?.liveness_score ?? null,
+    faceMatchStatus: detection?.face_match_status || "",
+    faceMatchScore: detection?.face_match_score ?? null,
+  });
+
+  const mapDetectionToIndividualFields = (detection) => ({
+    fullName: detection?.full_name || "",
+    idNumber: detection?.document_number || "",
+    dateOfBirth: detection?.date_of_birth || "",
+    nationality: detection?.issuing_state_code || "",
+    residentialAddress: detection?.formatted_address || "",
+  });
+
+  useEffect(() => {
+    if (!applicationId || applicationId === "new") return;
+
+    const hydrateIndividualsFromSessions = async () => {
+      const formRoot = getFormDataRoot();
+      const individuals = Array.isArray(formRoot?.individuals)
+        ? formRoot.individuals
+        : [];
+
+      if (!individuals.length) return;
+
+      const results = await Promise.all(
+        individuals.map(async (person, index) => {
+          const sessionId = person?.provider_session_id;
+          if (!sessionId) return { index, detection: null };
+
+          try {
+            const detection = await getLivenessDetectionBySessionId(sessionId);
+            return { index, detection };
+          } catch (err) {
+            console.error(`Failed to hydrate KYC for row ${index}`, err);
+            return { index, detection: null };
+          }
+        }),
+      );
+
+      let nextFormRoot = formRoot;
+      let hasChanges = false;
+
+      results.forEach(({ index, detection }) => {
+        if (!detection) return;
+
+        const person = nextFormRoot.individuals[index];
+        const nextKyc = mapDetectionToKyc(detection);
+        const mappedFields = mapDetectionToIndividualFields(detection);
+        console.log("mappedFields:", mappedFields);
+
+        nextFormRoot = {
+          ...nextFormRoot,
+          individuals: nextFormRoot.individuals.map((p, idx) =>
+            idx === index
+              ? {
+                  ...p,
+                  provider_session_id:
+                    p?.provider_session_id ||
+                    detection?.provider_session_id ||
+                    "",
+                  kyc: nextKyc,
+                  fullName: p?.fullName || mappedFields.fullName,
+                  idNumber: p?.idNumber || mappedFields.idNumber,
+                  dateOfBirth: p?.dateOfBirth || mappedFields.dateOfBirth,
+                  nationality: p?.nationality || mappedFields.nationality,
+                  residentialAddress:
+                    p?.residentialAddress || mappedFields.residentialAddress,
+                }
+              : p,
+          ),
+        };
+
+        hasChanges = true;
+      });
+
+      if (hasChanges) {
+        onFieldChange("formData", nextFormRoot);
+      }
+    };
+
+    hydrateIndividualsFromSessions();
+  }, [applicationId]);
+
   useEffect(() => {
     Object.entries(basicFieldsConfig).forEach(([fieldKey, fieldConfig]) => {
       if (fieldConfig?.type !== "file" || fieldConfig?.ocr !== true) return;
@@ -328,6 +428,64 @@ const Step1BasicInformation = ({
       }
     });
   }, [basicFieldsConfig, data, ocrState]);
+
+  // TO RETRIEVE LIVENESS DETECTION RESULTS FOR HYDRATING KYC FIELDS IN INDIVIDUALS REPEATABLE SECTION
+  // useEffect(() => {
+  //   const hydrateIndividualsFromSessions = async () => {
+  //     const formRoot = getFormDataRoot();
+  //     const individuals = Array.isArray(formRoot?.individuals)
+  //       ? formRoot.individuals
+  //       : [];
+
+  //     if (!individuals.length) return;
+
+  //     let nextFormRoot = formRoot;
+  //     let hasChanges = false;
+
+  //     for (let i = 0; i < individuals.length; i++) {
+  //       const person = individuals[i];
+  //       const sessionId = person?.provider_session_id;
+
+  //       if (!sessionId) continue;
+
+  //       try {
+  //         const detection = await getLivenessDetectionBySessionId(sessionId);
+
+  //         const nextKyc = mapDetectionToKyc(detection);
+  //         const mappedFields = mapDetectionToIndividualFields(detection);
+
+  //         const nextPerson = {
+  //           ...person,
+  //           provider_session_id: sessionId,
+  //           kyc: nextKyc,
+  //           fullName: person?.fullName || mappedFields.fullName,
+  //           idNumber: person?.idNumber || mappedFields.idNumber,
+  //           dateOfBirth: person?.dateOfBirth || mappedFields.dateOfBirth,
+  //           nationality: person?.nationality || mappedFields.nationality,
+  //           residentialAddress:
+  //             person?.residentialAddress || mappedFields.residentialAddress,
+  //         };
+
+  //         nextFormRoot = {
+  //           ...nextFormRoot,
+  //           individuals: nextFormRoot.individuals.map((p, idx) =>
+  //             idx === i ? nextPerson : p,
+  //           ),
+  //         };
+
+  //         hasChanges = true;
+  //       } catch (err) {
+  //         console.error(`Failed to hydrate KYC for individual ${i}`, err);
+  //       }
+  //     }
+
+  //     if (hasChanges) {
+  //       onFieldChange("formData", nextFormRoot);
+  //     }
+  //   };
+
+  //   hydrateIndividualsFromSessions();
+  // }, [applicationId]);
 
   return (
     <div>
@@ -352,10 +510,12 @@ const Step1BasicInformation = ({
               disabled={disabled}
               context={{
                 data,
+                applicationId,
                 ocrState,
                 verificationState,
                 existingDocumentMap,
                 beforeAcceptFile: buildFileValidator,
+                onPersistKycResult,
               }}
             />
           );
@@ -371,10 +531,12 @@ const Step1BasicInformation = ({
             disabled={disabled}
             context={{
               data,
+              applicationId,
               ocrState,
               verificationState,
               existingDocumentMap,
               beforeAcceptFile: buildFileValidator,
+              onPersistKycResult,
             }}
           />
         );
@@ -391,10 +553,12 @@ const Step1BasicInformation = ({
             disabled={disabled}
             context={{
               data,
+              applicationId,
               ocrState,
               verificationState,
               existingDocumentMap,
               beforeAcceptFile: buildFileValidator,
+              onPersistKycResult,
             }}
           />
         ),

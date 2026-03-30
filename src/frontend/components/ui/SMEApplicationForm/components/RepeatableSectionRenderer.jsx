@@ -102,40 +102,52 @@ const RepeatableSectionRenderer = ({
             )}
           </div>
 
-          {Object.entries(sectionConfig.fields).map(([fieldKey, fieldConfig]) => {
-            const value = row?.[fieldKey] ?? fieldConfig?.value ?? "";
+          {Object.entries(sectionConfig.fields).map(
+            ([fieldKey, fieldConfig]) => {
+              const value = row?.[fieldKey] ?? fieldConfig?.value ?? "";
 
-            if (fieldConfig?.conditionalFields) {
+              if (fieldConfig?.conditionalFields) {
+                return (
+                  <ConditionalFieldsRenderer
+                    key={fieldKey}
+                    fieldKey={fieldKey}
+                    fieldConfig={fieldConfig}
+                    value={value}
+                    rowData={row}
+                    onChange={(name, nextValue) =>
+                      handleRowFieldChange(rowIndex, name, nextValue)
+                    }
+                    disabled={disabled}
+                    //   context={context}
+                    context={{
+                      ...context,
+                      rowData: row,
+                      rowPrefix: `${storageKey}.${rowIndex}`,
+                    }}
+                  />
+                );
+              }
+
               return (
-                <ConditionalFieldsRenderer
+                <FieldRenderer
                   key={fieldKey}
                   fieldKey={fieldKey}
                   fieldConfig={fieldConfig}
                   value={value}
-                  rowData={row}
                   onChange={(name, nextValue) =>
                     handleRowFieldChange(rowIndex, name, nextValue)
                   }
                   disabled={disabled}
-                  context={context}
+                  // context={context}
+                  context={{
+                    ...context,
+                    rowData: row,
+                    rowPrefix: `${storageKey}.${rowIndex}`,
+                  }}
                 />
               );
-            }
-
-            return (
-              <FieldRenderer
-                key={fieldKey}
-                fieldKey={fieldKey}
-                fieldConfig={fieldConfig}
-                value={value}
-                onChange={(name, nextValue) =>
-                  handleRowFieldChange(rowIndex, name, nextValue)
-                }
-                disabled={disabled}
-                context={context}
-              />
-            );
-          })}
+            },
+          )}
         </div>
       ))}
     </div>
