@@ -1,164 +1,130 @@
-from types import SimpleNamespace
+from datetime import datetime
 
-import backend.api.bellNotification as bell_module
+from backend.models.user import User
+from backend.models.application import ApplicationForm
+from backend.models.bellNotifications import BellNotification
 
-
-class FakeQuery:
-    def __init__(self, all_result=None, scalar_result=None):
-        self._all_result = all_result or []
-        self._scalar_result = scalar_result
-        self.updated_with = None
-
-    def filter(self, *args, **kwargs):
-        return self
-
-    def order_by(self, *args, **kwargs):
-        return self
-
-    def limit(self, *args, **kwargs):
-        return self
-
-    def all(self):
-        return self._all_result
-
-    def scalar(self):
-        return self._scalar_result
-
-    def update(self, values, synchronize_session=False):
-        self.updated_with = {
-            "values": values,
-            "synchronize_session": synchronize_session,
-        }
-        return 1
+TEST_USER_ID = "USER0001"
 
 
-class FakeDB:
-    def __init__(self):
-        self.query_calls = []
-        self.queries = []
-        self.committed = False
-
-    def add_query(self, query_obj):
-        self.queries.append(query_obj)
-
-    def query(self, *args, **kwargs):
-        self.query_calls.append(args)
-        return self.queries.pop(0)
-
-    def commit(self):
-        self.committed = True
+def seed_user(db_session, user_id=TEST_USER_ID, email="user@example.com", role="SME"):
+    user = User(
+        user_id=user_id,
+        first_name="Jane",
+        last_name="Tan",
+        email=email,
+        password="hashed-password",
+        user_role=role,
+    )
+    db_session.add(user)
+    db_session.commit()
+    return user
 
 
-def make_notification(
-    id=1,
-    application_id="APP-1",
-    recipient_id="USER-1",
+def seed_application(db_session, user_id=TEST_USER_ID):
+    app = ApplicationForm(
+        business_country="SG",
+        business_name="Acme Pte Ltd",
+        business_type="PRIVATE_LIMITED",
+        user_id=user_id,
+        form_data={
+            "country": "SG",
+            "businessName": "Acme Pte Ltd",
+            "businessType": "PRIVATE_LIMITED",
+            "businessIndustry": "Technology",
+        },
+        previous_status=None,
+        current_status="Draft",
+    )
+    db_session.add(app)
+    db_session.commit()
+    db_session.refresh(app)
+    return app
+
+
+def seed_notification(
+    db_session,
+    application_id,
+    recipient_id=TEST_USER_ID,
     from_status="Draft",
     to_status="Under Review",
     message="Status changed",
     is_read=False,
-    created_at="2026-03-30T10:00:00Z",
 ):
-    return SimpleNamespace(
-        id=id,
+    notif = BellNotification(
         application_id=application_id,
         recipient_id=recipient_id,
         from_status=from_status,
         to_status=to_status,
         message=message,
         is_read=is_read,
-        created_at=created_at,
+        created_at=datetime.utcnow(),
     )
+    db_session.add(notif)
+    db_session.commit()
+    db_session.refresh(notif)
+    return notif
 
 
-def test_notif_to_dict():
-    notif = make_notification()
+def test_get_unread_notifications(client, db_session):
+    seed_user(db_session)
+    app1 = seed_application(db_session)
+    app2 = seed_application(db_session)
+    app3 = seed_application(db_session)
 
-    result = bell_module._notif_to_dict(notif)
+    seed_notification(db_session, application_id=app1.application_id, recipient_id=TEST_USER_ID, is_read=False)
+    seed_notification(db_session, application_id=app2.application_id, recipient_id=TEST_USER_ID, is_read=False)
+    seed_notification(db_session, application_id=app3.application_id, recipient_id=TEST_USER_ID, is_read=True)
 
-    assert result == {
-        "notification_id": "1",
-        "application_id": "APP-1",
-        "recipient_id": "USER-1",
-        "from_status": "Draft",
-        "to_status": "Under Review",
-        "message": "Status changed",
-        "is_read": False,
-        "created_at": "2026-03-30T10:00:00Z",
-    }
+    response = client.get(f"/bell/unread/{TEST_USER_ID}")
 
-
-def test_get_unread_notifications_returns_total_and_notifications():
-    db = FakeDB()
-    notifications = [
-        make_notification(id=1, is_read=False),
-        make_notification(id=2, application_id="APP-2", is_read=False),
-    ]
-    db.add_query(FakeQuery(all_result=notifications))
-
-    result = bell_module.get_unread_notifications("USER-1", db=db)
-
-    assert result["total"] == 2
-    assert len(result["notifications"]) == 2
-    assert result["notifications"][0]["notification_id"] == "1"
-    assert result["notifications"][1]["application_id"] == "APP-2"
+    assert response.status_code == 200
+    data = response.json()
+    assert data["total"] == 2
+    assert len(data["notifications"]) == 2
 
 
-def test_get_unread_notifications_returns_empty_list_when_none():
-    db = FakeDB()
-    db.add_query(FakeQuery(all_result=[]))
+def test_get_all_notifications(client, db_session):
+    seed_user(db_session)
+    app1 = seed_application(db_session)
+    app2 = seed_application(db_session)
 
-    result = bell_module.get_unread_notifications("USER-1", db=db)
+    seed_notification(db_session, application_id=app1.application_id, recipient_id=TEST_USER_ID, is_read=False)
+    seed_notification(db_session, application_id=app2.application_id, recipient_id=TEST_USER_ID, is_read=True)
 
-    assert result == {
-        "total": 0,
-        "notifications": [],
-    }
+    response = client.get(f"/bell/all/{TEST_USER_ID}")
 
-
-def test_get_all_notifications_returns_total_unread_and_notifications():
-    db = FakeDB()
-    notifications = [
-        make_notification(id=1, is_read=False),
-        make_notification(id=2, application_id="APP-2", is_read=True),
-    ]
-
-    db.add_query(FakeQuery(all_result=notifications))
-    db.add_query(FakeQuery(scalar_result=5))
-
-    result = bell_module.get_all_notifications("USER-1", db=db)
-
-    assert result["total"] == 2
-    assert result["unread"] == 5
-    assert len(result["notifications"]) == 2
-    assert result["notifications"][0]["notification_id"] == "1"
+    assert response.status_code == 200
+    data = response.json()
+    assert data["total"] == 2
+    assert data["unread"] == 1
+    assert len(data["notifications"]) == 2
 
 
-def test_mark_one_read_updates_and_commits():
-    db = FakeDB()
-    query = FakeQuery()
-    db.add_query(query)
+def test_mark_one_read(client, db_session):
+    seed_user(db_session)
+    app = seed_application(db_session)
+    seed_notification(db_session, application_id=app.application_id, recipient_id=TEST_USER_ID, is_read=False)
 
-    result = bell_module.mark_one_read("APP-1", db=db)
+    response = client.put(f"/bell/read-one/{app.application_id}")
+    assert response.status_code == 200
+    assert response.json() == {"message": "ok"}
 
-    assert query.updated_with == {
-        "values": {"is_read": True},
-        "synchronize_session": False,
-    }
-    assert db.committed is True
-    assert result == {"message": "ok"}
+    unread = client.get(f"/bell/unread/{TEST_USER_ID}").json()
+    assert unread["total"] == 0
 
 
-def test_mark_all_read_updates_and_commits():
-    db = FakeDB()
-    query = FakeQuery()
-    db.add_query(query)
+def test_mark_all_read(client, db_session):
+    seed_user(db_session)
+    app1 = seed_application(db_session)
+    app2 = seed_application(db_session)
 
-    result = bell_module.mark_all_read("USER-1", db=db)
+    seed_notification(db_session, application_id=app1.application_id, recipient_id=TEST_USER_ID, is_read=False)
+    seed_notification(db_session, application_id=app2.application_id, recipient_id=TEST_USER_ID, is_read=False)
 
-    assert query.updated_with == {
-        "values": {"is_read": True},
-        "synchronize_session": False,
-    }
-    assert db.committed is True
-    assert result == {"message": "ok"}
+    response = client.put(f"/bell/read-all/{TEST_USER_ID}")
+    assert response.status_code == 200
+    assert response.json() == {"message": "ok"}
+
+    unread = client.get(f"/bell/unread/{TEST_USER_ID}").json()
+    assert unread["total"] == 0

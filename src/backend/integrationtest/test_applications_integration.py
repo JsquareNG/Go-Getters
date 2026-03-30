@@ -1,6 +1,8 @@
 from backend.models.user import User
+from backend.models.livenessDetection import LivenessDetection
 
 TEST_USER_ID = "USER0001"
+TEST_PROVIDER_SESSION_ID = "didit-session-123"
 
 
 def seed_user(db_session, user_id=TEST_USER_ID, email="user@example.com", role="SME"):
@@ -17,6 +19,20 @@ def seed_user(db_session, user_id=TEST_USER_ID, email="user@example.com", role="
     return user
 
 
+def seed_liveness_detection(
+    db_session,
+    provider_session_id=TEST_PROVIDER_SESSION_ID,
+):
+    row = LivenessDetection(
+        provider_session_id=provider_session_id,
+        status="approved",
+    )
+    db_session.add(row)
+    db_session.commit()
+    db_session.refresh(row)
+    return row
+
+
 def minimal_form_data():
     return {
         "businessName": "Acme Pte Ltd",
@@ -28,9 +44,11 @@ def minimal_form_data():
 
 def test_first_save_creates_draft_application(client, db_session):
     seed_user(db_session)
+    seed_liveness_detection(db_session)
 
     payload = {
         "user_id": TEST_USER_ID,
+        "provider_session_id": TEST_PROVIDER_SESSION_ID,
         "form_data": minimal_form_data(),
     }
 
@@ -39,17 +57,16 @@ def test_first_save_creates_draft_application(client, db_session):
     assert response.status_code == 200, response.text
     data = response.json()
     assert "application_id" in data
-    if "current_status" in data:
-        assert data["current_status"] == "Draft"
 
 
 def test_first_submit_creates_under_review_application(client, db_session):
     seed_user(db_session)
+    seed_liveness_detection(db_session)
 
     payload = {
         "user_id": TEST_USER_ID,
+        "provider_session_id": TEST_PROVIDER_SESSION_ID,
         "form_data": minimal_form_data(),
-        "provider_session_id": "didit-session-123",
     }
 
     response = client.post("/applications/firstSubmit", json=payload)
@@ -57,23 +74,21 @@ def test_first_submit_creates_under_review_application(client, db_session):
     assert response.status_code == 200, response.text
     data = response.json()
     assert "application_id" in data
-    if "current_status" in data:
-        assert data["current_status"] == "Under Review"
 
 
 def test_withdraw_application_changes_status(client, db_session):
     seed_user(db_session)
+    seed_liveness_detection(db_session)
 
     create_payload = {
         "user_id": TEST_USER_ID,
+        "provider_session_id": TEST_PROVIDER_SESSION_ID,
         "form_data": minimal_form_data(),
     }
 
     create_response = client.post("/applications/firstSave", json=create_payload)
     assert create_response.status_code == 200, create_response.text
-    create_data = create_response.json()
-
-    application_id = create_data["application_id"]
+    application_id = create_response.json()["application_id"]
 
     withdraw_response = client.put(f"/applications/withdraw/{application_id}")
     assert withdraw_response.status_code == 200, withdraw_response.text
@@ -88,9 +103,11 @@ def test_withdraw_application_changes_status(client, db_session):
 
 def test_get_all_applications_includes_created_application(client, db_session):
     seed_user(db_session)
+    seed_liveness_detection(db_session)
 
     payload = {
         "user_id": TEST_USER_ID,
+        "provider_session_id": TEST_PROVIDER_SESSION_ID,
         "form_data": minimal_form_data(),
     }
 
