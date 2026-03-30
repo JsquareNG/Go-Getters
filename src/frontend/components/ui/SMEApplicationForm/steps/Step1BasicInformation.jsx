@@ -16,6 +16,8 @@ import { allDocuments } from "@/api/documentApi";
 import { extractProfileApi, classifyAndExtractApi } from "@/api/ocrApi";
 import { getLivenessDetectionBySessionId } from "@/api/livenessDetectionApi";
 
+import { mapIsoToNationalityOption } from "../utils/countries";
+
 const Step1BasicInformation = ({
   data,
   onFieldChange,
@@ -337,10 +339,14 @@ const Step1BasicInformation = ({
     idNumber: detection?.document_number || "",
     dateOfBirth: detection?.date_of_birth || "",
     nationality: detection?.issuing_state_code || "",
+    // nationality: mapIsoToNationalityOption(detection?.issuing_state_code),
+
     residentialAddress: detection?.formatted_address || "",
   });
 
-  const individualsSignature = JSON.stringify(getFormDataRoot()?.individuals || []);
+  const individualsSignature = JSON.stringify(
+    getFormDataRoot()?.individuals || [],
+  );
 
   useEffect(() => {
     if (!applicationId || applicationId === "new") return;

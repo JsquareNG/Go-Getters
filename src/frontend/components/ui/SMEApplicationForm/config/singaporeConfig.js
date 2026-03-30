@@ -6,7 +6,7 @@
 //////////////////////////
 //HELPER FIELD SETS //
 //////////////////////////
-import { COUNTRIES, NATIONALITIES } from "../utils/countries";
+import { COUNTRIES } from "../utils/countries";
 import { INDUSTRY_OPTIONS } from "../utils/industries";
 
 const YES_NO_OPTIONS = ["Yes", "No"].map((opt) => ({
@@ -97,7 +97,7 @@ function getIndividualFields() {
       type: "select",
       label: "Nationality",
       required: true,
-      options: NATIONALITIES,
+      options: COUNTRIES(),
       placeholder: "Select your nationality",
     },
     residentialAddress: {
@@ -715,7 +715,7 @@ const SINGAPORE_CONFIG = {
                       type: "select",
                       label: "Nationality",
                       required: true,
-                      options: NATIONALITIES,
+                      options: COUNTRIES(),
                       placeholder: "Select your nationality",
                     },
                     residentialAddress: {
@@ -809,7 +809,7 @@ const SINGAPORE_CONFIG = {
               },
               nationality: {
                 type: "select",
-                options: NATIONALITIES,
+                options: COUNTRIES(),
                 label: "Nationality",
                 placeholder: "Select your nationality",
                 required: true,

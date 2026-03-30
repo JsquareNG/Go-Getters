@@ -6,7 +6,7 @@
 //////////////////////////
 // HELPER FIELD SETS //
 //////////////////////////
-import { COUNTRIES, NATIONALITIES } from "../utils/countries";
+import { COUNTRIES } from "../utils/countries";
 
 const YES_NO_OPTIONS = ["Yes", "No"].map((opt) => ({
   label: opt,
@@ -209,7 +209,7 @@ function getIndividualFields() {
       type: "select",
       label: "Nationality",
       required: true,
-      options: NATIONALITIES,
+      options: COUNTRIES(),
       placeholder: "Select your nationality",
     },
     residentialAddress: {
