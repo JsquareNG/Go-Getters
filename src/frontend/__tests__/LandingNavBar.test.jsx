@@ -1,11 +1,19 @@
 import React from "react";
-import { render, screen, fireEvent, waitFor } from "@testing-library/react";
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { render, screen, fireEvent, waitFor, cleanup } from "@testing-library/react";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { MemoryRouter } from "react-router-dom";
-import { LandingNavBar } from "../components/ui/features/LandingNavBar";
+import { LandingNavBar } from "../components/ui/navigation/LandingNavBar"; // adjust if needed
 
-// Mock router
+// ----------------------------
+// Shared mock state
+// ----------------------------
+let mockUser = null;
+
+// ----------------------------
+// Router mocks
+// ----------------------------
 const mockNavigate = vi.fn();
+
 vi.mock("react-router-dom", async () => {
   const actual = await vi.importActual("react-router-dom");
   return {
@@ -14,26 +22,34 @@ vi.mock("react-router-dom", async () => {
   };
 });
 
-// Mock redux
+// ----------------------------
+// Redux mocks
+// ----------------------------
 const mockDispatch = vi.fn();
-const mockUseSelector = vi.fn();
 
 vi.mock("react-redux", async () => {
   const actual = await vi.importActual("react-redux");
   return {
     ...actual,
     useDispatch: () => mockDispatch,
-    useSelector: (selector) => mockUseSelector(selector),
+    useSelector: (selector) => selector(),
   };
 });
 
-// Mock authSlice
-vi.mock("@/store/authSlice", () => ({
-  selectUser: (state) => state,
-  logout: () => ({ type: "auth/logout" }),
-}));
+// IMPORTANT: partial mock so default export stays intact
+vi.mock("@/store/authSlice", async (importOriginal) => {
+  const actual = await importOriginal();
+  return {
+    ...actual,
+    selectUser: () => mockUser,
+    logout: () => ({ type: "auth/logout" }),
+  };
+});
 
-// Mock notification APIs
+// ----------------------------
+// Notifications API mocks
+// Path must match component import EXACTLY
+// ----------------------------
 const mockGetAllNotifications = vi.fn();
 const mockGetUnreadNotifications = vi.fn();
 const mockReadOneApplication = vi.fn();
@@ -46,11 +62,16 @@ vi.mock("../../../api/notificationsApi", () => ({
   readAllApplication: (...args) => mockReadAllApplication(...args),
 }));
 
-// Mock image import
+// ----------------------------
+// Asset mock
+// ----------------------------
 vi.mock("@/assets/gogetterslogo.png", () => ({
   default: "mock-logo.png",
 }));
 
+// ----------------------------
+// Render helper
+// ----------------------------
 function renderNav() {
   return render(
     <MemoryRouter>
@@ -59,50 +80,62 @@ function renderNav() {
   );
 }
 
+// ----------------------------
+// Tests
+// ----------------------------
 describe("LandingNavBar", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockUser = null;
 
     mockGetUnreadNotifications.mockResolvedValue({ total: 0 });
     mockGetAllNotifications.mockResolvedValue({ notifications: [], unread: 0 });
+    mockReadOneApplication.mockResolvedValue({});
+    mockReadAllApplication.mockResolvedValue({});
+  });
+
+  afterEach(() => {
+    cleanup();
   });
 
   it("renders SME navigation items for SME user", async () => {
-    mockUseSelector.mockReturnValue({
+    mockUser = {
       role: "SME",
       user_id: "U1",
       first_name: "Jane",
       last_name: "Tan",
-    });
+    };
 
     renderNav();
 
     expect(await screen.findByText(/applications/i)).toBeInTheDocument();
     expect(screen.queryByText(/dashboard/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/staff landing/i)).not.toBeInTheDocument();
   });
 
   it("renders STAFF navigation items for STAFF user", async () => {
-    mockUseSelector.mockReturnValue({
+    mockUser = {
       role: "STAFF",
       user_id: "S1",
       first_name: "Alice",
       last_name: "Lim",
-    });
+    };
 
     renderNav();
 
     expect(await screen.findByText(/staff landing/i)).toBeInTheDocument();
     expect(screen.getByText(/dashboard/i)).toBeInTheDocument();
-    expect(screen.queryByText(/applications/i)).not.toBeInTheDocument();
+    expect(screen.getByText(/rules engine configuration/i)).toBeInTheDocument();
+    expect(screen.queryByText(/^applications$/i)).not.toBeInTheDocument();
   });
 
-  it("shows user initials and full name", async () => {
-    mockUseSelector.mockReturnValue({
+  it("shows user initials and name", async () => {
+    mockUser = {
       role: "SME",
       user_id: "U1",
       first_name: "Jane",
       last_name: "Tan",
-    });
+    };
 
     renderNav();
 
@@ -111,12 +144,12 @@ describe("LandingNavBar", () => {
   });
 
   it("shows notification button", async () => {
-    mockUseSelector.mockReturnValue({
+    mockUser = {
       role: "SME",
       user_id: "U1",
       first_name: "Jane",
       last_name: "Tan",
-    });
+    };
 
     renderNav();
 
@@ -124,12 +157,12 @@ describe("LandingNavBar", () => {
   });
 
   it("fetches notifications on mount", async () => {
-    mockUseSelector.mockReturnValue({
+    mockUser = {
       role: "SME",
       user_id: "U1",
       first_name: "Jane",
       last_name: "Tan",
-    });
+    };
 
     renderNav();
 
@@ -140,12 +173,12 @@ describe("LandingNavBar", () => {
   });
 
   it("shows unread badge when unread count is positive", async () => {
-    mockUseSelector.mockReturnValue({
+    mockUser = {
       role: "SME",
       user_id: "U1",
       first_name: "Jane",
       last_name: "Tan",
-    });
+    };
 
     mockGetUnreadNotifications.mockResolvedValue({ total: 3 });
 
@@ -155,20 +188,17 @@ describe("LandingNavBar", () => {
   });
 
   it("dispatches logout and navigates home when logout clicked", async () => {
-    mockUseSelector.mockReturnValue({
+    mockUser = {
       role: "SME",
       user_id: "U1",
       first_name: "Jane",
       last_name: "Tan",
-    });
+    };
 
     renderNav();
 
-    // open dropdown
     fireEvent.click(await screen.findByText(/jane tan/i));
-
-    const logoutBtn = await screen.findByText(/logout/i);
-    fireEvent.click(logoutBtn);
+    fireEvent.click(await screen.findByText(/logout/i));
 
     expect(mockDispatch).toHaveBeenCalledWith({ type: "auth/logout" });
     expect(mockNavigate).toHaveBeenCalledWith("/");
