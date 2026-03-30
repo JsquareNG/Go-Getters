@@ -2,7 +2,7 @@ import React from "react";
 import { render, screen, fireEvent, waitFor, cleanup } from "@testing-library/react";
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { MemoryRouter } from "react-router-dom";
-import { LandingNavBar } from "../components/ui/navigation/LandingNavBar"; // adjust if needed
+import { LandingNavBar } from "../components/ui/features/LandingNavBar"; // adjust if needed
 
 // ----------------------------
 // Shared mock state
