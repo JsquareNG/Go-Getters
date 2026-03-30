@@ -1,5 +1,5 @@
 from backend.models.user import User
-from backend.models.livenessDetection import LivenessDetection
+from backend.models.liveness_detection import LivenessDetection
 
 TEST_USER_ID = "USER0001"
 TEST_PROVIDER_SESSION_ID = "didit-session-123"
