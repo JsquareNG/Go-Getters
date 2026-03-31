@@ -542,11 +542,11 @@ const INDONESIA_CONFIG = {
           id: "step4",
           label: "Required Documents",
           fields: {
-            deedOfEstablishment: {
-              type: "file",
-              label: "Deed of Establishment (Akta Pendirian Perusahaan)",
-              required: true,
-            },
+            // deedOfEstablishment: {
+            //   type: "file",
+            //   label: "Deed of Establishment (Akta Pendirian Perusahaan)",
+            //   required: true,
+            // },
             npwpCertificate: {
               type: "file",
               label: "NPWP Certificate",

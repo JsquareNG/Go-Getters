@@ -97,9 +97,13 @@ const FieldRenderer = ({
         acceptTypes="application/pdf,image/jpeg,image/png"
         maxSize={5242880}
         //shared classify-and-extract verification
-        // beforeAcceptFile={beforeAcceptFile}
-        // verificationMeta={verificationMeta}
-
+        beforeAcceptFile={
+          context?.beforeAcceptFile
+            ? context.beforeAcceptFile(fullFieldPath, fieldConfig)
+            : undefined
+        }
+        verificationMeta={context?.verificationState?.[fullFieldPath] || null}
+        
         ocr={fieldConfig.ocr === true}
         ocrLoading={context?.ocrState?.[fieldKey]?.loading || false}
         ocrStatus={context?.ocrState?.[fieldKey]?.status || ""}

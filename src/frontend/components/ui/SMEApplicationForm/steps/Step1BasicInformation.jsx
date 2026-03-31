@@ -95,6 +95,73 @@ const Step1BasicInformation = ({
       .toLowerCase()
       .replace(/\s+/g, "_");
 
+  const hasUsableLocalFile = (value) =>
+    !!value && (value instanceof File || value?.file instanceof File);
+
+  const getDisplayedFileValue = (fieldPath) => {
+    const localValue =
+      getNestedValue(getFormDataRoot(), fieldPath) ??
+      getNestedValue(data, fieldPath) ??
+      null;
+
+    if (hasUsableLocalFile(localValue)) return localValue;
+
+    const existingDoc = existingDocumentMap[fieldPath];
+    if (!existingDoc) return null;
+
+    return {
+      uploaded: true,
+      verified: true,
+      verificationStatus: "verified",
+      verificationMessage: "Previously uploaded document found.",
+      document_id: existingDoc.document_id,
+      document_type: existingDoc.document_type,
+      original_filename: existingDoc.original_filename,
+      storage_path: existingDoc.storage_path,
+      mime_type: existingDoc.mime_type,
+      status: existingDoc.status,
+      created_at: existingDoc.created_at,
+    };
+  };
+
+  const getFieldVerificationMeta = (fieldPath) => {
+    const localValue =
+      getNestedValue(getFormDataRoot(), fieldPath) ??
+      getNestedValue(data, fieldPath) ??
+      null;
+
+    if (verificationState[fieldPath]) return verificationState[fieldPath];
+
+    if (localValue?.verificationStatus) {
+      return {
+        status: localValue.verificationStatus,
+        message: localValue.verificationMessage || "",
+        detectedType: localValue.detectedType || null,
+        expectedType: localValue.expectedType || null,
+      };
+    }
+
+    if (existingDocumentMap[fieldPath]) {
+      return {
+        status: "verified",
+        message: "Previously uploaded document found.",
+        detectedType: normalizeDocumentType(
+          existingDocumentMap[fieldPath]?.document_type,
+        ),
+        expectedType: normalizeDocumentType(
+          existingDocumentMap[fieldPath]?.document_type,
+        ),
+      };
+    }
+
+    return {
+      status: "idle",
+      message: "",
+      detectedType: null,
+      expectedType: null,
+    };
+  };
+
   const inferExpectedDocumentType = (fieldKey, fieldConfig) => {
     if (fieldConfig?.ocrTarget === "business_profile") {
       return "business_profile";
@@ -119,6 +186,82 @@ const Step1BasicInformation = ({
     }));
   };
 
+  // const buildFileValidator = useCallback(
+  //   (fieldKey, fieldConfig) => async (file) => {
+  //     const expectedType = inferExpectedDocumentType(fieldKey, fieldConfig);
+
+  //     setFieldVerificationState(fieldKey, {
+  //       status: "verifying",
+  //       message: "Verifying document...",
+  //       expectedType,
+  //       detectedType: null,
+  //     });
+
+  //     try {
+  //       const result = await classifyAndExtractApi(file);
+
+  //       const detectedType = normalizeDocumentType(
+  //         result?.document_type ||
+  //           result?.classified_as ||
+  //           result?.doc_type ||
+  //           result?.label,
+  //       );
+
+  //       const isSupported = result?.is_supported === true;
+
+  //       if (!isSupported) {
+  //         const errorMessage = detectedType
+  //           ? `Detected document type "${detectedType}" is not supported.`
+  //           : "This document is not supported.";
+
+  //         setFieldVerificationState(fieldKey, {
+  //           status: "failed",
+  //           message: errorMessage,
+  //           expectedType,
+  //           detectedType,
+  //         });
+
+  //         throw new Error(errorMessage);
+  //       }
+
+  //       if (expectedType && detectedType && expectedType !== detectedType) {
+  //         const errorMessage = `Wrong document uploaded. Expected "${expectedType}" but detected "${detectedType}".`;
+
+  //         setFieldVerificationState(fieldKey, {
+  //           status: "failed",
+  //           message: errorMessage,
+  //           expectedType,
+  //           detectedType,
+  //         });
+
+  //         throw new Error(errorMessage);
+  //       }
+
+  //       const nextValue = {
+  //         file,
+  //         progress: 0,
+  //         verified: true,
+  //         verificationStatus: "verified",
+  //         verificationMessage: "Document verified successfully.",
+  //         detectedType,
+  //         expectedType,
+  //         classificationResult: result,
+  //       };
+
+  //       setFieldVerificationState(fieldKey, {
+  //         status: "verified",
+  //         message: "Document verified successfully.",
+  //         expectedType,
+  //         detectedType,
+  //       });
+
+  //       return nextValue;
+  //     } catch (err) {
+  //       throw err;
+  //     }
+  //   },
+  //   [],
+  // );
   const buildFileValidator = useCallback(
     (fieldKey, fieldConfig) => async (file) => {
       const expectedType = inferExpectedDocumentType(fieldKey, fieldConfig);
@@ -190,6 +333,16 @@ const Step1BasicInformation = ({
 
         return nextValue;
       } catch (err) {
+        setFieldVerificationState(fieldKey, {
+          status: "failed",
+          message:
+            err?.response?.data?.detail ||
+            err?.message ||
+            "Verification failed. Please upload the file again.",
+          expectedType,
+          detectedType: null,
+        });
+
         throw err;
       }
     },
@@ -232,15 +385,16 @@ const Step1BasicInformation = ({
         },
       }));
 
-      setVerificationState((prev) => ({
-        ...prev,
-        [name]: {
-          status: "idle",
-          message: "",
-          expectedType: null,
-          detectedType: null,
-        },
-      }));
+      //this will reset the verification state when the field is cleared, which is important to allow re-upload and re-verification of files
+      // setVerificationState((prev) => ({
+      //   ...prev,
+      //   [name]: {
+      //     status: "idle",
+      //     message: "",
+      //     expectedType: null,
+      //     detectedType: null,
+      //   },
+      // }));
     }
 
     onFieldChange(name, value);
@@ -348,6 +502,7 @@ const Step1BasicInformation = ({
   // const individualsSignature = JSON.stringify(
   //   getFormDataRoot()?.individuals || [],
   // );
+
   const sessionSignature = JSON.stringify(
     (getFormDataRoot()?.individuals || []).map(
       (person) => person?.provider_session_id || null,
@@ -479,6 +634,8 @@ const Step1BasicInformation = ({
                 existingDocumentMap,
                 beforeAcceptFile: buildFileValidator,
                 onPersistKycResult,
+                getDisplayedFileValue,
+                getFieldVerificationMeta,
               }}
             />
           );
@@ -500,6 +657,8 @@ const Step1BasicInformation = ({
               existingDocumentMap,
               beforeAcceptFile: buildFileValidator,
               onPersistKycResult,
+              getDisplayedFileValue,
+              getFieldVerificationMeta,
             }}
           />
         );
@@ -522,6 +681,8 @@ const Step1BasicInformation = ({
               existingDocumentMap,
               beforeAcceptFile: buildFileValidator,
               onPersistKycResult,
+              getDisplayedFileValue,
+              getFieldVerificationMeta,
             }}
           />
         ),
