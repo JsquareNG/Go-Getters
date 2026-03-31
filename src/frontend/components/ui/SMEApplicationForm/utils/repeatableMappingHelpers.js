@@ -46,57 +46,111 @@ export const mapIndividualsDynamic = (rawData, config) => {
   const entityConfig = getEntityConfig(data, config);
   if (!entityConfig?.steps) return [];
 
-  const allIndividuals = Array.isArray(data.individuals) ? data.individuals : [];
+  const allIndividuals = Array.isArray(data.individuals)
+    ? data.individuals
+    : [];
   const individuals = [];
 
   entityConfig.steps.forEach((step) => {
     const repeatableSections = step.repeatableSections || {};
 
-    Object.entries(repeatableSections).forEach(([sectionKey, sectionConfig]) => {
-      if (!isIndividualLikeSection(sectionConfig)) return;
+    Object.entries(repeatableSections).forEach(
+      ([sectionKey, sectionConfig]) => {
+        if (!isIndividualLikeSection(sectionConfig)) return;
 
-      let sectionData = [];
+        let sectionData = [];
 
-      if (sectionConfig?.storage === "individuals") {
-        const roleValue = getSectionRoleValue(sectionKey, sectionConfig);
-        sectionData = allIndividuals.filter((item) => item?.role === roleValue);
-      } else {
-        sectionData = Array.isArray(data[sectionKey]) ? data[sectionKey] : [];
-      }
+        if (sectionConfig?.storage === "individuals") {
+          const roleValue = getSectionRoleValue(sectionKey, sectionConfig);
+          sectionData = allIndividuals.filter(
+            (item) => item?.role === roleValue,
+          );
+        } else {
+          sectionData = Array.isArray(data[sectionKey]) ? data[sectionKey] : [];
+        }
 
-      sectionData.forEach((item) => {
-        const individual = {};
+        sectionData.forEach((item) => {
+          const individual = {};
 
-        Object.entries(sectionConfig.fields || {}).forEach(([fieldKey, fieldConfig]) => {
-          if (fieldKey === "conditionalFields") return;
+          Object.entries(sectionConfig.fields || {}).forEach(
+            ([fieldKey, fieldConfig]) => {
+              if (fieldKey === "conditionalFields") return;
 
-          individual[fieldKey] =
-            getNestedValue(item, fieldKey) ?? fieldConfig?.value ?? null;
+              individual[fieldKey] =
+                getNestedValue(item, fieldKey) ?? fieldConfig?.value ?? null;
 
-          const triggerValue = getNestedValue(item, fieldKey);
+              const triggerValue = getNestedValue(item, fieldKey);
 
-          if (fieldConfig?.conditionalFields && triggerValue) {
-            Object.entries(fieldConfig.conditionalFields[triggerValue] || {}).forEach(
-              ([conditionalKey, conditionalConfig]) => {
-                individual[conditionalKey] =
-                  getNestedValue(item, conditionalKey) ??
-                  conditionalConfig?.value ??
-                  null;
-              },
-            );
-          }
+              if (fieldConfig?.conditionalFields && triggerValue) {
+                Object.entries(
+                  fieldConfig.conditionalFields[triggerValue] || {},
+                ).forEach(([conditionalKey, conditionalConfig]) => {
+                  individual[conditionalKey] =
+                    getNestedValue(item, conditionalKey) ??
+                    conditionalConfig?.value ??
+                    null;
+                });
+              }
+            },
+          );
+
+          individual.role =
+            item?.role || getSectionRoleValue(sectionKey, sectionConfig);
+
+          individuals.push(individual);
         });
-
-        individual.role =
-          item?.role || getSectionRoleValue(sectionKey, sectionConfig);
-
-        individuals.push(individual);
-      });
-    });
+      },
+    );
   });
 
   return individuals;
 };
+
+// export const mapNonIndividualRepeatableData = (rawData, config) => {
+//   const data = getMergedFormState(rawData);
+//   const entityConfig = getEntityConfig(data, config);
+//   if (!entityConfig?.steps) return {};
+
+//   const mapped = {};
+
+//   entityConfig.steps.forEach((step) => {
+//     const repeatableSections = step.repeatableSections || {};
+
+//     Object.entries(repeatableSections).forEach(([sectionKey, sectionConfig]) => {
+//       if (isIndividualLikeSection(sectionConfig)) return;
+
+//       const sectionData = Array.isArray(data[sectionKey]) ? data[sectionKey] : [];
+
+//       mapped[sectionKey] = sectionData.map((item) => {
+//         const obj = {};
+
+//         Object.entries(sectionConfig.fields || {}).forEach(([fieldKey, fieldConfig]) => {
+//           if (fieldKey === "conditionalFields") return;
+
+//           obj[fieldKey] =
+//             getNestedValue(item, fieldKey) ?? fieldConfig?.value ?? null;
+
+//           const triggerValue = getNestedValue(item, fieldKey);
+
+//           if (fieldConfig?.conditionalFields && triggerValue) {
+//             Object.entries(fieldConfig.conditionalFields[triggerValue] || {}).forEach(
+//               ([conditionalKey, conditionalConfig]) => {
+//                 obj[conditionalKey] =
+//                   getNestedValue(item, conditionalKey) ??
+//                   conditionalConfig?.value ??
+//                   null;
+//               },
+//             );
+//           }
+//         });
+
+//         return obj;
+//       });
+//     });
+//   });
+
+//   return mapped;
+// };
 
 export const mapNonIndividualRepeatableData = (rawData, config) => {
   const data = getMergedFormState(rawData);
@@ -108,37 +162,55 @@ export const mapNonIndividualRepeatableData = (rawData, config) => {
   entityConfig.steps.forEach((step) => {
     const repeatableSections = step.repeatableSections || {};
 
-    Object.entries(repeatableSections).forEach(([sectionKey, sectionConfig]) => {
-      if (isIndividualLikeSection(sectionConfig)) return;
+    Object.entries(repeatableSections).forEach(
+      ([sectionKey, sectionConfig]) => {
+        if (isIndividualLikeSection(sectionConfig)) return;
 
-      const sectionData = Array.isArray(data[sectionKey]) ? data[sectionKey] : [];
+        const storageKey = sectionConfig?.storage || sectionKey;
+        const allRows = Array.isArray(data[storageKey]) ? data[storageKey] : [];
 
-      mapped[sectionKey] = sectionData.map((item) => {
-        const obj = {};
+        const rowTypeField = sectionConfig?.rowTypeField;
+        const rowTypeValue = sectionConfig?.rowTypeValue;
 
-        Object.entries(sectionConfig.fields || {}).forEach(([fieldKey, fieldConfig]) => {
-          if (fieldKey === "conditionalFields") return;
+        const filteredRows = rowTypeField
+          ? allRows.filter((row) => row?.[rowTypeField] === rowTypeValue)
+          : allRows;
 
-          obj[fieldKey] =
-            getNestedValue(item, fieldKey) ?? fieldConfig?.value ?? null;
+        const mappedRows = filteredRows.map((item) => {
+          const obj = {};
 
-          const triggerValue = getNestedValue(item, fieldKey);
+          Object.entries(sectionConfig.fields || {}).forEach(
+            ([fieldKey, fieldConfig]) => {
+              if (fieldKey === "conditionalFields") return;
 
-          if (fieldConfig?.conditionalFields && triggerValue) {
-            Object.entries(fieldConfig.conditionalFields[triggerValue] || {}).forEach(
-              ([conditionalKey, conditionalConfig]) => {
-                obj[conditionalKey] =
-                  getNestedValue(item, conditionalKey) ??
-                  conditionalConfig?.value ??
-                  null;
-              },
-            );
-          }
+              obj[fieldKey] =
+                getNestedValue(item, fieldKey) ?? fieldConfig?.value ?? null;
+
+              const triggerValue = getNestedValue(item, fieldKey);
+
+              if (fieldConfig?.conditionalFields && triggerValue) {
+                Object.entries(
+                  fieldConfig.conditionalFields[triggerValue] || {},
+                ).forEach(([conditionalKey, conditionalConfig]) => {
+                  obj[conditionalKey] =
+                    getNestedValue(item, conditionalKey) ??
+                    conditionalConfig?.value ??
+                    null;
+                });
+              }
+            },
+          );
+
+          return obj;
         });
 
-        return obj;
-      });
-    });
+        if (!mapped[storageKey]) {
+          mapped[storageKey] = [];
+        }
+
+        mapped[storageKey].push(...mappedRows);
+      },
+    );
   });
 
   return mapped;
@@ -154,14 +226,36 @@ export const stripIndividualLikeFieldsFromRoot = (payload, rawData, config) => {
   entityConfig.steps.forEach((step) => {
     const repeatableSections = step.repeatableSections || {};
 
+    Object.entries(repeatableSections).forEach(
+      ([sectionKey, sectionConfig]) => {
+        if (!isIndividualLikeSection(sectionConfig)) return;
+
+        delete cleaned[sectionKey];
+
+        Object.keys(sectionConfig.fields || {}).forEach((fieldKey) => {
+          delete cleaned[fieldKey];
+        });
+      },
+    );
+  });
+
+  return cleaned;
+};
+
+export const stripNonIndividualRepeatableFieldsFromRoot = (payload, rawData, config) => {
+  const data = getMergedFormState(rawData);
+  const entityConfig = getEntityConfig(data, config);
+  if (!entityConfig?.steps) return payload;
+
+  const cleaned = { ...payload };
+
+  entityConfig.steps.forEach((step) => {
+    const repeatableSections = step.repeatableSections || {};
+
     Object.entries(repeatableSections).forEach(([sectionKey, sectionConfig]) => {
-      if (!isIndividualLikeSection(sectionConfig)) return;
+      if (isIndividualLikeSection(sectionConfig)) return;
 
       delete cleaned[sectionKey];
-
-      Object.keys(sectionConfig.fields || {}).forEach((fieldKey) => {
-        delete cleaned[fieldKey];
-      });
     });
   });
 

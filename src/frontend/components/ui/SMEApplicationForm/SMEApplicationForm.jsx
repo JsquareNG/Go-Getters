@@ -482,11 +482,6 @@ const SMEApplicationForm = () => {
         return savedAppId;
       }
 
-      // const primaryProviderSessionId =
-      //   effectiveFormData?.provider_session_id ||
-      //   effectiveFormData?.individuals?.find((p) => p?.provider_session_id)
-      //     ?.provider_session_id ||
-      //   null;
       const providerSessionId =
         effectiveFormData?.provider_session_id ||
         effectiveFormData?.individuals?.find((p) => p?.provider_session_id)
@@ -498,12 +493,6 @@ const SMEApplicationForm = () => {
         config: activeConfig,
         providerSessionId: providerSessionId,
       });
-
-      // const cleanedFormPayload = buildDynamicPayload({
-      //   rawFormData: formData,
-      //   config: activeConfig,
-      //   providerSessionId: formData.provider_session_id || null,
-      // });
 
       const payload = {
         ...(savedAppId && savedAppId !== "new"

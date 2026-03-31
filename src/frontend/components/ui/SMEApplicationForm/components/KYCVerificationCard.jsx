@@ -29,7 +29,7 @@ const KycVerificationCard = ({
 
   //   const kycData = data?.kycData || DEFAULT_KYC_DATA;
   const kycData = data?.kyc || data?.kycData || DEFAULT_KYC_DATA;
-  console.log("Rendering KYCVerificationCard with kycData:", kycData);
+//   console.log("Rendering KYCVerificationCard with kycData:", kycData);
   const kycStatus = kycData.status || "idle";
   const kycLoading = kycData.loading || false;
   const kycOverallStatus = kycData.overallStatus || "";
@@ -124,6 +124,7 @@ const KycVerificationCard = ({
       idNumber: idv?.document_number || "",
       dateOfBirth: idv?.date_of_birth || "",
       residentialAddress: idv?.formatted_address || "",
+      nationality: mapIsoToNationalityOption(idv?.issuing_state || null),
     };
   };
 

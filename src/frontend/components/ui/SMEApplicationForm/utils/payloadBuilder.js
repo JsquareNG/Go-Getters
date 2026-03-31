@@ -6,6 +6,7 @@ import {
   mapIndividualsDynamic,
   mapNonIndividualRepeatableData,
   stripIndividualLikeFieldsFromRoot,
+  stripNonIndividualRepeatableFieldsFromRoot
 } from "./repeatableMappingHelpers";
 
 export const buildDynamicPayload = ({
@@ -40,6 +41,7 @@ export const buildDynamicPayload = ({
   });
 
   payload = stripIndividualLikeFieldsFromRoot(payload, normalizedData, config);
+  payload = stripNonIndividualRepeatableFieldsFromRoot(payload, normalizedData, config);
 
   delete payload.formData;
   delete payload.form_data;

@@ -146,6 +146,39 @@ function getBasicBusinessFields() {
     // },
   };
 }
+function getRepeatableBusinessActivityFields() {
+  return {
+    primaryBusinessActivity: {
+      label: "Business Actvitiy",
+      storage: "businessActivities",
+      rowTypeField: "activityType",
+      rowTypeValue: "Primary",
+      min: 1,
+      fields: {
+        activityType: {
+          type: "text",
+          label: "Activity Type",
+          value: "Primary",
+          readonly: true,
+        },
+        businessActivity: {
+          type: "select",
+          label: "Primary Business Activity (KBLI Code)",
+          options: KBLI_OPTIONS,
+          required: true,
+          placeholder: "Select primary business activity",
+        },
+        activityDescription: {
+          type: "textarea",
+          label: "Description",
+          placeholder:
+            "E.g., Online sale of cosmetics through Shopee marketplace",
+          required: true,
+        },
+      },
+    },
+  };
+}
 
 function getIndividualFields() {
   return {
@@ -343,6 +376,8 @@ const INDONESIA_CONFIG = {
             ...getBasicBusinessFields(),
           },
           repeatableSections: {
+            ...getRepeatableBusinessActivityFields(),
+
             owners: {
               label: "Owner",
               storage: "individuals",
@@ -438,81 +473,7 @@ const INDONESIA_CONFIG = {
             ...getBasicBusinessFields(),
           },
           repeatableSections: {
-            // partners: {
-            //   label: "Partner",
-            //   storage: "individuals",
-            //   min: 2,
-            //   fields: {
-            //     kyc: {
-            //       type: "kyc",
-            //       label: "Liveness Detection Test",
-            //     },
-            //     role: {
-            //       type: "select",
-            //       label: "Role",
-            //       options: [
-            //         { label: "General Partner", value: "General Partner" },
-            //         { label: "Limited Partner", value: "Limited Partner" },
-            //       ],
-            //       placeholder: "Select your role",
-            //       required: true,
-
-            //       // value: "Partner",
-            //       // readonly: true,
-            //     },
-            //     sharePercentage: {
-            //       type: "number",
-            //       label: "Share Percentage (%)",
-            //       min: 0,
-            //       max: 100,
-            //       required: true,
-            //     },
-            //     ...getIndividualFields(),
-            //     ...getComplianceDeclarations(),
-            // repeatableSections: {
-            primaryBusinessActivity: {
-              label: "Business Actvitiy",
-              storage: "business_activities",
-              // rowTypeField: "",
-              // rowTypeValue: "General Partner",
-              min: 1,
-              fields: {
-                businessActivity: {
-                  type: "select",
-                  label: "Primary Business Activity (KBLI Code)",
-                  options: KBLI_OPTIONS,
-                  required: true,
-                  placeholder: "Select primary business activity",
-                },
-                activityDescription: {
-                  type: "textarea",
-                  label: "Description",
-                  placeholder:
-                    "E.g., Online sale of cosmetics through Shopee marketplace",
-                  required: true,
-                },
-              },
-            },
-            // additionalBusinessActivities: {
-            //   label: "Additional Business Activities",
-            //   storage: "additional_business_activities",
-            //   rowTypeField: "role",
-            //   rowTypeValue: "General Partner",
-            //   min: 0,
-            //   fields: {
-            //     kbliCode: {
-            //       type: "select",
-            //       label: "KBLI Code",
-            //       options: KBLI_OPTIONS,
-            //     },
-            //     description: {
-            //       type: "text",
-            //       label: "Description",
-            //       placeholder:
-            //         "E.g., Online sale of cosmetics through Shopee marketplace",
-            //     },
-            //   },
-            // },
+            ...getRepeatableBusinessActivityFields(),
 
             generalPartners: {
               label: "General Partner",
@@ -643,6 +604,8 @@ const INDONESIA_CONFIG = {
             ...getBasicBusinessFields(),
           },
           repeatableSections: {
+            ...getRepeatableBusinessActivityFields(),
+
             directors: {
               label: "Director / Authorized Signatory",
               storage: "individuals",
