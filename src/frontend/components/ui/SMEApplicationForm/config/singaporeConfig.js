@@ -272,6 +272,8 @@ const SINGAPORE_CONFIG = {
             owners: {
               label: "Owner",
               storage: "individuals",
+              rowTypeField: "role",
+              rowTypeValue: "Owner",
               min: 1,
               max: 1,
               fields: {
@@ -334,6 +336,8 @@ const SINGAPORE_CONFIG = {
             generalPartners: {
               label: "General Partner",
               storage: "individuals",
+              rowTypeField: "role",
+              rowTypeValue: "General Partner",
               min: 1,
               fields: {
                 kyc: {
@@ -360,6 +364,8 @@ const SINGAPORE_CONFIG = {
             limitedPartners: {
               label: "Limited Partner",
               storage: "individuals",
+              rowTypeField: "role",
+              rowTypeValue: "Limited Partner",
               min: 0,
               fields: {
                 role: {
@@ -387,6 +393,8 @@ const SINGAPORE_CONFIG = {
             ubo: {
               label: "Ultimate Beneficial Owner (Of Ownership >= 25%)",
               storage: "individuals",
+              rowTypeField: "role",
+              rowTypeValue: "Ultimate Beneficial Owner",
               min: 0,
               fields: {
                 kyc: {
@@ -500,6 +508,8 @@ const SINGAPORE_CONFIG = {
             partners: {
               label: "Partner",
               storage: "individuals",
+              rowTypeField: "role",
+              rowTypeValue: "Partner",
               min: 1,
               fields: {
                 kyc: {
@@ -526,6 +536,8 @@ const SINGAPORE_CONFIG = {
             managers: {
               label: "Manager",
               storage: "individuals",
+              rowTypeField: "role",
+              rowTypeValue: "Manager",
               min: 1,
               fields: {
                 role: {
@@ -653,6 +665,8 @@ const SINGAPORE_CONFIG = {
             directors: {
               label: "Director",
               storage: "individuals",
+              rowTypeField: "role",
+              rowTypeValue: "Director",
               min: 1,
               fields: {
                 kyc: {
@@ -679,6 +693,8 @@ const SINGAPORE_CONFIG = {
             shareholders: {
               label: "Shareholder",
               storage: "individuals",
+              rowTypeField: "role",
+              rowTypeValue: "Shareholder",
               min: 1,
               fields: {
                 shareholderType: {
@@ -782,6 +798,8 @@ const SINGAPORE_CONFIG = {
             // type: "conditional",
             label: "Ultimate Beneficial Owner (Of Ownership >= 25%)",
             storage: "individuals",
+            rowTypeField: "role",
+            rowTypeValue: "Ultimate Beneficial Owner",
             // description:
             //   "Auto-detected if shareholding ≥25%. Requires full KYC. Manual add allowed for control through other means.",
             // condition: (shareholder) => shareholder.sharePercentage >= 25,

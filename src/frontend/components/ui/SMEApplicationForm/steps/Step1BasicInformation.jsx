@@ -30,6 +30,7 @@ const Step1BasicInformation = ({
   const [verificationState, setVerificationState] = useState({});
 
   const processedOcrFilesRef = useRef({});
+  const hydratedSessionsRef = useRef({});
 
   useEffect(() => {
     if (!applicationId || applicationId === "new") return;
@@ -338,16 +339,20 @@ const Step1BasicInformation = ({
     fullName: detection?.full_name || "",
     idNumber: detection?.document_number || "",
     dateOfBirth: detection?.date_of_birth || "",
-    nationality: detection?.issuing_state_code || "",
-    // nationality: mapIsoToNationalityOption(detection?.issuing_state_code),
+    // nationality: detection?.issuing_state_code || "",
+    nationality: mapIsoToNationalityOption(detection?.issuing_state_code),
 
     residentialAddress: detection?.formatted_address || "",
   });
 
-  const individualsSignature = JSON.stringify(
-    getFormDataRoot()?.individuals || [],
+  // const individualsSignature = JSON.stringify(
+  //   getFormDataRoot()?.individuals || [],
+  // );
+  const sessionSignature = JSON.stringify(
+    (getFormDataRoot()?.individuals || []).map(
+      (person) => person?.provider_session_id || null,
+    ),
   );
-
   useEffect(() => {
     if (!applicationId || applicationId === "new") return;
 
@@ -359,59 +364,60 @@ const Step1BasicInformation = ({
 
       if (!individuals.length) return;
 
-      const results = await Promise.all(
-        individuals.map(async (person, index) => {
-          const sessionId = person?.provider_session_id;
-          if (!sessionId) return { index, detection: null };
-
-          try {
-            const detection = await getLivenessDetectionBySessionId(sessionId);
-            return { index, detection };
-          } catch (err) {
-            console.error(`Failed to hydrate KYC for row ${index}`, err);
-            return { index, detection: null };
-          }
-        }),
-      );
-
       let nextFormRoot = formRoot;
       let hasChanges = false;
 
-      results.forEach(({ index, detection }) => {
-        if (!detection) return;
+      for (let index = 0; index < individuals.length; index++) {
+        const person = individuals[index];
+        const sessionId = person?.provider_session_id;
 
-        const person = nextFormRoot.individuals[index];
-        console.log("person", person);
+        if (!sessionId) continue;
 
-        const nextKyc = mapDetectionToKyc(detection);
-        const mappedFields = mapDetectionToIndividualFields(detection);
-        console.log("mappedFields", mappedFields);
+        const hydrationKey = `${index}:${sessionId}`;
+        if (hydratedSessionsRef.current[hydrationKey]) continue;
 
-        nextFormRoot = {
-          ...nextFormRoot,
-          individuals: nextFormRoot.individuals.map((p, idx) =>
-            idx === index
-              ? {
-                  ...p,
-                  provider_session_id:
-                    p?.provider_session_id ||
-                    detection?.provider_session_id ||
-                    "",
-                  kyc: nextKyc,
-                  // fullName: p?.fullName || mappedFields.fullName,
-                  fullName: mappedFields.fullName || p?.fullName,
-                  idNumber: p?.idNumber || mappedFields.idNumber,
-                  dateOfBirth: p?.dateOfBirth || mappedFields.dateOfBirth,
-                  nationality: p?.nationality || mappedFields.nationality,
-                  residentialAddress:
-                    p?.residentialAddress || mappedFields.residentialAddress,
-                }
-              : p,
-          ),
-        };
+        try {
+          const detection = await getLivenessDetectionBySessionId(sessionId);
 
-        hasChanges = true;
-      });
+          const nextKyc = mapDetectionToKyc(detection);
+          const mappedFields = mapDetectionToIndividualFields(detection);
+
+          const currentPerson = nextFormRoot.individuals[index];
+
+          const nextPerson = {
+            ...currentPerson,
+            provider_session_id:
+              currentPerson?.provider_session_id ||
+              detection?.provider_session_id ||
+              "",
+            kyc: nextKyc,
+            fullName: mappedFields.fullName || currentPerson?.fullName,
+            idNumber: mappedFields.idNumber || currentPerson?.idNumber,
+            dateOfBirth: mappedFields.dateOfBirth || currentPerson?.dateOfBirth,
+            nationality: mappedFields.nationality || currentPerson?.nationality,
+            residentialAddress:
+              mappedFields.residentialAddress ||
+              currentPerson?.residentialAddress,
+          };
+
+          const changed =
+            JSON.stringify(currentPerson) !== JSON.stringify(nextPerson);
+
+          if (changed) {
+            nextFormRoot = {
+              ...nextFormRoot,
+              individuals: nextFormRoot.individuals.map((p, idx) =>
+                idx === index ? nextPerson : p,
+              ),
+            };
+            hasChanges = true;
+          }
+
+          hydratedSessionsRef.current[hydrationKey] = true;
+        } catch (err) {
+          console.error(`Failed to hydrate KYC for row ${index}`, err);
+        }
+      }
 
       if (hasChanges) {
         onFieldChange("formData", nextFormRoot);
@@ -419,7 +425,11 @@ const Step1BasicInformation = ({
     };
 
     hydrateIndividualsFromSessions();
-  }, [applicationId, individualsSignature]);
+  }, [applicationId, sessionSignature]);
+
+  useEffect(() => {
+    hydratedSessionsRef.current = {};
+  }, [applicationId]);
 
   useEffect(() => {
     Object.entries(basicFieldsConfig).forEach(([fieldKey, fieldConfig]) => {
@@ -439,64 +449,6 @@ const Step1BasicInformation = ({
       }
     });
   }, [basicFieldsConfig, data, ocrState]);
-
-  // TO RETRIEVE LIVENESS DETECTION RESULTS FOR HYDRATING KYC FIELDS IN INDIVIDUALS REPEATABLE SECTION
-  // useEffect(() => {
-  //   const hydrateIndividualsFromSessions = async () => {
-  //     const formRoot = getFormDataRoot();
-  //     const individuals = Array.isArray(formRoot?.individuals)
-  //       ? formRoot.individuals
-  //       : [];
-
-  //     if (!individuals.length) return;
-
-  //     let nextFormRoot = formRoot;
-  //     let hasChanges = false;
-
-  //     for (let i = 0; i < individuals.length; i++) {
-  //       const person = individuals[i];
-  //       const sessionId = person?.provider_session_id;
-
-  //       if (!sessionId) continue;
-
-  //       try {
-  //         const detection = await getLivenessDetectionBySessionId(sessionId);
-
-  //         const nextKyc = mapDetectionToKyc(detection);
-  //         const mappedFields = mapDetectionToIndividualFields(detection);
-
-  //         const nextPerson = {
-  //           ...person,
-  //           provider_session_id: sessionId,
-  //           kyc: nextKyc,
-  //           fullName: person?.fullName || mappedFields.fullName,
-  //           idNumber: person?.idNumber || mappedFields.idNumber,
-  //           dateOfBirth: person?.dateOfBirth || mappedFields.dateOfBirth,
-  //           nationality: person?.nationality || mappedFields.nationality,
-  //           residentialAddress:
-  //             person?.residentialAddress || mappedFields.residentialAddress,
-  //         };
-
-  //         nextFormRoot = {
-  //           ...nextFormRoot,
-  //           individuals: nextFormRoot.individuals.map((p, idx) =>
-  //             idx === i ? nextPerson : p,
-  //           ),
-  //         };
-
-  //         hasChanges = true;
-  //       } catch (err) {
-  //         console.error(`Failed to hydrate KYC for individual ${i}`, err);
-  //       }
-  //     }
-
-  //     if (hasChanges) {
-  //       onFieldChange("formData", nextFormRoot);
-  //     }
-  //   };
-
-  //   hydrateIndividualsFromSessions();
-  // }, [applicationId]);
 
   return (
     <div>

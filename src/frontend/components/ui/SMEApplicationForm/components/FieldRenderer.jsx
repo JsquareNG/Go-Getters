@@ -31,6 +31,9 @@ const FieldRenderer = ({
     options: fieldConfig.options || [],
   };
 
+  const rowPrefix = context?.rowPrefix || "";
+  const fullFieldPath = rowPrefix ? `${rowPrefix}.${fieldKey}` : fieldKey;
+
   if (fieldConfig.type === "kyc") {
     const providerSessionField =
       fieldConfig.providerSessionField || "provider_session_id";
@@ -80,7 +83,8 @@ const FieldRenderer = ({
   if (fieldConfig.type === "file") {
     return (
       <FileUploadField
-        fieldName={fieldKey}
+        // fieldName={fieldKey}
+        fieldName={fullFieldPath}
         label={fieldConfig.label}
         file={value}
         onChange={(file) =>
@@ -90,6 +94,12 @@ const FieldRenderer = ({
         disabled={disabled}
         placeholder={fieldConfig.placeholder}
         helpText={fieldConfig.helpText || fieldConfig.helperText}
+        acceptTypes="application/pdf,image/jpeg,image/png"
+        maxSize={5242880}
+        //shared classify-and-extract verification
+        // beforeAcceptFile={beforeAcceptFile}
+        // verificationMeta={verificationMeta}
+
         ocr={fieldConfig.ocr === true}
         ocrLoading={context?.ocrState?.[fieldKey]?.loading || false}
         ocrStatus={context?.ocrState?.[fieldKey]?.status || ""}

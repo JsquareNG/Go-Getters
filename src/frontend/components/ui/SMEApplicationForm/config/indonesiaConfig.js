@@ -118,71 +118,32 @@ function getBasicBusinessFields() {
       required: true,
       placeholder: "Enter your phone number",
     },
-    repeatableSections: {
-      primaryBusinessActivity: {
-        label: "Business Actvitiy",
-        storage: "business_activities",
-        min: 1,
-        fields: {
-          businessActivity: {
-            type: "select",
-            label: "Primary Business Activity (KBLI Code)",
-            options: KBLI_OPTIONS,
-            required: true,
-            placeholder: "Select primary business activity",
-          },
-          activityDescription: {
-            type: "textarea",
-            label: "Description",
-            placeholder:
-              "E.g., Online sale of cosmetics through Shopee marketplace",
-            required: true,
-          },
-        },
-      },
-      additionalBusinessActivities: {
-        label: "Additional Business Activities",
-        storage: "business_activities",
-        min: 0,
-        fields: {
-          kbliCode: {
-            type: "select",
-            label: "KBLI Code",
-            options: KBLI_OPTIONS,
-          },
-          description: {
-            type: "text",
-            label: "Description",
-            placeholder:
-              "E.g., Online sale of cosmetics through Shopee marketplace",
-          },
-        },
-      },
-      // primaryBusinessActivity: {
-      //   type: "select",
-      //   label: "Primary Business Activity (KBLI Code)",
-      //   options: KBLI_OPTIONS,
-      //   required: true,
-      //   placeholder: "Select primary business activity",
-      // },
-      // activityDescription: {
-      //   type: "textarea",
-      //   label: "Description",
-      //   placeholder: "E.g., Online sale of cosmetics through Shopee marketplace",
-      //   required: true,
-      // },
-      // additionalBusinessActivities: {
-      //   type: "repeatable",
-      //   label: "Additional Business Activities",
-      //   fields: {
-      //     kbliCode: {
-      //       type: "select",
-      //       label: "KBLI Code",
-      //       options: KBLI_OPTIONS,
-      //     },
-      //     description: { type: "text", label: "Description" },
-      //   },
-    },
+
+    // primaryBusinessActivity: {
+    //   type: "select",
+    //   label: "Primary Business Activity (KBLI Code)",
+    //   options: KBLI_OPTIONS,
+    //   required: true,
+    //   placeholder: "Select primary business activity",
+    // },
+    // activityDescription: {
+    //   type: "textarea",
+    //   label: "Description",
+    //   placeholder: "E.g., Online sale of cosmetics through Shopee marketplace",
+    //   required: true,
+    // },
+    // additionalBusinessActivities: {
+    //   type: "repeatable",
+    //   label: "Additional Business Activities",
+    //   fields: {
+    //     kbliCode: {
+    //       type: "select",
+    //       label: "KBLI Code",
+    //       options: KBLI_OPTIONS,
+    //     },
+    //     description: { type: "text", label: "Description" },
+    //   },
+    // },
   };
 }
 
@@ -290,13 +251,24 @@ function getComplianceDeclarations() {
             options: COUNTRIES(),
             required: true,
           },
-          position: { type: "text", label: "Position Held", required: true },
+          position: {
+            type: "text",
+            label: "Position Held",
+            required: true,
+            placeholder: "E.g., President, Minister of Finance, etc.",
+          },
           relationship: {
             type: "text",
             label: "Relationship Type",
             required: true,
+            placeholder: "E.g., Family member, Political associate, etc.",
           },
-          period: { type: "text", label: "Period", required: true },
+          period: {
+            type: "text",
+            label: "Period",
+            required: true,
+            placeholder: "E.g., 2020 - 2023",
+          },
         },
       },
     },
@@ -374,6 +346,8 @@ const INDONESIA_CONFIG = {
             owners: {
               label: "Owner",
               storage: "individuals",
+              rowTypeField: "role",
+              rowTypeValue: "Owner",
               min: 1,
               max: 1,
               fields: {
@@ -495,10 +469,56 @@ const INDONESIA_CONFIG = {
             //     },
             //     ...getIndividualFields(),
             //     ...getComplianceDeclarations(),
+            // repeatableSections: {
+            primaryBusinessActivity: {
+              label: "Business Actvitiy",
+              storage: "business_activities",
+              // rowTypeField: "",
+              // rowTypeValue: "General Partner",
+              min: 1,
+              fields: {
+                businessActivity: {
+                  type: "select",
+                  label: "Primary Business Activity (KBLI Code)",
+                  options: KBLI_OPTIONS,
+                  required: true,
+                  placeholder: "Select primary business activity",
+                },
+                activityDescription: {
+                  type: "textarea",
+                  label: "Description",
+                  placeholder:
+                    "E.g., Online sale of cosmetics through Shopee marketplace",
+                  required: true,
+                },
+              },
+            },
+            // additionalBusinessActivities: {
+            //   label: "Additional Business Activities",
+            //   storage: "additional_business_activities",
+            //   rowTypeField: "role",
+            //   rowTypeValue: "General Partner",
+            //   min: 0,
+            //   fields: {
+            //     kbliCode: {
+            //       type: "select",
+            //       label: "KBLI Code",
+            //       options: KBLI_OPTIONS,
+            //     },
+            //     description: {
+            //       type: "text",
+            //       label: "Description",
+            //       placeholder:
+            //         "E.g., Online sale of cosmetics through Shopee marketplace",
+            //     },
+            //   },
+            // },
 
             generalPartners: {
               label: "General Partner",
               storage: "individuals",
+              rowTypeField: "role",
+              rowTypeValue: "General Partner",
               min: 1,
               fields: {
                 kyc: {
@@ -525,6 +545,8 @@ const INDONESIA_CONFIG = {
             limitedPartners: {
               label: "Limited Partner",
               storage: "individuals",
+              rowTypeField: "role",
+              rowTypeValue: "Limited Partner",
               min: 0,
               fields: {
                 kyc: {
@@ -534,7 +556,7 @@ const INDONESIA_CONFIG = {
                 role: {
                   type: "text",
                   label: "Role",
-                  value: "Limitied Partner",
+                  value: "Limited Partner",
                   readonly: true,
                 },
                 sharePercentage: {
@@ -624,6 +646,8 @@ const INDONESIA_CONFIG = {
             directors: {
               label: "Director / Authorized Signatory",
               storage: "individuals",
+              rowTypeField: "role",
+              rowTypeValue: "Director",
               min: 1,
               fields: {
                 kyc: {
@@ -657,6 +681,8 @@ const INDONESIA_CONFIG = {
             shareholders: {
               label: "Shareholder",
               storage: "individuals",
+              rowTypeField: "role",
+              rowTypeValue: "Shareholder",
               min: 2,
               fields: {
                 role: {
@@ -692,6 +718,8 @@ const INDONESIA_CONFIG = {
               label:
                 "Ultimate Beneficial Owner (Owns 25% or more of the company OR Exercises control through other means)",
               storage: "individuals",
+              rowTypeField: "role",
+              rowTypeValue: "Ultimate Beneficial Owner",
               min: 1,
               fields: {
                 kyc: {
