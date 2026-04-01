@@ -33,6 +33,10 @@ const FieldRenderer = ({
 
   const rowPrefix = context?.rowPrefix || "";
   const fullFieldPath = rowPrefix ? `${rowPrefix}.${fieldKey}` : fieldKey;
+  const handleFieldChange = (name, value) => {
+    if (!name || typeof name !== "string") return;
+    onChange(name, value);
+  };
 
   if (fieldConfig.type === "kyc") {
     const providerSessionField =
@@ -87,9 +91,10 @@ const FieldRenderer = ({
         fieldName={fullFieldPath}
         label={fieldConfig.label}
         file={value}
-        onChange={(file) =>
-          onChange(fieldKey, file ? { file, progress: 0 } : null)
-        }
+        // onChange={(file) =>
+        //   onChange(fieldKey, file ? { file, progress: 0 } : null)
+        // }
+        onChange={(nextValue) => handleFieldChange(fullFieldPath, nextValue)}
         required={fieldConfig.required}
         disabled={disabled}
         placeholder={fieldConfig.placeholder}
@@ -103,7 +108,6 @@ const FieldRenderer = ({
             : undefined
         }
         verificationMeta={context?.verificationState?.[fullFieldPath] || null}
-        
         ocr={fieldConfig.ocr === true}
         ocrLoading={context?.ocrState?.[fieldKey]?.loading || false}
         ocrStatus={context?.ocrState?.[fieldKey]?.status || ""}

@@ -89,6 +89,72 @@ const Step1BasicInformation = ({
     }, obj);
   };
 
+  const indoDateToISO = (dateStr) => {
+    if (!dateStr || typeof dateStr !== "string") return "";
+
+    const monthMap = {
+      januari: "01",
+      februari: "02",
+      maret: "03",
+      april: "04",
+      mei: "05",
+      juni: "06",
+      juli: "07",
+      agustus: "08",
+      september: "09",
+      oktober: "10",
+      november: "11",
+      desember: "12",
+    };
+
+    const parts = dateStr.toLowerCase().split(" ");
+
+    if (parts.length !== 3) return "";
+
+    const [day, monthText, year] = parts;
+
+    const month = monthMap[monthText];
+
+    if (!month) return "";
+
+    const paddedDay = day.padStart(2, "0");
+
+    return `${year}-${month}-${paddedDay}`;
+  };
+
+  const ddMmmYyyyToISO = (dateStr) => {
+    if (!dateStr || typeof dateStr !== "string") return "";
+
+    const monthMap = {
+      jan: "01",
+      feb: "02",
+      mar: "03",
+      apr: "04",
+      may: "05",
+      jun: "06",
+      jul: "07",
+      aug: "08",
+      sep: "09",
+      oct: "10",
+      nov: "11",
+      dec: "12",
+    };
+
+    const parts = dateStr.split(" ");
+
+    if (parts.length !== 3) return "";
+
+    const [day, monthText, year] = parts;
+
+    const month = monthMap[monthText];
+
+    if (!month) return "";
+
+    const paddedDay = day.padStart(2, "0");
+
+    return `${year}-${month}-${paddedDay}`;
+  };
+
   const normalizeDocumentType = (value) =>
     String(value || "")
       .trim()
@@ -133,11 +199,14 @@ const Step1BasicInformation = ({
     if (verificationState[fieldPath]) return verificationState[fieldPath];
 
     if (localValue?.verificationStatus) {
+      console.log("[LOCAL VALUE]", localValue);
       return {
         status: localValue.verificationStatus,
         message: localValue.verificationMessage || "",
         detectedType: localValue.detectedType || null,
         expectedType: localValue.expectedType || null,
+        rawResult: localValue.classificationResult || null,
+        isSupported: localValue.isSupported ?? null,
       };
     }
 
@@ -186,82 +255,59 @@ const Step1BasicInformation = ({
     }));
   };
 
-  // const buildFileValidator = useCallback(
-  //   (fieldKey, fieldConfig) => async (file) => {
-  //     const expectedType = inferExpectedDocumentType(fieldKey, fieldConfig);
+  const verifyAndMaybeExtractDocument = async ({
+    file,
+    fieldKey,
+    fieldConfig,
+  }) => {
+    const expectedType = inferExpectedDocumentType(fieldKey, fieldConfig);
 
-  //     setFieldVerificationState(fieldKey, {
-  //       status: "verifying",
-  //       message: "Verifying document...",
-  //       expectedType,
-  //       detectedType: null,
-  //     });
+    const classifyResult = await classifyAndExtractApi(file);
+    console.log("[VERIFY RESULT]", classifyResult);
 
-  //     try {
-  //       const result = await classifyAndExtractApi(file);
+    const detectedType = normalizeDocumentType(
+      classifyResult?.document_type ||
+        classifyResult?.classified_as ||
+        classifyResult?.doc_type ||
+        classifyResult?.label,
+    );
 
-  //       const detectedType = normalizeDocumentType(
-  //         result?.document_type ||
-  //           result?.classified_as ||
-  //           result?.doc_type ||
-  //           result?.label,
-  //       );
+    const isSupported = classifyResult?.is_supported === true;
 
-  //       const isSupported = result?.is_supported === true;
+    if (!isSupported) {
+      const errorMessage =
+        classifyResult?.upload_validation?.reasons?.join(", ") ||
+        (detectedType
+          ? `Detected document type "${detectedType}" is not supported.`
+          : "This document is not supported.");
 
-  //       if (!isSupported) {
-  //         const errorMessage = detectedType
-  //           ? `Detected document type "${detectedType}" is not supported.`
-  //           : "This document is not supported.";
+      throw new Error(errorMessage);
+    }
 
-  //         setFieldVerificationState(fieldKey, {
-  //           status: "failed",
-  //           message: errorMessage,
-  //           expectedType,
-  //           detectedType,
-  //         });
+    // if (expectedType && detectedType && expectedType !== detectedType) {
+    //   throw new Error(
+    //     `Wrong document uploaded. Expected "${expectedType}" but detected "${detectedType}".`,
+    //   );
+    // }
 
-  //         throw new Error(errorMessage);
-  //       }
+    let extractedData = null;
 
-  //       if (expectedType && detectedType && expectedType !== detectedType) {
-  //         const errorMessage = `Wrong document uploaded. Expected "${expectedType}" but detected "${detectedType}".`;
+    // only do extraction for business profile OCR fields
+    if (fieldConfig?.ocrTarget === "business_profile") {
+      const extractResult = await extractProfileApi(file);
+      extractedData = extractResult?.data || null;
+      console.log("[OCR EXTRACT RESULT]", extractedData);
+    }
 
-  //         setFieldVerificationState(fieldKey, {
-  //           status: "failed",
-  //           message: errorMessage,
-  //           expectedType,
-  //           detectedType,
-  //         });
+    return {
+      classifyResult,
+      extractedData,
+      detectedType,
+      expectedType,
+      isSupported,
+    };
+  };
 
-  //         throw new Error(errorMessage);
-  //       }
-
-  //       const nextValue = {
-  //         file,
-  //         progress: 0,
-  //         verified: true,
-  //         verificationStatus: "verified",
-  //         verificationMessage: "Document verified successfully.",
-  //         detectedType,
-  //         expectedType,
-  //         classificationResult: result,
-  //       };
-
-  //       setFieldVerificationState(fieldKey, {
-  //         status: "verified",
-  //         message: "Document verified successfully.",
-  //         expectedType,
-  //         detectedType,
-  //       });
-
-  //       return nextValue;
-  //     } catch (err) {
-  //       throw err;
-  //     }
-  //   },
-  //   [],
-  // );
   const buildFileValidator = useCallback(
     (fieldKey, fieldConfig) => async (file) => {
       const expectedType = inferExpectedDocumentType(fieldKey, fieldConfig);
@@ -271,47 +317,16 @@ const Step1BasicInformation = ({
         message: "Verifying document...",
         expectedType,
         detectedType: null,
+        rawResult: null,
       });
 
       try {
-        const result = await classifyAndExtractApi(file);
-
-        const detectedType = normalizeDocumentType(
-          result?.document_type ||
-            result?.classified_as ||
-            result?.doc_type ||
-            result?.label,
-        );
-
-        const isSupported = result?.is_supported === true;
-
-        if (!isSupported) {
-          const errorMessage = detectedType
-            ? `Detected document type "${detectedType}" is not supported.`
-            : "This document is not supported.";
-
-          setFieldVerificationState(fieldKey, {
-            status: "failed",
-            message: errorMessage,
-            expectedType,
-            detectedType,
+        const { classifyResult, extractedData, detectedType, isSupported } =
+          await verifyAndMaybeExtractDocument({
+            file,
+            fieldKey,
+            fieldConfig,
           });
-
-          throw new Error(errorMessage);
-        }
-
-        if (expectedType && detectedType && expectedType !== detectedType) {
-          const errorMessage = `Wrong document uploaded. Expected "${expectedType}" but detected "${detectedType}".`;
-
-          setFieldVerificationState(fieldKey, {
-            status: "failed",
-            message: errorMessage,
-            expectedType,
-            detectedType,
-          });
-
-          throw new Error(errorMessage);
-        }
 
         const nextValue = {
           file,
@@ -321,7 +336,10 @@ const Step1BasicInformation = ({
           verificationMessage: "Document verified successfully.",
           detectedType,
           expectedType,
-          classificationResult: result,
+          classificationResult: classifyResult,
+          extractedData,
+          uploadValidation: classifyResult?.upload_validation || null,
+          isSupported,
         };
 
         setFieldVerificationState(fieldKey, {
@@ -329,6 +347,7 @@ const Step1BasicInformation = ({
           message: "Document verified successfully.",
           expectedType,
           detectedType,
+          rawResult: classifyResult,
         });
 
         return nextValue;
@@ -341,6 +360,7 @@ const Step1BasicInformation = ({
             "Verification failed. Please upload the file again.",
           expectedType,
           detectedType: null,
+          rawResult: null,
         });
 
         throw err;
@@ -400,6 +420,138 @@ const Step1BasicInformation = ({
     onFieldChange(name, value);
   };
 
+  const mapBusinessProfilePayloadToForm = (payload, country) => {
+    if (!payload || Object.keys(payload).length === 0) {
+      throw new Error("No structured OCR data returned.");
+    }
+
+    const updates = {};
+
+    if (country === "Indonesia") {
+      // support both old and new payload shapes
+      const issuedDate =
+        payload.date_of_registration ||
+        payload.additional_data?.issuance_information?.issued_date ||
+        "";
+
+      const phone =
+        payload.phone ||
+        payload.additional_data?.contact_information?.phone_number ||
+        "";
+
+      const email =
+        payload.email ||
+        payload.additional_data?.contact_information?.email ||
+        "";
+
+      const businessName = payload.business_name || payload.company_name || "";
+      const registrationNumber =
+        payload.business_registration_number || payload.nib_number || "";
+      const address = payload.registered_address || payload.address || "";
+      const businessStatus =
+        payload.business_status || payload.company_status || "";
+
+      if (businessName) {
+        updates.businessName = businessName;
+      }
+
+      if (registrationNumber) {
+        updates.registrationNumber = registrationNumber;
+      }
+
+      if (address) {
+        updates.registeredAddress = address;
+      }
+
+      if (issuedDate) {
+        updates.registrationDate = indoDateToISO(issuedDate);
+      }
+
+      if (payload.npwp) {
+        updates.npwp = payload.npwp;
+      }
+
+      if (phone) {
+        updates.phone = phone;
+      }
+
+      if (email) {
+        updates.email = email;
+      }
+
+      if (businessStatus) {
+        updates.businessStatus = businessStatus;
+      }
+
+      if (
+        Array.isArray(payload.business_activities) &&
+        payload.business_activities.length
+      ) {
+        updates.businessActivities = payload.business_activities;
+      }
+
+      return updates;
+    }
+
+    if (country === "Singapore") {
+      if (payload.business_name) {
+        updates.businessName = payload.business_name;
+      }
+
+      if (payload.business_registration_number) {
+        updates.registrationNumber = payload.business_registration_number;
+      }
+
+      if (payload.registered_address) {
+        updates.registeredAddress = payload.registered_address;
+      }
+
+      if (payload.date_of_registration) {
+        updates.registrationDate = ddMmmYyyyToISO(payload.date_of_registration);
+      }
+
+      if (payload.phone) {
+        updates.phone = payload.phone;
+      }
+
+      if (payload.email) {
+        updates.email = payload.email;
+      }
+
+      if (payload.business_status) {
+        updates.businessStatus = payload.business_status;
+      }
+
+      return updates;
+    }
+
+    return updates;
+  };
+
+  // to map the extracted OCR data to the form fields, but only apply values to fields that are currently empty to avoid overwriting any existing data that user may have already filled in or edited after OCR autofill
+  const applyMappedFieldsToFormData = (updates) => {
+    // const formRoot = getFormDataRoot();
+
+    Object.entries(updates).forEach(([fieldKey, nextValue]) => {
+      // const currentValue =
+      //   getNestedValue(formRoot, fieldKey) ?? getNestedValue(data, fieldKey);
+
+      // const isEmpty =
+      //   currentValue === undefined ||
+      //   currentValue === null ||
+      //   currentValue === "";
+
+      if (
+        // isEmpty &&
+        nextValue !== undefined &&
+        nextValue !== null &&
+        nextValue !== ""
+      ) {
+        handleFieldChange(fieldKey, nextValue);
+      }
+    });
+  };
+
   const handleOcrAutofill = async (fieldKey, fieldConfig) => {
     const formDataRoot = getFormDataRoot();
     const fileValue =
@@ -424,30 +576,45 @@ const Step1BasicInformation = ({
     }));
 
     try {
-      const result = await extractProfileApi(selectedFile);
-      const payload = result?.data || {};
+      // const result = await extractProfileApi(selectedFile);
+      // const payload = result?.data || {};
+      let payload = fileValue?.extractedData || null;
 
+      if (!payload) {
+        const result = await extractProfileApi(selectedFile);
+        payload = result?.data || {};
+      }
+
+      // if (fieldConfig.ocrTarget === "business_profile") {
+      //   const map = {
+      //     business_name: "businessName",
+      //     business_registration_number: "registrationNumber",
+      //     registered_address: "registeredAddress",
+      //     date_of_registration: "registrationDate",
+      //     npwp: "npwp",
+      //     phone: "phone",
+      //     email: "email",
+      //     business_status: "businessStatus",
+      //   };
+
+      //   Object.entries(map).forEach(([ocrKey, formKey]) => {
+      //     if (
+      //       payload[ocrKey] !== undefined &&
+      //       payload[ocrKey] !== null &&
+      //       payload[ocrKey] !== ""
+      //     ) {
+      //       onFieldChange(formKey, payload[ocrKey]);
+      //     }
+      //   });
+      // }
       if (fieldConfig.ocrTarget === "business_profile") {
-        const map = {
-          business_name: "businessName",
-          business_registration_number: "registrationNumber",
-          registered_address: "registeredAddress",
-          date_of_registration: "registrationDate",
-          npwp: "npwp",
-          phone: "phone",
-          email: "email",
-          business_status: "businessStatus",
-        };
+        const mappedFields = mapBusinessProfilePayloadToForm(
+          payload,
+          data?.country,
+        );
+        console.log("[MAPPED FIELDS]", mappedFields);
 
-        Object.entries(map).forEach(([ocrKey, formKey]) => {
-          if (
-            payload[ocrKey] !== undefined &&
-            payload[ocrKey] !== null &&
-            payload[ocrKey] !== ""
-          ) {
-            onFieldChange(formKey, payload[ocrKey]);
-          }
-        });
+        applyMappedFieldsToFormData(mappedFields);
       }
 
       setOcrState((prev) => ({

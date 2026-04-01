@@ -69,7 +69,7 @@ function getBasicBusinessFields() {
       required: true,
       ocr: true,
       ocrTarget: "business_profile",
-      placeholder: "Upload PDF, then click Autofill",
+      placeholder: "Upload PDF, then wait for Autofill",
     },
     businessName: {
       type: "text",
@@ -98,7 +98,7 @@ function getBasicBusinessFields() {
       type: "select",
       label: "Business Status",
       required: true,
-      options: ["Low Risk", "Medium-Low Risk", "Medium-High Risk", "High Risk"],
+      options: [{label:"Low Risk", value:"Low Risk"}, {label:"Medium-Low Risk", value:"Medium-Low Risk"}, {label:"Medium-High Risk", value:"Medium-High Risk"}, {label:"High Risk", value:"High Risk"}],
     },
     registeredAddress: {
       type: "textarea",
