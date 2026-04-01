@@ -215,20 +215,6 @@ const Step3ComplianceDocumentation = ({
           throw new Error(errorMessage);
         }
 
-        // optional strict type match
-        if (expectedType && detectedType && expectedType !== detectedType) {
-          const errorMessage = `Wrong document uploaded. Expected "${expectedType}" but detected "${detectedType}".`;
-
-          setFieldVerificationState(fieldPath, {
-            status: "failed",
-            message: errorMessage,
-            expectedType,
-            detectedType,
-          });
-
-          throw new Error(errorMessage);
-        }
-
         const nextValue = {
           file,
           progress: 0,
