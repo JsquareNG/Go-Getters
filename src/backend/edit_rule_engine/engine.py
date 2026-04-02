@@ -1,11 +1,15 @@
-from rules.rule_loader import load_rules
-from rules.rule_executor import evaluate_rules
-from config import SIMPLIFIED_THRESHOLD, STANDARD_THRESHOLD
+from pathlib import Path
+from backend.edit_rule_engine.rules.rule_loader import load_rules
+from backend.edit_rule_engine.rules.rule_executor import evaluate_rules
+from backend.edit_rule_engine.config import SIMPLIFIED_THRESHOLD, STANDARD_THRESHOLD
 
-GENERAL_RULES = load_rules("rules_config/general_rules.json")
-SG_RULES = load_rules("rules_config/singapore_rules.json")
-ID_RULES = load_rules("rules_config/indonesia_rules.json")
-KYC_RULES = load_rules("rules_config/kyc_rules.json")
+BASE_DIR = Path(__file__).resolve().parent
+RULES_DIR = BASE_DIR / "rules_config"
+
+GENERAL_RULES = load_rules(RULES_DIR / "general_rules.json")
+SG_RULES = load_rules(RULES_DIR / "singapore_rules.json")
+ID_RULES = load_rules(RULES_DIR / "indonesia_rules.json")
+KYC_RULES = load_rules(RULES_DIR / "kyc_rules.json")
 
 
 def evaluate_company(company):
