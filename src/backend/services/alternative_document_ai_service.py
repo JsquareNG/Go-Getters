@@ -7,11 +7,17 @@ from pydantic import BaseModel
 
 load_dotenv()
 
-GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
-if not GEMINI_API_KEY:
-    raise ValueError("GEMINI_API_KEY is missing")
+# GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
+# if not GEMINI_API_KEY:
+#     raise ValueError("GEMINI_API_KEY is missing")
 
-client = genai.Client(api_key=GEMINI_API_KEY)
+# client = genai.Client(api_key=GEMINI_API_KEY)
+
+def get_gemini_client():
+    gemini_api_key = os.getenv("GEMINI_API_KEY")
+    if not gemini_api_key:
+        raise ValueError("GEMINI_API_KEY is missing")
+    return genai.Client(api_key=gemini_api_key)
 
 
 # =========================
@@ -198,6 +204,9 @@ def generate_bulk_alternative_document_options(
         documents=documents,
         action_requests=action_requests,
     )
+
+    # delete this line
+    client = get_gemini_client()
 
     response = client.models.generate_content(
         model="gemini-3-flash-preview",
