@@ -31,8 +31,15 @@ import {
   TabsContent,
   TabsList,
   TabsTrigger,
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
 } from "@/components/ui";
 import { Badge } from "../components/ui/primitives/Badge";
+import { Textarea } from "../components/ui/primitives/Textarea";
 import { toast } from "sonner";
 import {
   getApplicationByAppId,
@@ -98,6 +105,11 @@ export default function ApplicationReviewDetail() {
   const [auditError, setAuditError] = useState(null);
 
   const [requestDocsOpen, setRequestDocsOpen] = useState(false);
+
+  // New state for approve/reject popup
+  const [decisionDialogOpen, setDecisionDialogOpen] = useState(false);
+  const [decisionType, setDecisionType] = useState(null); // "approve" | "reject"
+  const [decisionReason, setDecisionReason] = useState("");
 
   // -----------------------------
   // Fetch application
@@ -510,63 +522,73 @@ export default function ApplicationReviewDetail() {
     }
   };
 
-  const handleApprove = async () => {
-    if (!id) return;
-
-    const reason = window.prompt("Reason for approving this application?") || "";
-    if (!reason.trim()) {
-      toast.error("Reason required", { description: "Please enter a reason to approve." });
-      return;
-    }
-
-    try {
-      setIsUpdatingStatus(true);
-      const appIdToUse = application?.application_id || id;
-      await approveApplication(appIdToUse, reason.trim());
-
-      toast.success("Application Approved", {
-        description: `${
-          application?.business_name || formData?.businessName || "Application"
-        } has been approved.`,
-      });
-
-      navigate("/staff-landingpage");
-    } catch (err) {
-      console.error("Approve failed:", err);
-      toast.error("Approve failed", {
-        description: err?.response?.data?.detail || err?.message || "Could not approve application.",
-      });
-    } finally {
-      setIsUpdatingStatus(false);
-    }
+  // Open dialog only
+  const handleApprove = () => {
+    setDecisionType("approve");
+    setDecisionReason("");
+    setDecisionDialogOpen(true);
   };
 
-  const handleReject = async () => {
-    if (!id) return;
+  // Open dialog only
+  const handleReject = () => {
+    setDecisionType("reject");
+    setDecisionReason("");
+    setDecisionDialogOpen(true);
+  };
 
-    const reason = window.prompt("Reason for rejecting this application?") || "";
-    if (!reason.trim()) {
-      toast.error("Reason required", { description: "Please enter a reason to reject." });
+  const resetDecisionDialog = () => {
+    setDecisionDialogOpen(false);
+    setDecisionReason("");
+    setDecisionType(null);
+  };
+
+  const handleSubmitDecision = async () => {
+    if (!id || !decisionType) return;
+
+    const trimmedReason = decisionReason.trim();
+
+    if (!trimmedReason) {
+      toast.error("Reason required", {
+        description: `Please enter a reason to ${decisionType} this application.`,
+      });
       return;
     }
 
     try {
       setIsUpdatingStatus(true);
       const appIdToUse = application?.application_id || id;
-      await rejectApplication(appIdToUse, reason.trim());
 
-      toast.success("Application Rejected", {
-        description: `${
-          application?.business_name || formData?.businessName || "Application"
-        } has been rejected.`,
-      });
+      if (decisionType === "approve") {
+        await approveApplication(appIdToUse, trimmedReason);
 
+        toast.success("Application Approved", {
+          description: `${
+            application?.business_name || formData?.businessName || "Application"
+          } has been approved.`,
+        });
+      } else if (decisionType === "reject") {
+        await rejectApplication(appIdToUse, trimmedReason);
+
+        toast.success("Application Rejected", {
+          description: `${
+            application?.business_name || formData?.businessName || "Application"
+          } has been rejected.`,
+        });
+      }
+
+      resetDecisionDialog();
       navigate("/staff-landingpage");
     } catch (err) {
-      console.error("Reject failed:", err);
-      toast.error("Reject failed", {
-        description: err?.response?.data?.detail || err?.message || "Could not reject application.",
-      });
+      console.error(`${decisionType} failed:`, err);
+      toast.error(
+        decisionType === "approve" ? "Approve failed" : "Reject failed",
+        {
+          description:
+            err?.response?.data?.detail ||
+            err?.message ||
+            `Could not ${decisionType} application.`,
+        },
+      );
     } finally {
       setIsUpdatingStatus(false);
     }
@@ -1296,6 +1318,73 @@ export default function ApplicationReviewDetail() {
         isSubmitting={isUpdatingStatus}
       />
 
+      {/* New Approve / Reject decision dialog */}
+      <Dialog
+        open={decisionDialogOpen}
+        onOpenChange={(open) => {
+          if (!isUpdatingStatus) {
+            if (!open) resetDecisionDialog();
+            else setDecisionDialogOpen(true);
+          }
+        }}
+      >
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>
+              {decisionType === "approve" ? "Approve Application" : "Reject Application"}
+            </DialogTitle>
+            <DialogDescription>
+              {decisionType === "approve"
+                ? "Please provide a reason for approving this application. This will be recorded in the review process."
+                : "Please provide a reason for rejecting this application. This will be recorded in the review process."}
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-2">
+            <label className="text-sm font-medium text-foreground">Reason</label>
+            <Textarea
+              value={decisionReason}
+              onChange={(e) => setDecisionReason(e.target.value)}
+              placeholder={
+                decisionType === "approve"
+                  ? "Enter reason for approval..."
+                  : "Enter reason for rejection..."
+              }
+              rows={5}
+              disabled={isUpdatingStatus}
+            />
+          </div>
+
+          <DialogFooter className="mt-4">
+            <Button
+              variant="outline"
+              onClick={resetDecisionDialog}
+              disabled={isUpdatingStatus}
+            >
+              Cancel
+            </Button>
+
+            <Button
+              onClick={handleSubmitDecision}
+              disabled={isUpdatingStatus}
+              className={
+                decisionType === "approve"
+                  ? "bg-emerald-600 text-white hover:bg-emerald-600/90"
+                  : "bg-red-500 text-white hover:bg-red-600"
+              }
+            >
+              {isUpdatingStatus
+                ? decisionType === "approve"
+                  ? "Approving..."
+                  : "Rejecting..."
+                : decisionType === "approve"
+                  ? "Confirm Approval"
+                  : "Confirm Rejection"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       {canReview && (
         <div className="fixed bottom-0 left-0 right-0 z-50 border-t border-border bg-slate-200/70 backdrop-blur supports-[backdrop-filter]:bg-background/80">
           <div className="container mx-auto flex flex-col gap-3 px-6 py-3 sm:flex-row sm:items-center sm:justify-between">
@@ -1328,7 +1417,9 @@ export default function ApplicationReviewDetail() {
                 disabled={isUpdatingStatus}
               >
                 <XCircle className="h-4 w-4" />
-                {isUpdatingStatus ? "Rejecting..." : "Reject Application"}
+                {isUpdatingStatus && decisionType === "reject" && decisionDialogOpen
+                  ? "Rejecting..."
+                  : "Reject Application"}
               </Button>
 
               <Button
@@ -1337,7 +1428,9 @@ export default function ApplicationReviewDetail() {
                 disabled={isUpdatingStatus}
               >
                 <CheckCircle2 className="h-4 w-4" />
-                {isUpdatingStatus ? "Approving..." : "Approve Application"}
+                {isUpdatingStatus && decisionType === "approve" && decisionDialogOpen
+                  ? "Approving..."
+                  : "Approve Application"}
               </Button>
             </div>
           </div>

@@ -71,3 +71,8 @@ Werkzeug==3.1.5
 yarl==1.22.0
 google-cloud-documentai>=2.0.0
 google-genai>=1.51.0
+google-cloud-aiplatform>=1.50.0,<2.0.0
+pypdf>=3.17.0,<4.0.0
+pytest==8.3.5
+flake8==7.1.2
+pytest-cov==5.0.0
