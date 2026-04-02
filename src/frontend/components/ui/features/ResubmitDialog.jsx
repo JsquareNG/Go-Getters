@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { Upload, X, FileText } from "lucide-react";
+import { ChevronDown, ChevronUp, Upload } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -16,6 +16,56 @@ import { toast } from "sonner";
 import { uploadDocument } from "../../../api/documentApi";
 import { secondSubmit } from "../../../api/applicationApi";
 
+import ResubmitDocumentUploadField from "./ResubmitDocumentUploadField";
+
+const formatDocumentLabel = (value) => {
+  if (!value) return "-";
+
+  return String(value)
+    .replace(/_/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .split(" ")
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(" ");
+};
+
+const getAlternativeOptionsForDocument = (doc) => {
+  if (
+    Array.isArray(doc?.alternativeDocumentOptions) &&
+    doc.alternativeDocumentOptions.length > 0
+  ) {
+    return doc.alternativeDocumentOptions.map((item) => {
+      if (typeof item === "string") {
+        return {
+          label: formatDocumentLabel(item),
+          value: item,
+          description: "",
+        };
+      }
+
+      return {
+        label: item.label || formatDocumentLabel(item.value) || "Alternative Document",
+        value: item.value || item.label || "Alternative Document",
+        description: item.description || "",
+      };
+    });
+  }
+
+  if (
+    Array.isArray(doc?.alternative_documents) &&
+    doc.alternative_documents.length > 0
+  ) {
+    return doc.alternative_documents.map((item) => ({
+      label: formatDocumentLabel(item),
+      value: item,
+      description: "",
+    }));
+  }
+
+  return [];
+};
+
 export function ResubmitDialog({
   open,
   onOpenChange,
@@ -31,7 +81,16 @@ export function ResubmitDialog({
   const [answersByQId, setAnswersByQId] = useState({});
   const [progressByDocId, setProgressByDocId] = useState({});
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [draggingDocId, setDraggingDocId] = useState(null);
+
+  const [documentErrorsById, setDocumentErrorsById] = useState({});
+  const [questionErrorsById, setQuestionErrorsById] = useState({});
+
+  const [useAlternativeByDocId, setUseAlternativeByDocId] = useState({});
+  const [alternativeReasonByDocId, setAlternativeReasonByDocId] = useState({});
+  const [alternativeTypeByDocId, setAlternativeTypeByDocId] = useState({});
+  const [alternativeFilesByDocId, setAlternativeFilesByDocId] = useState({});
+  const [alternativeProgressByDocId, setAlternativeProgressByDocId] = useState({});
+  const [alternativeErrorsByDocId, setAlternativeErrorsByDocId] = useState({});
 
   const docsCount = Array.isArray(requiredDocuments) ? requiredDocuments.length : 0;
   const qnsCount = Array.isArray(requiredQuestions) ? requiredQuestions.length : 0;
@@ -39,68 +98,148 @@ export function ResubmitDialog({
   useEffect(() => {
     if (!open) return;
 
-    const seeded = {};
+    const seededAnswers = {};
     (requiredQuestions || []).forEach((q) => {
-      seeded[q.item_id] = q.answer_text ?? "";
+      seededAnswers[q.item_id] = q.answer_text ?? "";
     });
 
-    setAnswersByQId(seeded);
+    setAnswersByQId(seededAnswers);
     setFilesByDocId({});
     setProgressByDocId({});
-    setDraggingDocId(null);
+    setDocumentErrorsById({});
+    setQuestionErrorsById({});
     setIsSubmitting(false);
+
+    setUseAlternativeByDocId({});
+    setAlternativeReasonByDocId({});
+    setAlternativeTypeByDocId({});
+    setAlternativeFilesByDocId({});
+    setAlternativeProgressByDocId({});
+    setAlternativeErrorsByDocId({});
   }, [open, requiredQuestions]);
 
   const resetAndClose = () => {
     setFilesByDocId({});
     setAnswersByQId({});
     setProgressByDocId({});
-    setDraggingDocId(null);
+    setDocumentErrorsById({});
+    setQuestionErrorsById({});
     setIsSubmitting(false);
+
+    setUseAlternativeByDocId({});
+    setAlternativeReasonByDocId({});
+    setAlternativeTypeByDocId({});
+    setAlternativeFilesByDocId({});
+    setAlternativeProgressByDocId({});
+    setAlternativeErrorsByDocId({});
+
     onOpenChange(false);
   };
 
-  const addFilesForDoc = (docItemId, files) => {
-    setFilesByDocId((prev) => {
-      const existing = prev[docItemId] || [];
-      return { ...prev, [docItemId]: [...existing, ...files] };
+  const updateFileForDoc = (docItemId, file) => {
+    setFilesByDocId((prev) => ({
+      ...prev,
+      [docItemId]: file,
+    }));
+
+    setDocumentErrorsById((prev) => ({
+      ...prev,
+      [docItemId]: "",
+    }));
+  };
+
+  const updateAlternativeFileForDoc = (docItemId, file) => {
+    setAlternativeFilesByDocId((prev) => ({
+      ...prev,
+      [docItemId]: file,
+    }));
+
+    setAlternativeErrorsByDocId((prev) => ({
+      ...prev,
+      [docItemId]: {
+        ...(prev[docItemId] || {}),
+        file: "",
+      },
+    }));
+  };
+
+  const updateAnswerForQuestion = (questionId, value) => {
+    setAnswersByQId((prev) => ({
+      ...prev,
+      [questionId]: value,
+    }));
+
+    setQuestionErrorsById((prev) => ({
+      ...prev,
+      [questionId]: "",
+    }));
+  };
+
+  const toggleAlternativeMode = (docId) => {
+    setUseAlternativeByDocId((prev) => {
+      const nextValue = !prev[docId];
+
+      if (nextValue) {
+        setFilesByDocId((current) => ({
+          ...current,
+          [docId]: null,
+        }));
+        setDocumentErrorsById((current) => ({
+          ...current,
+          [docId]: "",
+        }));
+      } else {
+        setAlternativeReasonByDocId((current) => ({
+          ...current,
+          [docId]: "",
+        }));
+        setAlternativeTypeByDocId((current) => ({
+          ...current,
+          [docId]: "",
+        }));
+        setAlternativeFilesByDocId((current) => ({
+          ...current,
+          [docId]: null,
+        }));
+        setAlternativeProgressByDocId((current) => ({
+          ...current,
+          [docId]: 0,
+        }));
+        setAlternativeErrorsByDocId((current) => ({
+          ...current,
+          [docId]: {},
+        }));
+      }
+
+      return {
+        ...prev,
+        [docId]: nextValue,
+      };
     });
   };
 
-  const removeFileForDoc = (docItemId, index) => {
-    setFilesByDocId((prev) => {
-      const arr = prev[docItemId] || [];
-      return { ...prev, [docItemId]: arr.filter((_, i) => i !== index) };
-    });
-  };
+  const totalCompletedDocuments = useMemo(() => {
+    return requiredDocuments.reduce((count, doc) => {
+      const docId = doc.item_id;
+      const isAlternative = !!useAlternativeByDocId[docId];
 
-  const handlePickFiles = (docItemId, e) => {
-    if (!e.target.files) return;
-    addFilesForDoc(docItemId, Array.from(e.target.files));
-    e.target.value = "";
-  };
+      if (isAlternative) {
+        const hasReason = !!(alternativeReasonByDocId[docId] || "").trim();
+        const hasType = !!(alternativeTypeByDocId[docId] || "").trim();
+        const hasFile = !!alternativeFilesByDocId[docId];
+        return hasReason && hasType && hasFile ? count + 1 : count;
+      }
 
-  const handleDragOver = (e, docItemId) => {
-    e.preventDefault();
-    setDraggingDocId(docItemId);
-  };
-
-  const handleDragLeave = () => setDraggingDocId(null);
-
-  const handleDrop = (e, docItemId) => {
-    e.preventDefault();
-    setDraggingDocId(null);
-    if (e.dataTransfer?.files) {
-      addFilesForDoc(docItemId, Array.from(e.dataTransfer.files));
-    }
-  };
-
-  const totalSelectedFiles = useMemo(() => {
-    return Object.values(filesByDocId).reduce(
-      (sum, arr) => sum + (arr?.length || 0),
-      0
-    );
-  }, [filesByDocId]);
+      return filesByDocId[docId] ? count + 1 : count;
+    }, 0);
+  }, [
+    requiredDocuments,
+    useAlternativeByDocId,
+    alternativeReasonByDocId,
+    alternativeTypeByDocId,
+    alternativeFilesByDocId,
+    filesByDocId,
+  ]);
 
   const validate = () => {
     if (!applicationId) {
@@ -117,24 +256,67 @@ export function ResubmitDialog({
       return false;
     }
 
+    const nextDocumentErrors = {};
+    const nextQuestionErrors = {};
+    const nextAlternativeErrors = {};
+    let hasError = false;
+
     if (docsCount > 0) {
-      const missingDocFile = requiredDocuments.some(
-        (d) => !(filesByDocId[d.item_id]?.length > 0)
-      );
-      if (missingDocFile) {
-        toast.error("Please upload a file for each required document.");
-        return false;
-      }
+      requiredDocuments.forEach((doc) => {
+        const docId = doc.item_id;
+        const isAlternative = !!useAlternativeByDocId[docId];
+
+        if (isAlternative) {
+          const reason = (alternativeReasonByDocId[docId] || "").trim();
+          const alternativeType = (alternativeTypeByDocId[docId] || "").trim();
+          const alternativeFile = alternativeFilesByDocId[docId];
+
+          const docAltErrors = {};
+
+          if (!reason) {
+            docAltErrors.reason =
+              "Please explain why you cannot provide the original document.";
+            hasError = true;
+          }
+
+          if (!alternativeType) {
+            docAltErrors.type = "Please select an alternative document.";
+            hasError = true;
+          }
+
+          if (!alternativeFile) {
+            docAltErrors.file = "Please upload the alternative document.";
+            hasError = true;
+          }
+
+          if (Object.keys(docAltErrors).length > 0) {
+            nextAlternativeErrors[docId] = docAltErrors;
+          }
+        } else {
+          if (!filesByDocId[docId]) {
+            nextDocumentErrors[docId] = "Please upload the required document.";
+            hasError = true;
+          }
+        }
+      });
     }
 
     if (qnsCount > 0) {
-      const missingAnswer = requiredQuestions.some(
-        (q) => !(answersByQId[q.item_id] || "").trim()
-      );
-      if (missingAnswer) {
-        toast.error("Please answer all required questions.");
-        return false;
-      }
+      requiredQuestions.forEach((q) => {
+        if (!(answersByQId[q.item_id] || "").trim()) {
+          nextQuestionErrors[q.item_id] = "Answer is required.";
+          hasError = true;
+        }
+      });
+    }
+
+    setDocumentErrorsById(nextDocumentErrors);
+    setQuestionErrorsById(nextQuestionErrors);
+    setAlternativeErrorsByDocId(nextAlternativeErrors);
+
+    if (hasError) {
+      toast.error("Please fix the highlighted fields.");
+      return false;
     }
 
     return true;
@@ -145,10 +327,9 @@ export function ResubmitDialog({
       applicationId,
       email,
       firstName,
-      docsCount,
-      qnsCount,
       filesByDocId,
-      answersByQId,
+      useAlternativeByDocId,
+      alternativeTypeByDocId,
     });
 
     if (!validate()) return;
@@ -158,18 +339,43 @@ export function ResubmitDialog({
     try {
       for (const doc of requiredDocuments) {
         const docId = doc.item_id;
-        const files = filesByDocId[docId] || [];
+        const isAlternative = !!useAlternativeByDocId[docId];
 
-        for (const file of files) {
-          await uploadDocument({
-            applicationId,
-            documentType: doc.document_name,
-            file,
-            onProgress: (pct) => {
-              setProgressByDocId((prev) => ({ ...prev, [docId]: pct }));
-            },
-          });
-        }
+        const originalFile = filesByDocId[docId];
+        const alternativeFile = alternativeFilesByDocId[docId];
+        const fileToUpload = isAlternative ? alternativeFile : originalFile;
+
+        if (!fileToUpload) continue;
+
+        const selectedValue = (alternativeTypeByDocId[docId] || "").trim();
+        const alternativeOptions = getAlternativeOptionsForDocument(doc);
+
+        const matchedOption = alternativeOptions.find(
+          (option) => option.value === selectedValue
+        );
+
+        const documentType = isAlternative
+          ? (matchedOption?.label || selectedValue)
+          : doc.document_name;
+
+        await uploadDocument({
+          applicationId,
+          documentType,
+          file: fileToUpload,
+          onProgress: (pct) => {
+            if (isAlternative) {
+              setAlternativeProgressByDocId((prev) => ({
+                ...prev,
+                [docId]: pct,
+              }));
+            } else {
+              setProgressByDocId((prev) => ({
+                ...prev,
+                [docId]: pct,
+              }));
+            }
+          },
+        });
       }
 
       const payload = {
@@ -179,9 +385,32 @@ export function ResubmitDialog({
           item_id: q.item_id,
           answer_text: (answersByQId[q.item_id] || "").trim(),
         })),
+        alternative_documents: requiredDocuments
+        .filter((doc) => useAlternativeByDocId[doc.item_id])
+        .map((doc) => {
+          const selectedValue = (alternativeTypeByDocId[doc.item_id] || "").trim();
+
+          const options = getAlternativeOptionsForDocument(doc);
+
+          const matchedOption = options.find(
+            (opt) => opt.value === selectedValue
+          );
+
+          return {
+            item_id: doc.item_id,
+
+            // ✅ send label instead of raw value
+            substitute_document_type: matchedOption?.label || selectedValue,
+
+            substitute_reason: (
+              alternativeReasonByDocId[doc.item_id] || ""
+            ).trim(),
+          };
+        }),
       };
 
-      console.log("[ResubmitDialog] Calling secondSubmit with:", payload);
+      console.log("=== FINAL PAYLOAD ===");
+      console.dir({ applicationId, payload }, { depth: null });
 
       await secondSubmit(applicationId, payload);
 
@@ -193,29 +422,41 @@ export function ResubmitDialog({
       resetAndClose();
     } catch (err) {
       console.error("[ResubmitDialog] Resubmit failed:", err?.response?.data || err);
+
       toast.error("Failed to submit resubmission.", {
-        description: err?.response?.data?.detail || err?.message || "Unknown error",
+        description:
+          err?.response?.data?.detail ||
+          err?.message ||
+          "Unknown error",
       });
+
       setIsSubmitting(false);
     }
   };
 
   return (
-    <Dialog open={open} onOpenChange={resetAndClose}>
+    <Dialog
+      open={open}
+      onOpenChange={(nextOpen) => {
+        if (!nextOpen) {
+          resetAndClose();
+        }
+      }}
+    >
       <DialogContent className="sm:max-w-3xl">
         <DialogHeader className="space-y-1">
           <DialogTitle className="text-xl">Upload Documents</DialogTitle>
-          <DialogDescription className="text-sm leading-relaxed">
-            Upload the required documents and answer the additional questions for review.
+          <DialogDescription className="mb-2 text-sm leading-relaxed">
+            Upload the required documents and answer the required questions for review.
           </DialogDescription>
         </DialogHeader>
 
-        <div className="max-h-[65vh] overflow-y-auto pr-2 space-y-5">
+        <div className="max-h-[65vh] space-y-5 overflow-y-auto pr-2">
           {actionRequired && (
             <div className="rounded-lg border border-red-200 bg-red-50/60 px-4 py-3">
-              <p className="text-sm font-semibold text-red-600 mb-1">What&apos;s needed</p>
-              <p className="text-sm text-foreground leading-relaxed">{actionRequired}</p>
-              <p className="text-xs text-muted-foreground mt-2">
+              <p className="mb-1 text-sm font-semibold text-red-600">Reason for Escalation</p>
+              <p className="text-sm leading-relaxed text-foreground">{actionRequired}</p>
+              <p className="mt-2 text-xs text-muted-foreground">
                 {docsCount} document{docsCount === 1 ? "" : "s"} & {qnsCount} question
                 {qnsCount === 1 ? "" : "s"}
               </p>
@@ -226,92 +467,206 @@ export function ResubmitDialog({
             <div className="space-y-3">
               <h3 className="text-base font-semibold">Documents</h3>
 
-              <div className="space-y-3">
+              <div className="space-y-4">
                 {requiredDocuments.map((doc) => {
                   const docId = doc.item_id;
-                  const files = filesByDocId[docId] || [];
-                  const isDragging = draggingDocId === docId;
-                  const progress = progressByDocId[docId];
+                  const file = filesByDocId[docId] || null;
+                  const progress = progressByDocId[docId] ?? 0;
+                  const error = documentErrorsById[docId] || "";
+
+                  const isAlternative = !!useAlternativeByDocId[docId];
+                  const altReason = alternativeReasonByDocId[docId] || "";
+                  const altType = alternativeTypeByDocId[docId] || "";
+                  const altFile = alternativeFilesByDocId[docId] || null;
+                  const altProgress = alternativeProgressByDocId[docId] ?? 0;
+                  const altErrors = alternativeErrorsByDocId[docId] || {};
+                  const alternativeOptions = getAlternativeOptionsForDocument(doc);
+                  const hasAlternativeOptions = alternativeOptions.length > 0;
 
                   return (
-                    <div key={docId} className="rounded-xl border border-border bg-background p-4">
-                      <div className="mb-3">
-                        <p className="text-sm font-semibold text-foreground">
-                          {doc.document_name || "Document"}
-                        </p>
-                        {doc.document_desc ? (
-                          <p className="text-sm text-muted-foreground">{doc.document_desc}</p>
-                        ) : null}
-                      </div>
+                    <div
+                      key={docId}
+                      className="rounded-xl border border-border bg-background p-4"
+                    >
+                      {!isAlternative ? (
+                        <div className="space-y-2">
+                          <ResubmitDocumentUploadField
+                            fieldName={`file-${docId}`}
+                            label={doc.document_name || "Document"}
+                            description={doc.document_desc || ""}
+                            file={file}
+                            onChange={(selectedFile) => updateFileForDoc(docId, selectedFile)}
+                            uploadProgress={progress}
+                            required
+                            disabled={isSubmitting}
+                            acceptTypes="application/pdf,image/jpeg,image/png"
+                            helpText="Accepted formats: PDF, JPG, PNG. Max size: 5MB"
+                            error={error}
+                          />
 
-                      <div
-                        onDragOver={(e) => handleDragOver(e, docId)}
-                        onDragLeave={handleDragLeave}
-                        onDrop={(e) => handleDrop(e, docId)}
-                        onClick={() => document.getElementById(`file-${docId}`)?.click()}
-                        className={[
-                          "flex items-center justify-center rounded-lg border border-dashed px-4 py-4 cursor-pointer transition-colors",
-                          isDragging
-                            ? "border-red-400 bg-red-50"
-                            : "border-border hover:border-red-300 hover:bg-muted/30",
-                        ].join(" ")}
-                      >
-                        <div className="flex items-center gap-2 text-sm">
-                          <Upload className="h-4 w-4 text-muted-foreground" />
-                          <span className="font-medium text-foreground">Click to upload</span>
-                          <span className="text-muted-foreground">or drag & drop</span>
+                          {error && <p className="text-sm text-red-500">{error}</p>}
+
+                          <button
+                            type="button"
+                            onClick={() => toggleAlternativeMode(docId)}
+                            disabled={isSubmitting}
+                            className="inline-flex items-center gap-1 text-sm text-red-600 hover:underline disabled:cursor-not-allowed disabled:opacity-50"
+                          >
+                            Can’t provide this document?
+                            <ChevronDown className="h-4 w-4" />
+                          </button>
                         </div>
-
-                        <input
-                          id={`file-${docId}`}
-                          type="file"
-                          multiple
-                          accept=".pdf,.jpg,.jpeg,.png"
-                          className="hidden"
-                          onChange={(e) => handlePickFiles(docId, e)}
-                          disabled={isSubmitting}
-                        />
-                      </div>
-
-                      {typeof progress === "number" && isSubmitting && (
-                        <div className="mt-3">
-                          <div className="h-2 w-full rounded bg-muted overflow-hidden">
-                            <div
-                              className="h-2 bg-red-500"
-                              style={{ width: `${Math.min(progress, 100)}%` }}
-                            />
-                          </div>
-                          <p className="text-xs text-muted-foreground mt-1">{progress}%</p>
-                        </div>
-                      )}
-
-                      {files.length > 0 && (
-                        <div className="mt-3 space-y-2">
-                          {files.map((file, index) => (
-                            <div
-                              key={`${file.name}-${file.size}-${index}`}
-                              className="flex items-center justify-between rounded-md border border-border bg-background px-3 py-2"
-                            >
-                              <div className="flex items-center gap-2 min-w-0">
-                                <FileText className="h-4 w-4 shrink-0 text-muted-foreground" />
-                                <span className="text-sm truncate">{file.name}</span>
-                              </div>
-
-                              <Button
-                                type="button"
-                                variant="ghost"
-                                size="sm"
-                                className="h-8 w-8 p-0"
-                                disabled={isSubmitting}
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  removeFileForDoc(docId, index);
-                                }}
-                              >
-                                <X className="h-4 w-4" />
-                              </Button>
+                      ) : (
+                        <div className="space-y-4">
+                          <div className="flex items-start justify-between gap-3">
+                            <div>
+                              <p className="text-sm font-semibold text-foreground">
+                                {doc.document_name || "Document"}
+                              </p>
+                              {doc.document_desc && (
+                                <p className="mt-1 text-sm text-muted-foreground">
+                                  {doc.document_desc}
+                                </p>
+                              )}
                             </div>
-                          ))}
+
+                            <button
+                              type="button"
+                              onClick={() => toggleAlternativeMode(docId)}
+                              disabled={isSubmitting}
+                              className="inline-flex shrink-0 items-center gap-1 text-sm text-muted-foreground hover:text-foreground hover:underline disabled:cursor-not-allowed disabled:opacity-50"
+                            >
+                              Use original document instead
+                              <ChevronUp className="h-4 w-4" />
+                            </button>
+                          </div>
+
+                          <div className="rounded-lg border border-amber-200 bg-amber-50/60 px-3 py-2 text-sm text-amber-800">
+                            Submit an alternative document for review. It may be accepted, or we may request more information.
+                          </div>
+
+                          {!hasAlternativeOptions && (
+                            <div className="rounded-lg border border-muted bg-muted/40 px-3 py-2 text-sm text-muted-foreground">
+                              No suggested alternative documents are available for this request at the moment.
+                            </div>
+                          )}
+
+                          <div className="space-y-2">
+                            <Label className="text-sm font-semibold">
+                              Why can’t you provide this document? <span className="text-red-500">*</span>
+                            </Label>
+                            <Textarea
+                              rows={3}
+                              disabled={isSubmitting}
+                              placeholder="Explain briefly why the original required document is unavailable."
+                              value={altReason}
+                              onChange={(e) => {
+                                const value = e.target.value;
+                                setAlternativeReasonByDocId((prev) => ({
+                                  ...prev,
+                                  [docId]: value,
+                                }));
+                                setAlternativeErrorsByDocId((prev) => ({
+                                  ...prev,
+                                  [docId]: {
+                                    ...(prev[docId] || {}),
+                                    reason: "",
+                                  },
+                                }));
+                              }}
+                              className={`rounded-xl focus-visible:ring-2 focus-visible:ring-red-500 focus-visible:border-red-400 ${
+                                altErrors.reason
+                                  ? "!border-red-500 !ring-red-500 placeholder:!text-red-400"
+                                  : ""
+                              }`}
+                            />
+                            {altErrors.reason && (
+                              <p className="text-sm text-red-500">{altErrors.reason}</p>
+                            )}
+                          </div>
+
+                          <div className="space-y-2">
+                            <Label className="text-sm font-semibold">
+                              Select an alternative document <span className="text-red-500">*</span>
+                            </Label>
+                            <select
+                              disabled={isSubmitting || !hasAlternativeOptions}
+                              value={altType}
+                              onChange={(e) => {
+                                const value = e.target.value;
+                                setAlternativeTypeByDocId((prev) => ({
+                                  ...prev,
+                                  [docId]: value,
+                                }));
+                                setAlternativeErrorsByDocId((prev) => ({
+                                  ...prev,
+                                  [docId]: {
+                                    ...(prev[docId] || {}),
+                                    type: "",
+                                  },
+                                }));
+                              }}
+                              className={`flex h-10 w-full rounded-xl border bg-background px-3 py-2 text-sm outline-none transition-colors focus-visible:ring-2 focus-visible:ring-red-500 focus-visible:border-red-400 ${
+                                altErrors.type ? "!border-red-500" : "border-input"
+                              } ${
+                                isSubmitting || !hasAlternativeOptions
+                                  ? "cursor-not-allowed opacity-50"
+                                  : ""
+                              }`}
+                            >
+                              <option value="">
+                                {hasAlternativeOptions
+                                  ? "Select an alternative document"
+                                  : "No alternative documents available"}
+                              </option>
+
+                              {alternativeOptions.map((option) => (
+                                <option key={option.value} value={option.value}>
+                                  {option.label}
+                                </option>
+                              ))}
+                            </select>
+
+                            {altType &&
+                              alternativeOptions.find((option) => option.value === altType)?.description && (
+                                <p className="text-xs text-muted-foreground">
+                                  {
+                                    alternativeOptions.find(
+                                      (option) => option.value === altType
+                                    )?.description
+                                  }
+                                </p>
+                              )}
+
+                            {altErrors.type && (
+                              <p className="text-sm text-red-500">{altErrors.type}</p>
+                            )}
+                          </div>
+
+                          <div className="space-y-2">
+                            <ResubmitDocumentUploadField
+                              fieldName={`alternative-file-${docId}`}
+                              label="Upload Alternative Document"
+                              description={
+                                altType
+                                  ? `Selected alternative: ${formatDocumentLabel(altType)}`
+                                  : "Upload the substitute document for review."
+                              }
+                              file={altFile}
+                              onChange={(selectedFile) =>
+                                updateAlternativeFileForDoc(docId, selectedFile)
+                              }
+                              uploadProgress={altProgress}
+                              required
+                              disabled={isSubmitting}
+                              acceptTypes="application/pdf,image/jpeg,image/png"
+                              helpText="Accepted formats: PDF, JPG, PNG. Max size: 5MB"
+                              error={altErrors.file || ""}
+                            />
+                            {altErrors.file && (
+                              <p className="text-sm text-red-500">{altErrors.file}</p>
+                            )}
+                          </div>
                         </div>
                       )}
                     </div>
@@ -326,44 +681,63 @@ export function ResubmitDialog({
               <h3 className="text-base font-semibold">Additional Questions</h3>
 
               <div className="space-y-3">
-                {requiredQuestions.map((q, idx) => (
-                  <div key={q.item_id} className="rounded-xl border border-border bg-background p-4">
-                    <Label className="text-sm font-semibold">{`Question ${idx + 1}`}</Label>
-                    <p className="mt-1 text-sm text-foreground">{q.question_text}</p>
+                {requiredQuestions.map((q, idx) => {
+                  const error = questionErrorsById[q.item_id] || "";
 
-                    <Textarea
-                      className="mt-3 rounded-xl focus-visible:ring-2 focus-visible:ring-red-500 focus-visible:border-red-400"
-                      rows={3}
-                      placeholder="Type your answer..."
-                      disabled={isSubmitting}
-                      value={answersByQId[q.item_id] ?? ""}
-                      onChange={(e) =>
-                        setAnswersByQId((prev) => ({
-                          ...prev,
-                          [q.item_id]: e.target.value,
-                        }))
-                      }
-                    />
-                  </div>
-                ))}
+                  return (
+                    <div
+                      key={q.item_id}
+                      className="rounded-xl border border-border bg-background p-4"
+                    >
+                      <Label className="text-sm font-semibold">
+                        {`Question ${idx + 1}`}
+                      </Label>
+                      <p className="mt-1 text-sm text-foreground">{q.question_text}</p>
+
+                      <Textarea
+                        className={`mt-3 rounded-xl focus-visible:ring-2 focus-visible:ring-red-500 focus-visible:border-red-400 ${
+                          error
+                            ? "!border-red-500 !ring-red-500 placeholder:!text-red-400"
+                            : ""
+                        }`}
+                        rows={3}
+                        placeholder="Type your answer..."
+                        disabled={isSubmitting}
+                        value={answersByQId[q.item_id] ?? ""}
+                        onChange={(e) => updateAnswerForQuestion(q.item_id, e.target.value)}
+                      />
+
+                      {error && (
+                        <p className="mt-1 text-sm text-red-500">{error}</p>
+                      )}
+                    </div>
+                  );
+                })}
               </div>
             </div>
           )}
         </div>
 
         <DialogFooter className="gap-2 pt-5">
-          <Button type="button" variant="outline" onClick={resetAndClose} disabled={isSubmitting}>
+          <Button
+            type="button"
+            variant="outline"
+            onClick={resetAndClose}
+            disabled={isSubmitting}
+          >
             Cancel
           </Button>
 
           <Button
             type="button"
             onClick={handleSubmit}
-            disabled={isSubmitting || (docsCount > 0 && totalSelectedFiles === 0)}
-            className="gap-2 bg-red-600 hover:bg-red-700 text-white"
+            disabled={isSubmitting}
+            className="gap-2 bg-red-600 text-white hover:bg-red-700"
           >
             <Upload className="h-4 w-4" />
-            {isSubmitting ? "Submitting..." : "Submit"}
+            {isSubmitting
+              ? "Submitting..."
+              : `Submit${docsCount > 0 ? ` (${totalCompletedDocuments}/${docsCount} documents ready)` : ""}`}
           </Button>
         </DialogFooter>
       </DialogContent>

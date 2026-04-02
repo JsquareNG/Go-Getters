@@ -313,3 +313,86 @@ def need_manual_review_service(
         email_notes.append("Reviewer/staff email not found; staff email not queued.")
 
     return app, emails_queued, email_notes
+
+
+def auto_reject_application_service(
+    db: Session,
+    background_tasks: BackgroundTasks | None,
+    application_id: str,
+    send_email_now: bool = False,
+):
+    app = (
+        db.query(ApplicationForm)
+        .filter(ApplicationForm.application_id == application_id)
+        .with_for_update()
+        .first()
+    )
+
+    if not app:
+        raise HTTPException(status_code=404, detail="Application not found")
+
+    # prevent duplicate / invalid transitions
+    if app.current_status in ("Approved", "Rejected", "Auto Rejected", "Withdrawn", "Deleted"):
+        return app, False, [f"No status change; current_status is '{app.current_status}'"]
+
+    old_status = app.current_status
+
+    # update statuses
+    app.previous_status = old_status
+    app.current_status = "Auto Rejected"
+
+    # bell notification to user
+    db.add(BellNotification(
+        application_id=app.application_id,
+        recipient_id=app.user_id,
+        from_status=app.previous_status,
+        to_status="Auto Rejected",
+        message="Your application has been auto rejected after compliance check."
+    ))
+
+    # audit log
+    create_audit_log(
+        db=db,
+        application_id=app.application_id,
+        actor_id=None,
+        actor_type="SYSTEM",
+        event_type="APPLICATION_AUTO_REJECTED",
+        entity_type="APPLICATION",
+        from_status=old_status,
+        to_status=app.current_status,
+        description="Application auto-rejected due to high risk."
+    )
+
+    db.commit()
+    db.refresh(app)
+
+    user = None
+    if getattr(app, "user_id", None):
+        user = db.query(User).filter(User.user_id == app.user_id).first()
+
+    def safe_send_email(to_email: str, subject: str, body: str):
+        try:
+            send_email(to_email, subject, body)
+        except Exception as e:
+            print(f"❌ Email failed to {to_email}: {e}")
+
+    emails_queued = False
+    email_notes = []
+
+    if user and getattr(user, "email", None):
+        # use your own email builder if you already have one
+        subject, body = build_auto_rejected_email(app, getattr(user, "first_name", None))
+
+        if send_email_now:
+            safe_send_email(user.email, subject, body)
+            email_notes.append("Auto rejection email sent immediately (worker path).")
+        else:
+            if background_tasks is not None:
+                background_tasks.add_task(safe_send_email, user.email, subject, body)
+                emails_queued = True
+            else:
+                email_notes.append("No BackgroundTasks provided; email not queued.")
+    else:
+        email_notes.append("User email not found; auto rejection email not queued.")
+
+    return app, emails_queued, email_notes

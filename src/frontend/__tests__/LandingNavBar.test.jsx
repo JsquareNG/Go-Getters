@@ -2,12 +2,12 @@ import React from "react";
 import { render, screen, cleanup } from "@testing-library/react";
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { MemoryRouter } from "react-router-dom";
-import { LandingNavBar } from "../components/ui/features/LandingNavBar"; // adjust if needed
+import { LandingNavBar } from "../components/ui/features/LandingNavBar";
 
 let mockUser = null;
 
-// Router mock
 const mockNavigate = vi.fn();
+
 vi.mock("react-router-dom", async () => {
   const actual = await vi.importActual("react-router-dom");
   return {
@@ -16,7 +16,6 @@ vi.mock("react-router-dom", async () => {
   };
 });
 
-// Redux mocks
 vi.mock("react-redux", async () => {
   const actual = await vi.importActual("react-redux");
   return {
@@ -26,7 +25,6 @@ vi.mock("react-redux", async () => {
   };
 });
 
-// Partial mock for authSlice
 vi.mock("@/store/authSlice", async (importOriginal) => {
   const actual = await importOriginal();
   return {
@@ -36,15 +34,13 @@ vi.mock("@/store/authSlice", async (importOriginal) => {
   };
 });
 
-// Mock notifications API just so component doesn't crash
-vi.mock("../src/api/notificationsApi", () => ({
+vi.mock("../../../api/notificationsApi", () => ({
   getAllNotifications: vi.fn().mockResolvedValue({ notifications: [], unread: 0 }),
   getUnreadNotifications: vi.fn().mockResolvedValue({ total: 0 }),
   readOneApplication: vi.fn().mockResolvedValue({}),
   readAllApplication: vi.fn().mockResolvedValue({}),
 }));
 
-// Mock logo import
 vi.mock("@/assets/gogetterslogo.png", () => ({
   default: "mock-logo.png",
 }));
@@ -77,9 +73,9 @@ describe("LandingNavBar", () => {
 
     renderNav();
 
-    expect(await screen.findByText(/applications/i)).toBeInTheDocument();
-    expect(screen.queryByText(/dashboard/i)).not.toBeInTheDocument();
-    expect(screen.queryByText(/staff landing/i)).not.toBeInTheDocument();
+    expect(await screen.findByText(/^applications$/i)).toBeInTheDocument();
+    expect(screen.queryByText(/^dashboard$/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/rules engine configuration/i)).not.toBeInTheDocument();
   });
 
   it("renders STAFF navigation items for STAFF user", async () => {
@@ -92,10 +88,25 @@ describe("LandingNavBar", () => {
 
     renderNav();
 
-    expect(await screen.findByText(/staff landing/i)).toBeInTheDocument();
-    expect(screen.getByText(/dashboard/i)).toBeInTheDocument();
+    expect(await screen.findByText(/^applications$/i)).toBeInTheDocument();
+    expect(screen.getByText(/^dashboard$/i)).toBeInTheDocument();
+    expect(screen.queryByText(/staff landing/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/rules engine configuration/i)).not.toBeInTheDocument();
+  });
+
+  it("renders MANAGEMENT navigation items for MANAGEMENT user", async () => {
+    mockUser = {
+      role: "MANAGEMENT",
+      user_id: "M1",
+      first_name: "John",
+      last_name: "Lee",
+    };
+
+    renderNav();
+
+    expect(await screen.findByText(/^applications$/i)).toBeInTheDocument();
+    expect(screen.getByText(/^dashboard$/i)).toBeInTheDocument();
     expect(screen.getByText(/rules engine configuration/i)).toBeInTheDocument();
-    expect(screen.queryByText(/^applications$/i)).not.toBeInTheDocument();
   });
 
   it("shows user initials and name", async () => {
@@ -112,7 +123,7 @@ describe("LandingNavBar", () => {
     expect(screen.getByText("JT")).toBeInTheDocument();
   });
 
-  it("shows notification button", async () => {
+  it("shows notification button for SME", async () => {
     mockUser = {
       role: "SME",
       user_id: "U1",
@@ -123,5 +134,18 @@ describe("LandingNavBar", () => {
     renderNav();
 
     expect(await screen.findByLabelText(/notifications/i)).toBeInTheDocument();
+  });
+
+  it("does not show notification button for MANAGEMENT", async () => {
+    mockUser = {
+      role: "MANAGEMENT",
+      user_id: "M1",
+      first_name: "John",
+      last_name: "Lee",
+    };
+
+    renderNav();
+
+    expect(screen.queryByLabelText(/notifications/i)).not.toBeInTheDocument();
   });
 });

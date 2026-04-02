@@ -122,6 +122,9 @@ def make_action_request_item(
     item_type="DOCUMENT",
     document_name=None,
     document_desc=None,
+    submitted_document_name=None,
+    substitution_reason=None,
+    is_substitute=False,
     question_text=None,
     answer_text=None,
     fulfilled=False,
@@ -133,6 +136,9 @@ def make_action_request_item(
         item_type=item_type,
         document_name=document_name,
         document_desc=document_desc,
+        submitted_document_name=submitted_document_name,
+        substitution_reason=substitution_reason,
+        is_substitute=is_substitute,
         question_text=question_text,
         answer_text=answer_text,
         fulfilled=fulfilled,
@@ -155,7 +161,6 @@ def test_apply_full_application_update_merges_new_form_data():
     }
 
     application_module.apply_full_application_update(app, payload)
-
     assert app.form_data["businessName"] == "New Biz"
     assert app.form_data["country"] == "SG"
     assert app.form_data["businessType"] == "PT"
@@ -245,8 +250,17 @@ def test_close_open_action_request_closes_when_all_requirements_met():
 
     assert result is ar
     assert ar.status == "CLOSED"
-    assert doc_item.fulfilled is True
+
+    # New function behavior for document items
+    assert doc_item.fulfilled is False
+    assert doc_item.fulfilled_at is not None
+    assert doc_item.is_substitute is False
+    assert doc_item.submitted_document_name is None
+    assert doc_item.substitution_reason is None
+
+    # Question items are explicitly fulfilled
     assert q_item.fulfilled is True
+    assert q_item.fulfilled_at is not None
     assert q_item.answer_text == "Owned by founder directly"
 
 
@@ -272,7 +286,6 @@ def test_second_submit_invalid_status_raises_400(monkeypatch):
 
     assert exc.value.status_code == 400
     assert "secondSubmit not allowed" in exc.value.detail
-
 
 def test_second_submit_first_submit_moves_draft_to_under_review(monkeypatch):
     db = FakeDB()
@@ -392,7 +405,6 @@ def test_withdraw_application_closes_open_action_requests(monkeypatch):
         user_id="USER-1",
         reviewer_id="REVIEWER-1",
     )
-
     open_ar_1 = make_action_request(action_request_id=1, status="OPEN")
     open_ar_2 = make_action_request(action_request_id=2, status="OPEN")
 
@@ -496,7 +508,6 @@ def test_get_action_requests_groups_items_per_request():
 
     ar1 = make_action_request(action_request_id=1, status="OPEN", reason="Need docs")
     ar2 = make_action_request(action_request_id=2, status="CLOSED", reason="Need clarification")
-
     items_map = {
         1: [
             make_action_request_item(
@@ -505,6 +516,9 @@ def test_get_action_requests_groups_items_per_request():
                 item_type="DOCUMENT",
                 document_name="ACRA Profile",
                 document_desc="Latest copy",
+                is_substitute=False,
+                submitted_document_name=None,
+                substitution_reason=None,
             ),
             make_action_request_item(
                 item_id=12,
@@ -551,8 +565,22 @@ def test_get_action_requests_groups_items_per_request():
 
     assert result["application_id"] == "APP-1"
     assert len(result["action_requests"]) == 2
-    assert result["action_requests"][0]["reason"] == "Need docs"
-    assert len(result["action_requests"][0]["documents"]) == 1
-    assert len(result["action_requests"][0]["questions"]) == 1
-    assert len(result["action_requests"][1]["documents"]) == 0
-    assert len(result["action_requests"][1]["questions"]) == 1
+
+    first = result["action_requests"][0]
+    assert first["reason"] == "Need docs"
+    assert len(first["documents"]) == 1
+    assert len(first["questions"]) == 1
+
+    first_doc = first["documents"][0]
+    assert first_doc["document_name"] == "ACRA Profile"
+    assert first_doc["document_desc"] == "Latest copy"
+    assert first_doc["is_substitute"] is False
+    assert first_doc["submitted_document_name"] is None
+    assert first_doc["substitution_reason"] is None
+
+    second = result["action_requests"][1]
+    assert len(second["documents"]) == 0
+    assert len(second["questions"]) == 1
+    assert second["questions"][0]["question_text"] == "Clarify source of funds"
+    assert second["questions"][0]["answer_text"] == "Business revenue"
+

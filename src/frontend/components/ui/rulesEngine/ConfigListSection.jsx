@@ -693,7 +693,7 @@ export default function ConfigListSection() {
       ? "Manage compliance thresholds for this list."
       : "Manage configuration records for this list.";
 
-  const shouldShowAddRow = true;
+  const shouldShowAddRow = currentTabMeta?.itemType !== "threshold";
 
   return (
     <>

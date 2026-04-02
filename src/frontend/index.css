@@ -5,6 +5,7 @@
 
 @layer base {
   :root {
+    
     /* DBS Brand Colors (your new CSS) */
     --background: 0 0% 98%;
     --foreground: 220 20% 15%;
@@ -142,6 +143,14 @@
   /* Tailwind v4-friendly base styles */
   * {
     border-color: hsl(var(--border));
+  }
+
+  html {
+    scrollbar-gutter: stable;
+  }
+
+  body[data-scroll-locked] {
+    margin-right: 0 !important;
   }
 
   body {

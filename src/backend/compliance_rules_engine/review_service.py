@@ -3,7 +3,7 @@ from backend.database import SessionLocal
 from backend.models.reviewJobs import ReviewJobs
 from sqlalchemy import text
 from backend.config.settings import RISK_APPETITE_SCORE_THRESHOLD
-from backend.services.application_transitions import approve_application_service, need_manual_review_service
+from backend.services.application_transitions import approve_application_service, need_manual_review_service, auto_reject_application_service
 from backend.compliance_rules_engine.application_service import submit_application
 from backend.compliance_rules_engine.models import Company, Individual
 from datetime import datetime
@@ -15,15 +15,24 @@ def run_review_job(application_id: str):
     db: Session = SessionLocal()
 
     try:
-        job = db.query(ReviewJobs).filter(
-            ReviewJobs.application_id == application_id
-        ).first()
+        # job = db.query(ReviewJobs).filter(
+        #     ReviewJobs.application_id == application_id
+        # ).first()
+        job = (
+            db.query(ReviewJobs)
+            .filter(ReviewJobs.application_id == application_id)
+            .with_for_update()
+            .first()
+        )
 
         app = db.query(ApplicationForm).filter(
             ApplicationForm.application_id == application_id
         ).first()
 
         if not job or not app:
+            return
+        
+        if job.status in ["RUNNING", "COMPLETED"]:
             return
 
         # 🔄 Mark job as running
@@ -45,6 +54,8 @@ def run_review_job(application_id: str):
         db.commit()
 
         form = app.form_data or {}
+        kyc_data = form.get("kycData", {}) or {}
+        kyc_overall_status = kyc_data.get("overallStatus")
 
         individuals = []
 
@@ -149,12 +160,53 @@ def run_review_job(application_id: str):
                 to_status="Completed",
                 description="Automated review process completed."
             )
-            
-            approve_application_service(
+
+            if kyc_overall_status == "Declined":
+                create_audit_log(
+                    db=db,
+                    application_id=application_id,
+                    actor_id=None,
+                    actor_type="SYSTEM",
+                    event_type="REVIEW_JOB_COMPLETED",
+                    entity_type="REVIEW_JOB",
+                    entity_id=job.job_id,
+                    from_status=app.current_status,
+                    to_status="COMPLETED",
+                    description="SDD but KYC Declined → routed to manual review",
+                )
+
+                need_manual_review_service(
+                    db=db,
+                    background_tasks=None,
+                    application_id=application_id,
+                    send_email_now=True,
+                )
+            else:
+                approve_application_service(
+                    db=db,
+                    background_tasks=None,
+                    application_id=application_id,
+                    reason="Auto-approved by rules engine",
+                    send_email_now=True,
+                )
+        elif decision == 'Standard Due Diligence (CDD)' or decision == 'Enhanced Due Diligence (EDD)':
+            create_audit_log(
+                db=db,
+                application_id=application_id,
+                actor_id=None,
+                actor_type="SYSTEM",
+                event_type="REVIEW_JOB_COMPLETED",
+                entity_type="REVIEW_JOB",
+                entity_id=job.job_id,
+                from_status=app.current_status,
+                to_status="COMPLETED",
+                description="Automated review process completed."
+            )
+
+            need_manual_review_service(
                 db=db,
                 background_tasks=None,
                 application_id=application_id,
-                reason="Auto-approved by rules engine",
                 send_email_now=True,
             )
         else:
@@ -170,8 +222,7 @@ def run_review_job(application_id: str):
                 to_status="COMPLETED",
                 description="Automated review process completed."
             )
-
-            need_manual_review_service(
+            auto_reject_application_service(
                 db=db,
                 background_tasks=None,
                 application_id=application_id,

@@ -146,6 +146,12 @@ const LandingNavBar = () => {
     [notifications],
   );
 
+  const getHomeRoute = () => {
+    if (userRole === "STAFF") return "/staff-landingpage";
+    if (userRole === "MANAGEMENT") return "/management-landing-page";
+    return "/landingpage";
+  };
+
   /**
    * ✅ Mark ONE notification/application as read, THEN navigate to details page
    * Backend endpoint is /bell/read-one/:applicationId
@@ -242,23 +248,23 @@ const LandingNavBar = () => {
 
   const navItems = [
     {
-      icon: FileSearch,
-      label: "Staff Landing",
+      icon: LayoutGrid,
+      label: "Applications",
       to: "/staff-landingpage",
       roles: ["STAFF"],
+    },
+        {
+      icon: LayoutGrid,
+      label: "Applications",
+      to: "/management-landing-page",
+      roles: ["MANAGEMENT"],
     },
     {
       icon: LayoutDashboard,
       label: "Dashboard",
       to: "/dashboard",
-      roles: ["STAFF"],
+      roles: ["STAFF","MANAGEMENT"],
     },
-    // {
-    //   icon: Columns3Cog,
-    //   label: "Admin Config",
-    //   to: "/admin-config",
-    //   roles: ["STAFF"],
-    // },
     {
       icon: LayoutGrid,
       label: "Applications",
@@ -269,8 +275,10 @@ const LandingNavBar = () => {
       icon: Columns3Cog,
       label: "Rules Engine Configuration",
       to: "/rules-engine-configuration",
-      roles: ["STAFF"],
+      roles: ["MANAGEMENT"],
     },
+    
+
   ];
 
   const visibleNavItems = navItems.filter((item) =>
@@ -293,7 +301,13 @@ const LandingNavBar = () => {
     <header className="fixed top-0 left-0 right-0 z-50 bg-white/95 backdrop-blur-sm border-b border-border">
       <div className="container mx-auto px-6">
         <div className="flex items-center justify-between h-16">
-          <img src={gogetterslogo} alt="GoGetters SME Logo" className="h-30 w-auto" />
+          <NavLink to={getHomeRoute()}>
+            <img
+              src={gogetterslogo}
+              alt="GoGetters SME Logo"
+              className="h-30 w-auto cursor-pointer"
+            />
+          </NavLink>
 
           <div className="flex items-center gap-8">
             <nav className="hidden md:flex items-center gap-2">
@@ -316,98 +330,128 @@ const LandingNavBar = () => {
             </nav>
 
             <div className="flex items-center gap-4">
-              <Popover>
-                <PopoverTrigger asChild>
-                  <button
-                    type="button"
-                    className="relative inline-flex items-center justify-center rounded-md px-2 py-2 text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors"
-                    aria-label="Notifications"
-                    onClick={() => {
-                      fetchUnreadCount();
-                      fetchAllNotifications();
-                    }}
+              {userRole !== "MANAGEMENT" && (
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <button
+                      type="button"
+                      className="relative inline-flex items-center justify-center rounded-md px-2 py-2 text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors"
+                      aria-label="Notifications"
+                      onClick={() => {
+                        fetchUnreadCount();
+                        fetchAllNotifications();
+                      }}
+                    >
+                      <Bell className="w-5 h-5" />
+                      {unreadCount > 0 && (
+                        <span className="absolute -top-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full bg-cyan-500 text-[10px] font-bold text-white">
+                          {unreadCount}
+                        </span>
+                      )}
+                    </button>
+                  </PopoverTrigger>
+
+                  <PopoverContent
+                    align="end"
+                    className="w-80 max-w-[calc(100vw-1.5rem)] p-0 overflow-hidden"
                   >
-                    <Bell className="w-5 h-5" />
-                    {unreadCount > 0 && (
-                      <span className="absolute -top-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full bg-cyan-500 text-[10px] font-bold text-white">
-                        {unreadCount}
-                      </span>
-                    )}
-                  </button>
-                </PopoverTrigger>
+                    <div className="flex items-center justify-between border-b border-border px-4 py-3">
+                      <h4 className="text-sm font-semibold text-foreground">
+                        Notifications
+                      </h4>
 
-                <PopoverContent
-                  align="end"
-                  className="w-80 max-w-[calc(100vw-1.5rem)] p-0 overflow-hidden"
-                >
-                  <div className="flex items-center justify-between border-b border-border px-4 py-3">
-                    <h4 className="text-sm font-semibold text-foreground">
-                      Notifications
-                    </h4>
-
-                    {unreadCount > 0 && !loadingNotifs && !notifError && (
-                      <button
-                        onClick={handleMarkAllRead}
-                        className="text-xs text-cyan-500 hover:underline disabled:opacity-50"
-                        type="button"
-                        disabled={markingAll}
-                      >
-                        {markingAll ? "Marking..." : "Mark all as read"}
-                      </button>
-                    )}
-                  </div>
-
-                  {loadingNotifs ? (
-                    <p className="p-4 text-sm text-muted-foreground text-center">
-                      Loading notifications...
-                    </p>
-                  ) : notifError ? (
-                    <div className="p-4 text-sm text-center">
-                      <p className="text-destructive">{notifError}</p>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          fetchUnreadCount();
-                          fetchAllNotifications();
-                        }}
-                        className="mt-2 text-xs text-green-600 hover:underline"
-                      >
-                        Retry
-                      </button>
+                      {unreadCount > 0 && !loadingNotifs && !notifError && (
+                        <button
+                          onClick={handleMarkAllRead}
+                          className="text-xs text-cyan-500 hover:underline disabled:opacity-50"
+                          type="button"
+                          disabled={markingAll}
+                        >
+                          {markingAll ? "Marking..." : "Mark all as read"}
+                        </button>
+                      )}
                     </div>
-                  ) : notifications.length === 0 ? (
-                    <p className="p-4 text-sm text-muted-foreground text-center">
-                      No notifications
-                    </p>
-                  ) : (
-                    <ScrollArea className="h-80">
-                      <div>
-                        {unreadNotifications.length > 0 && (
-                          <div className="bg-gray-50/60">
-                            <p className="px-4 pt-3 pb-1 text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                              Unread
-                            </p>
 
-                            {unreadNotifications.map((n) => {
-                              const isUpdating =
-                                markingAll ||
-                                updatingAppIds.has(n.applicationId);
+                    {loadingNotifs ? (
+                      <p className="p-4 text-sm text-muted-foreground text-center">
+                        Loading notifications...
+                      </p>
+                    ) : notifError ? (
+                      <div className="p-4 text-sm text-center">
+                        <p className="text-destructive">{notifError}</p>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            fetchUnreadCount();
+                            fetchAllNotifications();
+                          }}
+                          className="mt-2 text-xs text-green-600 hover:underline"
+                        >
+                          Retry
+                        </button>
+                      </div>
+                    ) : notifications.length === 0 ? (
+                      <p className="p-4 text-sm text-muted-foreground text-center">
+                        No notifications
+                      </p>
+                    ) : (
+                      <ScrollArea className="h-80">
+                        <div>
+                          {unreadNotifications.length > 0 && (
+                            <div className="bg-gray-50/60">
+                              <p className="px-4 pt-3 pb-1 text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                                Unread
+                              </p>
 
-                              return (
-                                <button
+                              {unreadNotifications.map((n) => {
+                                const isUpdating =
+                                  markingAll ||
+                                  updatingAppIds.has(n.applicationId);
+
+                                return (
+                                  <button
+                                    key={n.id}
+                                    onClick={() => handleMarkOneReadAndGo(n)}
+                                    type="button"
+                                    disabled={isUpdating}
+                                    className={`flex w-full items-start gap-3 px-4 py-3 text-left transition-colors ${
+                                      isUpdating
+                                        ? "opacity-60 cursor-not-allowed"
+                                        : "bg-slate-200 hover:bg-slate-200/60"
+                                    }`}
+                                  >
+                                    <Circle className="mt-1 h-2 w-2 shrink-0 fill-sky-500 text-sky-500" />
+                                    <div className="flex-1 min-w-0">
+                                      <p className="text-sm font-semibold text-foreground">
+                                        {n.title}
+                                      </p>
+                                      <p className="text-xs text-muted-foreground whitespace-normal break-words">
+                                        {n.message}
+                                      </p>
+                                      <p className="text-xs text-muted-foreground mt-0.5">
+                                        {n.time}
+                                      </p>
+                                    </div>
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          )}
+
+                          {readNotifications.length > 0 && (
+                            <div>
+                              <p className="px-4 pt-3 pb-1 text-xs font-medium text-muted-foreground uppercase tracking-wider border-t border-border">
+                                Earlier
+                              </p>
+
+                              {readNotifications.map((n) => (
+                                <div
                                   key={n.id}
-                                  onClick={() => handleMarkOneReadAndGo(n)}
-                                  type="button"
-                                  disabled={isUpdating}
-                                  className={`flex w-full items-start gap-3 px-4 py-3 text-left transition-colors ${
-                                    isUpdating
-                                      ? "opacity-60 cursor-not-allowed"
-                                      : "bg-slate-200 hover:bg-slate-200/60"
-                                  }`}
+                                  className="flex w-full items-start gap-3 px-4 py-3 hover:bg-gray-50 transition-colors"
                                 >
-                                  <Circle className="mt-1 h-2 w-2 shrink-0 fill-sky-500 text-sky-500" />
+                                  <div className="mt-1 h-2 w-2 shrink-0" />
                                   <div className="flex-1 min-w-0">
-                                    <p className="text-sm font-semibold text-foreground">
+                                    <p className="text-sm font-medium text-foreground opacity-70">
                                       {n.title}
                                     </p>
                                     <p className="text-xs text-muted-foreground whitespace-normal break-words">
@@ -417,46 +461,17 @@ const LandingNavBar = () => {
                                       {n.time}
                                     </p>
                                   </div>
-                                </button>
-                              );
-                            })}
-                          </div>
-                        )}
-
-                        {readNotifications.length > 0 && (
-                          <div>
-                            <p className="px-4 pt-3 pb-1 text-xs font-medium text-muted-foreground uppercase tracking-wider border-t border-border">
-                              Earlier
-                            </p>
-
-                            {readNotifications.map((n) => (
-                              <div
-                                key={n.id}
-                                className="flex w-full items-start gap-3 px-4 py-3 hover:bg-gray-50 transition-colors"
-                              >
-                                <div className="mt-1 h-2 w-2 shrink-0" />
-                                <div className="flex-1 min-w-0">
-                                  <p className="text-sm font-medium text-foreground opacity-70">
-                                    {n.title}
-                                  </p>
-                                  <p className="text-xs text-muted-foreground whitespace-normal break-words">
-                                    {n.message}
-                                  </p>
-                                  <p className="text-xs text-muted-foreground mt-0.5">
-                                    {n.time}
-                                  </p>
                                 </div>
-                              </div>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-                    </ScrollArea>
-                  )}
-                </PopoverContent>
-              </Popover>
-
-              <DropdownMenu>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      </ScrollArea>
+                    )}
+                  </PopoverContent>
+                </Popover>
+              )}
+              <DropdownMenu modal={false}>
                 <DropdownMenuTrigger asChild>
                   <Button
                     variant="ghost"
@@ -475,27 +490,13 @@ const LandingNavBar = () => {
                   </Button>
                 </DropdownMenuTrigger>
 
-                <DropdownMenuContent align="end" className="w-56">
-                  <DropdownMenuItem>
-                    <button
-                      onClick={() => navigate("/profile")}
-                      className="nav-item text-muted-foreground hover:text-foreground"
-                      type="button"
-                    >
-                      <User className="mr-2 h-4 w-4" />
-                      <span>Profile Settings</span>
-                    </button>
-                  </DropdownMenuItem>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem className="text-destructive focus:text-destructive">
-                    <button
-                      onClick={handleLogout}
-                      className="nav-item text-muted-foreground hover:text-foreground"
-                      type="button"
-                    >
-                      <LogOut className="w-4 h-4" />
-                      <span>Logout</span>
-                    </button>
+                <DropdownMenuContent align="end" className="w-56 p-3">
+                  <DropdownMenuItem
+                    onClick={handleLogout}
+                    className="cursor-pointer text-destructive focus:text-destructive px-3 py-3 hover:bg-gray-100"
+                  >
+                    <LogOut className="mr-2 h-4 w-4" />
+                    <span>Logout</span>
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>

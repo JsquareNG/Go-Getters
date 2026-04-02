@@ -22,7 +22,10 @@ const FileUploadField = ({
   const [isDragging, setIsDragging] = useState(false);
   const [previewUrl, setPreviewUrl] = useState(null);
 
-  const actualFile = file instanceof File ? file : file?.file;
+  // const actualFile = file instanceof File ? file : file?.file;
+  const actualFile = file instanceof File ? file : file?.file || null;
+  const existingUploadedFile =
+    !actualFile && file?.original_filename ? file : null;
 
   const allowedTypes = useMemo(
     () =>
@@ -33,34 +36,23 @@ const FileUploadField = ({
     [acceptTypes],
   );
 
-  // useEffect(() => {
-  //   if (!file) {
-  //     setPreviewUrl(null);
-  //     return;
-  //   }
-  //   const url = URL.createObjectURL(file);
-  //   setPreviewUrl(url);
-  //   return () => URL.revokeObjectURL(url);
-  // }, [file]);
-
   useEffect(() => {
     if (!file) {
       setPreviewUrl(null);
       return;
     }
 
-    // Redux may store { file, progress }
     const actualFile = file instanceof File ? file : file?.file;
 
-    if (!(actualFile instanceof File)) {
-      setPreviewUrl(null);
-      return;
+    if (actualFile instanceof File) {
+      const url = URL.createObjectURL(actualFile);
+      setPreviewUrl(url);
+
+      return () => URL.revokeObjectURL(url);
     }
 
-    const url = URL.createObjectURL(actualFile);
-    setPreviewUrl(url);
-
-    return () => URL.revokeObjectURL(url);
+    // backend-loaded uploaded document has no browser File object
+    setPreviewUrl(null);
   }, [file]);
 
   const formatFileSize = (bytes) => {
@@ -163,7 +155,10 @@ const FileUploadField = ({
             <CheckCircle className="h-8 w-8 text-green-500 mx-auto mb-2" />
             <p className="text-sm font-medium text-gray-900">
               {/* {file.name} */}
-              {actualFile?.name}
+              {/* {actualFile?.name} */}
+              {actualFile?.name ||
+                existingUploadedFile?.original_filename ||
+                "Uploaded file"}
             </p>
 
             {placeholderText && !isUploading && (
@@ -171,11 +166,21 @@ const FileUploadField = ({
             )}
 
             <p className="text-xs text-gray-500 mt-1">
-              {/* {formatFileSize(file.size)} */}
-              {formatFileSize(actualFile?.size)}
+              {actualFile?.size
+                ? formatFileSize(actualFile.size)
+                : existingUploadedFile?.mime_type || "Previously uploaded"}
             </p>
 
-            {previewUrl && (
+            {/* {previewUrl && (
+              <button
+                type="button"
+                onClick={handlePreview}
+                className="mt-2 text-sm text-blue-600 hover:underline"
+              >
+                View file
+              </button>
+            )} */}
+            {previewUrl && actualFile && (
               <button
                 type="button"
                 onClick={handlePreview}
