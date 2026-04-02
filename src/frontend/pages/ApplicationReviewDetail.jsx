@@ -106,8 +106,6 @@ export default function ApplicationReviewDetail() {
   const [auditError, setAuditError] = useState(null);
 
   const [requestDocsOpen, setRequestDocsOpen] = useState(false);
-  const [decisionDialogOpen, setDecisionDialogOpen] = useState(false);
-  const [decisionType, setDecisionType] = useState(null); // "approve" | "reject"
 
   // New state for approve/reject popup
   const [decisionDialogOpen, setDecisionDialogOpen] = useState(false);
@@ -532,6 +530,12 @@ export default function ApplicationReviewDetail() {
 
   const handleRequestDocuments = () => {
     setRequestDocsOpen(true);
+  };
+
+  const resetDecisionDialog = () => {
+    setDecisionDialogOpen(false);
+    setDecisionType(null);
+    setDecisionReason("");
   };
 
   const handleSubmitRequestDocs = async ({ reason, documents, questions }) => {
@@ -1457,73 +1461,6 @@ export default function ApplicationReviewDetail() {
         isSubmitting={isUpdatingStatus}
         onSubmit={handleSubmitDecision}
       />
-
-      {/* New Approve / Reject decision dialog */}
-      <Dialog
-        open={decisionDialogOpen}
-        onOpenChange={(open) => {
-          if (!isUpdatingStatus) {
-            if (!open) resetDecisionDialog();
-            else setDecisionDialogOpen(true);
-          }
-        }}
-      >
-        <DialogContent className="sm:max-w-lg">
-          <DialogHeader>
-            <DialogTitle>
-              {decisionType === "approve" ? "Approve Application" : "Reject Application"}
-            </DialogTitle>
-            <DialogDescription>
-              {decisionType === "approve"
-                ? "Please provide a reason for approving this application. This will be recorded in the review process."
-                : "Please provide a reason for rejecting this application. This will be recorded in the review process."}
-            </DialogDescription>
-          </DialogHeader>
-
-          <div className="space-y-2">
-            <label className="text-sm font-medium text-foreground">Reason</label>
-            <Textarea
-              value={decisionReason}
-              onChange={(e) => setDecisionReason(e.target.value)}
-              placeholder={
-                decisionType === "approve"
-                  ? "Enter reason for approval..."
-                  : "Enter reason for rejection..."
-              }
-              rows={5}
-              disabled={isUpdatingStatus}
-            />
-          </div>
-
-          <DialogFooter className="mt-4">
-            <Button
-              variant="outline"
-              onClick={resetDecisionDialog}
-              disabled={isUpdatingStatus}
-            >
-              Cancel
-            </Button>
-
-            <Button
-              onClick={handleSubmitDecision}
-              disabled={isUpdatingStatus}
-              className={
-                decisionType === "approve"
-                  ? "bg-emerald-600 text-white hover:bg-emerald-600/90"
-                  : "bg-red-500 text-white hover:bg-red-600"
-              }
-            >
-              {isUpdatingStatus
-                ? decisionType === "approve"
-                  ? "Approving..."
-                  : "Rejecting..."
-                : decisionType === "approve"
-                  ? "Confirm Approval"
-                  : "Confirm Rejection"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
 
       {canReview && (
         <div className="fixed bottom-0 left-0 right-0 z-50 border-t border-border bg-slate-200/70 backdrop-blur supports-[backdrop-filter]:bg-background/80">
