@@ -122,7 +122,6 @@ export default function ApplicationReviewDetail() {
 
     if (id) fetchApplication();
   }, [id]);
-
   // -----------------------------
   // Fetch uploaded documents
   // -----------------------------
@@ -159,9 +158,6 @@ export default function ApplicationReviewDetail() {
 
         const data = await getReviewJob(appIdToUse);
         setRules(data && typeof data === "object" ? data : null);
-        if(data){
-          console.log(data)
-        }
       } catch (err) {
         console.error("Error fetching review job:", {
           message: err?.message,
@@ -451,9 +447,31 @@ export default function ApplicationReviewDetail() {
           ? new Date(sortedActionRequestsAsc[index + 1]?.created_at || 0).getTime()
           : Infinity;
 
-      const groupedDocs = documents.filter((doc) => {
+      // const groupedDocs = documents.filter((doc) => {
+      //   const t = new Date(doc?.created_at || 0).getTime();
+      //   return t && t >= currentTime && t < nextTime;
+      // });
+      const groupedDocs = documents
+      .filter((doc) => {
         const t = new Date(doc?.created_at || 0).getTime();
         return t && t >= currentTime && t < nextTime;
+      })
+      .map((doc) => {
+        // 🔥 find matching request document
+        const matchedRequestDoc = request.documents?.find(
+          (reqDoc) =>
+            reqDoc.submitted_document_name === doc.document_type
+        );
+
+        return {
+          ...doc,
+          requested_document_name: matchedRequestDoc?.document_name || null,
+          requested_document_desc: matchedRequestDoc?.document_desc || null,
+          is_substitute: matchedRequestDoc?.is_substitute || false,
+          submitted_document_name: matchedRequestDoc?.submitted_document_name || null,
+          substitution_reason: matchedRequestDoc?.substitution_reason || null,
+          fulfilled_at: matchedRequestDoc?.fulfilled_at || null,
+        };
       });
 
       return {
@@ -1218,7 +1236,7 @@ export default function ApplicationReviewDetail() {
                                 {group.reason && (
                                   <div className="mb-3 rounded-md bg-muted/50 p-3">
                                     <p className="text-xs font-medium text-muted-foreground">
-                                      Request Reason
+                                      Escalation Reason:
                                     </p>
                                     <p className="mt-1 text-sm text-foreground">{group.reason}</p>
                                   </div>
@@ -1243,12 +1261,34 @@ export default function ApplicationReviewDetail() {
                                           <p className="truncate text-sm font-medium text-foreground">
                                             {doc.document_type || "Document"}
                                           </p>
+
                                           <p className="text-xs text-muted-foreground">
                                             {doc.created_at
                                               ? `Uploaded: ${new Date(doc.created_at).toLocaleString()}`
                                               : ""}
                                           </p>
+
+                                          {doc.is_substitute && (
+                                            <div className="mt-2 rounded-md border border-amber-200 bg-amber-50 p-2">
+                                              <p className="text-xs font-medium text-amber-700">
+                                                Submitted as Substitute
+                                              </p>
+
+                                              {doc.requested_document_name && (
+                                                <p className="mt-1 text-xs text-foreground">
+                                                  Original Requested Document: {doc.requested_document_name}
+                                                </p>
+                                              )}
+
+                                              {doc.substitution_reason && (
+                                                <p className="text-xs text-foreground">
+                                                  Reason of Substitution: {doc.substitution_reason}
+                                                </p>
+                                              )}
+                                            </div>
+                                          )}
                                         </div>
+                                  
 
                                         <Button
                                           variant="ghost"
@@ -1299,9 +1339,6 @@ export default function ApplicationReviewDetail() {
                               Request: {qa.action_request_id?.slice?.(0, 8) || "-"} •{" "}
                               {qa.created_at ? new Date(qa.created_at).toLocaleString() : "-"}
                             </p>
-                            <span className="text-xs font-medium">
-                              {qa.status === "OPEN" ? "OPEN" : "CLOSED"}
-                            </span>
                           </div>
 
                           <p className="text-sm font-medium text-foreground">

@@ -3,7 +3,7 @@ import { Plus, Loader2, AlertCircle } from "lucide-react";
 import {
   Button,
   ApplicationCard,
-  ApplicationStats,
+  // ApplicationStats,
   EmptyState,
 } from "@/components/ui";
 import { useNavigate } from "react-router-dom";
@@ -76,11 +76,11 @@ export default function LandingPage() {
     const status = blockingApp?.current_status;
 
     if (status === "Approved")
-      return "You already have an approved SME account. You cannot create another application.";
+      return "Your application for a business account has already been approved.";
     if (status === "Requires Action")
-      return "You already have an SME application that requires action. Please complete it instead of creating a new one.";
+      return "You already have an SME application that requires action. Please complete it as soon as possible.";
     if (status === "Draft")
-      return "You already have a draft SME application. Please continue that application instead of creating a new one.";
+      return "You already have a draft SME application. Please continue and submit that application as soon as possible.";
     return "You already have an SME application in progress. You can only submit one application per user.";
   }, [applications, blocksNewApplication, BLOCKING_STATUSES]);
 
@@ -93,25 +93,25 @@ export default function LandingPage() {
       const matchesStatus =
         selectedStatus === "All" || app.current_status === selectedStatus;
 
-      const q = searchQuery.toLowerCase();
-      const matchesSearch = (app.business_name || "").toLowerCase().includes(q);
+      const q = searchQuery.trim().toLowerCase();
+      const businessName = String(app.business_name ?? "").toLowerCase();
 
-      return matchesStatus && matchesSearch;
+      return matchesStatus && (q === "" || businessName.includes(q));
     });
-  }, [selectedStatus, searchQuery, applications]);
+  }, [applications, selectedStatus, searchQuery]);
 
-  // Stats Logic
-  const stats = useMemo(
-    () => ({
-      total: applications.length,
-      pending: applications.filter((a) =>
-        ["Under Manual Review", "Under Review"].includes(a.current_status)
-      ).length,
-      requiresAction: applications.filter((a) => a.current_status === "Requires Action").length,
-      approved: applications.filter((a) => a.current_status === "Approved").length,
-    }),
-    [applications]
-  );
+  // // Stats Logic
+  // const stats = useMemo(
+  //   () => ({
+  //     total: applications.length,
+  //     pending: applications.filter((a) =>
+  //       ["Under Manual Review", "Under Review"].includes(a.current_status)
+  //     ).length,
+  //     requiresAction: applications.filter((a) => a.current_status === "Requires Action").length,
+  //     approved: applications.filter((a) => a.current_status === "Approved").length,
+  //   }),
+  //   [applications]
+  // );
 
   // ✅ new: detect empty state for this user (no apps)
   const hasNoApplications = applications.length === 0 && !error;
@@ -136,10 +136,10 @@ export default function LandingPage() {
         <div className="flex flex-col gap-6 md:flex-row md:items-start md:justify-between mb-8">
           <div>
             <h1 className="text-2xl font-semibold text-foreground mb-1">
-              Onboarding Applications
+              Onboarding Application
             </h1>
             <p className="text-muted-foreground">
-              Manage and track your business account applications
+              Manage and track your business account application
             </p>
 
             {/* Restriction banner */}
@@ -163,10 +163,10 @@ export default function LandingPage() {
           )} */}
         </div>
 
-        {/* STATS OVERVIEW */}
+        {/* STATS OVERVIEW
         <div className="mb-8">
           <ApplicationStats {...stats} />
-        </div>
+        </div> */}
 
         {/* APPLICATIONS LIST */}
         {/* ✅ CHANGE: If there are no applications, show CTA instead of red error banner */}

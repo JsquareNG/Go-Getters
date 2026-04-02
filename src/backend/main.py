@@ -55,10 +55,6 @@ async def log_requests(request: Request, call_next):
     print("DONE:", request.method, request.url.path, response.status_code)
     return response
 
-
-# create table (for prototype)
-# Base.metadata.create_all(bind=engine)
-
 #add cors middleware
 app.add_middleware(
     CORSMiddleware,

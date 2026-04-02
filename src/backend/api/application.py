@@ -36,6 +36,7 @@ SIMULATION_ELIGIBLE_STATUSES = [
     "Approved",
     "Rejected",
     "Withdrawn",
+    "Auto Rejected",
 ]
 
 
@@ -1335,6 +1336,9 @@ def get_action_requests(application_id: str, db: Session = Depends(get_db)):
                         "document_name": it.document_name,
                         "document_desc": it.document_desc,
                         "fulfilled_at": it.fulfilled_at,
+                        "is_substitute": it.is_substitute,
+                        "submitted_document_name": it.submitted_document_name,
+                        "substitution_reason": it.substitution_reason,
                     }
                 )
 
@@ -1363,3 +1367,4 @@ def get_action_requests(application_id: str, db: Session = Depends(get_db)):
         "application_id": application_id,
         "action_requests": results,
     }
+

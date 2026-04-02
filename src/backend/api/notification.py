@@ -241,3 +241,24 @@ Onboarding Team
 
     return subject, body
 
+def build_auto_rejected_email(app: ApplicationForm, firstName: str):
+    subject = "Application Unsuccessful"
+
+    body = f"""
+Dear {firstName},
+
+Your application to open a business account for "{app.business_name}" was automatically rejected after compliance checks.
+
+Application ID: {app.application_id}
+
+Reason:
+{app.form_data.get("reason", "Application auto-rejected due to high risk.")}
+
+View details here:
+{WEBSITE_URL}/applications/{app.application_id}
+
+Best regards,
+Onboarding Team
+"""
+
+    return subject, body

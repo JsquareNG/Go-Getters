@@ -11,6 +11,8 @@ import ApplicationReviewDetail from "./pages/ApplicationReviewDetail";
 import Dashboard from "./pages/Dashboard";
 import AdminConfigPage from "./pages/AdminConfigPage";
 import RulesEngineConfiguration from "./pages/RulesEngineConfiguration";
+import ManagementLandingPage from "./pages/ManagementLandingPage";
+import ManagementApplicationDetail from "./pages/ApplicationDetailView";
 // import TestDocumentMulti from "./pages/TestDocument";
 // import ViewSubmittedApplication from "./pages/OneDocument";
 import { Toaster } from "./components/ui/primitives/Toaster";
@@ -21,10 +23,12 @@ import { Navigate } from "react-router-dom";
 import { SMEApplicationForm } from "./components/ui/SMEApplicationForm";
 
 // Simple route guard
-const RequireRole = ({ role, children }) => {
+const RequireRole = ({ roles, children }) => {
   const user = useSelector(selectUser);
+
   if (!user) return <Navigate to="/" replace />;
-  if (user.role !== role) return <Navigate to="/" replace />;
+  if (!roles.includes(user.role)) return <Navigate to="/" replace />;
+
   return children;
 };
 
@@ -49,7 +53,7 @@ export default function App() {
         <Route
           path="/landingpage"
           element={
-            <RequireRole role="SME">
+            <RequireRole roles={["SME"]}>
               <LandingLayout>
                 <LandingPage />
               </LandingLayout>
@@ -60,7 +64,7 @@ export default function App() {
         <Route
           path="/landingpage/:id"
           element={
-            <RequireRole role="SME">
+            <RequireRole roles={["SME"]}>
               <LandingLayout>
                 <ApplicationDetail />
               </LandingLayout>
@@ -72,7 +76,7 @@ export default function App() {
         <Route
           path="/application/edit/:appId/:step"
           element={
-            <RequireRole role="SME">
+            <RequireRole roles={["SME"]}>
               <LandingLayout>
                 <SMEApplicationForm />
               </LandingLayout>
@@ -83,7 +87,7 @@ export default function App() {
         <Route
           path="/application/view/:appId/:step"
           element={
-            <RequireRole role="SME">
+            <RequireRole roles={["SME"]}>
               <LandingLayout>
                 <SMEApplicationForm />
               </LandingLayout>
@@ -95,7 +99,7 @@ export default function App() {
         <Route
           path="/staff-landingpage"
           element={
-            <RequireRole role="STAFF">
+            <RequireRole roles={["STAFF"]}>
               <LandingLayout>
                 <StaffLandingPage />
               </LandingLayout>
@@ -106,7 +110,7 @@ export default function App() {
         <Route
           path="/staff-landingpage/:id"
           element={
-            <RequireRole role="STAFF">
+            <RequireRole roles={["STAFF"]}>
               <LandingLayout>
                 <ApplicationReviewDetail />
               </LandingLayout>
@@ -117,7 +121,7 @@ export default function App() {
         <Route
           path="/dashboard"
           element={
-            <RequireRole role="STAFF">
+            <RequireRole roles={["STAFF","MANAGEMENT"]}>
               <LandingLayout>
                 <Dashboard />
               </LandingLayout>
@@ -125,24 +129,33 @@ export default function App() {
           }
         />
 
-        {/* Admin Config Page */}
-        {/* <Route
-          path="/admin-config"
-          element={
-            <RequireRole role="STAFF">
-              <LandingLayout>
-                <AdminConfigPage />
-              </LandingLayout>
-            </RequireRole>
-          }
-        /> */}
-
         <Route
           path="/rules-engine-configuration"
           element={
-            <RequireRole role="STAFF">
+            <RequireRole roles={["MANAGEMENT"]}>
               <LandingLayout>
                 <RulesEngineConfiguration />
+              </LandingLayout>
+            </RequireRole>
+          }
+        />
+        <Route
+          path="/management-landing-page"
+          element={
+            <RequireRole roles={["MANAGEMENT"]}>
+              <LandingLayout>
+                <ManagementLandingPage />
+              </LandingLayout>
+            </RequireRole>
+          }
+        />
+
+        <Route
+          path="/management-landing-page/:id"
+          element={
+            <RequireRole roles={["MANAGEMENT"]}>
+              <LandingLayout>
+                <ManagementApplicationDetail/>
               </LandingLayout>
             </RequireRole>
           }
