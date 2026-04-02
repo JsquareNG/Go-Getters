@@ -31,9 +31,16 @@ import {
   TabsContent,
   TabsList,
   TabsTrigger,
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
 } from "@/components/ui";
 import { Badge } from "../components/ui/primitives/Badge";
 import DecisionReasonDialog from "../components/ui/features/DecisionReasonDialog";
+import { Textarea } from "../components/ui/primitives/Textarea";
 import { toast } from "sonner";
 import {
   getApplicationByAppId,
@@ -101,6 +108,11 @@ export default function ApplicationReviewDetail() {
   const [requestDocsOpen, setRequestDocsOpen] = useState(false);
   const [decisionDialogOpen, setDecisionDialogOpen] = useState(false);
   const [decisionType, setDecisionType] = useState(null); // "approve" | "reject"
+
+  // New state for approve/reject popup
+  const [decisionDialogOpen, setDecisionDialogOpen] = useState(false);
+  const [decisionType, setDecisionType] = useState(null); // "approve" | "reject"
+  const [decisionReason, setDecisionReason] = useState("");
 
   // -----------------------------
   // Fetch application
@@ -1446,6 +1458,73 @@ export default function ApplicationReviewDetail() {
         onSubmit={handleSubmitDecision}
       />
 
+      {/* New Approve / Reject decision dialog */}
+      <Dialog
+        open={decisionDialogOpen}
+        onOpenChange={(open) => {
+          if (!isUpdatingStatus) {
+            if (!open) resetDecisionDialog();
+            else setDecisionDialogOpen(true);
+          }
+        }}
+      >
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>
+              {decisionType === "approve" ? "Approve Application" : "Reject Application"}
+            </DialogTitle>
+            <DialogDescription>
+              {decisionType === "approve"
+                ? "Please provide a reason for approving this application. This will be recorded in the review process."
+                : "Please provide a reason for rejecting this application. This will be recorded in the review process."}
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-2">
+            <label className="text-sm font-medium text-foreground">Reason</label>
+            <Textarea
+              value={decisionReason}
+              onChange={(e) => setDecisionReason(e.target.value)}
+              placeholder={
+                decisionType === "approve"
+                  ? "Enter reason for approval..."
+                  : "Enter reason for rejection..."
+              }
+              rows={5}
+              disabled={isUpdatingStatus}
+            />
+          </div>
+
+          <DialogFooter className="mt-4">
+            <Button
+              variant="outline"
+              onClick={resetDecisionDialog}
+              disabled={isUpdatingStatus}
+            >
+              Cancel
+            </Button>
+
+            <Button
+              onClick={handleSubmitDecision}
+              disabled={isUpdatingStatus}
+              className={
+                decisionType === "approve"
+                  ? "bg-emerald-600 text-white hover:bg-emerald-600/90"
+                  : "bg-red-500 text-white hover:bg-red-600"
+              }
+            >
+              {isUpdatingStatus
+                ? decisionType === "approve"
+                  ? "Approving..."
+                  : "Rejecting..."
+                : decisionType === "approve"
+                  ? "Confirm Approval"
+                  : "Confirm Rejection"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       {canReview && (
         <div className="fixed bottom-0 left-0 right-0 z-50 border-t border-border bg-slate-200/70 backdrop-blur supports-[backdrop-filter]:bg-background/80">
           <div className="container mx-auto flex flex-col gap-3 px-6 py-3 sm:flex-row sm:items-center sm:justify-between">
@@ -1478,7 +1557,9 @@ export default function ApplicationReviewDetail() {
                 disabled={isUpdatingStatus}
               >
                 <XCircle className="h-4 w-4" />
-                {isUpdatingStatus ? "Rejecting..." : "Reject Application"}
+                {isUpdatingStatus && decisionType === "reject" && decisionDialogOpen
+                  ? "Rejecting..."
+                  : "Reject Application"}
               </Button>
 
               <Button
@@ -1487,7 +1568,9 @@ export default function ApplicationReviewDetail() {
                 disabled={isUpdatingStatus}
               >
                 <CheckCircle2 className="h-4 w-4" />
-                {isUpdatingStatus ? "Approving..." : "Approve Application"}
+                {isUpdatingStatus && decisionType === "approve" && decisionDialogOpen
+                  ? "Approving..."
+                  : "Approve Application"}
               </Button>
             </div>
           </div>
