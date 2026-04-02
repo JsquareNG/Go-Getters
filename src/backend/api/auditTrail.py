@@ -1,19 +1,86 @@
 from collections import defaultdict
 from datetime import datetime
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
+from backend.auth.dependencies import get_current_user
 from backend.database import get_db
 from backend.models.auditTrail import AuditTrail
+from backend.models.application import ApplicationForm
 
 router = APIRouter(prefix="/audit-trail", tags=["audit-trail"])
 
 
 # -----------------------------
-# Existing endpoint - unchanged
+# Auth helpers
+# -----------------------------
+def _current_user_id(current_user: dict) -> str:
+    user_id = current_user.get("user_id")
+    if not user_id:
+        raise HTTPException(status_code=401, detail="Invalid token payload")
+    return user_id
+
+
+def _current_user_role(current_user: dict) -> str:
+    role = current_user.get("role")
+    if not role:
+        raise HTTPException(status_code=401, detail="Invalid token payload")
+    return str(role).upper().strip()
+
+
+def _ensure_staff_or_management(current_user: dict):
+    role = _current_user_role(current_user)
+    if role not in {"STAFF", "MANAGEMENT"}:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Forbidden",
+        )
+
+
+def _get_application_or_404(db: Session, application_id: str) -> ApplicationForm:
+    app = (
+        db.query(ApplicationForm)
+        .filter(ApplicationForm.application_id == application_id)
+        .first()
+    )
+    if not app:
+        raise HTTPException(status_code=404, detail="Application not found")
+    return app
+
+
+def _ensure_application_access(app: ApplicationForm, current_user: dict):
+    role = _current_user_role(current_user)
+    user_id = _current_user_id(current_user)
+
+    if role == "SME":
+        if app.user_id != user_id:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Forbidden",
+            )
+        return
+
+    if role in {"STAFF", "MANAGEMENT"}:
+        return
+
+    raise HTTPException(
+        status_code=status.HTTP_403_FORBIDDEN,
+        detail="Forbidden",
+    )
+
+
+# -----------------------------
+# Existing endpoint - secured
 # -----------------------------
 @router.get("/getAuditTrails/{application_id}")
-def get_audit_trail_by_application(application_id: str, db: Session = Depends(get_db)):
+def get_audit_trail_by_application(
+    application_id: str,
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(get_current_user),
+):
+    app = _get_application_or_404(db, application_id)
+    _ensure_application_access(app, current_user)
+
     logs = (
         db.query(AuditTrail)
         .filter(AuditTrail.application_id == application_id)
@@ -106,7 +173,12 @@ def get_all_logs_grouped(db: Session):
 # Operations overview metrics
 # -----------------------------
 @router.get("/metrics/overview")
-def get_audit_metrics_overview(db: Session = Depends(get_db)):
+def get_audit_metrics_overview(
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(get_current_user),
+):
+    _ensure_staff_or_management(current_user)
+
     grouped_logs = get_all_logs_grouped(db)
 
     processing_times_days = []
@@ -178,7 +250,12 @@ def get_audit_metrics_overview(db: Session = Depends(get_db)):
 # Only reviewers should appear
 # -----------------------------
 @router.get("/metrics/staff-leaderboard")
-def get_staff_leaderboard(db: Session = Depends(get_db)):
+def get_staff_leaderboard(
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(get_current_user),
+):
+    _ensure_staff_or_management(current_user)
+
     grouped_logs = get_all_logs_grouped(db)
 
     staff_stats = defaultdict(lambda: {
