@@ -37,6 +37,16 @@ def create_test_company(country="Singapore"):
     )
 
 
+def make_config():
+    return {
+        "thresholds": {
+            "Simplified Due Diligence": 50,
+            "Standard Due Diligence": 100,
+            "Enhanced Due Diligence": 1000,
+        }
+    }
+
+
 # -----------------------------
 # Test 1: Score Aggregation
 # -----------------------------
@@ -59,12 +69,7 @@ def test_score_aggregation(mock_general, mock_sg, mock_kyc):
         "triggered_rules": ["KYC1"]
     }
 
-    config = {
-        "thresholds": {
-            "Simplified Due Diligence": 50,
-            "Standard Due Diligence": 100
-        }
-    }
+    config = make_config()
 
     result = evaluate_company(company, db=None, config=config)
 
@@ -85,12 +90,7 @@ def test_indonesia_rules_called(mock_general, mock_indo, mock_kyc):
     mock_indo.return_value = {"risk_score": 20, "triggered_rules": []}
     mock_kyc.return_value = {"risk_score": 5, "triggered_rules": []}
 
-    config = {
-        "thresholds": {
-            "Simplified Due Diligence": 50,
-            "Standard Due Diligence": 100
-        }
-    }
+    config = make_config()
 
     result = evaluate_company(company, db=None, config=config)
 
@@ -112,18 +112,12 @@ def test_singapore_rules_called_only(mock_general, mock_indo, mock_sg, mock_kyc)
     mock_sg.return_value = {"risk_score": 20, "triggered_rules": []}
     mock_kyc.return_value = {"risk_score": 5, "triggered_rules": []}
 
-    config = {
-        "thresholds": {
-            "Simplified Due Diligence": 50,
-            "Standard Due Diligence": 100
-        }
-    }
+    config = make_config()
 
     evaluate_company(company, db=None, config=config)
 
     mock_sg.assert_called_once()
     mock_indo.assert_not_called()
-
 
 # -----------------------------
 # Test 4: Decision Logic - SDD
@@ -138,12 +132,7 @@ def test_decision_sdd(mock_general, mock_sg, mock_kyc):
     mock_sg.return_value = {"risk_score": 10, "triggered_rules": []}
     mock_kyc.return_value = {"risk_score": 5, "triggered_rules": []}
 
-    config = {
-        "thresholds": {
-            "Simplified Due Diligence": 50,
-            "Standard Due Diligence": 100
-        }
-    }
+    config = make_config()
 
     result = evaluate_company(company, db=None, config=config)
 
@@ -163,12 +152,7 @@ def test_decision_cdd(mock_general, mock_sg, mock_kyc):
     mock_sg.return_value = {"risk_score": 30, "triggered_rules": []}
     mock_kyc.return_value = {"risk_score": 10, "triggered_rules": []}
 
-    config = {
-        "thresholds": {
-            "Simplified Due Diligence": 50,
-            "Standard Due Diligence": 100
-        }
-    }
+    config = make_config()
 
     result = evaluate_company(company, db=None, config=config)
 
@@ -188,12 +172,7 @@ def test_decision_edd(mock_general, mock_sg, mock_kyc):
     mock_sg.return_value = {"risk_score": 60, "triggered_rules": []}
     mock_kyc.return_value = {"risk_score": 60, "triggered_rules": []}
 
-    config = {
-        "thresholds": {
-            "Simplified Due Diligence": 50,
-            "Standard Due Diligence": 100
-        }
-    }
+    config = make_config()
 
     result = evaluate_company(company, db=None, config=config)
 
