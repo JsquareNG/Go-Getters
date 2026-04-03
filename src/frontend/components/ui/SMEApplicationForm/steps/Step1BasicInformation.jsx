@@ -8,6 +8,7 @@ import { Button } from "../../primitives/Button";
 import { Badge } from "../../primitives/Badge";
 import { Separator } from "../../primitives/Separator";
 import { livenessDetectionApi } from "../../../../api/livenessDetectionApi";
+import { getThreshold } from "../../../../api/riskConfigListApi";
 
 const ACRA_WITH_TABLES_ENDPOINT =
   "http://127.0.0.1:8000/document-ai/extract-acra-bizprofile";
@@ -24,8 +25,6 @@ const DEFAULT_KYC_DATA = {
   faceMatchScore: null,
 };
 
-const MIN_FACE_MATCH_SCORE = 60;
-
 const Step1BasicInformation = ({ data, onFieldChange, disabled = false }) => {
   const fileRef = useRef(null);
   const processedDiditSessionRef = useRef("");
@@ -35,6 +34,7 @@ const Step1BasicInformation = ({ data, onFieldChange, disabled = false }) => {
   const [acraUploading, setAcraUploading] = useState(false);
   const [acraError, setAcraError] = useState("");
   const [acraSuccessMsg, setAcraSuccessMsg] = useState("");
+  const [minFaceMatchScore, setMinFaceMatchScore] = useState(0); // fallback
 
   const kycData = data?.kycData || DEFAULT_KYC_DATA;
   const kycStatus = kycData.status || "idle";
@@ -47,6 +47,22 @@ const Step1BasicInformation = ({ data, onFieldChange, disabled = false }) => {
   const kycFaceMatchStatus = kycData.faceMatchStatus || "";
   const kycFaceMatchScore = kycData.faceMatchScore ?? null;
 
+  useEffect(() => {
+  const fetchMinFaceMatchScore = async () => {
+    try {
+      const data = await getThreshold("Face Match");
+
+      if (data?.item_value != null) {
+        setMinFaceMatchScore(Number(data.item_value));
+      }
+    } catch (error) {
+      console.error("Error fetching MIN_FACE_MATCH_SCORE:", error);
+    }
+  };
+
+  fetchMinFaceMatchScore();
+}, []);
+
   const numericFaceMatchScore =
     kycFaceMatchScore === null || kycFaceMatchScore === undefined
       ? null
@@ -55,12 +71,12 @@ const Step1BasicInformation = ({ data, onFieldChange, disabled = false }) => {
   const isKycPassed =
     kycStatus === "completed" &&
     numericFaceMatchScore !== null &&
-    numericFaceMatchScore >= MIN_FACE_MATCH_SCORE;
+    numericFaceMatchScore >= minFaceMatchScore;
 
   const isKycFailed =
     kycStatus === "completed" &&
     numericFaceMatchScore !== null &&
-    numericFaceMatchScore < MIN_FACE_MATCH_SCORE;
+    numericFaceMatchScore < minFaceMatchScore;
 
   useEffect(() => {
     latestKycDataRef.current = kycData;
@@ -641,7 +657,7 @@ const Step1BasicInformation = ({ data, onFieldChange, disabled = false }) => {
 
                     {isKycFailed && (
                       <p className="pt-2 font-medium text-red-600">
-                        Face match score must be at least {MIN_FACE_MATCH_SCORE}% before you can proceed to the next step.
+                        Face match score must be at least {minFaceMatchScore}% before you can proceed to the next step.
                       </p>
                     )}
                   </div>

@@ -272,3 +272,34 @@ def save_risk_config_list_changes(data: dict = Body(...), db: Session = Depends(
     except Exception as e:
         db.rollback()
         raise HTTPException(status_code=500, detail=str(e))
+    
+
+def parse_threshold_value(value):
+    try:
+        num = float(value)
+        return int(num) if num.is_integer() else num
+    except (TypeError, ValueError):
+        return value
+    
+
+@router.get("/threshold/{item_label}")
+def get_threshold_by_label(item_label: str, db: Session = Depends(get_db)):
+    row = (
+        db.query(RiskConfigList)
+        .filter(
+            func.lower(RiskConfigList.item_type) == "threshold",
+            func.lower(RiskConfigList.item_label) == item_label.lower(),
+            RiskConfigList.is_active == True
+        )
+        .first()
+    )
+
+    if not row:
+        raise HTTPException(
+            status_code=404,
+            detail=f"Active threshold '{item_label}' not found"
+        )
+
+    return {
+        "item_value": parse_threshold_value(row.item_value),
+    }

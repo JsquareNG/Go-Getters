@@ -23,6 +23,7 @@ function getActionText(status) {
     case "Rejected":
     case "Withdrawn":
     case "Auto Rejected":
+    case "Deleted":
       return "View Details";
     default:
       return "View";

@@ -19,3 +19,10 @@ export const getAllRiskConfigListNames = async () => {
   const response = await axiosClient.get("/risk-config-list/all-list-names");
   return response.data;
 };
+
+export const getThreshold = async (itemLabel) => {
+  const response = await axiosClient.get(
+    `/risk-config-list/threshold/${encodeURIComponent(itemLabel)}`
+  );
+  return response.data;
+};
