@@ -8,7 +8,9 @@ TEST_PROVIDER_SESSION_ID = "didit-session-123"
 
 
 def seed_user(db_session, email="user@example.com", role="SME"):
+    # IMPORTANT: match conftest authenticated user
     user = User(
+        user_id="00000001",  # 🔥 FIXED
         first_name="Jane",
         last_name="Tan",
         email=email,
@@ -47,12 +49,16 @@ def minimal_form_data():
     }
 
 
+# ----------------------------
+# firstSave
+# ----------------------------
+
 def test_first_save_creates_draft_application(client, db_session):
     user = seed_user(db_session)
     seed_liveness_detection(db_session)
 
     payload = {
-        "user_id": user.user_id,
+        "user_id": user.user_id,  # still ok but not relied on anymore
         "provider_session_id": TEST_PROVIDER_SESSION_ID,
         "form_data": minimal_form_data(),
     }
@@ -63,6 +69,10 @@ def test_first_save_creates_draft_application(client, db_session):
     data = response.json()
     assert "application_id" in data
 
+
+# ----------------------------
+# firstSubmit
+# ----------------------------
 
 def test_first_submit_creates_under_review_application(client, db_session):
     user = seed_user(db_session)
@@ -80,6 +90,10 @@ def test_first_submit_creates_under_review_application(client, db_session):
     data = response.json()
     assert "application_id" in data
 
+
+# ----------------------------
+# withdraw
+# ----------------------------
 
 def test_withdraw_application_changes_status(client, db_session):
     user = seed_user(db_session)
@@ -106,6 +120,10 @@ def test_withdraw_application_changes_status(client, db_session):
         assert app_data["current_status"] == "Withdrawn"
 
 
+# ----------------------------
+# get all
+# ----------------------------
+
 def test_get_all_applications_includes_created_application(client, db_session):
     user = seed_user(db_session)
     seed_liveness_detection(db_session)
@@ -126,4 +144,3 @@ def test_get_all_applications_includes_created_application(client, db_session):
     rows = all_response.json()
     assert isinstance(rows, list)
     assert any(str(row.get("application_id")) == str(created["application_id"]) for row in rows)
-
