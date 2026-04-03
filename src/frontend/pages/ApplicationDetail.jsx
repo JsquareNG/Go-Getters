@@ -610,8 +610,14 @@ export default function ApplicationDetail() {
     try {
       setIsWithdrawing(true);
       await withdrawApplication(id);
-      toast.success("Application withdrawn successfully.");
-      navigate("/landingpage");
+      navigate("/landingpage", {
+        state: {
+          banner: {
+            type: "withdrawn",
+            message: `Application ${id} has been withdrawn successfully.`,
+          },
+        },
+      });
     } catch (err) {
       console.error(
         "[API] withdrawApplication failed",
@@ -633,8 +639,14 @@ export default function ApplicationDetail() {
     try {
       setIsDeleting(true);
       await deleteApplication(id);
-      toast.success("Application deleted successfully.");
-      navigate("/landingpage");
+      navigate("/landingpage", {
+        state: {
+          banner: {
+            type: "deleted",
+            message: `Application ${id} has been deleted successfully.`,
+          },
+        },
+      });
     } catch (err) {
       console.error(
         "[API] deleteApplication failed",
@@ -662,9 +674,13 @@ export default function ApplicationDetail() {
       fetchAuditEntries(appIdToUse),
     ]);
 
-    setPageBanner({
-      type: "success",
-      message: `You have successfully submitted your application.`,
+    navigate("/landingpage", {
+      state: {
+        banner: {
+          type: "success",
+          message: "You have successfully uploaded the requested documents and submitted your application.",
+        },
+      },
     });
   };
 

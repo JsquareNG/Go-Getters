@@ -36,6 +36,8 @@ import {
 import { allDocuments, downloadDocuments } from "./../api/documentApi";
 import { getAuditTrail } from "./../api/auditTrailApi";
 import { AuditTrail } from "../components/ui/features/AuditTrail";
+import { getKYCdetails } from "@/api/livenessDetectionApi";
+import { KycVerificationCard } from "../components/ui/features/kycVerificationCard";
 
 const normKey = (v) => {
   if (v == null) return null;
@@ -80,6 +82,10 @@ export default function ManagementApplicationDetail() {
   const [rules, setRules] = useState(null);
   const [riskLoading, setRiskLoading] = useState(false);
   const [riskError, setRiskError] = useState(null);
+
+  const [kycDetails, setKycDetails] = useState(null);
+  const [kycLoading, setKycLoading] = useState(false);
+  const [kycError, setKycError] = useState(null);
 
   // -----------------------------
   // Fetch application
@@ -242,6 +248,35 @@ export default function ManagementApplicationDetail() {
   useEffect(() => {
     const appIdToUse = application?.application_id || application?.id || id;
     if (id && application) fetchAuditEntries(appIdToUse);
+  }, [id, application]);
+
+  useEffect(() => {
+    const fetchKycDetails = async () => {
+      try {
+        setKycLoading(true);
+        setKycError(null);
+
+        const appIdToUse = application?.application_id || application?.id || id;
+        if (!appIdToUse) return;
+
+        const data = await getKYCdetails(appIdToUse);
+        setKycDetails(data && typeof data === "object" ? data : null);
+      } catch (err) {
+        console.error("Error fetching KYC details:", err);
+
+        setKycError(
+          err?.response?.data?.detail ||
+          err?.response?.data?.message ||
+          err?.message ||
+          "Could not retrieve KYC details."
+        );
+        setKycDetails(null);
+      } finally {
+        setKycLoading(false);
+      }
+    };
+
+    if (id && application) fetchKycDetails();
   }, [id, application]);
 
   // -----------------------------
@@ -506,6 +541,22 @@ export default function ManagementApplicationDetail() {
         </div>
 
         <div className="space-y-6 pb-20">
+          {kycLoading ? (
+            <Card>
+              <CardContent className="py-4">
+                <p className="text-sm text-muted-foreground">Loading KYC details...</p>
+              </CardContent>
+            </Card>
+          ) : kycError ? (
+            <Card>
+              <CardContent className="py-4">
+                <p className="text-sm text-red-500">{kycError}</p>
+              </CardContent>
+            </Card>
+          ) : kycDetails ? (
+            <KycVerificationCard kyc={kycDetails} />
+          ) : null}
+
           <Card>
             <Tabs
               value={activeTab}
@@ -524,6 +575,9 @@ export default function ManagementApplicationDetail() {
                   )}
                   <TabsTrigger value="overview" className="text-xs sm:text-sm">
                     Overview
+                  </TabsTrigger>
+                  <TabsTrigger value="risk" className="text-xs sm:text-sm">
+                    Risk Assessment
                   </TabsTrigger>
                   <TabsTrigger value="documents" className="text-xs sm:text-sm">
                     Documents
@@ -848,6 +902,70 @@ export default function ManagementApplicationDetail() {
                       </Accordion>
                     )}
                   </div>
+                </TabsContent>
+
+                <TabsContent value="risk" className="mt-0 space-y-5">
+                  {riskLoading ? (
+                    <p className="text-sm text-muted-foreground">Loading risk assessment...</p>
+                  ) : riskError ? (
+                    <p className="text-sm text-red-500">{riskError}</p>
+                  ) : !rules ? (
+                    <p className="text-sm text-muted-foreground">No risk assessment available.</p>
+                  ) : (
+                    <>
+                      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                        <div>
+                          <p className="text-xs text-muted-foreground">Risk Grade</p>
+                          <p className="text-sm font-semibold">{rules.risk_grade || "-"}</p>
+                        </div>
+
+                        <div>
+                          <p className="text-xs text-muted-foreground">Risk Score</p>
+                          <p className="text-sm font-medium">{rules.risk_score ?? "-"}</p>
+                        </div>
+
+                        <div>
+                          <p className="text-xs text-muted-foreground">Assessment ID</p>
+                          <p className="text-xs font-mono">{rules.job_id || "-"}</p>
+                        </div>
+
+                        <div>
+                          <p className="text-xs text-muted-foreground">Completed At</p>
+                          <p className="text-xs">
+                            {rules.completed_at
+                              ? new Date(rules.completed_at).toLocaleString()
+                              : "-"}
+                          </p>
+                        </div>
+                      </div>
+
+                      <Separator />
+
+                      <div>
+                        <p className="mb-2 text-xs font-medium text-muted-foreground">
+                          Rules Triggered ({rules?.rules_triggered?.length || 0})
+                        </p>
+
+                        {rules?.rules_triggered?.length > 0 ? (
+                          <div className="space-y-2">
+                            {rules.rules_triggered.map((rule, index) => (
+                              <div
+                                key={index}
+                                className="rounded-lg border p-2.5"
+                              >
+                                <p className="text-[10px] font-mono text-muted-foreground">
+                                  {rule.code || "-"}
+                                </p>
+                                <p className="text-sm">{rule.description || "-"}</p>
+                              </div>
+                            ))}
+                          </div>
+                        ) : (
+                          <p className="text-sm text-muted-foreground">No rules triggered.</p>
+                        )}
+                      </div>
+                    </>
+                  )}
                 </TabsContent>
 
                 <TabsContent value="documents" className="mt-0">
