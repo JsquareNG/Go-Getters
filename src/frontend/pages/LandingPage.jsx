@@ -6,7 +6,7 @@ import {
   // ApplicationStats,
   EmptyState,
 } from "@/components/ui";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { getApplicationsByUserId } from "../api/applicationApi";
 
 import { useSelector } from "react-redux";
@@ -22,6 +22,15 @@ export default function LandingPage() {
 
   const [selectedStatus, setSelectedStatus] = useState("All");
   const [searchQuery, setSearchQuery] = useState("");
+
+  const location = useLocation();
+  const [pageBanner, setPageBanner] = useState(location.state?.banner || null);
+
+  const bannerStyles = {
+    success: "border-emerald-200 bg-emerald-50 text-emerald-700",
+    withdrawn: "border-blue-200 bg-blue-50 text-blue-700",
+    deleted: "border-red-200 bg-red-50 text-red-700",
+  };
 
   useEffect(() => {
     const fetchApps = async () => {
@@ -53,6 +62,12 @@ export default function LandingPage() {
 
     fetchApps();
   }, [user?.user_id]);
+
+  useEffect(() => {
+    if (location.state?.banner) {
+      window.history.replaceState({}, document.title);
+    }
+  }, [location.state]);
 
   /**
    * Restriction logic:
@@ -133,7 +148,7 @@ export default function LandingPage() {
     <div className="min-h-screen bg-background">
       <main className="container mx-auto px-6 py-12 animate-fade-in">
         {/* HEADER */}
-        <div className="flex flex-col gap-6 md:flex-row md:items-start md:justify-between mb-8">
+        <div className="flex flex-col gap-6 md:flex-row md:items-start md:justify-between mb-4">
           <div>
             <h1 className="text-2xl font-semibold text-foreground mb-1">
               Onboarding Application
@@ -151,17 +166,27 @@ export default function LandingPage() {
             )}
           </div>
 
-          {/* {showNewApplicationButton && (
-            <Button
-              onClick={handleCreateNew}
-              className="gap-2 shrink-0 bg-red-500 hover:bg-red-600"
-              title="Create a new application"
-            >
-              <Plus className="h-4 w-4" />
-              New Application
-            </Button>
-          )} */}
+          
         </div>
+
+        {pageBanner && (
+          <div
+            className={`mb-6 flex items-center rounded-lg border px-4 py-3 animate-fade-in ${
+              bannerStyles[pageBanner.type] || bannerStyles.success
+            }`}
+          >
+            <p className="flex-1 text-sm font-medium">
+              {pageBanner.message}
+            </p>
+
+            <button
+              onClick={() => setPageBanner(null)}
+              className="ml-auto pl-6 text-xs font-medium opacity-70 hover:underline hover:opacity-100"
+            >
+              Dismiss
+            </button>
+          </div>
+        )}
 
         {/* STATS OVERVIEW
         <div className="mb-8">
