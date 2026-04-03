@@ -578,7 +578,6 @@ def close_open_action_request_and_update_answers(db: Session, application_id: st
         alt = alt_map.get(it.item_id)
 
         if alt:
-            # ✅ Alternative path
             it.is_substitute = True
             it.submitted_document_name = (
                 alt.get("substitute_document_type") or ""
@@ -586,22 +585,15 @@ def close_open_action_request_and_update_answers(db: Session, application_id: st
             it.substitution_reason = (
                 alt.get("substitute_reason") or ""
             ).strip()
-
         else:
-            # ✅ Normal path
             it.is_substitute = False
             it.submitted_document_name = None
             it.substitution_reason = None
 
-        # mark fulfilled regardless (since frontend enforces upload)
         it.fulfilled_at = now
 
-    # Split requested items
-    q_items   = [i for i in items if i.item_type == "QUESTION"]
+    q_items = [i for i in items if i.item_type == "QUESTION"]
 
-    # ---------------------------
-    # QUESTIONS: only if requested
-    # ---------------------------
     if q_items:
         answers = data.get("question_answers") or []
         ans_map = {
@@ -1113,7 +1105,7 @@ def withdraw_application(
 
     # Fetch applicant details (prefer DB)
     applicant_email = None
-    applicant_firstName = None
+    applicant_first_name = None
 
     applicant = None
     if getattr(app, "user_id", None):
@@ -1121,10 +1113,10 @@ def withdraw_application(
 
     if applicant and getattr(applicant, "email", None):
         applicant_email = applicant.email
-        applicant_firstName = getattr(applicant, "first_name", None)
+        applicant_first_name = getattr(applicant, "first_name", None)
 
     reviewer_email = None
-    reviewer_firstName = None
+    reviewer_first_name = None
 
     reviewer = None
 
@@ -1133,7 +1125,7 @@ def withdraw_application(
 
     if reviewer and getattr(reviewer, "email", None):
         reviewer_email = reviewer.email
-        reviewer_firstName = getattr(reviewer, "first_name", None)
+        reviewer_first_name = getattr(reviewer, "first_name", None)
 
     db.add(BellNotification(
         application_id=app.application_id,
@@ -1436,4 +1428,3 @@ def get_action_requests(
         "application_id": application_id,
         "action_requests": results,
     }
-

@@ -10,7 +10,7 @@ TEST_PROVIDER_SESSION_ID = "didit-session-123"
 def seed_user(db_session, email="user@example.com", role="SME"):
     # IMPORTANT: match conftest authenticated user
     user = User(
-        user_id="00000001",  # 🔥 FIXED
+        user_id="00000001",
         first_name="Jane",
         last_name="Tan",
         email=email,
@@ -58,7 +58,7 @@ def test_first_save_creates_draft_application(client, db_session):
     seed_liveness_detection(db_session)
 
     payload = {
-        "user_id": user.user_id,  # still ok but not relied on anymore
+        "user_id": user.user_id,
         "provider_session_id": TEST_PROVIDER_SESSION_ID,
         "form_data": minimal_form_data(),
     }
@@ -124,7 +124,7 @@ def test_withdraw_application_changes_status(client, db_session):
 # get all
 # ----------------------------
 
-def test_get_all_applications_includes_created_application(client, db_session):
+def test_get_all_applications_includes_created_application(staff_client, db_session):
     user = seed_user(db_session)
     seed_liveness_detection(db_session)
 
@@ -134,13 +134,35 @@ def test_get_all_applications_includes_created_application(client, db_session):
         "form_data": minimal_form_data(),
     }
 
-    create_response = client.post("/applications/firstSave", json=payload)
-    assert create_response.status_code == 200, create_response.text
-    created = create_response.json()
+    create_response = staff_client.post("/applications/firstSave", json=payload)
+    assert create_response.status_code == 403, create_response.text
 
-    all_response = client.get("/applications/")
+
+def test_get_all_applications_staff_can_list_existing_applications(staff_client, db_session):
+    user = seed_user(db_session)
+    seed_liveness_detection(db_session)
+
+    # create app using SME client flow logic directly through DB-compatible endpoint assumptions
+    # since staff cannot call firstSave
+    from backend.models.application import ApplicationForm
+
+    app = ApplicationForm(
+        business_country="SG",
+        business_name="Acme Pte Ltd",
+        business_type="PRIVATE_LIMITED",
+        previous_status=None,
+        current_status="Draft",
+        form_data=minimal_form_data(),
+        user_id=user.user_id,
+        provider_session_id=TEST_PROVIDER_SESSION_ID,
+    )
+    db_session.add(app)
+    db_session.commit()
+    db_session.refresh(app)
+
+    all_response = staff_client.get("/applications/")
     assert all_response.status_code == 200, all_response.text
 
     rows = all_response.json()
     assert isinstance(rows, list)
-    assert any(str(row.get("application_id")) == str(created["application_id"]) for row in rows)
+    assert any(str(row.get("application_id")) == str(app.application_id) for row in rows)
