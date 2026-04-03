@@ -25,6 +25,7 @@ from backend.api.liveness_detection import router as live_detection_router
 from backend.api.simulationTesting import router as sim_testing_router
 
 from backend.api.didit_session import router as didit_session_router
+from backend.api.smart_ai import router as smart_ai_router
 
 import os
 from pathlib import Path
@@ -53,10 +54,6 @@ async def log_requests(request: Request, call_next):
     response = await call_next(request)
     print("DONE:", request.method, request.url.path, response.status_code)
     return response
-
-
-# create table (for prototype)
-# Base.metadata.create_all(bind=engine)
 
 #add cors middleware
 app.add_middleware(
@@ -87,3 +84,4 @@ app.include_router(risk_rule_router)
 app.include_router(live_detection_router)
 app.include_router(sim_testing_router)
 app.include_router(didit_session_router)
+app.include_router(smart_ai_router)

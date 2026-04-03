@@ -12,6 +12,7 @@ export const getApplicationByAppId = async (id) => {
   return res.data;
 };
 
+
 /**
  * Save application draft with full form data persistence
  * Payload should include:

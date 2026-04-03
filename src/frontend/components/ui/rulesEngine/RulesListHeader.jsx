@@ -1,5 +1,12 @@
 import React from "react";
 import { Plus, ChevronDown, ChevronUp } from "lucide-react";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "../primitives/Select";
 
 const CATEGORY_TABS = [
   { key: "BASIC", label: "Basic Compliance" },
@@ -7,6 +14,8 @@ const CATEGORY_TABS = [
 ];
 
 const regionNames = new Intl.DisplayNames(["en"], { type: "region" });
+const itemStyle =
+  "cursor-pointer data-[state=checked]:bg-blue-100 data-[state=checked]:text-blue-700 hover:bg-gray-100";
 
 function formatBasicCategoryLabel(category) {
   if (!category) return "";
@@ -74,18 +83,22 @@ export default function RulesListHeader({
 
         <div className="flex items-center gap-2">
           {isBasicTab && (
-            <select
-              value={basicComplianceFilter}
-              onChange={(e) => onBasicComplianceFilterChange(e.target.value)}
-              className="rounded-xl border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 outline-none focus:border-gray-900"
-            >
-              {basicComplianceCategories.map((category) => (
-                <option key={category} value={category}>
-                  {formatBasicCategoryLabel(category)}
-                </option>
-              ))}
-            </select>
-          )}
+  <Select
+    value={basicComplianceFilter}
+    onValueChange={onBasicComplianceFilterChange}
+  >
+    <SelectTrigger className="h-10 w-[200px] bg-white text-sm">
+      <SelectValue placeholder="Select category" />
+    </SelectTrigger>
+    <SelectContent className="bg-white">
+      {basicComplianceCategories.map((category) => (
+        <SelectItem className={itemStyle} key={category} value={category}>
+          {formatBasicCategoryLabel(category)}
+        </SelectItem>
+      ))}
+    </SelectContent>
+  </Select>
+)}
 
           <button
             type="button"

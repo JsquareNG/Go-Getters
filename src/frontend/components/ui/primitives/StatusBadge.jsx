@@ -32,6 +32,10 @@ const statusConfig = {
   Deleted: {
     className: "bg-slate-500/10 text-slate-500",
     dotClassName: "bg-slate-500",
+  },
+  "Auto Rejected": {
+    className: "bg-red-500/10 text-red-500",
+    dotClassName: "bg-red-500",
   }
 };
 

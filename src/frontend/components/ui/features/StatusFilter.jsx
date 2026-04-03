@@ -1,13 +1,13 @@
 import { cn } from "@/lib/utils";
 
-const statuses = ["Total Pending", "Enhanced CDD", "Standard CDD", "Past Applications"];
+const statuses = ["Total Pending", "Enhanced Due Diligence (EDD)", "Standard Due Diligence (CDD)", "Past Applications"];
 
 const statusStyles = {
   "Total Pending":
     "data-[active=true]:bg-yellow-400 data-[active=true]:text-background",
-  "Enhanced CDD":
+  "Enhanced Due Diligence (EDD)":
     "data-[active=true]:bg-red-600 data-[active=true]:text-white",
-  "Standard CDD":
+  "Standard Due Diligence (CDD)":
     "data-[active=true]:bg-orange-400 data-[active=true]:text-white",
   "Past Applications":
     "data-[active=true]:bg-zinc-500 data-[active=true]:text-white",

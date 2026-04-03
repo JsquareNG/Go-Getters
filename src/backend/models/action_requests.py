@@ -75,6 +75,10 @@ class ActionRequestItem(Base):
     document_name = Column(String(500), nullable=True)
     document_desc = Column(String(500), nullable=True)
 
+    submitted_document_name = Column(String(500), nullable=True)
+    substitution_reason = Column(String(1500), nullable=True)
+    is_substitute = Column(Boolean, nullable=False, server_default=text("false"))
+
     # QUESTION
     question_text = Column(String(500), nullable=True)
     answer_text = Column(String(1500), nullable=True)

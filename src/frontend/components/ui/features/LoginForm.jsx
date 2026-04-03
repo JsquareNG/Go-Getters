@@ -94,7 +94,7 @@ const LoginForm = ({ onSwitchToRegister }) => {
       } else if (data.role === "STAFF") {
         navigate("/staff-landingpage");
       } else {
-        navigate("/"); // fallback
+        navigate("/management-landing-page"); // fallback
       }
     } catch (err) {
       console.error("Login failed:", err);
@@ -206,6 +206,6 @@ const LoginForm = ({ onSwitchToRegister }) => {
       </p>
     </form>
   );
-};
+};  
 
 export { LoginForm };
