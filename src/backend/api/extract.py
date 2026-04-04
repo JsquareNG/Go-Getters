@@ -1,5 +1,8 @@
+import os
 from typing import Optional, Dict, Any, List
+
 from fastapi import APIRouter, UploadFile, File, HTTPException, Form
+
 from backend.services.gemini_extractor import parse_universal_document, classify_document
 from backend.services.document_ai import extract_document_layout
 from backend.models.extract import DOCUMENT_SCHEMA_REGISTRY
@@ -17,13 +20,6 @@ SUPPORTED_CONTENT_TYPES = [
     "image/png",
 ]
 
-
-# ----------------------------
-# Doc type normalization
-# ----------------------------
-# Keep aliases minimal and compatible with your current files.
-# classify_business_document -> ACRA / NIB / UNKNOWN
-# classify_document -> supported registry labels, but prompt also mentions ACRA
 DOC_TYPE_ALIASES = {
     "ACRA_BUSINESS_PROFILE": "ACRA",
     "ACRA": "ACRA",
@@ -31,9 +27,12 @@ DOC_TYPE_ALIASES = {
     "UNKNOWN": "UNKNOWN",
 }
 
-
 STANDARDISED_TEMPLATE_DOC_TYPES = {"ACRA", "NIB"}
 BUSINESS_BASIC_INFO_DOC_TYPES = {"ACRA", "NIB"}
+
+OCR_MIN_PRIMARY_CONFIDENCE = float(os.getenv("OCR_MIN_PRIMARY_CONFIDENCE", "0.70"))
+OCR_MIN_PAGE_CONFIDENCE = float(os.getenv("OCR_MIN_PAGE_CONFIDENCE", "0.55"))
+OCR_MIN_QUALITY_SCORE = float(os.getenv("OCR_MIN_QUALITY_SCORE", "65"))
 
 
 def normalize_doc_type(doc_type: Optional[str]) -> str:
@@ -90,41 +89,253 @@ def _basic_identifier_presence_check(detected_doc_type: str, raw_text: str) -> L
     return warnings
 
 
-def _basic_template_anchor_check(detected_doc_type: str, raw_text: str) -> List[str]:
-    warnings: List[str] = []
-    upper_text = raw_text.upper()
-
+def _get_anchor_keywords(detected_doc_type: str) -> List[str]:
     if detected_doc_type == "ACRA":
-        anchor_keywords = [
+        return [
             "ACCOUNTING AND CORPORATE REGULATORY AUTHORITY",
             "ACRA",
             "BUSINESS PROFILE",
             "ENTITY NAME",
             "UEN",
         ]
-        matches = sum(1 for kw in anchor_keywords if kw in upper_text)
-        if matches < 2:
-            warnings.append("Document weakly matches expected ACRA business profile structure.")
-
-    elif detected_doc_type == "NIB":
-        anchor_keywords = [
+    if detected_doc_type == "NIB":
+        return [
             "NIB",
             "NOMOR INDUK BERUSAHA",
             "BADAN KOORDINASI PENANAMAN MODAL",
             "NPWP",
             "INDONESIA",
         ]
+    return []
+
+
+def _basic_template_anchor_check(detected_doc_type: str, raw_text: str) -> List[str]:
+    warnings: List[str] = []
+    upper_text = raw_text.upper()
+
+    anchor_keywords = _get_anchor_keywords(detected_doc_type)
+    if anchor_keywords:
         matches = sum(1 for kw in anchor_keywords if kw in upper_text)
         if matches < 2:
-            warnings.append("Document weakly matches expected Indonesian NIB structure.")
+            if detected_doc_type == "ACRA":
+                warnings.append("Document weakly matches expected ACRA business profile structure.")
+            elif detected_doc_type == "NIB":
+                warnings.append("Document weakly matches expected Indonesian NIB structure.")
 
     return warnings
+
+
+def _safe_float(v, default: Optional[float] = None) -> Optional[float]:
+    try:
+        if v is None:
+            return default
+        return float(v)
+    except Exception:
+        return default
+
+
+def _build_ocr_quality_assessment(
+    doc_ai_result: Dict[str, Any],
+    raw_text: str,
+    detected_doc_type: str,
+) -> Dict[str, Any]:
+    stats = doc_ai_result.get("ocr_confidence_stats") or {}
+
+    primary_confidence = _safe_float(stats.get("primary_confidence"))
+    mean_page_confidence = _safe_float(stats.get("mean_page_confidence"))
+    min_page_confidence = _safe_float(stats.get("min_page_confidence"))
+    low_conf_token_ratio = _safe_float(stats.get("low_conf_token_ratio"), 0.0)
+    raw_text_length = len(raw_text.strip())
+
+    anchor_keywords = _get_anchor_keywords(detected_doc_type)
+    anchor_matches = 0
+    anchor_ratio = 1.0
+    if anchor_keywords:
+        upper_text = raw_text.upper()
+        anchor_matches = sum(1 for kw in anchor_keywords if kw in upper_text)
+        anchor_ratio = anchor_matches / len(anchor_keywords)
+
+    text_length_score = 1.0 if raw_text_length >= 200 else raw_text_length / 200.0
+
+    effective_primary = (
+        primary_confidence
+        if primary_confidence is not None
+        else mean_page_confidence
+        if mean_page_confidence is not None
+        else 0.0
+    )
+
+    effective_page_min = (
+        min_page_confidence
+        if min_page_confidence is not None
+        else effective_primary
+    )
+
+    quality_score = (
+        (effective_primary * 55.0)
+        + (effective_page_min * 20.0)
+        + ((1.0 - min(max(low_conf_token_ratio, 0.0), 1.0)) * 10.0)
+        + (anchor_ratio * 10.0)
+        + (text_length_score * 5.0)
+    )
+    quality_score = round(max(0.0, min(100.0, quality_score)), 2)
+
+    reasons: List[str] = []
+
+    if effective_primary < OCR_MIN_PRIMARY_CONFIDENCE:
+        reasons.append(
+            f"OCR primary confidence {effective_primary:.3f} is below threshold {OCR_MIN_PRIMARY_CONFIDENCE:.3f}."
+        )
+
+    if effective_page_min < OCR_MIN_PAGE_CONFIDENCE:
+        reasons.append(
+            f"Minimum page confidence {effective_page_min:.3f} is below threshold {OCR_MIN_PAGE_CONFIDENCE:.3f}."
+        )
+
+    if quality_score < OCR_MIN_QUALITY_SCORE:
+        reasons.append(
+            f"OCR quality score {quality_score:.2f} is below threshold {OCR_MIN_QUALITY_SCORE:.2f}."
+        )
+
+    if raw_text_length < 30:
+        reasons.append("Extracted text is too short. Document may be unreadable.")
+
+    hard_fail = False
+
+    if effective_primary < OCR_MIN_PRIMARY_CONFIDENCE:
+        hard_fail = True
+
+    if quality_score < OCR_MIN_QUALITY_SCORE:
+        hard_fail = True
+
+    # page minimum confidence is warning-only, not hard fail
+    passes_threshold = not hard_fail
+
+    if quality_score >= 85:
+        quality_band = "HIGH"
+    elif quality_score >= 65:
+        quality_band = "MEDIUM"
+    elif quality_score >= 45:
+        quality_band = "LOW"
+    else:
+        quality_band = "VERY_LOW"
+
+    return {
+        "passes_threshold": passes_threshold,
+        "quality_band": quality_band,
+        "quality_score": quality_score,
+        "primary_confidence": round(effective_primary, 4),
+        "min_page_confidence": round(effective_page_min, 4),
+        "mean_page_confidence": round(mean_page_confidence, 4) if mean_page_confidence is not None else None,
+        "low_conf_token_ratio": round(low_conf_token_ratio, 4) if low_conf_token_ratio is not None else None,
+        "raw_text_length": raw_text_length,
+        "anchor_matches": anchor_matches,
+        "anchor_total": len(anchor_keywords),
+        "anchor_ratio": round(anchor_ratio, 4),
+        "thresholds": {
+            "min_primary_confidence": OCR_MIN_PRIMARY_CONFIDENCE,
+            "min_page_confidence": OCR_MIN_PAGE_CONFIDENCE,
+            "min_quality_score": OCR_MIN_QUALITY_SCORE,
+        },
+        "reasons": reasons,
+        "stats": stats,
+    }
+
+
+def _build_ocr_quality_only_assessment(
+    doc_ai_result: Dict[str, Any],
+    raw_text: str,
+) -> Dict[str, Any]:
+    stats = doc_ai_result.get("ocr_confidence_stats") or {}
+
+    primary_confidence = _safe_float(stats.get("primary_confidence"))
+    mean_page_confidence = _safe_float(stats.get("mean_page_confidence"))
+    min_page_confidence = _safe_float(stats.get("min_page_confidence"))
+    low_conf_token_ratio = _safe_float(stats.get("low_conf_token_ratio"), 0.0)
+    raw_text_length = len(raw_text.strip())
+
+    text_length_score = 1.0 if raw_text_length >= 200 else raw_text_length / 200.0
+
+    effective_primary = (
+        primary_confidence
+        if primary_confidence is not None
+        else mean_page_confidence
+        if mean_page_confidence is not None
+        else 0.0
+    )
+
+    effective_page_min = (
+        min_page_confidence
+        if min_page_confidence is not None
+        else effective_primary
+    )
+
+    quality_score = (
+        (effective_primary * 60.0)
+        + (effective_page_min * 25.0)
+        + ((1.0 - min(max(low_conf_token_ratio, 0.0), 1.0)) * 10.0)
+        + (text_length_score * 5.0)
+    )
+    quality_score = round(max(0.0, min(100.0, quality_score)), 2)
+
+    reasons: List[str] = []
+    hard_fail = False
+
+    if effective_primary < OCR_MIN_PRIMARY_CONFIDENCE:
+        reasons.append(
+            f"OCR primary confidence {effective_primary:.3f} is below threshold {OCR_MIN_PRIMARY_CONFIDENCE:.3f}."
+        )
+        hard_fail = True
+
+    if quality_score < OCR_MIN_QUALITY_SCORE:
+        reasons.append(
+            f"OCR quality score {quality_score:.2f} is below threshold {OCR_MIN_QUALITY_SCORE:.2f}."
+        )
+        hard_fail = True
+
+    if effective_page_min < OCR_MIN_PAGE_CONFIDENCE:
+        reasons.append(
+            f"Minimum page confidence {effective_page_min:.3f} is below threshold {OCR_MIN_PAGE_CONFIDENCE:.3f}."
+        )
+
+    if raw_text_length < 30:
+        reasons.append("Extracted text is too short. Document may be unreadable.")
+
+    passes_threshold = not hard_fail
+
+    if quality_score >= 85:
+        quality_band = "HIGH"
+    elif quality_score >= 65:
+        quality_band = "MEDIUM"
+    elif quality_score >= 45:
+        quality_band = "LOW"
+    else:
+        quality_band = "VERY_LOW"
+
+    return {
+        "passes_threshold": passes_threshold,
+        "quality_band": quality_band,
+        "quality_score": quality_score,
+        "primary_confidence": round(effective_primary, 4),
+        "min_page_confidence": round(effective_page_min, 4),
+        "mean_page_confidence": round(mean_page_confidence, 4) if mean_page_confidence is not None else None,
+        "low_conf_token_ratio": round(low_conf_token_ratio, 4) if low_conf_token_ratio is not None else None,
+        "raw_text_length": raw_text_length,
+        "thresholds": {
+            "min_primary_confidence": OCR_MIN_PRIMARY_CONFIDENCE,
+            "min_page_confidence": OCR_MIN_PAGE_CONFIDENCE,
+            "min_quality_score": OCR_MIN_QUALITY_SCORE,
+        },
+        "reasons": reasons,
+        "stats": stats,
+    }
 
 
 def _light_upload_validation(
     raw_text: str,
     detected_doc_type: str,
     expected_doc_type: Optional[str] = None,
+    ocr_quality_assessment: Optional[Dict[str, Any]] = None,
 ) -> Dict[str, Any]:
     detected_doc_type = normalize_doc_type(detected_doc_type)
     expected_doc_type = normalize_doc_type(expected_doc_type) if expected_doc_type else None
@@ -132,13 +343,11 @@ def _light_upload_validation(
     hard_fail_reasons: List[str] = []
     warnings: List[str] = []
 
-    # 1. OCR sanity
     if len(raw_text.strip()) < 30:
         hard_fail_reasons.append(
             "Extracted text is too short. Document may be blank, unclear, or unreadable."
         )
 
-    # 2. Expected upload slot match
     expected_document_match = True
     if expected_doc_type and expected_doc_type != "UNKNOWN":
         if detected_doc_type != expected_doc_type:
@@ -147,11 +356,13 @@ def _light_upload_validation(
                 f"Detected document type '{detected_doc_type}' does not match expected upload type '{expected_doc_type}'."
             )
 
-    # 3. Soft checks only for standardised docs
     warnings.extend(_basic_identifier_presence_check(detected_doc_type, raw_text))
 
     if detected_doc_type in STANDARDISED_TEMPLATE_DOC_TYPES:
         warnings.extend(_basic_template_anchor_check(detected_doc_type, raw_text))
+
+    if ocr_quality_assessment and not ocr_quality_assessment.get("passes_threshold", True):
+        hard_fail_reasons.extend(ocr_quality_assessment.get("reasons", []))
 
     if hard_fail_reasons:
         status = "FAIL"
@@ -164,53 +375,128 @@ def _light_upload_validation(
         "status": status,
         "expected_document_match": expected_document_match,
         "reasons": hard_fail_reasons + warnings,
+        "ocr_quality": ocr_quality_assessment,
     }
 
 
 def _resolve_universal_parse_doc_type(detected_doc_type: str) -> str:
-    """
-    Keep compatibility with your parse_universal_document().
-    If the classifier returns something not in DOCUMENT_SCHEMA_REGISTRY,
-    fall back to UNKNOWN.
-    """
     normalized = normalize_doc_type(detected_doc_type)
 
     if normalized in DOCUMENT_SCHEMA_REGISTRY:
         return normalized
 
-    # in case your registry actually stores ACRA_BUSINESS_PROFILE instead of ACRA
     if normalized == "ACRA" and "ACRA_BUSINESS_PROFILE" in DOCUMENT_SCHEMA_REGISTRY:
         return "ACRA_BUSINESS_PROFILE"
 
     return "UNKNOWN"
 
 
-@router.post("/classify-and-extract")
-async def classify_and_extract_document(
-    file: UploadFile = File(...),
-    expected_doc_type: str = Form(None)  # 👈 ADD THIS
-):
+@router.post("/ocr-quality-only")
+async def ocr_quality_only(file: UploadFile = File(...)):
     try:
-        # 1. Shared initial processing
         _, doc_ai_result, raw_text = await _run_initial_document_processing(file)
 
-        # 2. Classify
+        ocr_quality_assessment = _build_ocr_quality_only_assessment(
+            doc_ai_result=doc_ai_result,
+            raw_text=raw_text,
+        )
+
+        return {
+            "filename": file.filename,
+            "content_type": file.content_type,
+            "ocr_quality": ocr_quality_assessment,
+            "ocr_confidence_stats": doc_ai_result.get("ocr_confidence_stats", {}),
+        }
+
+    except ValueError as ve:
+        raise HTTPException(status_code=422, detail=f"Validation Error: {str(ve)}")
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Processing Error: {str(e)}")
+
+
+@router.post("/ocr-confidence-stats")
+async def ocr_confidence_stats_endpoint(
+    file: UploadFile = File(...),
+    expected_doc_type: str = Form(None),
+):
+    try:
+        _, doc_ai_result, raw_text = await _run_initial_document_processing(file)
+
         detected_doc_type_raw = classify_document(raw_text)
         detected_doc_type = normalize_doc_type(detected_doc_type_raw)
 
-        # 3. Light validation
+        ocr_quality_assessment = _build_ocr_quality_assessment(
+            doc_ai_result=doc_ai_result,
+            raw_text=raw_text,
+            detected_doc_type=detected_doc_type,
+        )
+
         upload_validation = _light_upload_validation(
             raw_text=raw_text,
             detected_doc_type=detected_doc_type,
-            expected_doc_type=expected_doc_type  
+            expected_doc_type=expected_doc_type,
+            ocr_quality_assessment=ocr_quality_assessment,
         )
 
-        # 4. Universal extraction
-        parse_doc_type = _resolve_universal_parse_doc_type(detected_doc_type_raw)
-        final_data = parse_universal_document(raw_text, parse_doc_type)
+        return {
+            "filename": file.filename,
+            "content_type": file.content_type,
+            "classified_as": detected_doc_type,
+            "ocr_confidence_stats": doc_ai_result.get("ocr_confidence_stats", {}),
+            "upload_validation": upload_validation,
+        }
 
-        # 5. Determine support from actual parse type
+    except ValueError as ve:
+        raise HTTPException(status_code=422, detail=f"Validation Error: {str(ve)}")
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Processing Error: {str(e)}")
+
+
+@router.post("/classify-and-extract")
+async def classify_and_extract_document(
+    file: UploadFile = File(...),
+    expected_doc_type: str = Form(None)
+):
+    try:
+        _, doc_ai_result, raw_text = await _run_initial_document_processing(file)
+
+        detected_doc_type_raw = classify_document(raw_text)
+        detected_doc_type = normalize_doc_type(detected_doc_type_raw)
+
+        ocr_quality_assessment = _build_ocr_quality_assessment(
+            doc_ai_result=doc_ai_result,
+            raw_text=raw_text,
+            detected_doc_type=detected_doc_type,
+        )
+
+        upload_validation = _light_upload_validation(
+            raw_text=raw_text,
+            detected_doc_type=detected_doc_type,
+            expected_doc_type=expected_doc_type,
+            ocr_quality_assessment=ocr_quality_assessment,
+        )
+
+        parse_doc_type = _resolve_universal_parse_doc_type(detected_doc_type_raw)
         is_supported = parse_doc_type != "UNKNOWN"
+
+        if upload_validation["status"] == "FAIL":
+            return {
+                "filename": file.filename,
+                "content_type": file.content_type,
+                "document_type": parse_doc_type,
+                "classified_as": detected_doc_type,
+                "is_supported": is_supported,
+                "upload_validation": upload_validation,
+                "ocr_confidence_stats": doc_ai_result.get("ocr_confidence_stats", {}),
+                "extraction_skipped": True,
+                "data": {},
+            }
+
+        final_data = parse_universal_document(raw_text, parse_doc_type)
 
         return {
             "filename": file.filename,
@@ -219,6 +505,8 @@ async def classify_and_extract_document(
             "classified_as": detected_doc_type,
             "is_supported": is_supported,
             "upload_validation": upload_validation,
+            "ocr_confidence_stats": doc_ai_result.get("ocr_confidence_stats", {}),
+            "extraction_skipped": False,
             "data": final_data,
         }
 
@@ -236,44 +524,58 @@ async def classify_and_extract_document(
         )
 
 
-@router.post("/universal-basic-info")
-async def extract_universal_basic_info(file: UploadFile = File(...)):
-    try:
-        # 1. Shared initial processing
-        _, doc_ai_result, raw_text = await _run_initial_document_processing(file)
+# @router.post("/universal-basic-info")
+# async def extract_universal_basic_info(file: UploadFile = File(...)):
+#     try:
+#         _, doc_ai_result, raw_text = await _run_initial_document_processing(file)
 
-        # 2. Business doc classification
-        detected_doc_type_raw = classify_business_document(raw_text)
-        detected_doc_type = normalize_doc_type(detected_doc_type_raw)
+#         detected_doc_type_raw = classify_business_document(raw_text)
+#         detected_doc_type = normalize_doc_type(detected_doc_type_raw)
 
-        # 3. Light validation
-        upload_validation = _light_upload_validation(
-            raw_text=raw_text,
-            detected_doc_type=detected_doc_type,
+#         ocr_quality_assessment = _build_ocr_quality_assessment(
+#             doc_ai_result=doc_ai_result,
+#             raw_text=raw_text,
+#             detected_doc_type=detected_doc_type,
+#         )
 
-        )
+#         upload_validation = _light_upload_validation(
+#             raw_text=raw_text,
+#             detected_doc_type=detected_doc_type,
+#             ocr_quality_assessment=ocr_quality_assessment,
+#         )
 
-        # 4. Only ACRA / NIB supported here
-        if detected_doc_type not in BUSINESS_BASIC_INFO_DOC_TYPES:
-            raise HTTPException(
-                status_code=400,
-                detail="Only ACRA business profiles and Indonesian NIB documents are supported for basic autofill."
-            )
+#         if upload_validation["status"] == "FAIL":
+#             return {
+#                 "filename": file.filename,
+#                 "content_type": file.content_type,
+#                 "document_type": detected_doc_type,
+#                 "upload_validation": upload_validation,
+#                 "ocr_confidence_stats": doc_ai_result.get("ocr_confidence_stats", {}),
+#                 "extraction_skipped": True,
+#                 "data": {},
+#             }
 
-        # 5. Basic extraction using your existing Gemini basic extractor
-        final_data = parse_basic_info_document(raw_text, detected_doc_type)
+#         if detected_doc_type not in BUSINESS_BASIC_INFO_DOC_TYPES:
+#             raise HTTPException(
+#                 status_code=400,
+#                 detail="Only ACRA business profiles and Indonesian NIB documents are supported for basic autofill."
+#             )
 
-        return {
-            "filename": file.filename,
-            "content_type": file.content_type,
-            "document_type": detected_doc_type,
-            "upload_validation": upload_validation,
-            "data": final_data,
-        }
+#         final_data = parse_basic_info_document(raw_text, detected_doc_type)
 
-    except ValueError as ve:
-        raise HTTPException(status_code=422, detail=f"Validation Error: {str(ve)}")
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Processing Error: {str(e)}")
+#         return {
+#             "filename": file.filename,
+#             "content_type": file.content_type,
+#             "document_type": detected_doc_type,
+#             "upload_validation": upload_validation,
+#             "ocr_confidence_stats": doc_ai_result.get("ocr_confidence_stats", {}),
+#             "extraction_skipped": False,
+#             "data": final_data,
+#         }
+
+#     except ValueError as ve:
+#         raise HTTPException(status_code=422, detail=f"Validation Error: {str(ve)}")
+#     except HTTPException:
+#         raise
+#     except Exception as e:
+#         raise HTTPException(status_code=500, detail=f"Processing Error: {str(e)}")
