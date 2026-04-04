@@ -33,7 +33,8 @@ BUSINESS_BASIC_INFO_DOC_TYPES = {"ACRA", "NIB"}
 OCR_MIN_PRIMARY_CONFIDENCE = float(os.getenv("OCR_MIN_PRIMARY_CONFIDENCE", "0.70"))
 OCR_MIN_PAGE_CONFIDENCE = float(os.getenv("OCR_MIN_PAGE_CONFIDENCE", "0.55"))
 OCR_MIN_QUALITY_SCORE = float(os.getenv("OCR_MIN_QUALITY_SCORE", "65"))
-
+OCR_FAIL_THRESHOLD = 65
+OCR_WARNING_THRESHOLD = 75
 
 def normalize_doc_type(doc_type: Optional[str]) -> str:
     if not doc_type:
@@ -192,15 +193,17 @@ def _build_ocr_quality_assessment(
             f"Minimum page confidence {effective_page_min:.3f} is below threshold {OCR_MIN_PAGE_CONFIDENCE:.3f}."
         )
 
-    if quality_score < OCR_MIN_QUALITY_SCORE:
-        reasons.append(
-            f"OCR quality score {quality_score:.2f} is below threshold {OCR_MIN_QUALITY_SCORE:.2f}."
-        )
+    hard_fail = False
+
+    if effective_primary < OCR_MIN_PRIMARY_CONFIDENCE:
+        hard_fail = True
+
+    # New logic based on quality score bands
+    if quality_score < OCR_FAIL_THRESHOLD:
+        hard_fail = True
 
     if raw_text_length < 30:
         reasons.append("Extracted text is too short. Document may be unreadable.")
-
-    hard_fail = False
 
     if effective_primary < OCR_MIN_PRIMARY_CONFIDENCE:
         hard_fail = True
@@ -211,7 +214,7 @@ def _build_ocr_quality_assessment(
     # page minimum confidence is warning-only, not hard fail
     passes_threshold = not hard_fail
 
-    if quality_score >= 85:
+    if quality_score >= 75:
         quality_band = "HIGH"
     elif quality_score >= 65:
         quality_band = "MEDIUM"
@@ -363,7 +366,13 @@ def _light_upload_validation(
 
     if ocr_quality_assessment and not ocr_quality_assessment.get("passes_threshold", True):
         hard_fail_reasons.extend(ocr_quality_assessment.get("reasons", []))
-
+    # If OCR passes threshold but is medium quality → warning
+    if (
+        ocr_quality_assessment
+        and ocr_quality_assessment.get("passes_threshold", True)
+        and ocr_quality_assessment.get("quality_score", 100) < OCR_WARNING_THRESHOLD
+    ):
+        warnings.append("OCR quality is moderate. Document may be unclear.")
     if hard_fail_reasons:
         status = "FAIL"
     elif warnings:
@@ -402,50 +411,8 @@ async def ocr_quality_only(file: UploadFile = File(...)):
         )
 
         return {
-            "filename": file.filename,
-            "content_type": file.content_type,
             "ocr_quality": ocr_quality_assessment,
             "ocr_confidence_stats": doc_ai_result.get("ocr_confidence_stats", {}),
-        }
-
-    except ValueError as ve:
-        raise HTTPException(status_code=422, detail=f"Validation Error: {str(ve)}")
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Processing Error: {str(e)}")
-
-
-@router.post("/ocr-confidence-stats")
-async def ocr_confidence_stats_endpoint(
-    file: UploadFile = File(...),
-    expected_doc_type: str = Form(None),
-):
-    try:
-        _, doc_ai_result, raw_text = await _run_initial_document_processing(file)
-
-        detected_doc_type_raw = classify_document(raw_text)
-        detected_doc_type = normalize_doc_type(detected_doc_type_raw)
-
-        ocr_quality_assessment = _build_ocr_quality_assessment(
-            doc_ai_result=doc_ai_result,
-            raw_text=raw_text,
-            detected_doc_type=detected_doc_type,
-        )
-
-        upload_validation = _light_upload_validation(
-            raw_text=raw_text,
-            detected_doc_type=detected_doc_type,
-            expected_doc_type=expected_doc_type,
-            ocr_quality_assessment=ocr_quality_assessment,
-        )
-
-        return {
-            "filename": file.filename,
-            "content_type": file.content_type,
-            "classified_as": detected_doc_type,
-            "ocr_confidence_stats": doc_ai_result.get("ocr_confidence_stats", {}),
-            "upload_validation": upload_validation,
         }
 
     except ValueError as ve:
@@ -480,18 +447,25 @@ async def classify_and_extract_document(
             ocr_quality_assessment=ocr_quality_assessment,
         )
 
+        summarized_upload_validation = {
+            "status": upload_validation.get("status"),
+            "reasons": upload_validation.get("reasons", []),
+            "ocr_quality": {
+                "passes_threshold": ocr_quality_assessment.get("passes_threshold"),
+                "quality_band": ocr_quality_assessment.get("quality_band"),
+                "quality_score": ocr_quality_assessment.get("quality_score"),
+            },
+        }
+
         parse_doc_type = _resolve_universal_parse_doc_type(detected_doc_type_raw)
         is_supported = parse_doc_type != "UNKNOWN"
 
         if upload_validation["status"] == "FAIL":
             return {
-                "filename": file.filename,
-                "content_type": file.content_type,
                 "document_type": parse_doc_type,
                 "classified_as": detected_doc_type,
                 "is_supported": is_supported,
-                "upload_validation": upload_validation,
-                "ocr_confidence_stats": doc_ai_result.get("ocr_confidence_stats", {}),
+                "upload_validation": summarized_upload_validation,
                 "extraction_skipped": True,
                 "data": {},
             }
@@ -499,13 +473,10 @@ async def classify_and_extract_document(
         final_data = parse_universal_document(raw_text, parse_doc_type)
 
         return {
-            "filename": file.filename,
-            "content_type": file.content_type,
             "document_type": parse_doc_type,
             "classified_as": detected_doc_type,
             "is_supported": is_supported,
-            "upload_validation": upload_validation,
-            "ocr_confidence_stats": doc_ai_result.get("ocr_confidence_stats", {}),
+            "upload_validation": summarized_upload_validation,
             "extraction_skipped": False,
             "data": final_data,
         }
@@ -522,7 +493,6 @@ async def classify_and_extract_document(
             status_code=500,
             detail=f"Processing Error: {str(e)}"
         )
-
 
 # @router.post("/universal-basic-info")
 # async def extract_universal_basic_info(file: UploadFile = File(...)):
