@@ -72,17 +72,15 @@ def seed_review_job(db_session, application_id):
 def test_run_review_job_cdd_flow(db_session, monkeypatch):
     user = seed_user(db_session)
     app = seed_application(db_session, user.user_id)
-    job = seed_review_job(db_session, app.application_id)
+    seed_review_job(db_session, app.application_id)
 
-    # Patch SessionLocal → use test DB
     monkeypatch.setattr(
-        "backend.services.review_service.SessionLocal",
+        "backend.compliance_rules_engine.review_service.SessionLocal",
         lambda: db_session
     )
 
-    # Mock rule engine result
     monkeypatch.setattr(
-        "backend.services.review_service.submit_application",
+        "backend.compliance_rules_engine.review_service.submit_application",
         lambda company, db: {
             "risk_score": 30,
             "risk_decision": "Standard Due Diligence (CDD)",
@@ -90,21 +88,18 @@ def test_run_review_job_cdd_flow(db_session, monkeypatch):
         }
     )
 
-    # Mock side-effect services
     monkeypatch.setattr(
-        "backend.services.review_service.need_manual_review_service",
+        "backend.compliance_rules_engine.review_service.need_manual_review_service",
         lambda **kwargs: None
     )
 
     monkeypatch.setattr(
-        "backend.services.review_service.create_audit_log",
+        "backend.compliance_rules_engine.review_service.create_audit_log",
         lambda **kwargs: None
     )
 
-    # Run
     run_review_job(app.application_id)
 
-    # Assert DB state
     updated_job = db_session.query(ReviewJobs).filter_by(application_id=app.application_id).first()
 
     assert updated_job.status == "COMPLETED"
@@ -124,15 +119,15 @@ def test_run_review_job_sdd_approve(db_session, monkeypatch):
     app.form_data["kycData"] = {"overallStatus": "Approved"}
     db_session.commit()
 
-    job = seed_review_job(db_session, app.application_id)
+    seed_review_job(db_session, app.application_id)
 
     monkeypatch.setattr(
-        "backend.services.review_service.SessionLocal",
+        "backend.compliance_rules_engine.review_service.SessionLocal",
         lambda: db_session
     )
 
     monkeypatch.setattr(
-        "backend.services.review_service.submit_application",
+        "backend.compliance_rules_engine.review_service.submit_application",
         lambda company, db: {
             "risk_score": 10,
             "risk_decision": "Simplified Due Diligence (SDD)",
@@ -146,12 +141,12 @@ def test_run_review_job_sdd_approve(db_session, monkeypatch):
         approve_mock["called"] = True
 
     monkeypatch.setattr(
-        "backend.services.review_service.approve_application_service",
+        "backend.compliance_rules_engine.review_service.approve_application_service",
         fake_approve
     )
 
     monkeypatch.setattr(
-        "backend.services.review_service.create_audit_log",
+        "backend.compliance_rules_engine.review_service.create_audit_log",
         lambda **kwargs: None
     )
 
@@ -170,15 +165,15 @@ def test_run_review_job_sdd_approve(db_session, monkeypatch):
 def test_run_review_job_auto_reject(db_session, monkeypatch):
     user = seed_user(db_session, email="reject@example.com")
     app = seed_application(db_session, user.user_id)
-    job = seed_review_job(db_session, app.application_id)
+    seed_review_job(db_session, app.application_id)
 
     monkeypatch.setattr(
-        "backend.services.review_service.SessionLocal",
+        "backend.compliance_rules_engine.review_service.SessionLocal",
         lambda: db_session
     )
 
     monkeypatch.setattr(
-        "backend.services.review_service.submit_application",
+        "backend.compliance_rules_engine.review_service.submit_application",
         lambda company, db: {
             "risk_score": 90,
             "risk_decision": "REJECT",
@@ -192,12 +187,12 @@ def test_run_review_job_auto_reject(db_session, monkeypatch):
         reject_called["called"] = True
 
     monkeypatch.setattr(
-        "backend.services.review_service.auto_reject_application_service",
+        "backend.compliance_rules_engine.review_service.auto_reject_application_service",
         fake_reject
     )
 
     monkeypatch.setattr(
-        "backend.services.review_service.create_audit_log",
+        "backend.compliance_rules_engine.review_service.create_audit_log",
         lambda **kwargs: None
     )
 
@@ -216,15 +211,15 @@ def test_run_review_job_auto_reject(db_session, monkeypatch):
 def test_run_review_job_exception(db_session, monkeypatch):
     user = seed_user(db_session, email="error@example.com")
     app = seed_application(db_session, user.user_id)
-    job = seed_review_job(db_session, app.application_id)
+    seed_review_job(db_session, app.application_id)
 
     monkeypatch.setattr(
-        "backend.services.review_service.SessionLocal",
+        "backend.compliance_rules_engine.review_service.SessionLocal",
         lambda: db_session
     )
 
     monkeypatch.setattr(
-        "backend.services.review_service.submit_application",
+        "backend.compliance_rules_engine.review_service.submit_application",
         lambda *args, **kwargs: (_ for _ in ()).throw(Exception("Engine crash"))
     )
 
