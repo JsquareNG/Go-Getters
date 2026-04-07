@@ -8,7 +8,7 @@ from backend.models.reviewJobs import ReviewJobs
 
 
 # ==============================
-# Seed Helpers (REUSE YOUR STYLE)
+# Seed Helpers
 # ==============================
 
 def seed_user(db_session, email="review@example.com", role="SME"):
@@ -66,13 +66,14 @@ def seed_review_job(db_session, application_id):
 
 
 # ==============================
-# ✅ Integration Test: CDD Flow
+# Integration Test: CDD Flow
 # ==============================
 
 def test_run_review_job_cdd_flow(db_session, monkeypatch):
     user = seed_user(db_session)
     app = seed_application(db_session, user.user_id)
-    seed_review_job(db_session, app.application_id)
+    app_id = app.application_id
+    seed_review_job(db_session, app_id)
 
     monkeypatch.setattr(
         "backend.compliance_rules_engine.review_service.SessionLocal",
@@ -98,9 +99,9 @@ def test_run_review_job_cdd_flow(db_session, monkeypatch):
         lambda **kwargs: None
     )
 
-    run_review_job(app.application_id)
+    run_review_job(app_id)
 
-    updated_job = db_session.query(ReviewJobs).filter_by(application_id=app.application_id).first()
+    updated_job = db_session.query(ReviewJobs).filter_by(application_id=app_id).first()
 
     assert updated_job.status == "COMPLETED"
     assert updated_job.risk_score == 30
@@ -109,17 +110,18 @@ def test_run_review_job_cdd_flow(db_session, monkeypatch):
 
 
 # ==============================
-# ✅ Integration Test: SDD Approve
+# Integration Test: SDD Approve
 # ==============================
 
 def test_run_review_job_sdd_approve(db_session, monkeypatch):
     user = seed_user(db_session, email="sdd@example.com")
-
     app = seed_application(db_session, user.user_id)
+    app_id = app.application_id
+
     app.form_data["kycData"] = {"overallStatus": "Approved"}
     db_session.commit()
 
-    seed_review_job(db_session, app.application_id)
+    seed_review_job(db_session, app_id)
 
     monkeypatch.setattr(
         "backend.compliance_rules_engine.review_service.SessionLocal",
@@ -150,22 +152,23 @@ def test_run_review_job_sdd_approve(db_session, monkeypatch):
         lambda **kwargs: None
     )
 
-    run_review_job(app.application_id)
+    run_review_job(app_id)
 
-    updated_job = db_session.query(ReviewJobs).filter_by(application_id=app.application_id).first()
+    updated_job = db_session.query(ReviewJobs).filter_by(application_id=app_id).first()
 
     assert updated_job.status == "COMPLETED"
     assert approve_mock["called"] is True
 
 
 # ==============================
-# ✅ Integration Test: Auto Reject
+# Integration Test: Auto Reject
 # ==============================
 
 def test_run_review_job_auto_reject(db_session, monkeypatch):
     user = seed_user(db_session, email="reject@example.com")
     app = seed_application(db_session, user.user_id)
-    seed_review_job(db_session, app.application_id)
+    app_id = app.application_id
+    seed_review_job(db_session, app_id)
 
     monkeypatch.setattr(
         "backend.compliance_rules_engine.review_service.SessionLocal",
@@ -196,22 +199,23 @@ def test_run_review_job_auto_reject(db_session, monkeypatch):
         lambda **kwargs: None
     )
 
-    run_review_job(app.application_id)
+    run_review_job(app_id)
 
-    updated_job = db_session.query(ReviewJobs).filter_by(application_id=app.application_id).first()
+    updated_job = db_session.query(ReviewJobs).filter_by(application_id=app_id).first()
 
     assert updated_job.status == "COMPLETED"
     assert reject_called["called"] is True
 
 
 # ==============================
-# ✅ Integration Test: Exception → FAILED
+# Integration Test: Exception -> FAILED
 # ==============================
 
 def test_run_review_job_exception(db_session, monkeypatch):
     user = seed_user(db_session, email="error@example.com")
     app = seed_application(db_session, user.user_id)
-    seed_review_job(db_session, app.application_id)
+    app_id = app.application_id
+    seed_review_job(db_session, app_id)
 
     monkeypatch.setattr(
         "backend.compliance_rules_engine.review_service.SessionLocal",
@@ -223,9 +227,9 @@ def test_run_review_job_exception(db_session, monkeypatch):
         lambda *args, **kwargs: (_ for _ in ()).throw(Exception("Engine crash"))
     )
 
-    run_review_job(app.application_id)
+    run_review_job(app_id)
 
-    updated_job = db_session.query(ReviewJobs).filter_by(application_id=app.application_id).first()
+    updated_job = db_session.query(ReviewJobs).filter_by(application_id=app_id).first()
 
     assert updated_job.status == "FAILED"
     assert "Engine crash" in updated_job.last_error
