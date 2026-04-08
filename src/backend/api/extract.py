@@ -348,7 +348,7 @@ def _light_upload_validation(
 
     if len(raw_text.strip()) < 30:
         hard_fail_reasons.append(
-            "Extracted text is too short. Document may be blank, unclear, or unreadable."
+            "Uploaded document appears blank, incomplete, or unreadable."
         )
 
     expected_document_match = True
@@ -356,7 +356,7 @@ def _light_upload_validation(
         if detected_doc_type != expected_doc_type:
             expected_document_match = False
             hard_fail_reasons.append(
-                f"Detected document type '{detected_doc_type}' does not match expected upload type '{expected_doc_type}'."
+                f"Uploaded document does not match the expected document type '{expected_doc_type}'."
             )
 
     warnings.extend(_basic_identifier_presence_check(detected_doc_type, raw_text))
@@ -365,14 +365,24 @@ def _light_upload_validation(
         warnings.extend(_basic_template_anchor_check(detected_doc_type, raw_text))
 
     if ocr_quality_assessment and not ocr_quality_assessment.get("passes_threshold", True):
-        hard_fail_reasons.extend(ocr_quality_assessment.get("reasons", []))
-    # If OCR passes threshold but is medium quality → warning
+        quality_score = ocr_quality_assessment.get("quality_score", 0)
+        raw_text_length = ocr_quality_assessment.get("raw_text_length", 0)
+
+        if raw_text_length < 30:
+            if "Uploaded document appears blank, incomplete, or unreadable." not in hard_fail_reasons:
+                hard_fail_reasons.append("Uploaded document appears blank, incomplete, or unreadable.")
+        elif quality_score < OCR_MIN_QUALITY_SCORE:
+            hard_fail_reasons.append("Document quality score is too low.")
+        else:
+            hard_fail_reasons.append("Document text could not be read clearly.")
+
     if (
         ocr_quality_assessment
         and ocr_quality_assessment.get("passes_threshold", True)
         and ocr_quality_assessment.get("quality_score", 100) < OCR_WARNING_THRESHOLD
     ):
-        warnings.append("OCR quality is moderate. Document may be unclear.")
+        warnings.append("Document quality is moderate. Please verify the extracted information carefully.")
+
     if hard_fail_reasons:
         status = "FAIL"
     elif warnings:
@@ -387,7 +397,6 @@ def _light_upload_validation(
         "ocr_quality": ocr_quality_assessment,
     }
 
-
 def _resolve_universal_parse_doc_type(detected_doc_type: str) -> str:
     normalized = normalize_doc_type(detected_doc_type)
 
@@ -400,7 +409,7 @@ def _resolve_universal_parse_doc_type(detected_doc_type: str) -> str:
     return "UNKNOWN"
 
 
-@router.post("/ocr-quality-only")
+@router.post("/ocr-stats")
 async def ocr_quality_only(file: UploadFile = File(...)):
     try:
         _, doc_ai_result, raw_text = await _run_initial_document_processing(file)
