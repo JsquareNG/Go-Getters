@@ -11,6 +11,7 @@ import {
   Download,
   Undo2,
   Trash2,
+  Loader2,
 } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -1491,6 +1492,7 @@ export default function ApplicationDetail() {
                       <Button
                         className="gap-2"
                         onClick={() => setResubmitOpen(true)}
+                        disabled={alternativeDocsLoading}
                       >
                         <Upload className="h-4 w-4" />
                         Upload Documents
@@ -1498,9 +1500,12 @@ export default function ApplicationDetail() {
                     </div>
 
                     {alternativeDocsLoading && (
-                      <p className="text-sm text-muted-foreground">
-                        Preparing suggested alternative documents...
-                      </p>
+                      <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                        <span>
+                          Please wait while we prepare alternative document suggestions to help you complete your submission...
+                        </span>
+                      </div>
                     )}
 
                     {alternativeDocsError && (

@@ -15,6 +15,18 @@ import {
 } from "./ruleValidation";
 
 const NUMERIC_OPERATOR_CODES = new Set(["EQ", "NE", "GT", "GTE", "LT", "LTE"]);
+const RULES_CATEGORY_STORAGE_KEY = "rules-engine-rules-active-category";
+const RULES_BASIC_FILTER_STORAGE_KEY = "rules-engine-rules-basic-filter";
+const RULES_RELOAD_FLAG_KEY = "rules-engine-preserve-on-reload";
+
+function wasPageReloaded() {
+  const navEntries = performance.getEntriesByType("navigation");
+  if (navEntries && navEntries.length > 0) {
+    return navEntries[0].type === "reload";
+  }
+
+  return performance.navigation?.type === 1;
+}
 
 function getFieldMeta(fieldOptions, fieldName, condition = null) {
   const found = fieldOptions.find((item) => item.value === fieldName);
@@ -439,7 +451,10 @@ function getRuleKeysWithErrors(rows, validationErrors) {
 }
 
 export default function RulesListSection() {
-  const [activeCategory, setActiveCategory] = useState("BASIC");
+  const [activeCategory, setActiveCategory] = useState(() => {
+    return sessionStorage.getItem(RULES_CATEGORY_STORAGE_KEY) || "BASIC";
+  });
+
   const [serverRows, setServerRows] = useState([]);
   const [workingRows, setWorkingRows] = useState([]);
   const [expandedRuleIds, setExpandedRuleIds] = useState({});
@@ -452,7 +467,9 @@ export default function RulesListSection() {
     rules: {},
     conditions: {},
   });
-  const [basicComplianceFilter, setBasicComplianceFilter] = useState("");
+  const [basicComplianceFilter, setBasicComplianceFilter] = useState(() => {
+    return sessionStorage.getItem(RULES_BASIC_FILTER_STORAGE_KEY) || "";
+  });
   const [basicComplianceCategories, setBasicComplianceCategories] = useState([]);
   const [fieldOptions, setFieldOptions] = useState([]);
   const bottomRef = useRef(null);
@@ -464,31 +481,51 @@ export default function RulesListSection() {
     action: null,
   });
 
+  const [baseVersion, setBaseVersion] = useState(null)
+
+
   const fetchRows = async (category) => {
     try {
       setLoading(true);
       setError("");
       setSuccess("");
 
-      const data = await getRiskRulesByCategory(category);
-      const normalized = (data || []).map(normalizeRule);
+      const response = await getRiskRulesByCategory(category);
+      const normalized = (response?.rows || []).map(normalizeRule);
 
       setServerRows(normalized);
       setWorkingRows(deepCloneRules(normalized));
+      setBaseVersion(response?.version ?? 1);
       setExpandedRuleIds({});
       setDisplayValidationErrors({ rules: {}, conditions: {} });
       setShowValidation(false);
+      // const data = await getRiskRulesByCategory(category);
+      // const normalized = (data || []).map(normalizeRule);
+
+      // setServerRows(normalized);
+      // setWorkingRows(deepCloneRules(normalized));
+      // setExpandedRuleIds({});
+      // setDisplayValidationErrors({ rules: {}, conditions: {} });
+      // setShowValidation(false);
     } catch (err) {
       setServerRows([]);
       setWorkingRows([]);
       setExpandedRuleIds({});
       setDisplayValidationErrors({ rules: {}, conditions: {} });
       setShowValidation(false);
+      setBaseVersion(null)
       setError(err?.response?.data?.detail || "Failed to load rules.");
     } finally {
       setLoading(false);
     }
   };
+
+  useEffect(() => {
+    if (!wasPageReloaded()) {
+      localStorage.removeItem(RULES_CATEGORY_STORAGE_KEY);
+      localStorage.removeItem(RULES_BASIC_FILTER_STORAGE_KEY);
+    }
+  }, []);
 
   useEffect(() => {
     if (activeCategory === "BASIC") {
@@ -502,15 +539,71 @@ export default function RulesListSection() {
   }, [activeCategory, basicComplianceFilter]);
 
   useEffect(() => {
+    const handleBeforeUnload = () => {
+      sessionStorage.setItem(RULES_RELOAD_FLAG_KEY, "1");
+    };
+
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    return () => {
+      window.removeEventListener("beforeunload", handleBeforeUnload);
+    };
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      const preserveOnReload =
+        sessionStorage.getItem(RULES_RELOAD_FLAG_KEY) === "1";
+
+      if (!preserveOnReload) {
+        sessionStorage.removeItem(RULES_CATEGORY_STORAGE_KEY);
+        sessionStorage.removeItem(RULES_BASIC_FILTER_STORAGE_KEY);
+      }
+    };
+  }, []);
+
+  useEffect(() => {
+    sessionStorage.removeItem(RULES_RELOAD_FLAG_KEY);
+  }, []);
+
+  useEffect(() => {
+    sessionStorage.setItem(RULES_CATEGORY_STORAGE_KEY, activeCategory);
+  }, [activeCategory]);
+
+  useEffect(() => {
+    if (basicComplianceFilter) {
+      sessionStorage.setItem(
+        RULES_BASIC_FILTER_STORAGE_KEY,
+        basicComplianceFilter
+      );
+    } else {
+      sessionStorage.removeItem(RULES_BASIC_FILTER_STORAGE_KEY);
+    }
+  }, [basicComplianceFilter]);
+
+  useEffect(() => {
     const fetchBasicCategories = async () => {
       try {
-        const categories = await getBasicComplianceCategories();
+        const response = await getBasicComplianceCategories();
+        const categories = response?.categories || response || [];
         setBasicComplianceCategories(categories);
 
-        if (categories.length) {
-          setBasicComplianceFilter(categories[0]);
-        } else {
+        if (!categories.length) {
           setBasicComplianceFilter("");
+          sessionStorage.removeItem(RULES_BASIC_FILTER_STORAGE_KEY);
+          return;
+        }
+
+        // 🔥 GET saved mini tab
+        const savedFilter = sessionStorage.getItem(
+          RULES_BASIC_FILTER_STORAGE_KEY
+        );
+
+        const isSavedFilterValid = categories.includes(savedFilter);
+
+        if (isSavedFilterValid) {
+          setBasicComplianceFilter(savedFilter);
+        } else {
+          setBasicComplianceFilter(categories[0]); // default (e.g. "General")
         }
       } catch (err) {
         console.error("Failed to load basic compliance categories", err);
@@ -722,23 +815,20 @@ export default function RulesListSection() {
       setError("");
       setSuccess("");
 
-      const payload = buildSavePayload(serverRows, workingRows, fieldOptions);
+      const builtPayload = buildSavePayload(serverRows, workingRows, fieldOptions);
 
-      console.log("SAVE PAYLOAD:", payload);
-      console.log(
-        "STRING VALUES:",
-        payload.conditions?.map((c) => ({
-          operator: c.operator,
-          value_type: c.value_type,
-          string_value: c.string_value,
-        }))
-      );
+      const payload = {
+        category: effectiveCategory,
+        base_version: baseVersion,
+        ...builtPayload,
+      };
+      // const payload = buildSavePayload(serverRows, workingRows, fieldOptions);
 
       if (
-        !payload.rules.length &&
-        !payload.conditions.length &&
-        !payload.creates.length &&
-        !payload.new_conditions.length
+        !builtPayload.rules.length &&
+        !builtPayload.conditions.length &&
+        !builtPayload.creates.length &&
+        !builtPayload.new_conditions.length
       ) {
         setSuccess("No changes to save.");
         return;
@@ -753,7 +843,26 @@ export default function RulesListSection() {
       }
 
       setSuccess("Changes saved successfully.");
+
+      window.scrollTo({
+        top: 0,
+        behavior: "smooth",
+      });
     } catch (err) {
+      if (err?.response?.status === 409) {
+        setError(
+          "This rule category was updated by another user. Please refresh and try again."
+        );
+        setSuccess("");
+
+        window.scrollTo({
+          top: 0,
+          behavior: "smooth",
+        });
+
+        return;
+      }
+      
       setError(err?.response?.data?.detail || "Failed to save changes.");
     } finally {
       setSaving(false);

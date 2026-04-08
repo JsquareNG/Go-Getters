@@ -329,7 +329,6 @@ def first_submit_application(
 
     username = get_users_by_id(db, new_app.user_id)
 
-    # Audit 1: application created
     create_audit_log(
         db=db,
         application_id=new_app.application_id,
@@ -354,7 +353,6 @@ def first_submit_application(
         description="Application submitted for bank review."
     )
 
-    # Audit 2: application submitted
     create_audit_log(
         db=db,
         application_id=new_app.application_id,
@@ -368,8 +366,6 @@ def first_submit_application(
     )
 
     print("[firstSubmit] created app", new_app.application_id)
-
-    
 
     liveness_row = (
         db.query(LivenessDetection)
@@ -695,27 +691,27 @@ def second_submit(
         "email_notes": email_notes,
     }
 
-@router.put("/needManualReview/{application_id}")
-def need_manual_review(
-    application_id: str,
-    background_tasks: BackgroundTasks,
-    data: dict = Body(default={}),
-    db: Session = Depends(get_db),
-):
-    app, emails_queued, email_notes = need_manual_review_service(
-        db=db,
-        background_tasks=background_tasks,
-        application_id=application_id,
-        send_email_now=False,
-    )
+# @router.put("/needManualReview/{application_id}")
+# def need_manual_review(
+#     application_id: str,
+#     background_tasks: BackgroundTasks,
+#     data: dict = Body(default={}),
+#     db: Session = Depends(get_db),
+# ):
+#     app, emails_queued, email_notes = need_manual_review_service(
+#         db=db,
+#         background_tasks=background_tasks,
+#         application_id=application_id,
+#         send_email_now=False,
+#     )
     
-    return {
-        "application_id": app.application_id,
-        "status": app.current_status,
-        "reviewer_id": app.reviewer_id,
-        "emails_queued": emails_queued,
-        "email_notes": email_notes,
-    }
+#     return {
+#         "application_id": app.application_id,
+#         "status": app.current_status,
+#         "reviewer_id": app.reviewer_id,
+#         "emails_queued": emails_queued,
+#         "email_notes": email_notes,
+#     }
 
 # User discarding their draft application
 @router.delete("/delete/{application_id}")

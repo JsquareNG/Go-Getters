@@ -427,7 +427,13 @@ export default function ConditionCard({
                       <div>
                         <input
                           type="number"
+                          min={0}
                           value={condition.numeric_value ?? ""}
+                          onKeyDown={(e) => {
+                            if (e.key === "-" || e.key === "e") {
+                              e.preventDefault();
+                            }
+                          }}
                           onChange={(e) =>
                             onConditionFieldChange(
                               conditionKey,
@@ -453,7 +459,13 @@ export default function ConditionCard({
               <div>
                 <input
                   type="number"
+                  min={0}
                   value={condition.score ?? ""}
+                  onKeyDown={(e) => {
+                    if (e.key === "-" || e.key === "e") {
+                      e.preventDefault();
+                    }
+                  }}
                   onChange={(e) =>
                     onConditionFieldChange(conditionKey, "score", e.target.value)
                   }
