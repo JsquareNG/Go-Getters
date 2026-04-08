@@ -19,7 +19,7 @@ const BusinessProfileAutofillCard = ({
   getFormDataRoot,
   data,
   onFieldChange,
-  extractProfileApi,
+  classifyAndExtractApi,
   existingDocumentMap,
   disabled = false
 }) => {
@@ -273,7 +273,7 @@ const BusinessProfileAutofillCard = ({
     setBusinessProfileUploading(true);
 
     try {
-      const result = await extractProfileApi(selectedFile);
+      const result = await classifyAndExtractApi(selectedFile);
 
       if (!result?.document_type || result.document_type === "UNKNOWN") {
         throw new Error(

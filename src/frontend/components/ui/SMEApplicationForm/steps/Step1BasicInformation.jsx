@@ -13,7 +13,7 @@ import RepeatableSectionRenderer from "../components/RepeatableSectionRenderer";
 import { SINGAPORE_CONFIG, INDONESIA_CONFIG } from "../config";
 
 import { allDocuments } from "@/api/documentApi";
-import { extractProfileApi, classifyAndExtractApi } from "@/api/ocrApi";
+import { classifyAndExtractApi } from "@/api/ocrApi";
 import { getLivenessDetectionBySessionId } from "@/api/livenessDetectionApi";
 
 import { mapIsoToNationalityOption } from "../utils/countries";
@@ -294,7 +294,7 @@ const Step1BasicInformation = ({
 
     // only do extraction for business profile OCR fields
     if (fieldConfig?.ocrTarget === "business_profile") {
-      const extractResult = await extractProfileApi(file);
+      const extractResult = await classifyAndExtractApi(file);
       extractedData = extractResult?.data || null;
       console.log("[OCR EXTRACT RESULT]", extractedData);
     }
@@ -576,12 +576,12 @@ const Step1BasicInformation = ({
     }));
 
     try {
-      // const result = await extractProfileApi(selectedFile);
+      // const result = await classifyAndExtractApi(selectedFile);
       // const payload = result?.data || {};
       let payload = fileValue?.extractedData || null;
 
       if (!payload) {
-        const result = await extractProfileApi(selectedFile);
+        const result = await classifyAndExtractApi(selectedFile);
         payload = result?.data || {};
       }
 
