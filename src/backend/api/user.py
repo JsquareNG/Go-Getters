@@ -68,7 +68,6 @@ def login(data: dict = Body(...), db: Session = Depends(get_db)):
         "email": user.email,
     }
     
-
 @router.get("/all-staff")
 def get_all_staff(db: Session = Depends(get_db)):
     staff = db.query(User).filter(User.user_role == 'STAFF').all()

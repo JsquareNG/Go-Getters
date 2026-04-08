@@ -18,13 +18,6 @@ class SimulationApplicationRecord(BaseModel):
 class RunSimulationRequest(BaseModel):
     applications: List[SimulationApplicationRecord]
 
-
-@router.get("/")
-def get_rule_field_options(category: str):
-    return "Hello"
-
-
-
 @router.post("/run")
 def run_simulation(payload: RunSimulationRequest, db: Session = Depends(get_db)):
     results = run_simulation_review(
