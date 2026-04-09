@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { ArrowRight, ShieldCheck } from "lucide-react";
 import { Button, Badge, Card, CardContent } from "@/components/ui";
 import { livenessDetectionApi } from "@/api/livenessDetectionApi";

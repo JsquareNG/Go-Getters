@@ -28,7 +28,6 @@ const Step1BasicInformation = ({
   const [existingDocuments, setExistingDocuments] = useState([]);
   const [ocrState, setOcrState] = useState({});
   const [verificationState, setVerificationState] = useState({});
-  const [minFaceMatchScore, setMinFaceMatchScore] = useState(0); // fallback
 
   const processedOcrFilesRef = useRef({});
   const hydratedSessionsRef = useRef({});
@@ -62,17 +61,6 @@ const Step1BasicInformation = ({
   };
 
   const activeConfig = CONFIG_MAP[data?.country] || SINGAPORE_CONFIG;
-
-  // need to add this in:
-  const isKycPassed =
-    kycStatus === "completed" &&
-    numericFaceMatchScore !== null &&
-    numericFaceMatchScore >= minFaceMatchScore;
-
-  const isKycFailed =
-    kycStatus === "completed" &&
-    numericFaceMatchScore !== null &&
-    numericFaceMatchScore < minFaceMatchScore;
 
   const { basicFieldsConfig, repeatableSectionsConfig } = useMemo(() => {
     const entity = activeConfig?.entities[data?.businessType] || {};
