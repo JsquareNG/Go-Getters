@@ -1,15 +1,16 @@
 import os
 from typing import Optional, Dict, Any, List
-
+from pydantic import ValidationError
 from fastapi import APIRouter, UploadFile, File, HTTPException, Form
 
-from backend.services.gemini_extractor import parse_universal_document, classify_document
-from backend.services.document_ai import extract_document_layout
-from backend.models.extract import DOCUMENT_SCHEMA_REGISTRY
-from backend.services.gemini_basic_extractor import (
-    classify_business_document,
-    parse_basic_info_document,
+from backend.services.gemini_extractor import (
+    parse_universal_document,
+    classify_document,
+    parse_alternative_document,
+    assess_alternative_document_match
 )
+from backend.services.document_ai import extract_document_layout
+from backend.models.extract import DOCUMENT_SCHEMA_REGISTRY, SUPPORTED_DOCUMENT_TYPES
 
 router = APIRouter(prefix="/extract", tags=["OCR Extraction"])
 
@@ -50,7 +51,17 @@ def _validate_file_type(content_type: Optional[str]):
             detail="Only PDF, JPG, PNG allowed"
         )
 
-
+def _validate_original_doc_type(doc_type: Optional[str]) -> str:
+    normalized = normalize_doc_type(doc_type)
+    if normalized not in DOCUMENT_SCHEMA_REGISTRY or normalized == "UNKNOWN":
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                f"Unsupported original_doc_type '{doc_type}'. "
+                f"Supported types: {', '.join([d for d in DOCUMENT_SCHEMA_REGISTRY.keys() if d != 'UNKNOWN'])}"
+            ),
+        )
+    return normalized
 async def _run_initial_document_processing(file: UploadFile):
     _validate_file_type(file.content_type)
 
@@ -68,11 +79,6 @@ async def _run_initial_document_processing(file: UploadFile):
         )
 
     return file_bytes, doc_ai_result, raw_text
-
-
-def _contains_any(text: str, keywords: List[str]) -> bool:
-    upper_text = text.upper()
-    return any(keyword.upper() in upper_text for keyword in keywords)
 
 
 def _basic_identifier_presence_check(detected_doc_type: str, raw_text: str) -> List[str]:
@@ -503,58 +509,147 @@ async def classify_and_extract_document(
             detail=f"Processing Error: {str(e)}"
         )
 
-# @router.post("/universal-basic-info")
-# async def extract_universal_basic_info(file: UploadFile = File(...)):
-#     try:
-#         _, doc_ai_result, raw_text = await _run_initial_document_processing(file)
+@router.post("/extract-alternative-document")
+async def extract_alternative_document(
+    file: UploadFile = File(...),
+    original_doc_type: str = Form(...),
+    alternative_doc_name: str = Form(...),
+):
+    try:
+        original_doc_type = _validate_original_doc_type(original_doc_type)
 
-#         detected_doc_type_raw = classify_business_document(raw_text)
-#         detected_doc_type = normalize_doc_type(detected_doc_type_raw)
+        _, doc_ai_result, raw_text = await _run_initial_document_processing(file)
 
-#         ocr_quality_assessment = _build_ocr_quality_assessment(
-#             doc_ai_result=doc_ai_result,
-#             raw_text=raw_text,
-#             detected_doc_type=detected_doc_type,
-#         )
+        ocr_quality_assessment = _build_ocr_quality_only_assessment(
+            doc_ai_result=doc_ai_result,
+            raw_text=raw_text,
+        )
 
-#         upload_validation = _light_upload_validation(
-#             raw_text=raw_text,
-#             detected_doc_type=detected_doc_type,
-#             ocr_quality_assessment=ocr_quality_assessment,
-#         )
+        summarized_upload_validation = {
+            "status": "PASS",
+            "expected_document_match": True,
+            "reasons": [],
+            "ocr_quality": {
+                "passes_threshold": ocr_quality_assessment.get("passes_threshold"),
+                "quality_band": ocr_quality_assessment.get("quality_band"),
+                "quality_score": ocr_quality_assessment.get("quality_score"),
+            },
+        }
 
-#         if upload_validation["status"] == "FAIL":
-#             return {
-#                 "filename": file.filename,
-#                 "content_type": file.content_type,
-#                 "document_type": detected_doc_type,
-#                 "upload_validation": upload_validation,
-#                 "ocr_confidence_stats": doc_ai_result.get("ocr_confidence_stats", {}),
-#                 "extraction_skipped": True,
-#                 "data": {},
-#             }
+        # Step 1: OCR quality gate
+        if not ocr_quality_assessment.get("passes_threshold", True):
+            summarized_upload_validation["status"] = "FAIL"
+            summarized_upload_validation["expected_document_match"] = True
 
-#         if detected_doc_type not in BUSINESS_BASIC_INFO_DOC_TYPES:
-#             raise HTTPException(
-#                 status_code=400,
-#                 detail="Only ACRA business profiles and Indonesian NIB documents are supported for basic autofill."
-#             )
+            summarized_upload_validation["reasons"] = [
+                "Document quality is too poor. Please re-upload a clearer file."
+            ]
 
-#         final_data = parse_basic_info_document(raw_text, detected_doc_type)
+            return {
+                "original_doc_type": original_doc_type,
+                "alternative_doc_name": alternative_doc_name,
+                "upload_validation": summarized_upload_validation,
+                "extraction_skipped": True,
+                "data": {},
+            }
 
-#         return {
-#             "filename": file.filename,
-#             "content_type": file.content_type,
-#             "document_type": detected_doc_type,
-#             "upload_validation": upload_validation,
-#             "ocr_confidence_stats": doc_ai_result.get("ocr_confidence_stats", {}),
-#             "extraction_skipped": False,
-#             "data": final_data,
-#         }
+        # Step 1b: OCR warning
+        if ocr_quality_assessment.get("quality_score", 100) < OCR_WARNING_THRESHOLD:
+            summarized_upload_validation["status"] = "WARNING"
+            summarized_upload_validation["reasons"] = [
+                "OCR quality is moderate. Alternative document may be unclear."
+            ]
 
-#     except ValueError as ve:
-#         raise HTTPException(status_code=422, detail=f"Validation Error: {str(ve)}")
-#     except HTTPException:
-#         raise
-#     except Exception as e:
-#         raise HTTPException(status_code=500, detail=f"Processing Error: {str(e)}")
+        # Step 2: LLM semantic check against selected alternative document
+        match_result = assess_alternative_document_match(
+            raw_text=raw_text,
+            original_doc_type=original_doc_type,
+            alternative_doc_name=alternative_doc_name,
+        )
+
+        if not match_result.get("matches_alternative_document", False):
+            summarized_upload_validation["status"] = "FAIL"
+            summarized_upload_validation["expected_document_match"] = False
+
+            summarized_upload_validation["detected_document_type"] = match_result.get(
+                "best_guess_document_type", "UNKNOWN"
+            )
+
+            summarized_upload_validation["match_confidence"] = match_result.get(
+                "confidence", "MEDIUM"
+            )
+
+            summarized_upload_validation["reasons"] = [
+                f"Uploaded file does not match the selected alternative document '{alternative_doc_name}'."
+            ]
+
+            return {
+                "original_doc_type": original_doc_type,
+                "alternative_doc_name": alternative_doc_name,
+                "document_match_assessment": match_result,
+                "upload_validation": summarized_upload_validation,
+                "extraction_skipped": True,
+                "data": {},
+            }
+
+        # Step 3: Extract into original document schema
+        try:
+            final_data = parse_alternative_document(
+                raw_text=raw_text,
+                original_doc_type=original_doc_type,
+                alternative_doc_name=alternative_doc_name,
+            )
+
+        except Exception as extraction_error:
+            summarized_upload_validation["status"] = "FAIL"
+            summarized_upload_validation["expected_document_match"] = True
+
+            cleaned_reasons = [
+                "The uploaded alternative document appears to match the selected document type, "
+                "but the extracted content could not be reliably mapped to the expected original document schema."
+            ]
+
+            if isinstance(extraction_error, ValidationError):
+                for err in extraction_error.errors():
+                    msg = err.get("msg", "").strip()
+
+                    if msg.startswith("Value error,"):
+                        msg = msg.replace("Value error,", "", 1).strip()
+
+                    if msg:
+                        cleaned_reasons.append(msg)
+            else:
+                cleaned_reasons.append("Extraction failed due to unexpected error.")
+
+            summarized_upload_validation["reasons"] = cleaned_reasons
+
+            return {
+                "original_doc_type": original_doc_type,
+                "alternative_doc_name": alternative_doc_name,
+                "document_match_assessment": match_result,
+                "upload_validation": summarized_upload_validation,
+                "extraction_skipped": True,
+                "data": {},
+            }
+
+        return {
+            "original_doc_type": original_doc_type,
+            "alternative_doc_name": alternative_doc_name,
+            "document_match_assessment": match_result,
+            "upload_validation": summarized_upload_validation,
+            "extraction_skipped": False,
+            "data": final_data,
+        }
+
+    except ValueError as ve:
+        raise HTTPException(
+            status_code=422,
+            detail=f"Validation Error: {str(ve)}"
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Processing Error: {str(e)}"
+        )
