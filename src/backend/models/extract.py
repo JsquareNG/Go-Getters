@@ -2,6 +2,20 @@ from pydantic import BaseModel, Field, field_validator
 from typing import List, Dict, Type, Any, Optional
 import re
 
+class BasicPerson(BaseModel):
+    full_name: str = Field(default="", description="Full legal name")
+    id_number: str = Field(default="", description="NRIC / Passport / ID number")
+    nationality: str = Field(default="", description="Nationality")
+    residential_address: str = Field(default="", description="Residential address")
+    date_of_birth: str = Field(default="", description="Date of birth if available")
+
+
+class LLPManager(BaseModel):
+    full_name: str = Field(default="", description="Full legal name")
+    id_number: str = Field(default="", description="NRIC / Passport / ID number")
+    nationality: str = Field(default="", description="Nationality")
+    residential_address: str = Field(default="", description="Residential address")
+
 class ShareholderEntry(BaseModel):
     name: str = Field(default="", description="Name of founder/shareholder")
     entity_type: str = Field(default="", description="INDIVIDUAL or COMPANY")
@@ -23,7 +37,13 @@ class ACRAExtractionData(BaseModel):
     address: str = Field(description="Registered office address")
     primary_business_activity: str = Field(description="Primary activity")
     shareholders: Optional[List[ShareholderEntry]] = Field(default_factory=list, description="List of shareholders shown in the ACRA Business Profile")
-    
+    owner: Optional[BasicPerson] = None
+    partners: List[BasicPerson] = Field(default_factory=list)
+    general_partners: List[BasicPerson] = Field(default_factory=list)
+    limited_partners: List[BasicPerson] = Field(default_factory=list)
+    managers: List[LLPManager] = Field(default_factory=list)
+    directors: List[BasicPerson] = Field(default_factory=list)
+    shareholders: List[ShareholderEntry] = Field(default_factory=list)
 
     @field_validator("uen")
     @classmethod
