@@ -15,9 +15,6 @@ def run_review_job(application_id: str):
     db: Session = SessionLocal()
 
     try:
-        # job = db.query(ReviewJobs).filter(
-        #     ReviewJobs.application_id == application_id
-        # ).first()
         job = (
             db.query(ReviewJobs)
             .filter(ReviewJobs.application_id == application_id)

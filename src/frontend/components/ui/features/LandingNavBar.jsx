@@ -286,6 +286,16 @@ const LandingNavBar = () => {
   );
 
   const handleLogout = () => {
+    sessionStorage.removeItem("rules-engine-rules-active-category");
+    sessionStorage.removeItem("rules-engine-rules-basic-filter");
+    sessionStorage.removeItem("rules-engine-preserve-on-reload");
+
+    sessionStorage.removeItem("rules-engine-config-active-tab");
+    sessionStorage.removeItem("rules-engine-config-preserve-on-reload");
+    
+    sessionStorage.removeItem("rules-engine-config-active-tab");
+    sessionStorage.removeItem("rules-engine-config-preserve-on-reload");
+
     dispatch(logout());
     navigate("/");
   };
