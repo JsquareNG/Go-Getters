@@ -513,13 +513,19 @@ def first_submit_application(
 
     print("[firstSubmit] created app", new_app.application_id)
 
-    liveness_row = (
-        db.query(LivenessDetection)
-        .filter(LivenessDetection.provider_session_id == provider_session_id)
-        .first()
-    )
+    if provider_session_id not in (None, ""):
+        liveness_row = (
+            db.query(LivenessDetection)
+            .filter(LivenessDetection.provider_session_id == provider_session_id)
+            .first()
+        )
 
-    liveness_row.application_id = new_app.application_id
+        if liveness_row is not None:
+            liveness_row.application_id = new_app.application_id
+        else:
+            print(
+                f"[firstSubmit] No LivenessDetection found for provider_session_id={provider_session_id}"
+            )
 
     db.commit()
     db.refresh(new_app)

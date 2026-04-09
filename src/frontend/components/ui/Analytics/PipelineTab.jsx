@@ -80,9 +80,6 @@ function isWithinDateRange(app, dateRange) {
 function normalizeStageLabel(value) {
   const v = String(value || "").trim().toLowerCase();
 
-  if (!v) return "Started";
-  if (["start", "started", "landing"].includes(v)) return "Started";
-
   if (
     [
       "step1",
@@ -119,19 +116,6 @@ function normalizeStageLabel(value) {
     return "Document Upload";
   }
 
-  if (
-    [
-      "step4",
-      "step 4",
-      "review",
-      "review & submit",
-      "submit",
-      "confirmation",
-    ].includes(v)
-  ) {
-    return "Review & Submit";
-  }
-
   return String(value)
     .trim()
     .replace(/[_-]+/g, " ")
@@ -142,6 +126,8 @@ function inferDraftStage(app) {
   const payload = getPayload(app);
 
   const rawStage =
+    payload.last_saved_step ??
+    payload.lastSavedStep ??
     payload.currentStep ??
     payload.current_step ??
     payload.draftStep ??
@@ -152,12 +138,12 @@ function inferDraftStage(app) {
     payload.last_completed_step ??
     payload.step;
 
-  if (typeof rawStage === "number") {
-    if (rawStage <= 0) return "Started";
-    if (rawStage === 1) return "Basic Information";
-    if (rawStage === 2) return "Business Details";
-    if (rawStage === 3) return "Document Upload";
-    return "Review & Submit";
+  const numericStage = Number(rawStage);
+
+  if (!Number.isNaN(numericStage)) {
+    if (numericStage === 1) return "Basic Information";
+    if (numericStage === 2) return "Business Details";
+    if (numericStage === 3) return "Document Upload";
   }
 
   return normalizeStageLabel(rawStage);
@@ -205,19 +191,16 @@ function buildDraftDropoff(applications = []) {
   );
 
   const counts = {
-    Started: 0,
     "Basic Information": 0,
     "Business Details": 0,
     "Document Upload": 0,
-    "Review & Submit": 0,
   };
 
   draftApps.forEach((app) => {
     const stage = inferDraftStage(app);
+
     if (counts[stage] !== undefined) {
       counts[stage] += 1;
-    } else {
-      counts.Started += 1;
     }
   });
 
@@ -233,11 +216,7 @@ function buildDraftDropoff(applications = []) {
         ? "hsl(215, 16%, 65%)"
         : index === 1
           ? "hsl(210, 100%, 50%)"
-          : index === 2
-            ? "hsl(262, 83%, 58%)"
-            : index === 3
-              ? "hsl(38, 92%, 50%)"
-              : "hsl(351, 85%, 49%)",
+          : "hsl(262, 83%, 58%)",
   }));
 }
 

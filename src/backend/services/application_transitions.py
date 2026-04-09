@@ -14,49 +14,35 @@ from backend.services.audit_service import create_audit_log
 EXCLUDED_STATUSES = ("Withdrawn", "Approved", "Rejected")  # not "active"
 
 
-def pick_least_loaded_staff_id(db: Session) -> str | None:
-    # 1) Compute each staff's load (NO LOCKS here)
-    active_counts_sq = (
-        select(
-            ApplicationForm.reviewer_id.label("rid"),
-            func.count(ApplicationForm.application_id).label("cnt"),
-        )
-        .where(
-            ApplicationForm.reviewer_id.isnot(None),
-            ApplicationForm.current_status.notin_(EXCLUDED_STATUSES),
-        )
-        .group_by(ApplicationForm.reviewer_id)
-        .subquery()
+def pick_least_loaded_staff_id(db: Session) -> str:
+    staff_ids = db.execute(
+        select(User.user_id)
+        .where(User.user_role == "STAFF")
+        .order_by(User.user_id.asc())
+        .with_for_update()
+    ).scalars().all()
+
+    if not staff_ids:
+        raise ValueError("No STAFF users exist in the system")
+
+    active_counts = dict(
+        db.execute(
+            select(
+                ApplicationForm.reviewer_id,
+                func.count(ApplicationForm.application_id)
+            )
+            .where(
+                ApplicationForm.reviewer_id.in_(staff_ids),
+                ApplicationForm.current_status.notin_(EXCLUDED_STATUSES),
+            )
+            .group_by(ApplicationForm.reviewer_id)
+        ).all()
     )
 
-    staff_loads = db.execute(
-        select(
-            User.user_id,
-            func.coalesce(active_counts_sq.c.cnt, 0).label("load"),
-        )
-        .select_from(User)
-        .outerjoin(active_counts_sq, active_counts_sq.c.rid == User.user_id)
-        .where(User.user_role == "STAFF")
-        .order_by(func.coalesce(active_counts_sq.c.cnt, 0).asc())
-    ).all()
-
-    if not staff_loads:
-        return None
-
-    min_load = staff_loads[0].load
-    candidates = [row.user_id for row in staff_loads if row.load == min_load]
-
-    if not candidates:
-        return None
-
-    # 2) Lock ONE candidate staff row (LOCK QUERY touches ONLY "user" table)
-    chosen = db.execute(
-        select(User.user_id)
-        .where(User.user_id.in_(candidates))
-        .order_by(func.random())
-        .with_for_update(skip_locked=True)
-        .limit(1)
-    ).scalar_one_or_none()
+    chosen = min(
+        staff_ids,
+        key=lambda sid: (active_counts.get(sid, 0), sid)
+    )
 
     return chosen
 

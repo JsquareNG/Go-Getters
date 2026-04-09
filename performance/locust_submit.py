@@ -1,22 +1,25 @@
-from locust import HttpUser, task, between
+from locust import HttpUser, task
 import random
 import string
+
 
 def random_string(length=6):
     return "".join(random.choices(string.ascii_uppercase + string.digits, k=length))
 
-def random_business_name():
-    return f"StressTestBiz_{random_string()}"
+
+def random_business_name(prefix="StressTestBiz"):
+    return f"{prefix}_{random_string()}"
+
 
 TOKENS = [
-    "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyX2lkIjoiMDAwMDAwNTEiLCJyb2xlIjoiU01FIiwiZXhwIjoxNzc1NjQ2NjY1fQ.wV6LjMB9rRECJjib3jNIHHs7O1d9WV24jmldHqXXYnY",
-    "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyX2lkIjoiMDAwMDAwNTAiLCJyb2xlIjoiU01FIiwiZXhwIjoxNzc1NjQ3ODIwfQ.SfyX-gXUaCXdxCEI5Rn6b-gtx_MbUu9U3LW_ZLEwYII",
+    "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyX2lkIjoiMDAwMDAwNDYiLCJyb2xlIjoiU01FIiwiZXhwIjoxNzc1NzUxOTAzfQ.ngWWbvpDuOr2pC8byjliTOgPU7H4RWGzlsOV-fb1nT4",
+    "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyX2lkIjoiMDAwMDAwNDgiLCJyb2xlIjoiU01FIiwiZXhwIjoxNzc1NzUxODkyfQ.rMDodbGcLtneKXTeq_0G4NIOhE-tJkQM68ZXwyv3dhA",
 ]
+
 
 class SubmitApplicationUser(HttpUser):
     host = "http://localhost:8000"
-    wait_time = between(1, 2)
-
+    wait_time = lambda self: 0
     token_index = 0
 
     def on_start(self):
@@ -30,7 +33,7 @@ class SubmitApplicationUser(HttpUser):
         }
 
     @task
-    def submit_application(self):
+    def submit_application_once(self):
         payload = {
             "provider_session_id": None,
             "form_data": {
@@ -48,14 +51,24 @@ class SubmitApplicationUser(HttpUser):
             name="POST /applications/firstSubmit",
         ) as response:
             print("STATUS:", response.status_code)
+            print("BODY:", response.text)
 
             if response.status_code not in [200, 201]:
                 response.failure(f"Failed: {response.status_code} | {response.text}")
+                self.stop(force=True)
                 return
 
-            data = response.json()
+            try:
+                data = response.json()
+            except Exception:
+                response.failure(f"Response is not valid JSON: {response.text}")
+                self.stop(force=True)
+                return
+
             if "application_id" not in data:
                 response.failure(f"Missing application_id: {data}")
+                self.stop(force=True)
                 return
 
             response.success()
+            self.stop(force=True)
