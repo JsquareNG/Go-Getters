@@ -82,8 +82,6 @@ app.include_router(review_jobs)
 
 app.include_router(extract_router)
 
-# app.include_router(docai_router)
-# app.include_router(idv_router)
 app.include_router(audit_router)
 app.include_router(risk_list_router)
 app.include_router(risk_rule_router)
