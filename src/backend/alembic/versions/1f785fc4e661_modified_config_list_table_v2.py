@@ -26,6 +26,7 @@ def upgrade() -> None:
                existing_type=sa.VARCHAR(length=50),
                nullable=True)
     # ### end Alembic commands ###
+    
 
 
 def downgrade() -> None:

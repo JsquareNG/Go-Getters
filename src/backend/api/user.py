@@ -111,12 +111,7 @@ def login(data: dict = Body(...), db: Session = Depends(get_db)):
         "last_name": user.last_name,
         "email": user.email,
     }
-
-
-# =====================================================
-# Protected endpoints
-# =====================================================
-
+    
 @router.get("/all-staff")
 def get_all_staff(
     db: Session = Depends(get_db),
