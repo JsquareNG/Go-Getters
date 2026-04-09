@@ -303,15 +303,15 @@ def save_application(
     _require_roles(current_user, "SME")
 
     form_data = data.get("form_data", {})
-    provider_session_id = data.get("provider_session_id")
-    current_user_id = _current_user_id(current_user)
+    # provider_session_id = data.get("provider_session_id")
+
 
     new_app = ApplicationForm(
         business_country=form_data["country"],
-        business_name=form_data["businessName"],
-        business_type=form_data["businessType"],
-        provider_session_id=provider_session_id,
-        user_id=current_user_id,
+        business_name=form_data['businessName'],
+        business_type=form_data['businessType'],
+        # provider_session_id=provider_session_id,
+        user_id=data["user_id"],
         form_data=form_data,
         previous_status=None,
         current_status="Draft",
@@ -344,14 +344,14 @@ def save_application(
         description="Application created by applicant.",
     )
 
-    if provider_session_id:
-        liveness_row = (
-            db.query(LivenessDetection)
-            .filter(LivenessDetection.provider_session_id == provider_session_id)
-            .first()
-        )
-        if liveness_row:
-            liveness_row.application_id = new_app.application_id
+
+    # liveness_row = (
+    #     db.query(LivenessDetection)
+    #     .filter(LivenessDetection.provider_session_id == provider_session_id)
+    #     .first()
+    # )
+
+    # liveness_row.application_id = new_app.application_id
 
     db.commit()
     db.refresh(new_app)

@@ -5,6 +5,7 @@ export {
   AccordionContent,
 } from "./accordion";
 export { Button, buttonVariants } from "./Button";
+export { Badge, badgeVariants } from "./Badge";
 export { Input } from "./Input";
 export { Label } from "./Label";
 export { Textarea } from "./Textarea";
@@ -51,5 +52,9 @@ export {
   ToastAction,
 } from "./Toast";
 export { Toaster } from "./Toaster";
-export {Tabs, TabsContent, TabsList, TabsTrigger} from "./Tabs"
-export { Collapsible, CollapsibleTrigger, CollapsibleContent } from "./collapsible"
+export { Tabs, TabsContent, TabsList, TabsTrigger } from "./Tabs";
+export {
+  Collapsible,
+  CollapsibleTrigger,
+  CollapsibleContent,
+} from "./collapsible";

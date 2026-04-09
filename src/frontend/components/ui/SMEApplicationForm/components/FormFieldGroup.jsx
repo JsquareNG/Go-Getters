@@ -33,7 +33,7 @@ const FormFieldGroup = ({
   //     ? currentValue.filter((v) => v !== optionValue) // remove
   //     : [...currentValue, optionValue]; // add
   //   onChange?.(fieldName, newValue);
-  // };
+  // }
 
   return (
     <div className="mb-6">
