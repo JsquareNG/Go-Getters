@@ -36,14 +36,17 @@ def evaluate_company(company, db, config):
 
     simplified_threshold = config.get("thresholds", {}).get("Simplified Due Diligence")
     standard_threshold = config.get("thresholds", {}).get("Standard Due Diligence")
+    enhanced_threshold = config.get("thresholds", {}).get("Enhanced Due Diligence")
+
 
     if total_score < simplified_threshold:
         decision = "Simplified Due Diligence (SDD)"
     elif total_score < standard_threshold:
         decision = "Standard Due Diligence (CDD)"
-    else:
+    elif total_score < enhanced_threshold:
         decision = "Enhanced Due Diligence (EDD)"
-
+    else:
+        decision = "Auto-Rejected"
     return {
         "risk_score": total_score,
         "risk_decision": decision,

@@ -36,6 +36,7 @@ SIMULATION_ELIGIBLE_STATUSES = [
     "Approved",
     "Rejected",
     "Withdrawn",
+    "Auto Rejected",
 ]
 
 
@@ -328,7 +329,6 @@ def first_submit_application(
 
     username = get_users_by_id(db, new_app.user_id)
 
-    # Audit 1: application created
     create_audit_log(
         db=db,
         application_id=new_app.application_id,
@@ -353,7 +353,6 @@ def first_submit_application(
         description="Application submitted for bank review."
     )
 
-    # Audit 2: application submitted
     create_audit_log(
         db=db,
         application_id=new_app.application_id,
@@ -367,8 +366,6 @@ def first_submit_application(
     )
 
     print("[firstSubmit] created app", new_app.application_id)
-
-    
 
     liveness_row = (
         db.query(LivenessDetection)
@@ -429,16 +426,38 @@ def close_open_action_request_and_update_answers(db: Session, application_id: st
 
     now = datetime.now(ZoneInfo("Asia/Singapore")).replace(tzinfo=None)
 
-    # Split requested items
     doc_items = [i for i in items if i.item_type == "DOCUMENT"]
-    q_items   = [i for i in items if i.item_type == "QUESTION"]
+    alt_docs = data.get("alternative_documents") or []
+    alt_map = {
+        d.get("item_id"): d
+        for d in alt_docs
+        if d.get("item_id")
+    }
 
-    # ---------------------------
-    # DOCUMENTS: only if requested
-    # ---------------------------
     for it in doc_items:
-        it.fulfilled = True
+        alt = alt_map.get(it.item_id)
+
+        if alt:
+            # ✅ Alternative path
+            it.is_substitute = True
+            it.submitted_document_name = (
+                alt.get("substitute_document_type") or ""
+            ).strip()
+            it.substitution_reason = (
+                alt.get("substitute_reason") or ""
+            ).strip()
+
+        else:
+            # ✅ Normal path
+            it.is_substitute = False
+            it.submitted_document_name = None
+            it.substitution_reason = None
+
+        # mark fulfilled regardless (since frontend enforces upload)
         it.fulfilled_at = now
+
+    # Split requested items
+    q_items   = [i for i in items if i.item_type == "QUESTION"]
 
     # ---------------------------
     # QUESTIONS: only if requested
@@ -672,27 +691,27 @@ def second_submit(
         "email_notes": email_notes,
     }
 
-@router.put("/needManualReview/{application_id}")
-def need_manual_review(
-    application_id: str,
-    background_tasks: BackgroundTasks,
-    data: dict = Body(default={}),
-    db: Session = Depends(get_db),
-):
-    app, emails_queued, email_notes = need_manual_review_service(
-        db=db,
-        background_tasks=background_tasks,
-        application_id=application_id,
-        send_email_now=False,
-    )
+# @router.put("/needManualReview/{application_id}")
+# def need_manual_review(
+#     application_id: str,
+#     background_tasks: BackgroundTasks,
+#     data: dict = Body(default={}),
+#     db: Session = Depends(get_db),
+# ):
+#     app, emails_queued, email_notes = need_manual_review_service(
+#         db=db,
+#         background_tasks=background_tasks,
+#         application_id=application_id,
+#         send_email_now=False,
+#     )
     
-    return {
-        "application_id": app.application_id,
-        "status": app.current_status,
-        "reviewer_id": app.reviewer_id,
-        "emails_queued": emails_queued,
-        "email_notes": email_notes,
-    }
+#     return {
+#         "application_id": app.application_id,
+#         "status": app.current_status,
+#         "reviewer_id": app.reviewer_id,
+#         "emails_queued": emails_queued,
+#         "email_notes": email_notes,
+#     }
 
 # User discarding their draft application
 @router.delete("/delete/{application_id}")
@@ -1052,7 +1071,7 @@ def withdraw_application(
 
     reviewer = None
 
-    if getattr(app, "user_id", None):
+    if getattr(app, "reviewer_id", None):
         reviewer = db.query(User).filter(User.user_id == app.reviewer_id).first()
 
     if reviewer and getattr(reviewer, "email", None):
@@ -1313,6 +1332,9 @@ def get_action_requests(application_id: str, db: Session = Depends(get_db)):
                         "document_name": it.document_name,
                         "document_desc": it.document_desc,
                         "fulfilled_at": it.fulfilled_at,
+                        "is_substitute": it.is_substitute,
+                        "submitted_document_name": it.submitted_document_name,
+                        "substitution_reason": it.substitution_reason,
                     }
                 )
 
@@ -1341,3 +1363,4 @@ def get_action_requests(application_id: str, db: Session = Depends(get_db)):
         "application_id": application_id,
         "action_requests": results,
     }
+

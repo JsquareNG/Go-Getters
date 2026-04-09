@@ -9,6 +9,8 @@ import {
 import ConfirmModal from "./common/ConfirmModal";
 
 const COUNTRY_TAB_KEYS = ["HIGH_RISK_COUNTRIES", "FATF_BLACKLIST"];
+const CONFIG_TAB_STORAGE_KEY = "rules-engine-config-active-tab";
+const CONFIG_RELOAD_FLAG_KEY = "rules-engine-config-preserve-on-reload";
 
 function normalizeRow(row) {
   return {
@@ -52,7 +54,9 @@ function getItemTypeFromListName(name) {
 }
 
 export default function ConfigListSection() {
-  const [activeTab, setActiveTab] = useState("");
+  const [activeTab, setActiveTab] = useState(() => {
+    return sessionStorage.getItem(CONFIG_TAB_STORAGE_KEY) || "";
+  });
   const [serverRows, setServerRows] = useState([]);
   const [workingRows, setWorkingRows] = useState([]);
   const [crossTabRows, setCrossTabRows] = useState([]);
@@ -62,6 +66,7 @@ export default function ConfigListSection() {
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const [configTabs, setConfigTabs] = useState([]);
+  const [baseVersion, setBaseVersion] = useState(null);
   const bottomRef = useRef(null);
 
   const [confirmState, setConfirmState] = useState({
@@ -88,8 +93,15 @@ export default function ConfigListSection() {
 
         setConfigTabs(tabs);
 
-        if (tabs.length && !activeTab) {
-          setActiveTab(tabs[0].key);
+        if (tabs.length) {
+          const savedTab = sessionStorage.getItem(CONFIG_TAB_STORAGE_KEY);
+          const isSavedTabValid = tabs.some((tab) => tab.key === savedTab);
+
+          if (isSavedTabValid) {
+            setActiveTab(savedTab);
+          } else if (!activeTab || !tabs.some((tab) => tab.key === activeTab)) {
+            setActiveTab(tabs[0].key);
+          }
         }
       } catch (err) {
         console.error("Failed to load config tabs", err);
@@ -99,6 +111,40 @@ export default function ConfigListSection() {
 
     fetchConfigTabs();
   }, [activeTab]);
+
+  useEffect(() => {
+    if (activeTab) {
+      sessionStorage.setItem(CONFIG_TAB_STORAGE_KEY, activeTab);
+    } else {
+      sessionStorage.removeItem(CONFIG_TAB_STORAGE_KEY);
+    }
+  }, [activeTab]);
+
+  useEffect(() => {
+    const handleBeforeUnload = () => {
+      sessionStorage.setItem(CONFIG_RELOAD_FLAG_KEY, "1");
+    };
+
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    return () => {
+      window.removeEventListener("beforeunload", handleBeforeUnload);
+    };
+  }, []);
+
+  useEffect(() => {
+    sessionStorage.removeItem(CONFIG_RELOAD_FLAG_KEY);
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      const preserveOnReload =
+        sessionStorage.getItem(CONFIG_RELOAD_FLAG_KEY) === "1";
+
+      if (!preserveOnReload) {
+        sessionStorage.removeItem(CONFIG_TAB_STORAGE_KEY);
+      }
+    };
+  }, []);
 
   const currentTabMeta = useMemo(
     () => configTabs.find((tab) => tab.key === activeTab),
@@ -128,17 +174,19 @@ export default function ConfigListSection() {
       setError("");
       setSuccess("");
 
-      const data = await getRiskConfigListByListName(activeTab);
-      const normalized = (data || []).map(normalizeRow);
+      const response = await getRiskConfigListByListName(activeTab);
+      const normalized = (response?.rows || []).map(normalizeRow);
 
       setServerRows(normalized);
       setWorkingRows(normalized);
+      setBaseVersion(response?.version ?? 1);
       setValidationErrors({});
     } catch (err) {
       if (err?.response?.status === 404) {
         setServerRows([]);
         setWorkingRows([]);
         setValidationErrors({});
+        setBaseVersion(null);
       } else {
         setError(err?.response?.data?.detail || "Failed to load config list.");
       }
@@ -604,7 +652,14 @@ export default function ConfigListSection() {
         }
       }
 
-      const payload = {};
+      // const payload = {};
+      // if (updates.length) payload.updates = updates;
+      // if (creates.length) payload.creates = creates;
+      const payload = {
+        list_name: activeTab,
+        base_version: baseVersion,
+      };
+
       if (updates.length) payload.updates = updates;
       if (creates.length) payload.creates = creates;
 
@@ -617,7 +672,24 @@ export default function ConfigListSection() {
       await fetchRows();
       await fetchCrossTabRows();
       setSuccess("Changes saved successfully.");
+
+      window.scrollTo({
+        top: 0,
+        behavior: "smooth",
+      });
     } catch (err) {
+      if (err?.response?.status === 409) {
+        setError(
+          "This config list was updated by another user. Please refresh and try again."
+        );
+        setSuccess("");
+          window.scrollTo({
+          top: 0,
+          behavior: "smooth",
+        });
+        return;
+      }
+
       setError(err?.response?.data?.detail || "Failed to save changes.");
     } finally {
       setSaving(false);
@@ -693,7 +765,7 @@ export default function ConfigListSection() {
       ? "Manage compliance thresholds for this list."
       : "Manage configuration records for this list.";
 
-  const shouldShowAddRow = true;
+  const shouldShowAddRow = currentTabMeta?.itemType !== "threshold";
 
   return (
     <>

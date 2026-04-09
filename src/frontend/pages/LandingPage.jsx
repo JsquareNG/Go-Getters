@@ -3,10 +3,10 @@ import { Plus, Loader2, AlertCircle } from "lucide-react";
 import {
   Button,
   ApplicationCard,
-  ApplicationStats,
+  // ApplicationStats,
   EmptyState,
 } from "@/components/ui";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { getApplicationsByUserId } from "../api/applicationApi";
 
 import { useSelector } from "react-redux";
@@ -22,6 +22,15 @@ export default function LandingPage() {
 
   const [selectedStatus, setSelectedStatus] = useState("All");
   const [searchQuery, setSearchQuery] = useState("");
+
+  const location = useLocation();
+  const [pageBanner, setPageBanner] = useState(location.state?.banner || null);
+
+  const bannerStyles = {
+    success: "border-emerald-200 bg-emerald-50 text-emerald-700",
+    withdrawn: "border-blue-200 bg-blue-50 text-blue-700",
+    deleted: "border-red-200 bg-red-50 text-red-700",
+  };
 
   useEffect(() => {
     const fetchApps = async () => {
@@ -54,6 +63,12 @@ export default function LandingPage() {
     fetchApps();
   }, [user?.user_id]);
 
+  useEffect(() => {
+    if (location.state?.banner) {
+      window.history.replaceState({}, document.title);
+    }
+  }, [location.state]);
+
   /**
    * Restriction logic:
    * Block new application if user has any existing application in these statuses
@@ -76,11 +91,11 @@ export default function LandingPage() {
     const status = blockingApp?.current_status;
 
     if (status === "Approved")
-      return "You already have an approved SME account. You cannot create another application.";
+      return "Your application for a business account has already been approved.";
     if (status === "Requires Action")
-      return "You already have an SME application that requires action. Please complete it instead of creating a new one.";
+      return "You already have an SME application that requires action. Please complete it as soon as possible.";
     if (status === "Draft")
-      return "You already have a draft SME application. Please continue that application instead of creating a new one.";
+      return "You already have a draft SME application. Please continue and submit that application as soon as possible.";
     return "You already have an SME application in progress. You can only submit one application per user.";
   }, [applications, blocksNewApplication, BLOCKING_STATUSES]);
 
@@ -93,25 +108,25 @@ export default function LandingPage() {
       const matchesStatus =
         selectedStatus === "All" || app.current_status === selectedStatus;
 
-      const q = searchQuery.toLowerCase();
-      const matchesSearch = (app.business_name || "").toLowerCase().includes(q);
+      const q = searchQuery.trim().toLowerCase();
+      const businessName = String(app.business_name ?? "").toLowerCase();
 
-      return matchesStatus && matchesSearch;
+      return matchesStatus && (q === "" || businessName.includes(q));
     });
-  }, [selectedStatus, searchQuery, applications]);
+  }, [applications, selectedStatus, searchQuery]);
 
-  // Stats Logic
-  const stats = useMemo(
-    () => ({
-      total: applications.length,
-      pending: applications.filter((a) =>
-        ["Under Manual Review", "Under Review"].includes(a.current_status)
-      ).length,
-      requiresAction: applications.filter((a) => a.current_status === "Requires Action").length,
-      approved: applications.filter((a) => a.current_status === "Approved").length,
-    }),
-    [applications]
-  );
+  // // Stats Logic
+  // const stats = useMemo(
+  //   () => ({
+  //     total: applications.length,
+  //     pending: applications.filter((a) =>
+  //       ["Under Manual Review", "Under Review"].includes(a.current_status)
+  //     ).length,
+  //     requiresAction: applications.filter((a) => a.current_status === "Requires Action").length,
+  //     approved: applications.filter((a) => a.current_status === "Approved").length,
+  //   }),
+  //   [applications]
+  // );
 
   // ✅ new: detect empty state for this user (no apps)
   const hasNoApplications = applications.length === 0 && !error;
@@ -133,13 +148,13 @@ export default function LandingPage() {
     <div className="min-h-screen bg-background">
       <main className="container mx-auto px-6 py-12 animate-fade-in">
         {/* HEADER */}
-        <div className="flex flex-col gap-6 md:flex-row md:items-start md:justify-between mb-8">
+        <div className="flex flex-col gap-6 md:flex-row md:items-start md:justify-between mb-4">
           <div>
             <h1 className="text-2xl font-semibold text-foreground mb-1">
-              Onboarding Applications
+              Onboarding Application
             </h1>
             <p className="text-muted-foreground">
-              Manage and track your business account applications
+              Manage and track your business account application
             </p>
 
             {/* Restriction banner */}
@@ -151,22 +166,32 @@ export default function LandingPage() {
             )}
           </div>
 
-          {/* {showNewApplicationButton && (
-            <Button
-              onClick={handleCreateNew}
-              className="gap-2 shrink-0 bg-red-500 hover:bg-red-600"
-              title="Create a new application"
-            >
-              <Plus className="h-4 w-4" />
-              New Application
-            </Button>
-          )} */}
+          
         </div>
 
-        {/* STATS OVERVIEW */}
+        {pageBanner && (
+          <div
+            className={`mb-6 flex items-center rounded-lg border px-4 py-3 animate-fade-in ${
+              bannerStyles[pageBanner.type] || bannerStyles.success
+            }`}
+          >
+            <p className="flex-1 text-sm font-medium">
+              {pageBanner.message}
+            </p>
+
+            <button
+              onClick={() => setPageBanner(null)}
+              className="ml-auto pl-6 text-xs font-medium opacity-70 hover:underline hover:opacity-100"
+            >
+              Dismiss
+            </button>
+          </div>
+        )}
+
+        {/* STATS OVERVIEW
         <div className="mb-8">
           <ApplicationStats {...stats} />
-        </div>
+        </div> */}
 
         {/* APPLICATIONS LIST */}
         {/* ✅ CHANGE: If there are no applications, show CTA instead of red error banner */}

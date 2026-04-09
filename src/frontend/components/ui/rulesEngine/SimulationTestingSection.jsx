@@ -12,9 +12,18 @@ import {
   Loader2,
 } from "lucide-react";
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "../primitives/Select";
+import {
   getSubmittedApplications,
   runSimulation,
 } from "../../../api/simulateTestingApi";
+const itemStyle =
+  "cursor-pointer data-[state=checked]:bg-blue-100 data-[state=checked]:text-blue-700 hover:bg-gray-100";
 
 export default function SimulationTestingSection() {
   const [rows, setRows] = useState([]);
@@ -337,6 +346,17 @@ export default function SimulationTestingSection() {
                   placeholder="Application ID or business name"
                   className="w-full rounded-xl border border-gray-200 bg-white py-2 pl-9 pr-3 text-sm outline-none transition focus:border-red-400"
                 />
+
+                {search.trim() !== "" && (
+                  <button
+                    type="button"
+                    onClick={() => setSearch("")}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground transition hover:text-foreground"
+                    aria-label="Clear search"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                )}
               </div>
             </div>
 
@@ -613,17 +633,19 @@ function FilterSelect({ label, value, onChange, options }) {
       <label className="mb-1 block text-xs font-medium uppercase tracking-wide text-gray-500">
         {label}
       </label>
-      <select
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        className="w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm outline-none transition focus:border-red-400"
-      >
-        {options.map((option) => (
-          <option key={option} value={option}>
-            {option}
-          </option>
-        ))}
-      </select>
+      <Select value={value} onValueChange={onChange}>
+        <SelectTrigger className="w-full h-10 bg-white text-sm">
+          <SelectValue placeholder={label} />
+        </SelectTrigger>
+
+        <SelectContent className="bg-white">
+          {options.map((option) => (
+            <SelectItem key={option} value={option} className={itemStyle}>
+              {option}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
     </div>
   );
 }
@@ -1039,6 +1061,7 @@ function SimulationComparisonCard({ item, expanded, onToggle }) {
             </div>
           ) : (
             <div className="space-y-4 p-5">
+              <ChangeSummary comparison={item.comparison} />
               <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
                 <ComparisonResultCard
                   title="Original Review Result"
@@ -1059,7 +1082,7 @@ function SimulationComparisonCard({ item, expanded, onToggle }) {
                 />
               </div>
 
-              <ChangeSummary comparison={item.comparison} />
+              
             </div>
           )}
         </>
@@ -1085,7 +1108,7 @@ function ComparisonResultCard({
       </div>
 
       <div className="space-y-4 p-4">
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
           <MiniStat
             label="Risk Score"
             value={score ?? "-"}

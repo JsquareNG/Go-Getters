@@ -137,6 +137,11 @@ export default function ConfigListTable({
                         <div>
                           <input
                             type="number"
+                            onKeyDown={(e) => {
+                              if (e.key === "-" || e.key === "e") {
+                                e.preventDefault();
+                              }
+                            }}
                             value={row.item_value ?? ""}
                             onChange={(e) =>
                               onFieldChange(row, "item_value", e.target.value)

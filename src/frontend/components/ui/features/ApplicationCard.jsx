@@ -8,7 +8,7 @@ import {
 import { Button, Card, CardContent, StatusBadge } from "../primitives";
 import { cn } from "@/lib/utils";
 import { useNavigate } from "react-router-dom";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 
 function getActionText(status) {
   switch (status) {
@@ -22,13 +22,14 @@ function getActionText(status) {
     case "Approved":
     case "Rejected":
     case "Withdrawn":
+    case "Auto Rejected":
+    case "Deleted":
       return "View Details";
     default:
       return "View";
   }
 }
 
-// ✅ robust normalizer for comparisons
 const normKey = (v) => {
   if (v == null) return null;
   const s = String(v)
@@ -39,10 +40,14 @@ const normKey = (v) => {
   return s.length ? s : null;
 };
 
-// ✅ for displaying in UI
 const normDisplay = (v) => (v == null ? "" : String(v).trim());
 
-const ApplicationCard = ({ application }) => {
+const ApplicationCard = ({
+  application,
+  variant = "default", // "default" | "management"
+  onClick,
+  detailPath,
+}) => {
   const navigate = useNavigate();
 
   const [status, setStatus] = useState(application.current_status);
@@ -54,12 +59,15 @@ const ApplicationCard = ({ application }) => {
   const companyName = application.business_name || "Untitled Business";
   const country = application.business_country || "N/A";
   const lastUpdated = application.last_edited;
+  const riskGrade = application?.risk_grade ?? application?.riskGrade ?? "";
 
   const sKey = normKey(status);
   const sDisplay = normDisplay(status);
 
-  const isUrgent = sKey === "requires action";
-  const isActionable = sKey === "draft" || sKey === "requires action";
+  const isUrgent = variant !== "management" && sKey === "requires action";
+  const isActionable =
+    variant !== "management" &&
+    (sKey === "draft" || sKey === "requires action");
 
   useEffect(() => {
     setStatus(application.current_status);
@@ -67,6 +75,21 @@ const ApplicationCard = ({ application }) => {
   }, [application.current_status, application.previous_status]);
 
   const handleClick = () => {
+    if (onClick) {
+      onClick(application);
+      return;
+    }
+
+    if (detailPath) {
+      navigate(`${detailPath}/${appId}`);
+      return;
+    }
+
+    if (variant === "management") {
+      navigate(`/management-landing-page/${appId}`);
+      return;
+    }
+
     navigate(`/landingpage/${appId}`);
   };
 
@@ -79,11 +102,13 @@ const ApplicationCard = ({ application }) => {
     });
   };
 
-  // ✅ Use this ONLY when you really need to prevent default
   const safeStop = (e) => {
     if (e?.preventDefault) e.preventDefault();
     if (e?.stopPropagation) e.stopPropagation();
   };
+
+  const buttonText =
+    variant === "management" ? "View Details" : getActionText(sDisplay);
 
   return (
     <Card
@@ -102,9 +127,26 @@ const ApplicationCard = ({ application }) => {
               </div>
 
               <div className="min-w-0">
-                <h3 className="font-medium text-foreground truncate">
-                  {companyName}
-                </h3>
+                <div className="flex items-center gap-2 min-w-0">
+                  <h3 className="font-medium text-foreground truncate">
+                    {companyName}
+                  </h3>
+
+                  {riskGrade && (
+                    <span
+                      className={cn(
+                        "text-xs px-3 py-0.5 rounded-full font-medium whitespace-nowrap flex items-center",
+                        riskGrade === "Auto-Rejected" && "border-red-600 bg-red-600 border text-white",
+                        riskGrade === "Enhanced Due Diligence (EDD)" && "border-red-600 border text-red-600",
+                        riskGrade === "Standard Due Diligence (CDD)" && "border-orange-600 border text-orange-600",
+                        riskGrade === "Simplified Due Diligence (SDD)" && "border-emerald-600 border text-emerald-600"
+                        )}
+                    >
+                      {riskGrade}
+                    </span>
+                  )}
+                </div>
+                
                 <div className="flex items-center gap-1 text-sm text-muted-foreground">
                   <Globe className="h-3 w-3" />
                   <span>{country}</span>
@@ -125,7 +167,7 @@ const ApplicationCard = ({ application }) => {
               </div>
             </div>
 
-            {application.reason && (
+            {application.reason && variant !== "management" && (
               <div className="mt-3 flex items-start gap-2 rounded-md bg-amber-50 p-2.5 border border-amber-200">
                 <AlertCircle className="h-4 w-4 shrink-0 text-amber-600 mt-0.5" />
                 <p className="text-xs text-amber-700">{application.reason}</p>
@@ -147,7 +189,7 @@ const ApplicationCard = ({ application }) => {
                   handleClick();
                 }}
               >
-                {getActionText(sDisplay)}
+                {buttonText}
                 <ChevronRight className="h-4 w-4" />
               </Button>
             </div>

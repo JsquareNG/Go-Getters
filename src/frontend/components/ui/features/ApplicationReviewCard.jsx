@@ -40,6 +40,7 @@ const ApplicationReviewCard = ({ application, onReview }) => {
   const lastUpdated = application.last_edited ?? application.lastEdited ?? null;
 
   const risk = application.risk_level ?? application.riskLevel; // e.g. critical/high/medium/low
+  const riskGrade = application?.risk_grade ?? application?.riskGrade ?? "";
   const isCritical = risk === "critical";
   const isUrgent = status === "Requires Action";
 
@@ -83,9 +84,24 @@ const ApplicationReviewCard = ({ application, onReview }) => {
               </div>
 
               <div className="min-w-0">
-                <h3 className="font-medium text-foreground truncate">
-                  {companyName}
-                </h3>
+                <div className="flex items-center gap-2 min-w-0">
+                  <h3 className="font-medium text-foreground truncate">
+                    {companyName}
+                  </h3>
+
+                  {riskGrade && (
+                    <span
+                      className={cn(
+                        "text-xs px-3 py-0.5 rounded-full font-medium whitespace-nowrap flex items-center",
+                        riskGrade === "Enhanced Due Diligence (EDD)" && "border-red-600 border text-red-600",
+                        riskGrade === "Standard Due Diligence (CDD)" && "border-orange-600 border text-orange-600"
+                        )}
+                    >
+                      {riskGrade}
+                    </span>
+                  )}
+                </div>
+
                 <div className="flex items-center gap-1 text-sm text-muted-foreground">
                   <Globe className="h-3 w-3" />
                   <span className="truncate">{country}</span>
@@ -109,6 +125,8 @@ const ApplicationReviewCard = ({ application, onReview }) => {
                   Risk: {String(risk).toUpperCase()}
                 </div>
               )}
+
+              
 
               <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
                 <Clock className="h-3.5 w-3.5" />

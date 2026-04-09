@@ -31,8 +31,16 @@ import {
   TabsContent,
   TabsList,
   TabsTrigger,
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
 } from "@/components/ui";
 import { Badge } from "../components/ui/primitives/Badge";
+import DecisionReasonDialog from "../components/ui/features/DecisionReasonDialog";
+import { Textarea } from "../components/ui/primitives/Textarea";
 import { toast } from "sonner";
 import {
   getApplicationByAppId,
@@ -99,6 +107,11 @@ export default function ApplicationReviewDetail() {
 
   const [requestDocsOpen, setRequestDocsOpen] = useState(false);
 
+  // New state for approve/reject popup
+  const [decisionDialogOpen, setDecisionDialogOpen] = useState(false);
+  const [decisionType, setDecisionType] = useState(null); // "approve" | "reject"
+  const [decisionReason, setDecisionReason] = useState("");
+
   // -----------------------------
   // Fetch application
   // -----------------------------
@@ -119,7 +132,6 @@ export default function ApplicationReviewDetail() {
 
     if (id) fetchApplication();
   }, [id]);
-
   // -----------------------------
   // Fetch uploaded documents
   // -----------------------------
@@ -298,6 +310,24 @@ export default function ApplicationReviewDetail() {
   const currentStatus = application?.current_status || "Not started";
   const canReview = ["Under Review", "Under Manual Review"].includes(currentStatus);
 
+  const manualReviewAIPayload = useMemo(() => {
+    return {
+      application_data: application?.form_data || {},
+      risk_assessment: {
+        risk_grade: rules?.risk_grade || null,
+        risk_score: rules?.risk_score ?? null,
+        triggered_rules: Array.isArray(rules?.rules_triggered)
+          ? rules.rules_triggered
+          : [],
+      },
+      documents: Array.isArray(documents) ? documents : [],
+      action_requests: Array.isArray(actionRequestsData?.action_requests)
+        ? actionRequestsData.action_requests
+        : [],
+    };
+  }, [application, rules, documents, actionRequestsData]);
+
+
   const formattedDate = application?.last_edited
     ? new Date(application.last_edited).toLocaleDateString("en-US", {
         month: "long",
@@ -428,9 +458,31 @@ export default function ApplicationReviewDetail() {
           ? new Date(sortedActionRequestsAsc[index + 1]?.created_at || 0).getTime()
           : Infinity;
 
-      const groupedDocs = documents.filter((doc) => {
+      // const groupedDocs = documents.filter((doc) => {
+      //   const t = new Date(doc?.created_at || 0).getTime();
+      //   return t && t >= currentTime && t < nextTime;
+      // });
+      const groupedDocs = documents
+      .filter((doc) => {
         const t = new Date(doc?.created_at || 0).getTime();
         return t && t >= currentTime && t < nextTime;
+      })
+      .map((doc) => {
+        // 🔥 find matching request document
+        const matchedRequestDoc = request.documents?.find(
+          (reqDoc) =>
+            reqDoc.submitted_document_name === doc.document_type
+        );
+
+        return {
+          ...doc,
+          requested_document_name: matchedRequestDoc?.document_name || null,
+          requested_document_desc: matchedRequestDoc?.document_desc || null,
+          is_substitute: matchedRequestDoc?.is_substitute || false,
+          submitted_document_name: matchedRequestDoc?.submitted_document_name || null,
+          substitution_reason: matchedRequestDoc?.substitution_reason || null,
+          fulfilled_at: matchedRequestDoc?.fulfilled_at || null,
+        };
       });
 
       return {
@@ -481,6 +533,12 @@ export default function ApplicationReviewDetail() {
     setRequestDocsOpen(true);
   };
 
+  const resetDecisionDialog = () => {
+    setDecisionDialogOpen(false);
+    setDecisionType(null);
+    setDecisionReason("");
+  };
+
   const handleSubmitRequestDocs = async ({ reason, documents, questions }) => {
     if (!id) return;
 
@@ -495,11 +553,14 @@ export default function ApplicationReviewDetail() {
         questions,
       });
 
-      toast.success("Escalated to applicant", {
-        description: "Status set to Requires Action and applicant has been notified.",
+      navigate("/staff-landingpage", {
+        state: {
+          banner: {
+            type: "success",
+            message: `Application ID ${appIdToUse} has been escalated for additional documents/questions.`,
+          },
+        },
       });
-
-      navigate("/staff-landingpage");
     } catch (err) {
       console.error("Escalate failed:", err);
       toast.error("Request Documents failed", {
@@ -511,67 +572,135 @@ export default function ApplicationReviewDetail() {
     }
   };
 
-  const handleApprove = async () => {
-    if (!id) return;
+  // const handleApprove = async () => {
+  //   if (!id) return;
 
-    const reason = window.prompt("Reason for approving this application?") || "";
-    if (!reason.trim()) {
-      toast.error("Reason required", { description: "Please enter a reason to approve." });
-      return;
-    }
+  //   const reason = window.prompt("Reason for approving this application?") || "";
+  //   if (!reason.trim()) {
+  //     toast.error("Reason required", { description: "Please enter a reason to approve." });
+  //     return;
+  //   }
+
+  //   try {
+  //     setIsUpdatingStatus(true);
+  //     const appIdToUse = application?.application_id || id;
+  //     await approveApplication(appIdToUse, reason.trim());
+
+  //     toast.success("Application Approved", {
+  //       description: `${
+  //         application?.business_name || formData?.businessName || "Application"
+  //       } has been approved.`,
+  //     });
+
+  //     navigate("/staff-landingpage");
+  //   } catch (err) {
+  //     console.error("Approve failed:", err);
+  //     toast.error("Approve failed", {
+  //       description: err?.response?.data?.detail || err?.message || "Could not approve application.",
+  //     });
+  //   } finally {
+  //     setIsUpdatingStatus(false);
+  //   }
+  // };
+
+  // const handleReject = async () => {
+  //   if (!id) return;
+
+  //   const reason = window.prompt("Reason for rejecting this application?") || "";
+  //   if (!reason.trim()) {
+  //     toast.error("Reason required", { description: "Please enter a reason to reject." });
+  //     return;
+  //   }
+
+  //   try {
+  //     setIsUpdatingStatus(true);
+  //     const appIdToUse = application?.application_id || id;
+  //     await rejectApplication(appIdToUse, reason.trim());
+
+  //     toast.success("Application Rejected", {
+  //       description: `${
+  //         application?.business_name || formData?.businessName || "Application"
+  //       } has been rejected.`,
+  //     });
+
+  //     navigate("/staff-landingpage");
+  //   } catch (err) {
+  //     console.error("Reject failed:", err);
+  //     toast.error("Reject failed", {
+  //       description: err?.response?.data?.detail || err?.message || "Could not reject application.",
+  //     });
+  //   } finally {
+  //     setIsUpdatingStatus(false);
+  //   }
+  // };
+
+  const handleApprove = () => {
+    setDecisionType("approve");
+    setDecisionDialogOpen(true);
+  };
+
+  const handleReject = () => {
+    setDecisionType("reject");
+    setDecisionDialogOpen(true);
+  };
+
+  const handleSubmitDecision = async (reason) => {
+    if (!id || !decisionType) return;
 
     try {
       setIsUpdatingStatus(true);
+
       const appIdToUse = application?.application_id || id;
-      await approveApplication(appIdToUse, reason.trim());
+      const businessLabel = application?.business_name || formData?.businessName || "Application";
 
-      toast.success("Application Approved", {
-        description: `${
-          application?.business_name || formData?.businessName || "Application"
-        } has been approved.`,
+      if (decisionType === "approve") {
+        await approveApplication(appIdToUse, reason.trim());
+
+        toast.success("Application Approved", {
+          description: `${businessLabel} has been approved.`,
+        });
+      } else if (decisionType === "reject") {
+        await rejectApplication(appIdToUse, reason.trim());
+
+        toast.success("Application Rejected", {
+          description: `${businessLabel} has been rejected.`,
+        });
+      }
+
+      setDecisionDialogOpen(false);
+      setDecisionType(null);
+
+      navigate("/staff-landingpage", {
+        state: {
+          banner: {
+            type: decisionType === "approve" ? "success" : "error",
+            message:
+              decisionType === "approve"
+                ? `You have approved application ID ${appIdToUse}.`
+                : `You have rejected application ID ${appIdToUse}.`,
+          },
+        },
       });
 
-      navigate("/staff-landingpage");
+      // navigate("/staff-landingpage");
     } catch (err) {
-      console.error("Approve failed:", err);
-      toast.error("Approve failed", {
-        description: err?.response?.data?.detail || err?.message || "Could not approve application.",
-      });
+      console.error(`${decisionType} failed:`, err);
+
+      toast.error(
+        decisionType === "approve" ? "Approve failed" : "Reject failed",
+        {
+          description:
+            err?.response?.data?.detail ||
+            err?.message ||
+            `Could not ${decisionType} application.`,
+        },
+      );
     } finally {
       setIsUpdatingStatus(false);
     }
   };
 
-  const handleReject = async () => {
-    if (!id) return;
 
-    const reason = window.prompt("Reason for rejecting this application?") || "";
-    if (!reason.trim()) {
-      toast.error("Reason required", { description: "Please enter a reason to reject." });
-      return;
-    }
-
-    try {
-      setIsUpdatingStatus(true);
-      const appIdToUse = application?.application_id || id;
-      await rejectApplication(appIdToUse, reason.trim());
-
-      toast.success("Application Rejected", {
-        description: `${
-          application?.business_name || formData?.businessName || "Application"
-        } has been rejected.`,
-      });
-
-      navigate("/staff-landingpage");
-    } catch (err) {
-      console.error("Reject failed:", err);
-      toast.error("Reject failed", {
-        description: err?.response?.data?.detail || err?.message || "Could not reject application.",
-      });
-    } finally {
-      setIsUpdatingStatus(false);
-    }
-  };
 
   // -----------------------------
   // Loading / error states
@@ -1124,7 +1253,7 @@ export default function ApplicationReviewDetail() {
                                 {group.reason && (
                                   <div className="mb-3 rounded-md bg-muted/50 p-3">
                                     <p className="text-xs font-medium text-muted-foreground">
-                                      Request Reason
+                                      Escalation Reason:
                                     </p>
                                     <p className="mt-1 text-sm text-foreground">{group.reason}</p>
                                   </div>
@@ -1149,12 +1278,34 @@ export default function ApplicationReviewDetail() {
                                           <p className="truncate text-sm font-medium text-foreground">
                                             {doc.document_type || "Document"}
                                           </p>
+
                                           <p className="text-xs text-muted-foreground">
                                             {doc.created_at
                                               ? `Uploaded: ${new Date(doc.created_at).toLocaleString()}`
                                               : ""}
                                           </p>
+
+                                          {doc.is_substitute && (
+                                            <div className="mt-2 rounded-md border border-amber-200 bg-amber-50 p-2">
+                                              <p className="text-xs font-medium text-amber-700">
+                                                Submitted as Substitute
+                                              </p>
+
+                                              {doc.requested_document_name && (
+                                                <p className="mt-1 text-xs text-foreground">
+                                                  Original Requested Document: {doc.requested_document_name}
+                                                </p>
+                                              )}
+
+                                              {doc.substitution_reason && (
+                                                <p className="text-xs text-foreground">
+                                                  Reason of Substitution: {doc.substitution_reason}
+                                                </p>
+                                              )}
+                                            </div>
+                                          )}
                                         </div>
+                                  
 
                                         <Button
                                           variant="ghost"
@@ -1205,9 +1356,6 @@ export default function ApplicationReviewDetail() {
                               Request: {qa.action_request_id?.slice?.(0, 8) || "-"} •{" "}
                               {qa.created_at ? new Date(qa.created_at).toLocaleString() : "-"}
                             </p>
-                            <span className="text-xs font-medium">
-                              {qa.status === "OPEN" ? "OPEN" : "CLOSED"}
-                            </span>
                           </div>
 
                           <p className="text-sm font-medium text-foreground">
@@ -1295,6 +1443,24 @@ export default function ApplicationReviewDetail() {
         missingCount={missingDocuments.length}
         onSubmit={handleSubmitRequestDocs}
         isSubmitting={isUpdatingStatus}
+        aiPayload={manualReviewAIPayload}
+        aiDisabled={
+          isLoading || riskLoading || docsLoading || qnaLoading || !application
+        }
+      />
+
+      <DecisionReasonDialog
+        open={decisionDialogOpen}
+        onOpenChange={(open) => {
+          if (!isUpdatingStatus) {
+            setDecisionDialogOpen(open);
+            if (!open) setDecisionType(null);
+          }
+        }}
+        type={decisionType || "approve"}
+        businessName={application?.business_name || formData?.businessName || ""}
+        isSubmitting={isUpdatingStatus}
+        onSubmit={handleSubmitDecision}
       />
 
       {canReview && (
@@ -1329,7 +1495,9 @@ export default function ApplicationReviewDetail() {
                 disabled={isUpdatingStatus}
               >
                 <XCircle className="h-4 w-4" />
-                {isUpdatingStatus ? "Rejecting..." : "Reject Application"}
+                {isUpdatingStatus && decisionType === "reject" && decisionDialogOpen
+                  ? "Rejecting..."
+                  : "Reject Application"}
               </Button>
 
               <Button
@@ -1338,7 +1506,9 @@ export default function ApplicationReviewDetail() {
                 disabled={isUpdatingStatus}
               >
                 <CheckCircle2 className="h-4 w-4" />
-                {isUpdatingStatus ? "Approving..." : "Approve Application"}
+                {isUpdatingStatus && decisionType === "approve" && decisionDialogOpen
+                  ? "Approving..."
+                  : "Approve Application"}
               </Button>
             </div>
           </div>

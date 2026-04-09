@@ -21,6 +21,7 @@ export const getApplicationByAppId = async (id) => {
   return res.data;
 };
 
+
 /**
  * Generic function to extract top-level fields dynamically from form_data
  * Can be extended if backend expects more mandatory fields per country/type
@@ -216,3 +217,4 @@ export const getAllApplications = async () => {
   const response = await axiosClient.get("/applications/");
   return response.data;
 };
+
