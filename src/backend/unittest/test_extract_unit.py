@@ -4,7 +4,6 @@ from fastapi import HTTPException
 from backend.api.extract import (
     normalize_doc_type,
     _validate_file_type,
-    _contains_any,
     _light_upload_validation,
     _resolve_universal_parse_doc_type,
 )
@@ -31,18 +30,6 @@ def test_validate_file_type_valid():
 def test_validate_file_type_invalid():
     with pytest.raises(HTTPException):
         _validate_file_type("text/plain")
-
-
-# ==============================
-# contains_any
-# ==============================
-
-def test_contains_any_true():
-    assert _contains_any("ACRA business document", ["acra"]) is True
-
-
-def test_contains_any_false():
-    assert _contains_any("Random text", ["acra"]) is False
 
 
 # ==============================
