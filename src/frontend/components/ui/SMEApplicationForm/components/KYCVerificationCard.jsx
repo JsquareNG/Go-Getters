@@ -2,6 +2,7 @@ import React, { useEffect, useRef } from "react";
 import { ArrowRight, ShieldCheck } from "lucide-react";
 import { Button, Badge, Card, CardContent } from "@/components/ui";
 import { livenessDetectionApi } from "@/api/livenessDetectionApi";
+import { getThreshold } from "@/api/riskConfigListApi";
 
 const DEFAULT_KYC_DATA = {
   status: "idle",
@@ -15,7 +16,7 @@ const DEFAULT_KYC_DATA = {
   faceMatchScore: null,
 };
 
-const MIN_FACE_MATCH_SCORE = 60;
+// const MIN_FACE_MATCH_SCORE = 60;
 
 const KycVerificationCard = ({
   data,
@@ -24,12 +25,12 @@ const KycVerificationCard = ({
   onFieldChange,
   onPersistKycResult,
 }) => {
+  const [minFaceMatchScore, setMinFaceMatchScore] = useState(0); // fallback
+
   const processedDiditSessionRef = useRef("");
   const latestKycDataRef = useRef(DEFAULT_KYC_DATA);
 
-  //   const kycData = data?.kycData || DEFAULT_KYC_DATA;
   const kycData = data?.kyc || data?.kycData || DEFAULT_KYC_DATA;
-//   console.log("Rendering KYCVerificationCard with kycData:", kycData);
   const kycStatus = kycData.status || "idle";
   const kycLoading = kycData.loading || false;
   const kycOverallStatus = kycData.overallStatus || "";
@@ -39,6 +40,23 @@ const KycVerificationCard = ({
   const kycFaceMatchStatus = kycData.faceMatchStatus || "";
   const kycFaceMatchScore = kycData.faceMatchScore ?? null;
 
+  // set threshold for liveness detection
+  useEffect(() => {
+    const fetchMinFaceMatchScore = async () => {
+      try {
+        const data = await getThreshold("Face Match");
+
+        if (data?.item_value != null) {
+          setMinFaceMatchScore(Number(data.item_value));
+        }
+      } catch (error) {
+        console.error("Error fetching MIN_FACE_MATCH_SCORE:", error);
+      }
+    };
+
+    fetchMinFaceMatchScore();
+  }, []);
+
   const numericFaceMatchScore =
     kycFaceMatchScore === null || kycFaceMatchScore === undefined
       ? null
@@ -47,12 +65,12 @@ const KycVerificationCard = ({
   const isKycPassed =
     kycStatus === "completed" &&
     numericFaceMatchScore !== null &&
-    numericFaceMatchScore >= MIN_FACE_MATCH_SCORE;
+    numericFaceMatchScore >= minFaceMatchScore;
 
   const isKycFailed =
     kycStatus === "completed" &&
     numericFaceMatchScore !== null &&
-    numericFaceMatchScore < MIN_FACE_MATCH_SCORE;
+    numericFaceMatchScore < minFaceMatchScore;
 
   useEffect(() => {
     latestKycDataRef.current = kycData;
@@ -538,7 +556,7 @@ const KycVerificationCard = ({
 
                   {isKycFailed && (
                     <p className="pt-2 font-medium text-red-600">
-                      Face match score must be at least {MIN_FACE_MATCH_SCORE}%
+                      Face match score must be at least {minFaceMatchScore}%
                       before you can proceed to the next step.
                     </p>
                   )}
