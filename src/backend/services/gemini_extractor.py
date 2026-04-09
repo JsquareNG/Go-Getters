@@ -10,24 +10,16 @@ project_id = os.getenv("GCP_PROJECT_ID")
 vertex_location = "asia-southeast1"
 vertexai.init(project=project_id, location=vertex_location)
 
-class AlternativeDocumentMatchAssessment(BaseModel):
-    matches_alternative_document: bool = Field(
+class RequestedDocumentMatchAssessment(BaseModel):
+    matches_requested_document: bool = Field(
         ...,
-        description="Whether the uploaded file reasonably matches the selected alternative document name"
+        description="Whether the uploaded file reasonably matches the requested document name"
     )
-    best_guess_document_type: str = Field(
-        default="UNKNOWN",
-        description="Best guess of what kind of document the uploaded file appears to be"
-    )
-    reason: str = Field(
-        default="",
-        description="Short explanation for the match or mismatch decision"
-    )
-    confidence: str = Field(
-        default="MEDIUM",
-        description="LOW, MEDIUM, or HIGH"
-    )
-  
+    best_guess_document_type: str = Field(default="UNKNOWN")
+    reason: str = Field(default="")
+    confidence: str = Field(default="MEDIUM")
+
+
 def classify_document(raw_text: str) -> str:
     supported_types = list(DOCUMENT_SCHEMA_REGISTRY.keys())
     model = GenerativeModel("gemini-2.5-flash")
@@ -243,79 +235,9 @@ def parse_universal_document(raw_text: str, doc_type: str) -> dict:
     return validated_data.model_dump()
 
 
-def parse_alternative_document(
+def assess_requested_document_match(
     raw_text: str,
-    original_doc_type: str,
-    alternative_doc_name: str,
-) -> dict:
-    original_doc_type_upper = original_doc_type.upper().strip()
-
-    if original_doc_type_upper not in DOCUMENT_SCHEMA_REGISTRY:
-        supported = ", ".join(DOCUMENT_SCHEMA_REGISTRY.keys())
-        raise ValueError(
-            f"Unsupported original document type: {original_doc_type}. Supported: {supported}"
-        )
-
-    ExpectedSchemaClass = DOCUMENT_SCHEMA_REGISTRY[original_doc_type_upper]
-    expected_schema_instructions = json.dumps(
-        ExpectedSchemaClass.model_json_schema(), indent=2
-    )
-
-    model = GenerativeModel("gemini-2.5-flash")
-    config = GenerationConfig(response_mime_type="application/json")
-
-    prompt = f"""
-    You are an expert KYC/KYB compliance AI for a bank.
-
-    Context:
-    - A user could not provide the original required document.
-    - Instead, they uploaded an alternative supporting document.
-    - Your job is to extract as much relevant information as possible from the alternative document,
-      based on what the original required document is supposed to provide.
-
-    Original required document type:
-    {original_doc_type_upper}
-
-    Alternative document name provided by user:
-    {alternative_doc_name}
-
-    The expected target schema for the original required document is:
-    {expected_schema_instructions}
-
-    Your task:
-    - Read the OCR text from the uploaded alternative document
-    - Extract whatever information can be reliably inferred from this alternative document
-    - Return JSON using the SAME field names as the original required document schema
-    - Only include values that are actually supported by the OCR text
-    - If a field is missing, return empty string, null, or empty list as appropriate
-    - Do not invent values
-    - Be conservative
-    - Preserve names, identifiers, addresses, and numbers as faithfully as possible
-    - Remove obvious OCR spacing artifacts only when it improves fidelity
-    - If the source document is not in English, translate descriptive values into English
-    - Do NOT translate proper nouns, names, registration numbers, tax numbers, codes, or addresses
-    - Return valid JSON only
-
-    Important:
-    - This is an alternative supporting document, so it may not contain all fields
-    - Extract partial information if available
-    - Map fields into the original required document schema wherever possible
-    - Extra information not fitting top-level fields may go into additional_data if that field exists in the schema
-    - Do not force information into fields if unsupported
-
-    OCR TEXT:
-    {raw_text}
-    """
-
-    response = model.generate_content(prompt, generation_config=config)
-    validated_data = ExpectedSchemaClass.model_validate_json(response.text)
-    return validated_data.model_dump()
-
-
-def assess_alternative_document_match(
-    raw_text: str,
-    original_doc_type: str,
-    alternative_doc_name: str,
+    requested_document_name: str,
 ) -> dict:
     model = GenerativeModel("gemini-2.5-flash")
     config = GenerationConfig(response_mime_type="application/json")
@@ -324,66 +246,28 @@ def assess_alternative_document_match(
     You are an expert KYC/KYB compliance AI for a bank.
 
     Context:
-    - A user was originally asked to provide this required document type: {original_doc_type}
-    - The user instead selected this alternative document to upload: {alternative_doc_name}
-    - Your task is ONLY to determine whether the uploaded file reasonably matches the selected alternative document.
-    - Do NOT check whether it matches the original required document type.
-    - Do NOT extract into the original schema yet.
-    - This is a document-fit / document-matching step only.
+    - A staff reviewer requested an additional document from an applicant.
+    - The requested document name is: {requested_document_name}
+    - Your task is to determine whether the uploaded file reasonably matches that requested document name.
 
     Instructions:
-    1. Read the OCR text carefully.
-    2. Decide whether the uploaded file reasonably matches the selected alternative document name.
-    3. Be practical and conservative.
-    4. If it does NOT match, provide the best guess of what kind of document it appears to be.
-    5. If it DOES match, best_guess_document_type may simply be the selected alternative document name.
-    6. Return valid JSON only.
+    - Be practical and conservative.
+    - The requested document name may be free text and not part of a fixed schema.
+    - Compare the OCR text against the requested document name semantically.
+    - If the uploaded file does not match, provide the best guess of what kind of document it actually is.
+    - If the uploaded file does match, best_guess_document_type should describe the document naturally.
+    - Keep the boolean consistent with your explanation.
 
-    Matching guidance:
-    - Certificate of Incorporation:
-      usually shows company incorporation / registration, company name, registration number,
-      incorporation date, issuing authority, and entity formation wording.
-    - ACRA Business Profile:
-      usually contains ACRA / Accounting and Corporate Regulatory Authority, UEN,
-      business profile / entity information, officers, shareholders, and registration details.
-    - Utility Bill:
-      usually shows billed account holder, service address, billing period, account number,
-      issue date, due date, and amount due.
-    - Tenancy Agreement:
-      usually shows tenant, landlord, premises address, tenancy period, agreement date,
-      rental terms, and signatures.
-    - Office Lease:
-      usually shows leased office/business premises, lessor, tenant, lease term,
-      office address, and commercial lease wording.
-    - Board Resolution:
-      usually shows company name, resolution date, approval text, directors,
-      authorised signatories, and corporate approval wording.
-    - LLP Resolution:
-      usually shows LLP name, resolution text, designated partners / authorised signatories,
-      and LLP-related approval wording.
-    - LP Agreement:
-      usually shows limited partnership terms, general partner / limited partner,
-      partnership name, and partnership agreement wording.
-    - NIB:
-      usually contains terms like "Nomor Induk Berusaha", "NIB",
-      Indonesian business licensing / registration content.
-    - NPWP Certificate:
-      usually contains "NPWP", "Nomor Pokok Wajib Pajak",
-      taxpayer registration details, and Indonesian tax office references.
-    - Akta Pendirian:
-      usually contains "Akta Pendirian", "Perseroan Terbatas", "Notaris",
-      deed number, deed date, articles of association, founders, directors, commissioners.
-    - UBO Declaration:
-      usually contains beneficial owner / ultimate beneficial owner declarations,
-      ownership/control statements, declaration checkboxes, and signatory details.
-    - Bank Statement:
-      usually shows transaction history, balances, bank name, account holder,
-      account number, statement period, credits, and debits.
+    Consistency rules:
+    - If your reason says the document matches, then matches_requested_document MUST be true.
+    - If best_guess_document_type is effectively the same as the requested document name, matches_requested_document should usually be true.
+    - Only return false if the uploaded file is clearly a different kind of document.
 
     Return EXACTLY this JSON structure:
     {{
-      "matches_alternative_document": true,
+      "matches_requested_document": true,
       "best_guess_document_type": "string",
+      "reason": "string",
       "confidence": "LOW"
     }}
 
@@ -392,10 +276,78 @@ def assess_alternative_document_match(
     - MEDIUM
     - HIGH
 
+    Requested document name:
+    {requested_document_name}
+
     OCR TEXT:
     {raw_text[:8000]}
     """
 
     response = model.generate_content(prompt, generation_config=config)
-    validated_data = AlternativeDocumentMatchAssessment.model_validate_json(response.text)
+    validated_data = RequestedDocumentMatchAssessment.model_validate_json(response.text)
+    return validated_data.model_dump()
+
+
+def parse_generic_additional_document(
+    raw_text: str,
+    requested_document_name: str,
+) -> dict:
+    TargetSchemaClass = DOCUMENT_SCHEMA_REGISTRY["GENERIC_ADDITIONAL_DOCUMENT"]
+    schema_instructions = json.dumps(TargetSchemaClass.model_json_schema(), indent=2)
+
+    model = GenerativeModel("gemini-2.5-flash")
+    config = GenerationConfig(response_mime_type="application/json")
+
+    prompt = f"""
+    You are an expert KYC/KYB compliance AI for a bank.
+
+    Context:
+    - A staff reviewer requested an additional supporting document from an applicant.
+    - The requested document name is: {requested_document_name}
+    - The uploaded file may be any kind of business, legal, financial, tax, licensing, contractual, or supporting document.
+    - Your job is to understand what the uploaded document is and extract the most relevant information in a flexible, generic structure.
+
+    Extract the data and format it STRICTLY according to this JSON schema:
+    {schema_instructions}
+
+    Global extraction rules:
+    - Return valid JSON only
+    - Do not invent values
+    - Be conservative
+    - If a field is missing, return empty string, null, empty list, or empty object as appropriate
+    - Preserve names, identifiers, dates, and addresses as faithfully as possible
+    - Remove obvious OCR spacing artifacts only when it improves fidelity
+    - If the source document is not in English, translate descriptive values into natural English
+    - Do NOT translate proper nouns, person names, company names, registration numbers, tax numbers, account numbers, codes, or addresses
+
+    Extraction guidance:
+    - requested_document_name: echo the requested document name
+    - matched_requested_document: whether the uploaded file appears to match the requested document name
+    - detected_document_type: best natural-language guess of the uploaded document type
+    - document_purpose_summary: one short summary of what this document is for
+
+    - key_entities: important people, company names, authorities, counterparties, banks, landlords, tenants, issuers
+    - key_identifiers: registration number, UEN, NIB, NPWP, account number, invoice number, reference number, policy number, etc.
+    - important_dates: incorporation date, issue date, expiry date, billing period, agreement date, due date, statement period
+    - addresses: registered address, service address, premises address, mailing address, business address
+    - financial_information: amounts, balances, capital, invoice totals, rent, deposits, obligations, payment amounts
+    - ownership_and_governance: directors, shareholders, partners, signatories, beneficial owners, commissioners
+    - obligations_and_terms: validity period, lease term, contract term, payment terms, important obligations, conditions
+
+    - extracted_mapped_fields: optional normalized fields only when clearly inferable, such as:
+      company_name, registration_number, uen, nib_number, npwp_number, registered_address,
+      incorporation_date, issue_date, expiry_date, directors, shareholders, bank_name, account_number
+
+    - additional_relevant_info: any other useful content not covered above
+    - missing_or_unclear_items: important expected items that seem missing or unclear
+
+    Requested document name:
+    {requested_document_name}
+
+    OCR TEXT:
+    {raw_text[:12000]}
+    """
+
+    response = model.generate_content(prompt, generation_config=config)
+    validated_data = TargetSchemaClass.model_validate_json(response.text)
     return validated_data.model_dump()
