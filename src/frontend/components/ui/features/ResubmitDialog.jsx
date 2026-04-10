@@ -821,18 +821,6 @@ export function ResubmitDialog({
                             error={error}
                           />
 
-                          {checkingDocById[docId] && (
-                            <Button
-                              type="button"
-                              variant="outline"
-                              disabled
-                              className="gap-2"
-                            >
-                              <Loader2 className="h-4 w-4 animate-spin" />
-                              Checking uploaded document...
-                            </Button>
-                          )}
-
                           {error && <p className="text-sm text-red-500">{error}</p>}
 
                           {!error &&
@@ -851,15 +839,29 @@ export function ResubmitDialog({
                               </p>
                             )}
 
-                          <button
-                            type="button"
-                            onClick={() => toggleAlternativeMode(docId)}
-                            disabled={isSubmitting || checkingDocById[docId]}
-                            className="inline-flex items-center gap-1 text-sm text-red-600 hover:underline disabled:cursor-not-allowed disabled:opacity-50"
-                          >
-                            Can’t provide this document?
-                            <ChevronDown className="h-4 w-4" />
-                          </button>
+                          <div className="flex flex-col gap-2">
+                            {checkingDocById[docId] && (
+                              <Button
+                                type="button"
+                                variant="outline"
+                                disabled
+                                className="gap-2 w-fit"
+                              >
+                                <Loader2 className="h-4 w-4 animate-spin" />
+                                Checking uploaded document...
+                              </Button>
+                            )}
+
+                            <button
+                              type="button"
+                              onClick={() => toggleAlternativeMode(docId)}
+                              disabled={isSubmitting || checkingDocById[docId]}
+                              className="inline-flex items-center gap-1 text-sm text-red-600 hover:underline disabled:cursor-not-allowed disabled:opacity-50"
+                            >
+                              Can’t provide this document?
+                              <ChevronDown className="h-4 w-4" />
+                            </button>
+                          </div>
                         </div>
                       ) : (
                         <div className="space-y-4">
@@ -1154,13 +1156,7 @@ export function ResubmitDialog({
             ) : (
               <>
                 <Upload className="h-4 w-4" />
-                {isSubmitting
-                  ? "Submitting..."
-                  : `Submit${
-                      docsCount > 0
-                        ? ` (${totalCompletedDocuments}/${docsCount} documents ready)`
-                        : ""
-                    }`}
+                {isSubmitting ? "Submitting..." : "Submit"}
               </>
             )}
           </Button>
