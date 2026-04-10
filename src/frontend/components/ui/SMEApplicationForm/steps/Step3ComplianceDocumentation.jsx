@@ -59,6 +59,29 @@ const Step3ComplianceDocumentation = ({
     }, {});
   }, [existingDocuments]);
 
+  // helped to find rooted documents
+  const findExistingDocumentForField = (fieldPath, fieldConfig = {}) => {
+    if (!Array.isArray(existingDocuments) || !existingDocuments.length)
+      return null;
+
+    const normalizedFieldPath = normalizeDocumentType(fieldPath);
+    const expectedType = normalizeDocumentType(
+      fieldConfig?.ocrTarget ||
+        inferExpectedDocumentType(fieldPath, fieldConfig),
+    );
+
+    return (
+      existingDocuments.find(
+        (doc) =>
+          normalizeDocumentType(doc.document_type) === normalizedFieldPath,
+      ) ||
+      existingDocuments.find(
+        (doc) => normalizeDocumentType(doc.document_type) === expectedType,
+      ) ||
+      null
+    );
+  };
+
   const getNestedValue = (obj, path) => {
     if (!obj || !path) return undefined;
 
@@ -112,7 +135,8 @@ const Step3ComplianceDocumentation = ({
 
     if (hasUsableLocalFile(localValue)) return localValue;
 
-    const existingDoc = existingDocumentMap[fieldPath];
+    // const existingDoc = existingDocumentMap[fieldPath];
+    const existingDoc = findExistingDocumentForField(fieldPath, fieldConfig);
     if (!existingDoc) return null;
 
     return {

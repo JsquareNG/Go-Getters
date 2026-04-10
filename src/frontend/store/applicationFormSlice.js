@@ -411,8 +411,7 @@ export const selectCurrentApplication = (state) => {
 // );
 export const selectFormData = (state) => {
   const { drafts, currentApplicationId } = state.applicationForm;
-  console.log("selector appId:", currentApplicationId);
-  // console.log("selector drafts:", drafts);
+  // console.log("selector appId:", currentApplicationId);
 
   if (!currentApplicationId) return {};
 

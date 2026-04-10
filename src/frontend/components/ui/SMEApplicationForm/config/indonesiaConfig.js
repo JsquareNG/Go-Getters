@@ -76,18 +76,30 @@ function getBasicBusinessFields() {
       label: "Business Name",
       required: true,
       placeholder: "Enter your registered business name",
+      validate: {
+        minLength: 2,
+        maxLength: 120,
+      },
     },
     registrationNumber: {
       type: "text",
       label: "Business Registration Number / NIB",
       required: true,
       placeholder: "Enter NIB / Registration Number",
+      validate: {
+        pattern: /^[0-9]{8,20}$/,
+        message: "Registration number must be 8 to 20 digits.",
+      },
     },
     npwp: {
       type: "text",
       label: "NPWP (Tax ID)",
       required: true,
       placeholder: "NPWP/TIN may appear in 15-digit or 16-digit format",
+      validate: {
+        pattern: /^[0-9]{15,16}$/,
+        message: "NPWP must be 15 or 16 digits.",
+      },
     },
     registrationDate: {
       type: "date",
@@ -98,7 +110,12 @@ function getBasicBusinessFields() {
       type: "select",
       label: "Business Status",
       required: true,
-      options: [{label:"Low Risk", value:"Low Risk"}, {label:"Medium-Low Risk", value:"Medium-Low Risk"}, {label:"Medium-High Risk", value:"Medium-High Risk"}, {label:"High Risk", value:"High Risk"}],
+      options: [
+        { label: "Low Risk", value: "Low Risk" },
+        { label: "Medium-Low Risk", value: "Medium-Low Risk" },
+        { label: "Medium-High Risk", value: "Medium-High Risk" },
+        { label: "High Risk", value: "High Risk" },
+      ],
     },
     registeredAddress: {
       type: "textarea",
@@ -111,39 +128,21 @@ function getBasicBusinessFields() {
       label: "Email",
       required: true,
       placeholder: "Enter your email",
+      validate: {
+        pattern: /^[^\s@]+@[^\s@]+\.[^\s@]+$/,
+        message: "Enter a valid email address.",
+      },
     },
     phone: {
       type: "text",
       label: "Phone",
       required: true,
       placeholder: "Enter your phone number",
+      validate: {
+        pattern: /^[0-9+\-()\s]{8,20}$/,
+        message: "Enter a valid phone number.",
+      },
     },
-
-    // primaryBusinessActivity: {
-    //   type: "select",
-    //   label: "Primary Business Activity (KBLI Code)",
-    //   options: KBLI_OPTIONS,
-    //   required: true,
-    //   placeholder: "Select primary business activity",
-    // },
-    // activityDescription: {
-    //   type: "textarea",
-    //   label: "Description",
-    //   placeholder: "E.g., Online sale of cosmetics through Shopee marketplace",
-    //   required: true,
-    // },
-    // additionalBusinessActivities: {
-    //   type: "repeatable",
-    //   label: "Additional Business Activities",
-    //   fields: {
-    //     kbliCode: {
-    //       type: "select",
-    //       label: "KBLI Code",
-    //       options: KBLI_OPTIONS,
-    //     },
-    //     description: { type: "text", label: "Description" },
-    //   },
-    // },
   };
 }
 function getRepeatableBusinessActivityFields() {
@@ -174,6 +173,10 @@ function getRepeatableBusinessActivityFields() {
           placeholder:
             "E.g., Online sale of cosmetics through Shopee marketplace",
           required: true,
+          validate: {
+            minLength: 10,
+            maxLength: 300,
+          },
         },
       },
     },
