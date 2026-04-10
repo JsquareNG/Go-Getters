@@ -1,9 +1,14 @@
 import { createSlice, createSelector } from "@reduxjs/toolkit";
-import { v4 as uuidv4 } from "uuid";
 
 // --- HELPER FUNCTION TO UPDATE NESTED FIELDS IN AN IMMUTABLE WAY ---
 // export const setIn = (obj, path, value) => {
-//   const keys = path.split(".");
+//   if (!path || typeof path !== "string") {
+//     throw new Error("Invalid path: " + path);
+//   }
+
+//   const keys = path.split(".").filter(Boolean); // remove empty segments
+//   if (keys.length === 0) throw new Error("Path cannot be empty");
+
 //   const lastKey = keys.pop();
 //   let ref = obj;
 
@@ -19,18 +24,55 @@ export const setIn = (obj, path, value) => {
     throw new Error("Invalid path: " + path);
   }
 
-  const keys = path.split(".").filter(Boolean); // remove empty segments
+  const keys = path.split(".").filter(Boolean);
   if (keys.length === 0) throw new Error("Path cannot be empty");
 
-  const lastKey = keys.pop();
   let ref = obj;
 
-  keys.forEach((key) => {
-    if (!ref[key] || typeof ref[key] !== "object") ref[key] = {};
-    ref = ref[key];
-  });
+  for (let i = 0; i < keys.length - 1; i++) {
+    const key = keys[i];
+    const nextKey = keys[i + 1];
+    const isNextIndex = !Number.isNaN(Number(nextKey));
 
-  ref[lastKey] = value;
+    // current key is numeric => current ref must be array
+    if (!Number.isNaN(Number(key))) {
+      const idx = Number(key);
+
+      if (!Array.isArray(ref)) {
+        throw new Error(
+          `Expected array at segment "${key}" for path "${path}"`,
+        );
+      }
+
+      if (ref[idx] == null) {
+        ref[idx] = isNextIndex ? [] : {};
+      }
+
+      ref = ref[idx];
+      continue;
+    }
+
+    // normal object key
+    if (ref[key] == null) {
+      ref[key] = isNextIndex ? [] : {};
+    }
+
+    ref = ref[key];
+  }
+
+  const lastKey = keys[keys.length - 1];
+
+  if (!Number.isNaN(Number(lastKey))) {
+    const idx = Number(lastKey);
+    if (!Array.isArray(ref)) {
+      throw new Error(
+        `Expected array at final segment "${lastKey}" for path "${path}"`,
+      );
+    }
+    ref[idx] = value;
+  } else {
+    ref[lastKey] = value;
+  }
 };
 
 const initialState = {
@@ -46,50 +88,90 @@ const applicationFormSlice = createSlice({
   initialState,
   reducers: {
     // Load an application from backend
+    // loadApplication: (state, action) => {
+    //   const { applicationId, formData = {}, status = "Draft" } = action.payload;
+
+    //   state.currentApplicationId = applicationId;
+    //   state.currentMode = status === "Submitted" ? "view" : "edit";
+    //   state.currentStep = 0;
+    //   state.hasUnsavedChanges = false;
+
+    //   state.drafts[applicationId] = {
+    //     formData: { ...formData },
+    //     status,
+    //     lastModified: new Date().toISOString(),
+    //   };
+    // },
+    // loadApplication: (state, action) => {
+    //   const { applicationId, formData = {}, status = "Draft" } = action.payload;
+
+    //   const realAppId = applicationId ? String(applicationId) : null;
+    //   if (!realAppId) return;
+
+    //   state.currentApplicationId = realAppId;
+    //   state.currentMode = status === "Submitted" ? "view" : "edit";
+    //   state.hasUnsavedChanges = false;
+
+    //   state.drafts = {
+    //     [realAppId]: {
+    //       formData: { ...formData },
+    //       status,
+    //       lastModified: new Date().toISOString(),
+    //     },
+    //   };
+    // },
     loadApplication: (state, action) => {
       const { applicationId, formData = {}, status = "Draft" } = action.payload;
 
-      state.currentApplicationId = applicationId;
+      const realAppId = applicationId ? String(applicationId) : null;
+      if (!realAppId) return;
+
+      state.currentApplicationId = realAppId;
       state.currentMode = status === "Submitted" ? "view" : "edit";
-      state.currentStep = 0;
       state.hasUnsavedChanges = false;
 
-      state.drafts[applicationId] = {
+      state.drafts[realAppId] = {
         formData: { ...formData },
         status,
         lastModified: new Date().toISOString(),
       };
     },
+    // startNewApplication: (state) => {
+    //   state.currentApplicationId = null; // backend will create ID
+    //   state.currentMode = "edit";
+    //   state.currentStep = 0;
+    //   state.hasUnsavedChanges = false;
 
-    // Start brand new application
+    //   state.drafts = {};
+    // },
     startNewApplication: (state) => {
-      // const id = "new";
-
-      const hasSubmitted = Object.values(state.drafts).some(
-        (d) => d.status === "Submitted",
-      );
-      if (hasSubmitted) {
-        console.warn("User already has a submitted application.");
-        return; // do not create new draft
-      }
-
-      const id = uuidv4(); // unique ID per draft, else will create one draft one submission
-      state.currentApplicationId = id;
+      state.currentApplicationId = "temp_draft";
       state.currentMode = "edit";
       state.currentStep = 0;
       state.hasUnsavedChanges = false;
 
-      // Reset all previous drafts
-      state.drafts = {};
-
-      if (!state.drafts[id]) {
-        state.drafts[id] = {
-          formData: {},
-          status: "Draft",
-          lastModified: new Date().toISOString(),
-        };
-      }
+      state.drafts["temp_draft"] = {
+        formData: {},
+        status: "Draft",
+        lastModified: new Date().toISOString(),
+      };
     },
+    // startNewApplication: (state) => {
+    //   state.currentApplicationId = "temp_draft";
+    //   state.currentMode = "edit";
+    //   state.currentStep = 0;
+    //   state.hasUnsavedChanges = false;
+
+    //   if (!state.drafts["temp_draft"]) {
+    //     state.drafts = {
+    //       temp_draft: {
+    //         formData: {},
+    //         status: "Draft",
+    //         lastModified: new Date().toISOString(),
+    //       },
+    //     };
+    //   }
+    // },
     resetForm: (state) => {
       state.drafts = {};
       state.currentApplicationId = null;
@@ -97,77 +179,28 @@ const applicationFormSlice = createSlice({
       state.currentMode = "edit";
       state.hasUnsavedChanges = false;
     },
-    // Update single field (safe for controlled inputs)
-    // updateField: (state, action) => {
-    //   const { field, value } = action.payload;
-    //   if (!field) return;
-
-    //   const keys = field.split(".");
-    //   const lastKey = keys.pop();
-
-    //   let newFormData = { ...state.formData }; // shallow copy
-    //   let ref = newFormData;
-
-    //   keys.forEach((key) => {
-    //     ref[key] = ref[key] ? { ...ref[key] } : {};
-    //     ref = ref[key];
-    //   });
-
-    //   ref[lastKey] = value; // set the final key
-    //   state.formData = newFormData; // replace state with new object
-    // },
-    // updateField: (state, action) => {
-    //   const { field, value } = action.payload;
-    //   state.formData = {
-    //     ...state.formData,
-    //     [field]: value,
-    //   };
-    //     console.log("Redux formData updated:", state.formData);
-
-    // },
-
-    // updateField: (state, action) => {
-    //   const { field, value } = action.payload;
-    //   const appId = state.currentApplicationId;
-
-    //   // validation: ensure application exists
-    //   if (!appId) return;
-
-    //   // validation: prevent invalid field paths
-    //   if (!field || typeof field !== "string") {
-    //     console.error("updateField: Invalid field path ->", field);
-    //     return;
-    //   }
-
-    //   // validation: ensure draft exists for current application
-    //   if (!state.drafts[appId]) {
-    //     state.drafts[appId] = {
-    //       formData: {},
-    //       status: "Draft",
-    //       lastModified: new Date().toISOString(),
-    //     };
-    //   }
-
-    //   const draft = state.drafts[appId];
-
-    //   // safely update nested paths
-    //   try {
-    //     setIn(draft.formData, field, value);
-    //   } catch (err) {
-    //     console.error("updateField failed:", field, value, err);
-    //     return;
-    //   }
-
-    //   state.drafts[appId].lastModified = new Date().toISOString();
-    //   state.hasUnsavedChanges = true;
-
-    //   console.log("Redux formData updated:", state.drafts[appId].formData);
-    // },
-
     updateField: (state, action) => {
       const { field, value } = action.payload;
-      const appId = state.currentApplicationId;
-      if (!appId || !field) return;
+      if (!field) return;
+
+      // let appId = state.currentApplicationId;
+
+      // // If no currentApplicationId, use a temporary draft key
+      // if (!appId) {
+      //   appId = "temp_draft";
+      //   state.currentApplicationId = appId;
+      // }
+      //
+      // if (!state.drafts[appId]) {
+      //   state.drafts[appId] = {
+      //     formData: {},
+      //     status: "Draft",
+      //     lastModified: new Date().toISOString(),
+      //   };
+      // }
+
+      let appId = state.currentApplicationId || "temp_draft";
+      state.currentApplicationId = appId;
 
       if (!state.drafts[appId]) {
         state.drafts[appId] = {
@@ -178,29 +211,42 @@ const applicationFormSlice = createSlice({
       }
 
       try {
-        setIn(state.drafts[appId].formData, field, value);
+        // setIn(state.drafts[appId].formData, field, value);
+        // state.hasUnsavedChanges = true;
+        // IMPORTANT: clone formData so React detects change
+        const newFormData = { ...state.drafts[appId].formData };
+        setIn(newFormData, field, value);
+
+        state.drafts[appId].formData = newFormData;
+        state.drafts[appId].lastModified = new Date().toISOString();
+        state.hasUnsavedChanges = true;
       } catch (err) {
         console.error("updateField failed:", field, value, err);
-        return;
       }
-
-      state.drafts[appId].lastModified = new Date().toISOString();
-      state.hasUnsavedChanges = true;
     },
-
-    // applicationFormSlice.js
     // updateField: (state, action) => {
     //   const { field, value } = action.payload;
-    //   const keys = field.split("."); // split nested path
-    //   let curr = state.formData;
+    //   const appId = state.currentApplicationId;
+    //   if (!appId || !field) return;
 
-    //   for (let i = 0; i < keys.length - 1; i++) {
-    //     const key = keys[i];
-    //     if (!(key in curr)) curr[key] = {}; // create nested object if missing
-    //     curr = curr[key];
+    //   if (!state.drafts[appId]) {
+    //     state.drafts[appId] = {
+    //       formData: {},
+    //       status: "Draft",
+    //       lastModified: new Date().toISOString(),
+    //     };
     //   }
 
-    //   curr[keys[keys.length - 1]] = value; // set the final value
+    //   try {
+    //     setIn(state.drafts[appId].formData, field, value);
+
+    //   } catch (err) {
+    //     console.error("updateField failed:", field, value, err);
+    //     return;
+    //   }
+
+    //   state.drafts[appId].lastModified = new Date().toISOString();
+    //   state.hasUnsavedChanges = true;
     // },
 
     // Bulk update (useful when loading multiple fields)
@@ -231,28 +277,80 @@ const applicationFormSlice = createSlice({
     },
 
     // Save draft
-    saveDraft: (state) => {
-      const appId = state.currentApplicationId;
-      if (!appId) return;
+    // saveDraft: (state) => {
+    //   const appId = state.currentApplicationId;
+    //   if (!appId) return;
 
-      state.drafts[appId].status = "Draft";
-      state.drafts[appId].lastModified = new Date().toISOString();
+    //   state.drafts[appId].status = "Draft";
+    //   state.drafts[appId].lastModified = new Date().toISOString();
+    //   state.hasUnsavedChanges = false;
+    // },
+    saveDraft: (state, action) => {
+      const { appId, data } = action.payload || {};
+      const realAppId = appId ? String(appId) : state.currentApplicationId;
+
+      if (!realAppId) return;
+
+      const currentId = state.currentApplicationId || "temp_draft";
+      const existingFormData =
+        state.drafts[currentId]?.formData ||
+        state.drafts[realAppId]?.formData ||
+        {};
+
+      // state.drafts = {
+      //   [realAppId]: {
+      //     formData: data && Object.keys(data).length ? data : existingFormData,
+      //     status: "Draft",
+      //     lastModified: new Date().toISOString(),
+      //   },
+      // };
+      state.drafts[realAppId] = {
+        formData: data && Object.keys(data).length ? data : existingFormData,
+        status: "Draft",
+        lastModified: new Date().toISOString(),
+      };
+
+      state.currentApplicationId = realAppId;
       state.hasUnsavedChanges = false;
     },
 
     // Submit application
-    submitApplication: (state) => {
-      const appId = state.currentApplicationId;
-      if (!appId) return;
+    // submitApplication: (state) => {
+    //   const appId = state.currentApplicationId;
+    //   if (!appId) return;
 
-      state.drafts[appId].status = "Submitted";
-      state.drafts[appId].submittedAt = new Date().toISOString();
+    //   state.drafts[appId].status = "Submitted";
+    //   state.drafts[appId].submittedAt = new Date().toISOString();
 
-      // Remove any other drafts so only the submitted one remains
-      Object.keys(state.drafts).forEach((id) => {
-        if (id !== appId) delete state.drafts[id];
-      });
+    //   // Remove any other drafts so only the submitted one remains
+    //   Object.keys(state.drafts).forEach((id) => {
+    //     if (id !== appId) delete state.drafts[id];
+    //   });
 
+    //   state.currentMode = "view";
+    //   state.hasUnsavedChanges = false;
+    // },
+    submitApplication: (state, action) => {
+      const { appId, data } = action.payload || {};
+      const realAppId = appId ? String(appId) : state.currentApplicationId;
+
+      if (!realAppId) return;
+
+      const existingFormData =
+        state.drafts[state.currentApplicationId]?.formData ||
+        state.drafts[realAppId]?.formData ||
+        {};
+
+      state.drafts = {
+        [realAppId]: {
+          formData: data && Object.keys(data).length ? data : existingFormData,
+          status: "Submitted",
+          submittedAt: new Date().toISOString(),
+          lastModified: new Date().toISOString(),
+        },
+      };
+
+      state.currentApplicationId = realAppId;
       state.currentMode = "view";
       state.hasUnsavedChanges = false;
     },
@@ -303,14 +401,22 @@ export const selectCurrentApplication = (state) => {
   const id = state.applicationForm.currentApplicationId;
   return id ? state.applicationForm.drafts[id] : null;
 };
-export const selectFormData = createSelector(
-  (state) => state.applicationForm.currentApplicationId,
-  (state) => state.applicationForm.drafts,
-  (currentApplicationId, drafts) => {
-    if (!currentApplicationId) return {};
-    return drafts[currentApplicationId]?.formData || {};
-  },
-);
+// export const selectFormData = createSelector(
+//   (state) => state.applicationForm.currentApplicationId,
+//   (state) => state.applicationForm.drafts,
+//   (currentApplicationId, drafts) => {
+//     if (!currentApplicationId) return {};
+//     return drafts[currentApplicationId]?.formData || {};
+//   },
+// );
+export const selectFormData = (state) => {
+  const { drafts, currentApplicationId } = state.applicationForm;
+  // console.log("selector appId:", currentApplicationId);
+
+  if (!currentApplicationId) return {};
+
+  return drafts?.[currentApplicationId]?.formData || {};
+};
 export const selectCurrentStep = (state) => state.applicationForm.currentStep;
 export const selectCurrentMode = (state) => state.applicationForm.currentMode;
 export const selectHasUnsavedChanges = (state) =>
@@ -323,9 +429,6 @@ export const selectStepCompletion = createSelector(
     // Example: mark step complete if fields exist
     return {
       0: !!formData.country && !!formData.businessType,
-      // 1: !!formData.basicFields,
-      // 2: !!formData.financialFields,
-      // 3: !!formData.complianceFields,
       1: !!formData.step1_basic_info, // check actual step keys
       2: !!formData.step2_financial,
       3: !!formData.step3_compliance,

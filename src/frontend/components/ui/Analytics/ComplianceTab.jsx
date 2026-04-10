@@ -39,26 +39,30 @@ import { getAllRules } from "../../../api/riskRuleApi";
 
 const ddColors = {
   "Standard CDD": "hsl(var(--status-approved))",
-  "Enhanced CDD": "hsl(var(--status-in-review))",
+  "Enhanced Due Diligence (EDD)": "hsl(var(--status-in-review))",
   "Simplified CDD": "hsl(var(--status-submitted))",
+  "Auto-Rejected": "hsl(var(--destructive))",
 };
 
 const ddBgColors = {
   "Standard CDD": "bg-[hsl(var(--status-approved)/0.1)]",
-  "Enhanced CDD": "bg-[hsl(var(--status-in-review)/0.1)]",
+  "Enhanced Due Diligence (EDD)": "bg-[hsl(var(--status-in-review)/0.1)]",
   "Simplified CDD": "bg-[hsl(var(--status-submitted)/0.1)]",
+  "Auto-Rejected": "bg-[hsl(var(--destructive)/0.1)]",
 };
 
 const ddTextColors = {
   "Standard CDD": "text-[hsl(var(--status-approved))]",
-  "Enhanced CDD": "text-[hsl(var(--status-in-review))]",
+  "Enhanced Due Diligence (EDD)": "text-[hsl(var(--status-in-review))]",
   "Simplified CDD": "text-[hsl(var(--status-submitted))]",
+  "Auto-Rejected": "text-[hsl(var(--destructive))]",
 };
 
 const ddDescriptions = {
   "Standard CDD": "Low-risk customers with standard checks",
-  "Enhanced CDD": "High-risk customers requiring deeper review",
+  "Enhanced Due Diligence (EDD)": "High-risk customers requiring deeper review",
   "Simplified CDD": "Very low-risk customers with minimal checks",
+  "Auto-Rejected": "Applications automatically rejected during automated review",
 };
 
 const categoryBarColorClasses = [
@@ -114,6 +118,7 @@ function normalizeStatus(value) {
   if (v === "requires action" || v === "action required")
     return "Requires Action";
   if (v === "draft") return "Draft";
+  if (v === "auto rejected" || v === "auto-rejected") return "Auto Rejected";
 
   return String(value || "").trim() || "Unknown";
 }
@@ -133,25 +138,54 @@ function formatCategoryDisplayName(category) {
     .replace(/\b\w/g, (char) => char.toUpperCase());
 }
 
-function classifyDueDiligence(reviewJobs) {
+function classifyDueDiligence(reviewJobs, applications) {
   const counts = {
     "Standard CDD": 0,
-    "Enhanced CDD": 0,
+    "Enhanced Due Diligence (EDD)": 0,
     "Simplified CDD": 0,
+    "Auto-Rejected": 0,
   };
 
+  const applicationMap = new Map(
+    applications.map((app) => [app.application_id, app]),
+  );
+
   reviewJobs.forEach((job) => {
+    if (job.status !== "COMPLETED") return;
+
+    const app = applicationMap.get(job.application_id);
+    const currentStatus = normalizeStatus(app?.current_status);
+    const previousStatus = normalizeStatus(app?.previous_status);
     const riskGrade = normalizeRiskGrade(job.risk_grade);
 
-    if (riskGrade === "enhanced cdd") {
-      counts["Enhanced CDD"] += 1;
-    } else if (riskGrade === "simplified cdd") {
+    if (currentStatus === "Approved" && previousStatus === "Under Review") {
       counts["Simplified CDD"] += 1;
-    } else if (riskGrade === "standard cdd") {
-      counts["Standard CDD"] += 1;
-    } else {
-      counts["Standard CDD"] += 1;
+      return;
     }
+
+    if (currentStatus === "Auto Rejected") {
+      counts["Auto-Rejected"] += 1;
+      return;
+    }
+
+    if (
+      riskGrade === "enhanced due diligence (edd)" ||
+      riskGrade === "edd"
+    ) {
+      counts["Enhanced Due Diligence (EDD)"] += 1;
+      return;
+    }
+
+    if (
+      riskGrade === "standard due diligence (cdd)" ||
+      riskGrade === "standard cdd" ||
+      riskGrade === "cdd"
+    ) {
+      counts["Standard CDD"] += 1;
+      return;
+    }
+
+    counts["Standard CDD"] += 1;
   });
 
   const total = Object.values(counts).reduce((sum, count) => sum + count, 0);
@@ -167,13 +201,15 @@ function classifyDueDiligence(reviewJobs) {
       description: ddDescriptions["Standard CDD"],
     },
     {
-      type: "Enhanced CDD",
-      count: counts["Enhanced CDD"],
+      type: "Enhanced Due Diligence (EDD)",
+      count: counts["Enhanced Due Diligence (EDD)"],
       percentage:
         total > 0
-          ? Number(((counts["Enhanced CDD"] / total) * 100).toFixed(1))
+          ? Number(
+              ((counts["Enhanced Due Diligence (EDD)"] / total) * 100).toFixed(1),
+            )
           : 0,
-      description: ddDescriptions["Enhanced CDD"],
+      description: ddDescriptions["Enhanced Due Diligence (EDD)"],
     },
     {
       type: "Simplified CDD",
@@ -183,6 +219,15 @@ function classifyDueDiligence(reviewJobs) {
           ? Number(((counts["Simplified CDD"] / total) * 100).toFixed(1))
           : 0,
       description: ddDescriptions["Simplified CDD"],
+    },
+    {
+      type: "Auto-Rejected",
+      count: counts["Auto-Rejected"],
+      percentage:
+        total > 0
+          ? Number(((counts["Auto-Rejected"] / total) * 100).toFixed(1))
+          : 0,
+      description: ddDescriptions["Auto-Rejected"],
     },
   ];
 }
@@ -357,8 +402,22 @@ export function ComplianceTab() {
 
         if (!mounted) return;
 
-        setReviewJobs(Array.isArray(reviewJobsData) ? reviewJobsData : []);
-        setApplications(Array.isArray(applicationsData) ? applicationsData : []);
+        setReviewJobs(
+          Array.isArray(reviewJobsData)
+            ? reviewJobsData
+            : Array.isArray(reviewJobsData?.data)
+              ? reviewJobsData.data
+              : [],
+        );
+
+        setApplications(
+          Array.isArray(applicationsData)
+            ? applicationsData
+            : Array.isArray(applicationsData?.data)
+              ? applicationsData.data
+              : [],
+        );
+
         setRuleCategories(normalizeRuleCategories(riskRulesData));
       } catch (err) {
         console.error("Failed to load compliance tab data:", err);
@@ -377,8 +436,8 @@ export function ComplianceTab() {
   }, []);
 
   const dueDiligenceBreakdown = useMemo(() => {
-    return classifyDueDiligence(reviewJobs);
-  }, [reviewJobs]);
+    return classifyDueDiligence(reviewJobs, applications);
+  }, [reviewJobs, applications]);
 
   const selectedCategory = useMemo(() => {
     return (
@@ -406,6 +465,152 @@ export function ComplianceTab() {
         </div>
       ) : null}
 
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-base font-medium">
+            <Shield className="h-4 w-4 text-primary" />
+            Rules by Category
+          </CardTitle>
+          <CardDescription>
+            Active and inactive rules grouped by category
+          </CardDescription>
+        </CardHeader>
+
+        <CardContent>
+          <div className="mb-5 grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-4">
+            {ruleCategories.map((cat, index) => (
+              <div
+                key={cat.category}
+                className="cursor-pointer rounded-lg border bg-card p-3 transition-shadow hover:shadow-md"
+                onClick={() =>
+                  setExpandedCategory(
+                    expandedCategory === cat.category ? null : cat.category,
+                  )
+                }
+              >
+                <div className="mb-2 flex items-center justify-between">
+                  <Badge
+                    variant="outline"
+                    className={cn(
+                      "border text-xs font-medium",
+                      categoryBadgeColorClasses[
+                        index % categoryBadgeColorClasses.length
+                      ],
+                    )}
+                  >
+                    {formatCategoryDisplayName(cat.category)}
+                  </Badge>
+
+                  {expandedCategory === cat.category ? (
+                    <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
+                  ) : (
+                    <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" />
+                  )}
+                </div>
+
+                <div className="space-y-1">
+                  <div className="flex items-baseline gap-1">
+                    <span className="tabular-nums text-2xl font-bold text-foreground">
+                      {cat.totalRules}
+                    </span>
+                    <span className="text-xs text-muted-foreground">rules</span>
+                  </div>
+
+                  <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                    <span className="text-[hsl(var(--status-approved))]">
+                      {cat.activeRules} active
+                    </span>
+                    <span>·</span>
+                    <span>{cat.inactiveRules} inactive</span>
+                  </div>
+                </div>
+
+                <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-muted">
+                  <div
+                    className={cn(
+                      "h-full rounded-full",
+                      categoryBarColorClasses[
+                        index % categoryBarColorClasses.length
+                      ],
+                    )}
+                    style={{
+                      width: `${
+                        cat.totalRules > 0
+                          ? (cat.activeRules / cat.totalRules) * 100
+                          : 0
+                      }%`,
+                    }}
+                  />
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {selectedCategory ? (
+            <div className="overflow-hidden rounded-lg border">
+              <Table>
+                <TableHeader>
+                  <TableRow className="bg-slate-200/50">
+                    <TableHead className="text-xs font-semibold">
+                      Rule Name
+                    </TableHead>
+                    <TableHead className="text-xs font-semibold">
+                      Rule Code
+                    </TableHead>
+                    <TableHead className="text-xs font-semibold text-right">
+                      Status
+                    </TableHead>
+                  </TableRow>
+                </TableHeader>
+
+                <TableBody>
+                  {selectedCategory.rules.map((rule) => (
+                    <TableRow key={rule.rule_id} className="hover:bg-muted/30">
+                      <TableCell className="text-sm font-medium text-foreground">
+                        {rule.rule_name}
+                      </TableCell>
+                      <TableCell className="text-sm text-muted-foreground">
+                        {rule.rule_code}
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <Badge
+                          variant="outline"
+                          className={cn(
+                            "border text-[10px] font-medium",
+                            rule.status === "active"
+                              ? "bg-[hsl(var(--status-approved)/0.1)] text-[hsl(var(--status-approved))] border-[hsl(var(--status-approved)/0.2)]"
+                              : "border-border bg-muted text-muted-foreground",
+                          )}
+                        >
+                          {rule.status}
+                        </Badge>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+
+                  {selectedCategory.rules.length === 0 ? (
+                    <TableRow>
+                      <TableCell
+                        colSpan={3}
+                        className="py-6 text-center text-sm text-muted-foreground"
+                      >
+                        No rules found in this category.
+                      </TableCell>
+                    </TableRow>
+                  ) : null}
+                </TableBody>
+              </Table>
+            </div>
+          ) : null}
+
+          {loading ? (
+            <p className="mt-4 text-xs text-muted-foreground">
+              Loading risk rules...
+            </p>
+          ) : null}
+        </CardContent>
+      </Card>
+
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         <Card>
           <CardHeader>
@@ -414,7 +619,7 @@ export function ComplianceTab() {
               Due Diligence Breakdown
             </CardTitle>
             <CardDescription>
-              EDD, Standard CDD, and SDD distribution
+              EDD, Standard CDD, Simplified CDD, and Auto-Rejected distribution
             </CardDescription>
           </CardHeader>
 
@@ -714,152 +919,6 @@ export function ComplianceTab() {
           </CardContent>
         </Card>
       </div>
-
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-base font-medium">
-            <Shield className="h-4 w-4 text-primary" />
-            Rules by Category
-          </CardTitle>
-          <CardDescription>
-            Active and inactive rules grouped by category
-          </CardDescription>
-        </CardHeader>
-
-        <CardContent>
-          <div className="mb-5 grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-4">
-            {ruleCategories.map((cat, index) => (
-              <div
-                key={cat.category}
-                className="cursor-pointer rounded-lg border bg-card p-3 transition-shadow hover:shadow-md"
-                onClick={() =>
-                  setExpandedCategory(
-                    expandedCategory === cat.category ? null : cat.category,
-                  )
-                }
-              >
-                <div className="mb-2 flex items-center justify-between">
-                  <Badge
-                    variant="outline"
-                    className={cn(
-                      "border text-xs font-medium",
-                      categoryBadgeColorClasses[
-                        index % categoryBadgeColorClasses.length
-                      ],
-                    )}
-                  >
-                    {formatCategoryDisplayName(cat.category)}
-                  </Badge>
-
-                  {expandedCategory === cat.category ? (
-                    <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
-                  ) : (
-                    <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" />
-                  )}
-                </div>
-
-                <div className="space-y-1">
-                  <div className="flex items-baseline gap-1">
-                    <span className="tabular-nums text-2xl font-bold text-foreground">
-                      {cat.totalRules}
-                    </span>
-                    <span className="text-xs text-muted-foreground">rules</span>
-                  </div>
-
-                  <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                    <span className="text-[hsl(var(--status-approved))]">
-                      {cat.activeRules} active
-                    </span>
-                    <span>·</span>
-                    <span>{cat.inactiveRules} inactive</span>
-                  </div>
-                </div>
-
-                <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-muted">
-                  <div
-                    className={cn(
-                      "h-full rounded-full",
-                      categoryBarColorClasses[
-                        index % categoryBarColorClasses.length
-                      ],
-                    )}
-                    style={{
-                      width: `${
-                        cat.totalRules > 0
-                          ? (cat.activeRules / cat.totalRules) * 100
-                          : 0
-                      }%`,
-                    }}
-                  />
-                </div>
-              </div>
-            ))}
-          </div>
-
-          {selectedCategory ? (
-            <div className="overflow-hidden rounded-lg border">
-              <Table>
-                <TableHeader>
-                  <TableRow className="bg-slate-200/50">
-                    <TableHead className="text-xs font-semibold">
-                      Rule Name
-                    </TableHead>
-                    <TableHead className="text-xs font-semibold">
-                      Rule Code
-                    </TableHead>
-                    <TableHead className="text-xs font-semibold text-right">
-                      Status
-                    </TableHead>
-                  </TableRow>
-                </TableHeader>
-
-                <TableBody>
-                  {selectedCategory.rules.map((rule) => (
-                    <TableRow key={rule.rule_id} className="hover:bg-muted/30">
-                      <TableCell className="text-sm font-medium text-foreground">
-                        {rule.rule_name}
-                      </TableCell>
-                      <TableCell className="text-sm text-muted-foreground">
-                        {rule.rule_code}
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <Badge
-                          variant="outline"
-                          className={cn(
-                            "border text-[10px] font-medium",
-                            rule.status === "active"
-                              ? "bg-[hsl(var(--status-approved)/0.1)] text-[hsl(var(--status-approved))] border-[hsl(var(--status-approved)/0.2)]"
-                              : "border-border bg-muted text-muted-foreground",
-                          )}
-                        >
-                          {rule.status}
-                        </Badge>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-
-                  {selectedCategory.rules.length === 0 ? (
-                    <TableRow>
-                      <TableCell
-                        colSpan={3}
-                        className="py-6 text-center text-sm text-muted-foreground"
-                      >
-                        No rules found in this category.
-                      </TableCell>
-                    </TableRow>
-                  ) : null}
-                </TableBody>
-              </Table>
-            </div>
-          ) : null}
-
-          {loading ? (
-            <p className="mt-4 text-xs text-muted-foreground">
-              Loading risk rules...
-            </p>
-          ) : null}
-        </CardContent>
-      </Card>
     </div>
   );
 }

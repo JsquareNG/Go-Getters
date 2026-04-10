@@ -3,8 +3,17 @@ import axiosClient from "./axiosClient";
 
 export const getApplicationsByUserId = async (userId) => {
   // Using the specific endpoint you provided
-  const res = await axiosClient.get(`/applications/byUserID/${userId}`);
-  return res.data;
+  // const res = await axiosClient.get(`/applications/byUserID/${userId}`);
+  // return res.data;
+  try {
+    const res = await axiosClient.get(`/applications/byUserID/${userId}`);
+    return res.data;
+  } catch (err) {
+    if (err?.response?.status === 404) {
+      return [];
+    }
+    throw err;
+  }
 };
 
 export const getApplicationByAppId = async (id) => {
@@ -14,91 +23,50 @@ export const getApplicationByAppId = async (id) => {
 
 
 /**
- * Save application draft with full form data persistence
- * Payload should include:
- * - user_id: userId
- * - email: user email
- * - firstName: user first name
- * - form_data: entire form state object including all fields, country-specific, business-specific, and documents
- * - application_id: (optional) for updating existing draft
+ * Generic function to extract top-level fields dynamically from form_data
+ * Can be extended if backend expects more mandatory fields per country/type
  */
-// export const saveApplicationDraftApi = async (payload) => {
-//   // Construct the request with full form data
-//   const draftPayload = {
-//     user_id: payload.user_id,
-//     email: payload.email,
-//     firstName: payload.firstName,
-//     business_country: payload.form_data.business_country, // Extract country from form_data for backend mapping
-//     business_name: payload.form_data.business_name, // Extract business name from form_data for backend mapping
-//     business_type: payload.form_data.business_type, // Extract business type from form_data for backend mapping
-//     last_saved_step: payload.form_data.last_saved_step, // Extract last saved step from form_data for backend mapping
-//     previous_status: payload.form_data.previous_status, // Extract previous status from form_data for backend mapping
-//     current_status: payload.form_data.current_status, // Extract current status from form_data for backend mapping
-//     form_data: payload.form_data, // entire form state
-//     ...(payload.application_id && { application_id: payload.application_id }),
-//   };
-
-//   /*
-//   @router.post("/firstSave")
-//         business_country=data["business_country"],
-//         business_name=data['business_name'],
-//         business_type=data['business_type'],
-//         user_id=data["user_id"],
-//         form_data=form_data,
-//         last_saved_step=data['last_saved_step'],
-//         previous_status=None,
-//         current_status="Draft"
-//   */
-
-//   // Determine endpoint: firstSave if new, secondSave if updating
-//   const endpoint = payload.application_id
-//     ? `/applications/secondSave/${payload.application_id}`
-//     : "/applications/firstSave";
-
-//   const res = await axiosClient.post(endpoint, draftPayload);
-//   return res.data;
-// };
+const mapTopLevelFields = (form_data) => {
+  return {
+    // business_name: form_data.business_name || "",
+    // business_country: form_data.country || "",
+    // business_type: form_data.business_type || "",
+    last_saved_step: form_data.last_saved_step ?? 0,
+    previous_status: form_data.previous_status || null,
+    current_status: form_data.current_status || "Draft",
+  };
+};
 
 /**
- * Save or update an SME application draft
- * @param {Object} payload - Contains user info, application_id, and form data
+ * Save or update SME application draft dynamically
  */
 export const saveApplicationDraftApi = async (payload) => {
   // Extract form-level fields for backend mapping
-  const { user_id, email, firstName, application_id, form_data } = payload;
+  // const { user_id, email, first_name, application_id, form_data } = payload;
 
-  // Build draft payload for API
-  const draftPayload = {
-    user_id,
-    email,
-    firstName,
-    // business_country: state.data.country || "SG", // match Step0Brief
-    // business_name: state.data.business_name || "", // match Step0Brief
-    // business_type: state.data.businessType || "", // match Step0Brief
-    business_country: form_data.business_country || "", // fallback empty string
-    business_type: form_data.business_type || "",
-    business_name: form_data.businessName || "",
-    last_saved_step: form_data.last_saved_step ?? 0, // default to 0 if undefined
-    previous_status: form_data.previous_status || null,
-    current_status: form_data.current_status || "Draft",
-    form_data, // entire form state including repeatable sections, documents, conditional fields
-    ...(application_id && { application_id }), // include only if defined
-  };
+  // const draftPayload = {
+  //   user_id,
+  //   email,
+  //   first_name,
+  //   ...mapTopLevelFields(form_data), // dynamically mapped top-level fields
+  //   form_data, // keep all dynamic fields for backend
+  //   ...(application_id && { application_id }),
+  // };
 
-  console.log(
-    "Saving application draft payload:",
-    JSON.stringify(draftPayload, null, 2),
-  );
+  // console.log("draft payload", draftPayload)
+
+  const { application_id } = payload;
 
   try {
     const res = application_id
       ? await axiosClient.put(
           `/applications/secondSave/${application_id}`,
-          draftPayload,
+          payload,
         )
-      : await axiosClient.post("/applications/firstSave", draftPayload);
+      : await axiosClient.post("/applications/firstSave", payload);
 
     console.log("API response:", res.data); // log backend response
+    console.log("payload", payload);
 
     return res.data;
   } catch (err) {
@@ -107,10 +75,37 @@ export const saveApplicationDraftApi = async (payload) => {
   }
 };
 
-export const submitApplicationApi = async (payload) => {
-  const res = await axiosClient.post("/applications/firstSubmit", payload);
-  return res.data;
+/**
+ * Submit SME application dynamically
+ */
+export const submitSmeApplicationApi = async (payload) => {
+  const { application_id } = payload;
+
+  // const submitPayload = {
+  //   form_data,
+  //   current_status: "Submitted",
+  //   ...(application_id && { application_id }),
+  // };
+
+  try {
+    const res = application_id
+      ? await axiosClient.put(
+          `/applications/secondSubmit/${application_id}`,
+          payload,
+        )
+      : await axiosClient.post("/applications/firstSubmit", payload);
+
+    return res.data;
+  } catch (err) {
+    console.error("Failed to submit SME application:", err);
+    throw err;
+  }
 };
+
+// export const submitApplicationApi = async (payload) => {
+//   const res = await axiosClient.post("/applications/firstSubmit", payload);
+//   return res.data;
+// };
 
 export const getApplicationByReviewer = async (reviewerId) => {
   const res = await axiosClient.get(`/applications/byEmployeeID/${reviewerId}`);

@@ -9,7 +9,8 @@ import backend.api.auditTrail as audit_module
 # ----------------------------
 
 class FakeQuery:
-    def __init__(self, all_result=None):
+    def __init__(self, first_result=None, all_result=None):
+        self._first_result = first_result
         self._all_result = all_result or []
 
     def filter(self, *args, **kwargs):
@@ -18,19 +19,35 @@ class FakeQuery:
     def order_by(self, *args, **kwargs):
         return self
 
+    def first(self):
+        return self._first_result
+
     def all(self):
         return self._all_result
 
 
 class FakeDB:
     def __init__(self):
-        self.query_result = []
+        self._query_map = {}
+
+    def set_query(self, model_or_tuple, *, first=None, all=None):
+        self._query_map[model_or_tuple] = FakeQuery(first_result=first, all_result=all)
 
     def set_logs(self, logs):
-        self.query_result = logs
+        self.set_query(audit_module.AuditTrail, all=logs)
 
-    def query(self, *args, **kwargs):
-        return FakeQuery(all_result=self.query_result)
+    def query(self, *models):
+        key = models[0] if len(models) == 1 else models
+        if key not in self._query_map:
+            return FakeQuery()
+        return self._query_map[key]
+
+
+def make_app(application_id="APP-1", user_id="USER-1"):
+    return SimpleNamespace(
+        application_id=application_id,
+        user_id=user_id,
+    )
 
 
 def make_log(
@@ -59,6 +76,11 @@ def make_log(
         description=description,
         created_at=created_at or datetime(2026, 1, 1, 10, 0, 0),
     )
+
+
+SME_USER = {"user_id": "USER-1", "role": "SME"}
+STAFF_USER = {"user_id": "STAFF-1", "role": "STAFF"}
+MGMT_USER = {"user_id": "MGMT-1", "role": "MANAGEMENT"}
 
 
 # ----------------------------
@@ -133,6 +155,7 @@ def test_get_all_logs_grouped_groups_by_application_id():
 
 def test_get_audit_trail_by_application_serializes_logs():
     db = FakeDB()
+    app = make_app(application_id="APP-1", user_id="USER-1")
     created_at = datetime(2026, 1, 1, 12, 0, 0)
     logs = [
         make_log(
@@ -149,9 +172,14 @@ def test_get_audit_trail_by_application_serializes_logs():
             created_at=created_at,
         )
     ]
+    db.set_query(audit_module.ApplicationForm, first=app)
     db.set_logs(logs)
 
-    result = audit_module.get_audit_trail_by_application("APP-1", db=db)
+    result = audit_module.get_audit_trail_by_application(
+        "APP-1",
+        db=db,
+        current_user=SME_USER,
+    )
 
     assert len(result) == 1
     assert result[0]["application_id"] == "APP-1"
@@ -171,7 +199,10 @@ def test_get_audit_metrics_overview_empty_logs():
     db = FakeDB()
     db.set_logs([])
 
-    result = audit_module.get_audit_metrics_overview(db=db)
+    result = audit_module.get_audit_metrics_overview(
+        db=db,
+        current_user=STAFF_USER,
+    )
 
     assert result == {
         "totalApplications": 0,
@@ -228,7 +259,10 @@ def test_get_audit_metrics_overview_basic_processing_and_manual_review():
     ]
     db.set_logs(logs)
 
-    result = audit_module.get_audit_metrics_overview(db=db)
+    result = audit_module.get_audit_metrics_overview(
+        db=db,
+        current_user=STAFF_USER,
+    )
 
     assert result["totalApplications"] == 2
     # processing times: APP-1 = 3 days, APP-2 = 2 days => avg 2.5
@@ -270,7 +304,10 @@ def test_get_audit_metrics_overview_detects_manual_review_from_status_transition
     ]
     db.set_logs(logs)
 
-    result = audit_module.get_audit_metrics_overview(db=db)
+    result = audit_module.get_audit_metrics_overview(
+        db=db,
+        current_user=STAFF_USER,
+    )
 
     assert result["totalApplications"] == 1
     assert result["totalEscalations"] == 1
@@ -286,7 +323,10 @@ def test_get_staff_leaderboard_empty_logs():
     db = FakeDB()
     db.set_logs([])
 
-    result = audit_module.get_staff_leaderboard(db=db)
+    result = audit_module.get_staff_leaderboard(
+        db=db,
+        current_user=STAFF_USER,
+    )
 
     assert result == []
 
@@ -317,7 +357,10 @@ def test_get_staff_leaderboard_only_reviewers_appear():
     ]
     db.set_logs(logs)
 
-    result = audit_module.get_staff_leaderboard(db=db)
+    result = audit_module.get_staff_leaderboard(
+        db=db,
+        current_user=STAFF_USER,
+    )
 
     assert len(result) == 1
     assert result[0]["staffId"] == "R1"
@@ -398,7 +441,10 @@ def test_get_staff_leaderboard_calculates_processed_approval_rate_and_rank():
     ]
     db.set_logs(logs)
 
-    result = audit_module.get_staff_leaderboard(db=db)
+    result = audit_module.get_staff_leaderboard(
+        db=db,
+        current_user=STAFF_USER,
+    )
 
     assert len(result) == 2
 
@@ -446,6 +492,9 @@ def test_get_staff_leaderboard_ignores_non_reviewer_final_decisions():
     ]
     db.set_logs(logs)
 
-    result = audit_module.get_staff_leaderboard(db=db)
+    result = audit_module.get_staff_leaderboard(
+        db=db,
+        current_user=STAFF_USER,
+    )
 
     assert result == []
