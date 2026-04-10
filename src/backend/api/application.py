@@ -1252,55 +1252,55 @@ def send_draft_reminders(db: Session = Depends(get_db),
         "failures": failures[:20],
     }
 
-@router.get("/getRequired/{application_id}")
-def get_required_requirements(application_id: str, db: Session = Depends(get_db)):
-    action_request = (
-        db.query(ActionRequest)
-        .filter(
-            ActionRequest.application_id == application_id,
-            ActionRequest.status == "OPEN",
-        )
-        .order_by(desc(ActionRequest.created_at))
-        .first()
-    )
+# @router.get("/getRequired/{application_id}")
+# def get_required_requirements(application_id: str, db: Session = Depends(get_db)):
+#     action_request = (
+#         db.query(ActionRequest)
+#         .filter(
+#             ActionRequest.application_id == application_id,
+#             ActionRequest.status == "OPEN",
+#         )
+#         .order_by(desc(ActionRequest.created_at))
+#         .first()
+#     )
 
-    items = (
-        db.query(ActionRequestItem)
-        .filter(ActionRequestItem.action_request_id == action_request.action_request_id)
-        .order_by(desc(ActionRequestItem.item_id))  # you can change ordering if you want
-        .all()
-    )
+#     items = (
+#         db.query(ActionRequestItem)
+#         .filter(ActionRequestItem.action_request_id == action_request.action_request_id)
+#         .order_by(desc(ActionRequestItem.item_id))  # you can change ordering if you want
+#         .all()
+#     )
 
-    required_documents = []
-    required_questions = []
+#     required_documents = []
+#     required_questions = []
 
-    for it in items:
-        # NOTE: since your table doesn't have `required`, we treat all items as required
-        if it.item_type == "DOCUMENT":
-            required_documents.append(
-                {
-                    "item_id": it.item_id,
-                    "document_name": it.document_name,
-                    "document_desc": it.document_desc,
-                }
-            )
-        elif it.item_type == "QUESTION":
-            required_questions.append(
-                {
-                    "item_id": it.item_id,
-                    "question_text": it.question_text,
-                    "answer_text": it.answer_text,
-                }
-            )
+#     for it in items:
+#         # NOTE: since your table doesn't have `required`, we treat all items as required
+#         if it.item_type == "DOCUMENT":
+#             required_documents.append(
+#                 {
+#                     "item_id": it.item_id,
+#                     "document_name": it.document_name,
+#                     "document_desc": it.document_desc,
+#                 }
+#             )
+#         elif it.item_type == "QUESTION":
+#             required_questions.append(
+#                 {
+#                     "item_id": it.item_id,
+#                     "question_text": it.question_text,
+#                     "answer_text": it.answer_text,
+#                 }
+#             )
 
-    return {
-        "application_id": application_id,
-        "action_request_id": action_request.action_request_id,
-        "status": action_request.status,
-        "reason": action_request.reason,
-        "required_documents": required_documents,
-        "required_questions": required_questions,
-    }
+#     return {
+#         "application_id": application_id,
+#         "action_request_id": action_request.action_request_id,
+#         "status": action_request.status,
+#         "reason": action_request.reason,
+#         "required_documents": required_documents,
+#         "required_questions": required_questions,
+#     }
 
 @router.get("/getActionRequests/{application_id}")
 def get_action_requests(application_id: str, db: Session = Depends(get_db)):

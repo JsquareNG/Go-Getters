@@ -223,28 +223,28 @@ def get_download_url_by_id(document_id: str, db: Session = Depends(get_db)):
     return {"url": url}
 
 
-@router.delete("/{document_id}")
-def delete_document(document_id: str, db: Session = Depends(get_db)):
-    doc = db.query(Document).filter(Document.document_id == document_id).first()
-    if not doc:
-        raise HTTPException(404, "Document not found")
+# @router.delete("/{document_id}")
+# def delete_document(document_id: str, db: Session = Depends(get_db)):
+#     doc = db.query(Document).filter(Document.document_id == document_id).first()
+#     if not doc:
+#         raise HTTPException(404, "Document not found")
 
-    # ✅ Only allow deleting supporting docs
-    if doc.document_type != "supporting":
-        raise HTTPException(400, "Only supporting documents can be deleted")
+#     # ✅ Only allow deleting supporting docs
+#     if doc.document_type != "supporting":
+#         raise HTTPException(400, "Only supporting documents can be deleted")
 
-    path = doc.storage_path
+#     path = doc.storage_path
 
-    # ✅ Delete from storage first (service role bypasses policies)
-    # storage3 remove expects a list of paths in most versions
-    try:
-        supabase_admin.storage.from_(BUCKET).remove([path])
-    except TypeError:
-        # some versions accept a single string
-        supabase_admin.storage.from_(BUCKET).remove(path)
+#     # ✅ Delete from storage first (service role bypasses policies)
+#     # storage3 remove expects a list of paths in most versions
+#     try:
+#         supabase_admin.storage.from_(BUCKET).remove([path])
+#     except TypeError:
+#         # some versions accept a single string
+#         supabase_admin.storage.from_(BUCKET).remove(path)
 
-    # ✅ Then delete from DB
-    db.delete(doc)
-    db.commit()
+#     # ✅ Then delete from DB
+#     db.delete(doc)
+#     db.commit()
 
-    return {"ok": True, "deleted_document_id": document_id, "deleted_path": path}
+#     return {"ok": True, "deleted_document_id": document_id, "deleted_path": path}

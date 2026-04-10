@@ -27,9 +27,11 @@ class Company:
 
     ownership_layers: int
 
-    transaction_countries: List[str]
+    transaction_country_count: int
 
     individuals: List[Individual]
+
+    director_count: int
 
     # documents
     acra_profile: bool

@@ -91,6 +91,8 @@ def run_review_job(application_id: str):
 
         years_incorporated = 1  # default fallback
 
+        director_count = form.get("director_count")
+
         if registration_date_str:
             try:
                 registration_date = datetime.strptime(registration_date_str, "%Y-%m-%d")
@@ -121,9 +123,10 @@ def run_review_job(application_id: str):
 
             ownership_layers=form.get("ownership_layers", 1),
 
-            transaction_countries=form.get("transaction_countries", []),
+            transaction_country_count=form.get("transaction_country_count", 1),
 
             individuals=individuals,
+            director_count=director_count,
 
             # documents
             acra_profile=form.get("acra_profile", False),
@@ -135,6 +138,7 @@ def run_review_job(application_id: str):
             npwp_present=form.get("npwp_present", False),
         )
 
+        print("transaction_country_count =", company.transaction_country_count)
         result = submit_application(company, db)
 
         decision = result.get("risk_decision")

@@ -125,7 +125,12 @@ def evaluate_db_rules_with_trace(company, rules, config):
 
         matched_group_conditions = None
 
-        for group_no, conditions in grouped_conditions.items():
+        for group_no in sorted(grouped_conditions.keys(), key=lambda x: int(x)):
+            conditions = sorted(
+                grouped_conditions[group_no],
+                key=lambda c: (c.order_no if c.order_no is not None else 999999)
+            )
+            
             group_trace = {
                 "condition_group": group_no,
                 "matched": True,
@@ -147,6 +152,7 @@ def evaluate_db_rules_with_trace(company, rules, config):
             rule_trace["groups"].append(group_trace)
 
             if group_trace["matched"]:
+                print("Matched rule:", rule.rule_code, "group:", group_no)
                 matched_group_conditions = conditions
                 rule_trace["matched"] = True
                 rule_trace["matched_group"] = group_no
