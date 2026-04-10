@@ -29,6 +29,10 @@ function getBasicBusinessFields() {
       label: "Business Name",
       required: true,
       placeholder: "Enter your registered business name",
+      validate: {
+        minLength: 2,
+        maxLength: 120,
+      },
     },
     businessIndustry: {
       type: "select",
@@ -613,9 +617,17 @@ const SINGAPORE_CONFIG = {
           id: "step2",
           label: "Basic Info & Shareholders",
           fields: {
-            companyName: {
+            // businessProfile: {
+            //   type: "file",
+            //   label: "Upload ACRA Business Profile (OCR autofill)",
+            //   required: true,
+            //   placeholder: "Upload PDF, then wait for Autofill",
+            //   ocrTarget: "business_profile",
+            //   ocr: true,
+            // },
+            businessName: {
               type: "text",
-              label: "Company Name",
+              label: "Business Name",
               placeholder: "Enter your company name",
               required: true,
             },

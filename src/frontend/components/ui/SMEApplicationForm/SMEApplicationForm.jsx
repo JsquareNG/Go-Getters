@@ -373,9 +373,9 @@ const SMEApplicationForm = () => {
 
   const isIncomplete = validationReport.total > 0;
 
-  useEffect(() => {
-    console.log("VALIDATION REPORT:", validationReport);
-  }, [validationReport]);
+  // useEffect(() => {
+  //   console.log("VALIDATION REPORT:", validationReport);
+  // }, [validationReport]);
 
   const canSubmit =
     clampedStep === 4 && isStep0Valid && hasConfigSteps && !isIncomplete;
@@ -437,7 +437,58 @@ const SMEApplicationForm = () => {
     try {
       let savedAppId = currentApp?.applicationId || appId;
 
+      // if (isInitial) {
+      //   if (!selectedCountry || !selectedBusinessType) {
+      //     toast({
+      //       title: "Missing required fields",
+      //       description: "Please select country and business type first.",
+      //       variant: "destructive",
+      //     });
+      //     return null;
+      //   }
+
+      //   const initialPayload = {
+      //     ...(savedAppId && savedAppId !== "new"
+      //       ? { application_id: savedAppId }
+      //       : {}),
+      //     user_id: user.user_id,
+      //     form_data: {
+      //       country: selectedCountry,
+      //       businessType: selectedBusinessType,
+      //       businessCountry: selectedCountry,
+      //       businessName: "",
+      //     },
+      //   };
+
+      //   const res = await saveApplicationDraftApi(initialPayload);
+      //   console.log("Initial application created with response:", res);
+      //   savedAppId = res.application_id || savedAppId;
+
+      //   dispatch(
+      //     loadApplication({
+      //       applicationId: savedAppId,
+      //       formData: {
+      //         country: selectedCountry,
+      //         businessType: selectedBusinessType,
+      //         businessCountry: selectedCountry,
+      //         businessName: "",
+      //         last_saved_step: 0,
+      //         previous_status: null,
+      //         current_status: "Draft",
+      //       },
+      //       status: "Draft",
+      //     }),
+      //   );
+
+      //   return savedAppId;
+      // }
       if (isInitial) {
+        const existingId = currentApp?.applicationId || appId;
+
+        if (existingId && existingId !== "new") {
+          return existingId;
+        }
+
         if (!selectedCountry || !selectedBusinessType) {
           toast({
             title: "Missing required fields",
@@ -448,19 +499,20 @@ const SMEApplicationForm = () => {
         }
 
         const initialPayload = {
-          ...(savedAppId && savedAppId !== "new"
-            ? { application_id: savedAppId }
-            : {}),
           user_id: user.user_id,
           form_data: {
             country: selectedCountry,
             businessType: selectedBusinessType,
             businessCountry: selectedCountry,
             businessName: "",
+            last_saved_step: 0,
+            current_status: "Draft",
           },
         };
 
         const res = await saveApplicationDraftApi(initialPayload);
+        console.log("Initial application created with response:", res);
+
         savedAppId = res.application_id || savedAppId;
 
         dispatch(
@@ -488,11 +540,19 @@ const SMEApplicationForm = () => {
           ?.provider_session_id ||
         null;
 
+      const resolvedLastSavedStep = clampedStep;
+      const resolvedCurrentStatus =
+        effectiveFormData?.current_status ?? "Draft";
+
       const cleanedFormPayload = buildDynamicPayload({
         rawFormData: effectiveFormData,
         config: activeConfig,
         providerSessionId: providerSessionId,
       });
+
+      // explicitly override / inject metadata into form_data
+      cleanedFormPayload.last_saved_step = resolvedLastSavedStep;
+      cleanedFormPayload.current_status = resolvedCurrentStatus;
 
       const payload = {
         ...(savedAppId && savedAppId !== "new"
@@ -501,25 +561,28 @@ const SMEApplicationForm = () => {
         user_id: user.user_id,
         email: user.email,
         first_name: user.first_name ?? user.firstName ?? "",
-        last_saved_step: currentStepFromRedux,
-        // previous_status: formData?.previous_status || null,
-        // current_status: formData?.current_status || "Draft",
-        previous_status: effectiveFormData?.previous_status || null,
-        current_status: effectiveFormData?.current_status || "Draft",
+        last_saved_step: resolvedLastSavedStep,
+        current_status: resolvedCurrentStatus,
         form_data: cleanedFormPayload,
       };
 
       const res = await saveApplicationDraftApi(payload);
       savedAppId = res.application_id || savedAppId;
 
-      // await uploadAllDocumentsFromFormData(formData, activeConfig, savedAppId);
-      // dispatch(saveDraftAction({ appId: savedAppId, data: formData }));
       await uploadAllDocumentsFromFormData(
         effectiveFormData,
         activeConfig,
         savedAppId,
       );
-      dispatch(saveDraftAction({ appId: savedAppId, data: effectiveFormData }));
+
+      const updatedFormData = {
+        ...effectiveFormData,
+        ...cleanedFormPayload,
+        last_saved_step: resolvedLastSavedStep,
+        current_status: resolvedCurrentStatus,
+      };
+      // dispatch(saveDraftAction({ appId: savedAppId, data: effectiveFormData }));
+      dispatch(saveDraftAction({ appId: savedAppId, data: updatedFormData }));
 
       return savedAppId;
     } catch (err) {
@@ -537,6 +600,13 @@ const SMEApplicationForm = () => {
   };
 
   const handleStartApplication = async () => {
+    const existingId = currentApp?.applicationId || appId;
+
+    if (existingId && existingId !== "new") {
+      navigate(`/application/edit/${existingId}/1`, { replace: true });
+      return;
+    }
+
     const savedAppId = await persistApplication({ isInitial: true });
 
     if (savedAppId) {
@@ -576,9 +646,15 @@ const SMEApplicationForm = () => {
             businessCountry:
               cleanedFormData.businessCountry ?? app?.business_country ?? "",
             country: cleanedFormData.country ?? app?.business_country ?? "",
-            last_saved_step: app?.last_saved_step ?? 0,
-            previous_status: app?.previous_status ?? null,
-            current_status: app?.current_status ?? "Draft",
+            // last_saved_step: app?.last_saved_step ?? 0,
+            // previous_status: app?.previous_status ?? null,
+            // current_status: app?.current_status ?? "Draft",
+            last_saved_step:
+              app?.last_saved_step ?? cleanedFormData?.last_saved_step ?? 0,
+            previous_status:
+              app?.previous_status ?? cleanedFormData?.previous_status ?? null,
+            current_status:
+              app?.current_status ?? cleanedFormData?.current_status ?? "Draft",
           };
 
           dispatch(

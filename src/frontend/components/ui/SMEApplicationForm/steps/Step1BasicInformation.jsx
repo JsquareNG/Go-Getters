@@ -79,14 +79,39 @@ const Step1BasicInformation = ({
     return data || {};
   };
 
-  const getNestedValue = (obj, path) => {
+  // const getNestedValue = (obj, path) => {
+  //   if (!path) return undefined;
+
+  //   return path.split(".").reduce((acc, key) => {
+  //     if (acc == null) return undefined;
+  //     const isIndex = !Number.isNaN(Number(key));
+  //     return isIndex ? acc[Number(key)] : acc[key];
+  //   }, obj);
+  // };
+
+  // finds the value from form_data to map it
+  const getNestedValue = (objs, path) => {
     if (!path) return undefined;
 
-    return path.split(".").reduce((acc, key) => {
-      if (acc == null) return undefined;
-      const isIndex = !Number.isNaN(Number(key));
-      return isIndex ? acc[Number(key)] : acc[key];
-    }, obj);
+    const sources = Array.isArray(objs) ? objs : [objs];
+
+    for (const obj of sources) {
+      const value = path.split(".").reduce((acc, key) => {
+        if (acc == null) return undefined;
+        const isIndex = !Number.isNaN(Number(key));
+        return isIndex ? acc[Number(key)] : acc[key];
+      }, obj);
+
+      if (
+        value !== null &&
+        value !== undefined &&
+        String(value).trim() !== ""
+      ) {
+        return value;
+      }
+    }
+
+    return undefined;
   };
 
   const indoDateToISO = (dateStr) => {
@@ -420,6 +445,20 @@ const Step1BasicInformation = ({
     onFieldChange(name, value);
   };
 
+  // helper to map from ocr to actual fields
+  const pickFirstNonEmpty = (...values) => {
+    for (const value of values) {
+      if (
+        value !== null &&
+        value !== undefined &&
+        String(value).trim() !== ""
+      ) {
+        return value;
+      }
+    }
+    return "";
+  };
+
   const mapBusinessProfilePayloadToForm = (payload, country) => {
     if (!payload || Object.keys(payload).length === 0) {
       throw new Error("No structured OCR data returned.");
@@ -429,27 +468,36 @@ const Step1BasicInformation = ({
 
     if (country === "Indonesia") {
       // support both old and new payload shapes
-      const issuedDate =
-        payload.date_of_registration ||
-        payload.additional_data?.issuance_information?.issued_date ||
-        "";
-
-      const phone =
-        payload.phone ||
-        payload.additional_data?.contact_information?.phone_number ||
-        "";
-
-      const email =
-        payload.email ||
-        payload.additional_data?.contact_information?.email ||
-        "";
-
-      const businessName = payload.business_name || payload.company_name || "";
-      const registrationNumber =
-        payload.business_registration_number || payload.nib_number || "";
-      const address = payload.registered_address || payload.address || "";
-      const businessStatus =
-        payload.business_status || payload.company_status || "";
+      const issuedDate = pickFirstNonEmpty(
+        payload.date_of_registration,
+        payload.issued_date,
+        payload.additional_data?.issuance_information?.issued_date,
+      );
+      const phone = pickFirstNonEmpty(
+        payload.phone,
+        payload.phone_number,
+        payload.additional_data?.contact_information?.phone_number,
+      );
+      const email = pickFirstNonEmpty(
+        payload.email,
+        payload.additional_data?.contact_information?.email,
+      );
+      const businessName = pickFirstNonEmpty(
+        payload.business_name,
+        payload.company_name,
+      );
+      const registrationNumber = pickFirstNonEmpty(
+        payload.business_registration_number,
+        payload.nib_number,
+      );
+      const address = pickFirstNonEmpty(
+        payload.registered_address,
+        payload.address,
+      );
+      const businessStatus = pickFirstNonEmpty(
+        payload.business_status,
+        payload.company_status,
+      );
 
       if (businessName) {
         updates.businessName = businessName;
@@ -494,32 +542,40 @@ const Step1BasicInformation = ({
     }
 
     if (country === "Singapore") {
-      if (payload.business_name) {
-        updates.businessName = payload.business_name;
+      // console.log("payload singapore", payload);
+      const businessName = pickFirstNonEmpty(
+        payload.business_name,
+        payload.company_name,
+        payload.businessName,
+      );
+      const uen = pickFirstNonEmpty(
+        payload.business_registration_number,
+        payload.uen,
+      );
+      const address = pickFirstNonEmpty(
+        payload.registered_address,
+        payload.address,
+      );
+      const registrationDate = pickFirstNonEmpty(
+        payload.date_of_registration,
+        payload.registration_date,
+        payload.business_start_date,
+      );
+
+      if (businessName) {
+        updates.businessName = businessName;
       }
 
-      if (payload.business_registration_number) {
-        updates.registrationNumber = payload.business_registration_number;
+      if (uen) {
+        updates.uen = uen;
       }
 
-      if (payload.registered_address) {
-        updates.registeredAddress = payload.registered_address;
+      if (address) {
+        updates.registeredAddress = address;
       }
 
-      if (payload.date_of_registration) {
-        updates.registrationDate = ddMmmYyyyToISO(payload.date_of_registration);
-      }
-
-      if (payload.phone) {
-        updates.phone = payload.phone;
-      }
-
-      if (payload.email) {
-        updates.email = payload.email;
-      }
-
-      if (payload.business_status) {
-        updates.businessStatus = payload.business_status;
+      if (registrationDate) {
+        updates.registrationDate = ddMmmYyyyToISO(registrationDate);
       }
 
       return updates;
@@ -540,6 +596,8 @@ const Step1BasicInformation = ({
       //   currentValue === undefined ||
       //   currentValue === null ||
       //   currentValue === "";
+
+      console.log(`Applying OCR update for ${fieldKey}:`, nextValue);
 
       if (
         // isEmpty &&
@@ -585,28 +643,6 @@ const Step1BasicInformation = ({
         payload = result?.data || {};
       }
 
-      // if (fieldConfig.ocrTarget === "business_profile") {
-      //   const map = {
-      //     business_name: "businessName",
-      //     business_registration_number: "registrationNumber",
-      //     registered_address: "registeredAddress",
-      //     date_of_registration: "registrationDate",
-      //     npwp: "npwp",
-      //     phone: "phone",
-      //     email: "email",
-      //     business_status: "businessStatus",
-      //   };
-
-      //   Object.entries(map).forEach(([ocrKey, formKey]) => {
-      //     if (
-      //       payload[ocrKey] !== undefined &&
-      //       payload[ocrKey] !== null &&
-      //       payload[ocrKey] !== ""
-      //     ) {
-      //       onFieldChange(formKey, payload[ocrKey]);
-      //     }
-      //   });
-      // }
       if (fieldConfig.ocrTarget === "business_profile") {
         const mappedFields = mapBusinessProfilePayloadToForm(
           payload,
@@ -665,10 +701,6 @@ const Step1BasicInformation = ({
 
     residentialAddress: detection?.formatted_address || "",
   });
-
-  // const individualsSignature = JSON.stringify(
-  //   getFormDataRoot()?.individuals || [],
-  // );
 
   const sessionSignature = JSON.stringify(
     (getFormDataRoot()?.individuals || []).map(
@@ -742,7 +774,8 @@ const Step1BasicInformation = ({
       }
 
       if (hasChanges) {
-        onFieldChange("formData", nextFormRoot);
+        // onFieldChange("formData", nextFormRoot);
+        handleFieldChange("individuals", nextFormRoot.individuals);
       }
     };
 
@@ -771,6 +804,62 @@ const Step1BasicInformation = ({
       }
     });
   }, [basicFieldsConfig, data, ocrState]);
+
+  // ensure minimum rows for repeatable sections are present on initial load
+  useEffect(() => {
+    const formRoot = getFormDataRoot();
+
+    Object.entries(repeatableSectionsConfig).forEach(
+      ([sectionKey, sectionConfig]) => {
+        const storageKey = sectionConfig?.storage;
+        const minRows = sectionConfig?.min || 0;
+        const rowTypeField = sectionConfig?.rowTypeField;
+        const rowTypeValue = sectionConfig?.rowTypeValue;
+        const fields = sectionConfig?.fields || {};
+
+        if (!storageKey || minRows < 1) return;
+
+        const existingRows = Array.isArray(formRoot?.[storageKey])
+          ? formRoot[storageKey]
+          : [];
+
+        const matchingRows =
+          rowTypeField && rowTypeValue
+            ? existingRows.filter((row) => row?.[rowTypeField] === rowTypeValue)
+            : existingRows;
+
+        if (matchingRows.length >= minRows) return;
+
+        const rowsToAdd = Array.from(
+          { length: minRows - matchingRows.length },
+          () => {
+            const newRow = {};
+
+            Object.entries(fields).forEach(([fieldKey, fieldConfig]) => {
+              if (fieldConfig?.value !== undefined) {
+                newRow[fieldKey] = fieldConfig.value;
+              } else {
+                newRow[fieldKey] = "";
+              }
+            });
+
+            if (rowTypeField && rowTypeValue && newRow[rowTypeField] == null) {
+              newRow[rowTypeField] = rowTypeValue;
+            }
+
+            return newRow;
+          },
+        );
+
+        const nextFormRoot = {
+          ...formRoot,
+          [storageKey]: [...existingRows, ...rowsToAdd],
+        };
+
+        onFieldChange("formData", nextFormRoot);
+      },
+    );
+  }, [repeatableSectionsConfig]);
 
   return (
     <div>
