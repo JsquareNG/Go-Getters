@@ -62,10 +62,56 @@ function normalizeStatus(value) {
   return "Unknown";
 }
 
+function getApplicationStatus(app) {
+  const payload = getPayload(app);
+  return (
+    app?.current_status ??
+    payload?.current_status ??
+    payload?.currentStatus ??
+    ""
+  );
+}
+
+function getPreviousStatus(app) {
+  const payload = getPayload(app);
+  return (
+    app?.previous_status ??
+    payload?.previous_status ??
+    payload?.previousStatus ??
+    ""
+  );
+}
+
+function getLastActivityDate(app) {
+  const payload = getPayload(app);
+
+  const rawDate =
+    app?.updated_at ??
+    app?.last_edited_at ??
+    app?.lastEditedAt ??
+    payload?.updated_at ??
+    payload?.updatedAt ??
+    payload?.last_edited_at ??
+    payload?.lastEditedAt ??
+    app?.created_at ??
+    payload?.created_at ??
+    payload?.createdAt;
+
+  if (!rawDate) return null;
+
+  const date = new Date(rawDate);
+  return Number.isNaN(date.getTime()) ? null : date;
+}
+
 function isWithinDateRange(app, dateRange) {
   if (!dateRange?.from && !dateRange?.to) return true;
 
-  const createdAt = app?.created_at || app?.updated_at;
+  const createdAt =
+    app?.created_at ??
+    app?.updated_at ??
+    getPayload(app)?.created_at ??
+    getPayload(app)?.updated_at;
+
   if (!createdAt) return false;
 
   const date = new Date(createdAt);
@@ -162,7 +208,7 @@ function buildPipelineStages(applications = []) {
   };
 
   applications.forEach((app) => {
-    const status = normalizeStatus(app.current_status);
+    const status = normalizeStatus(getApplicationStatus(app));
     if (counts[status] !== undefined) {
       counts[status] += 1;
     }
@@ -187,7 +233,7 @@ function buildPipelineStages(applications = []) {
 
 function buildDraftDropoff(applications = []) {
   const draftApps = applications.filter(
-    (app) => normalizeStatus(app.current_status) === "Draft",
+    (app) => normalizeStatus(getApplicationStatus(app)) === "Draft",
   );
 
   const counts = {
@@ -220,37 +266,87 @@ function buildDraftDropoff(applications = []) {
   }));
 }
 
+function isDroppedOffDraft(app, staleDays = 14) {
+  const status = normalizeStatus(getApplicationStatus(app));
+  if (status !== "Draft") return false;
+
+  const lastActivityDate = getLastActivityDate(app);
+  if (!lastActivityDate) return false;
+
+  const now = new Date();
+  const diffMs = now.getTime() - lastActivityDate.getTime();
+  const diffDays = diffMs / (1000 * 60 * 60 * 24);
+
+  return diffDays >= staleDays;
+}
+
+function buildTrueDraftDropoff(applications = [], staleDays = 14) {
+  const droppedOffDrafts = applications.filter((app) =>
+    isDroppedOffDraft(app, staleDays),
+  );
+
+  const counts = {
+    "Basic Information": 0,
+    "Business Details": 0,
+    "Document Upload": 0,
+  };
+
+  droppedOffDrafts.forEach((app) => {
+    const stage = inferDraftStage(app);
+    if (counts[stage] !== undefined) {
+      counts[stage] += 1;
+    }
+  });
+
+  const totalDroppedOff = droppedOffDrafts.length;
+
+  return Object.entries(counts).map(([stage, count], index) => ({
+    stage,
+    count,
+    percentage:
+      totalDroppedOff > 0
+        ? Number(((count / totalDroppedOff) * 100).toFixed(1))
+        : 0,
+    color:
+      index === 0
+        ? "hsl(215, 16%, 65%)"
+        : index === 1
+          ? "hsl(210, 100%, 50%)"
+          : "hsl(262, 83%, 58%)",
+  }));
+}
+
 function buildOutcomeMetrics(applications = []) {
   const totalApplications = applications.length;
 
   const autoApprovedCount = applications.filter(
     (app) =>
-      normalizeStatus(app.current_status) === "Approved" &&
-      normalizeStatus(app.previous_status) === "Under Review",
+      normalizeStatus(getApplicationStatus(app)) === "Approved" &&
+      normalizeStatus(getPreviousStatus(app)) === "Under Review",
   ).length;
 
   const approvedManualCount = applications.filter(
     (app) =>
-      normalizeStatus(app.current_status) === "Approved" &&
-      normalizeStatus(app.previous_status) === "Under Manual Review",
+      normalizeStatus(getApplicationStatus(app)) === "Approved" &&
+      normalizeStatus(getPreviousStatus(app)) === "Under Manual Review",
   ).length;
 
   const autoRejectedCount = applications.filter(
     (app) =>
-      normalizeStatus(app.current_status) === "Auto Rejected" &&
-      normalizeStatus(app.previous_status) === "Under Review",
+      normalizeStatus(getApplicationStatus(app)) === "Auto Rejected" &&
+      normalizeStatus(getPreviousStatus(app)) === "Under Review",
   ).length;
 
   const withdrawnCount = applications.filter(
-    (app) => normalizeStatus(app.current_status) === "Withdrawn",
+    (app) => normalizeStatus(getApplicationStatus(app)) === "Withdrawn",
   ).length;
 
   const deletedCount = applications.filter(
-    (app) => normalizeStatus(app.current_status) === "Deleted",
+    (app) => normalizeStatus(getApplicationStatus(app)) === "Deleted",
   ).length;
 
   const draftCount = applications.filter(
-    (app) => normalizeStatus(app.current_status) === "Draft",
+    (app) => normalizeStatus(getApplicationStatus(app)) === "Draft",
   ).length;
 
   const toRate = (count) =>
@@ -339,8 +435,8 @@ function buildStatusBreakdown(applications = []) {
   const counts = {};
 
   applications.forEach((app) => {
-    const current = normalizeStatus(app.current_status);
-    const previous = normalizeStatus(app.previous_status);
+    const current = normalizeStatus(getApplicationStatus(app));
+    const previous = normalizeStatus(getPreviousStatus(app));
 
     let finalStatus = current;
 
@@ -554,6 +650,11 @@ export function PipelineTab({ dateRange, preset }) {
     [filteredApplications],
   );
 
+  const trueDraftDropoffStages = useMemo(
+    () => buildTrueDraftDropoff(filteredApplications, 14),
+    [filteredApplications],
+  );
+
   const outcomeRateChart = useMemo(
     () => buildOutcomeRateChart(metrics),
     [metrics],
@@ -574,6 +675,11 @@ export function PipelineTab({ dateRange, preset }) {
     ...draftDropoffStages.map((stage) => stage.count),
   );
 
+  const maxTrueDraftDropoffCount = Math.max(
+    1,
+    ...trueDraftDropoffStages.map((stage) => stage.count),
+  );
+
   return (
     <div className="space-y-6">
       <div>
@@ -589,7 +695,10 @@ export function PipelineTab({ dateRange, preset }) {
                   {item.title}
                 </p>
                 <p
-                  className={cn("mt-2 text-2xl font-bold tabular-nums", item.tone)}
+                  className={cn(
+                    "mt-2 text-2xl font-bold tabular-nums",
+                    item.tone,
+                  )}
                 >
                   {item.value}
                 </p>
@@ -668,55 +777,107 @@ export function PipelineTab({ dateRange, preset }) {
       </Card>
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base font-medium">
-              Draft Drop-off by Stage
-            </CardTitle>
-            <CardDescription>
-              Where incomplete onboarding applications are currently dropping off
-            </CardDescription>
-          </CardHeader>
+        <div className="space-y-6">
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base font-medium">
+                Draft Breakdown by Stage
+              </CardTitle>
+              <CardDescription>
+                Where incomplete onboarding applications are currently in
+              </CardDescription>
+            </CardHeader>
 
-          <CardContent>
-            <div className="space-y-3">
-              {draftDropoffStages.map((stage) => (
-                <div key={stage.stage} className="space-y-1">
-                  <div className="flex justify-between text-sm">
-                    <span className="font-medium text-foreground">
-                      {stage.stage}
-                    </span>
+            <CardContent>
+              <div className="space-y-3">
+                {draftDropoffStages.map((stage) => (
+                  <div key={stage.stage} className="space-y-1">
+                    <div className="flex justify-between text-sm">
+                      <span className="font-medium text-foreground">
+                        {stage.stage}
+                      </span>
 
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs text-muted-foreground">
-                        {stage.percentage}%
-                      </span>
-                      <span className="font-semibold tabular-nums text-foreground">
-                        {stage.count}
-                      </span>
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs text-muted-foreground">
+                          {stage.percentage}%
+                        </span>
+                        <span className="font-semibold tabular-nums text-foreground">
+                          {stage.count}
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="h-2 w-full overflow-hidden rounded-full bg-slate-400/20">
+                      <div
+                        className="h-full rounded-full transition-all"
+                        style={{
+                          width: `${(stage.count / maxDraftDropoffCount) * 100}%`,
+                          backgroundColor: stage.color,
+                        }}
+                      />
                     </div>
                   </div>
+                ))}
 
-                  <div className="h-2 w-full overflow-hidden rounded-full bg-slate-400/20">
-                    <div
-                      className="h-full rounded-full transition-all"
-                      style={{
-                        width: `${(stage.count / maxDraftDropoffCount) * 100}%`,
-                        backgroundColor: stage.color,
-                      }}
-                    />
+                {draftDropoffStages.every((item) => item.count === 0) ? (
+                  <div className="rounded-lg border border-dashed p-6 text-center text-sm text-muted-foreground">
+                    No draft applications found.
                   </div>
-                </div>
-              ))}
+                ) : null}
+              </div>
+            </CardContent>
+          </Card>
 
-              {draftDropoffStages.every((item) => item.count === 0) ? (
-                <div className="rounded-lg border border-dashed p-6 text-center text-sm text-muted-foreground">
-                  No draft applications found.
-                </div>
-              ) : null}
-            </div>
-          </CardContent>
-        </Card>
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base font-medium">
+                Actual Draft Drop-off
+              </CardTitle>
+              <CardDescription>
+                Draft applications inactive for 14 days or more, grouped by last saved stage
+              </CardDescription>
+            </CardHeader>
+
+            <CardContent>
+              <div className="space-y-3">
+                {trueDraftDropoffStages.map((stage) => (
+                  <div key={stage.stage} className="space-y-1">
+                    <div className="flex justify-between text-sm">
+                      <span className="font-medium text-foreground">
+                        {stage.stage}
+                      </span>
+
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs text-muted-foreground">
+                          {stage.percentage}%
+                        </span>
+                        <span className="font-semibold tabular-nums text-foreground">
+                          {stage.count}
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="h-2 w-full overflow-hidden rounded-full bg-slate-400/20">
+                      <div
+                        className="h-full rounded-full transition-all"
+                        style={{
+                          width: `${(stage.count / maxTrueDraftDropoffCount) * 100}%`,
+                          backgroundColor: stage.color,
+                        }}
+                      />
+                    </div>
+                  </div>
+                ))}
+
+                {trueDraftDropoffStages.every((item) => item.count === 0) ? (
+                  <div className="rounded-lg border border-dashed p-6 text-center text-sm text-muted-foreground">
+                    No dropped-off draft applications found for the past 14+ days.
+                  </div>
+                ) : null}
+              </div>
+            </CardContent>
+          </Card>
+        </div>
 
         <Card>
           <CardHeader>
