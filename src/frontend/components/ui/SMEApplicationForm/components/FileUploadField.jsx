@@ -1,9 +1,12 @@
 import React, { useRef, useState, useEffect, useMemo } from "react";
-import { AlertCircle, CheckCircle } from "lucide-react";
+import { AlertCircle, CheckCircle, Loader2 } from "lucide-react";
 
 /**
  * FileUploadField
- * Fully Redux-controlled file upload
+ * Handles file selection + optional async validation before file is accepted.
+ * Parent decides what validation to run via beforeAcceptFile().
+ * Included built-in validation for file type and size, as well as display of async verification status.
+ * Also supports optional OCR status display if the uploaded file will be processed for autofill.
  */
 const FileUploadField = ({
   fieldName,
@@ -15,14 +18,27 @@ const FileUploadField = ({
   acceptTypes = "application/pdf,image/jpeg,image/png",
   maxSize = 5242880, // 5MB
   helpText = "Accepted formats: PDF, JPG, PNG. Max size: 5MB",
-  placeholderText = "",
+  placeholder = "",
   disabled = false,
+
+  // optional async validation hook
+  beforeAcceptFile,
+
+  // shared verification state from parent
+  verificationMeta = null,
+
+  // optional OCR state display
+  ocr = false,
+  ocrLoading = false,
+  ocrStatus = "",
+  ocrMessage = "",
 }) => {
   const inputRef = useRef(null);
   const [isDragging, setIsDragging] = useState(false);
   const [previewUrl, setPreviewUrl] = useState(null);
+  const [localError, setLocalError] = useState("");
+  const [isValidating, setIsValidating] = useState(false);
 
-  // const actualFile = file instanceof File ? file : file?.file;
   const actualFile = file instanceof File ? file : file?.file || null;
   const existingUploadedFile =
     !actualFile && file?.original_filename ? file : null;
@@ -42,16 +58,14 @@ const FileUploadField = ({
       return;
     }
 
-    const actualFile = file instanceof File ? file : file?.file;
+    const currentFile = file instanceof File ? file : file?.file;
 
-    if (actualFile instanceof File) {
-      const url = URL.createObjectURL(actualFile);
+    if (currentFile instanceof File) {
+      const url = URL.createObjectURL(currentFile);
       setPreviewUrl(url);
-
       return () => URL.revokeObjectURL(url);
     }
 
-    // backend-loaded uploaded document has no browser File object
     setPreviewUrl(null);
   }, [file]);
 
@@ -63,15 +77,18 @@ const FileUploadField = ({
     return Math.round((bytes / Math.pow(k, i)) * 100) / 100 + " " + sizes[i];
   };
 
-  const validateAndSend = (selectedFile) => {
+  const validateBasicFileRules = (selectedFile) => {
+    setLocalError("");
+
     if (!selectedFile) {
-      onChange(null); // report null if no file
-      return;
+      onChange(null);
+      return false;
     }
 
     if (selectedFile.size > maxSize) {
+      setLocalError("File is too large. Maximum size is 5MB.");
       onChange(null);
-      return;
+      return false;
     }
 
     const mime = (selectedFile.type || "").toLowerCase();
@@ -83,16 +100,38 @@ const FileUploadField = ({
     if (!ok && acceptsPdf && isPdfByExt) ok = true;
 
     if (!ok) {
+      setLocalError("Invalid file type. Please upload PDF, JPG, or PNG.");
       onChange(null);
-      return;
+      return false;
     }
 
-    onChange(selectedFile); // only send file to parent
+    return true;
   };
 
-  const handleFileChange = (e) => {
+  const validateAndSend = async (selectedFile) => {
+    if (!validateBasicFileRules(selectedFile)) return;
+
+    try {
+      setIsValidating(true);
+
+      if (beforeAcceptFile) {
+        const processedValue = await beforeAcceptFile(selectedFile);
+        onChange(processedValue ?? null);
+      } else {
+        onChange(selectedFile);
+      }
+    } catch (err) {
+      // Do NOT set localError here.
+      // Async verification/classification errors should come from verificationMeta
+      onChange(null);
+    } finally {
+      setIsValidating(false);
+    }
+  };
+
+  const handleFileChange = async (e) => {
     const selectedFile = e.target.files?.[0];
-    validateAndSend(selectedFile);
+    await validateAndSend(selectedFile);
     e.target.value = "";
   };
 
@@ -108,37 +147,54 @@ const FileUploadField = ({
     setIsDragging(false);
   };
 
-  const handleDrop = (e) => {
+  const handleDrop = async (e) => {
     e.preventDefault();
     e.stopPropagation();
     setIsDragging(false);
     const droppedFile = e.dataTransfer?.files?.[0];
-    validateAndSend(droppedFile);
+    await validateAndSend(droppedFile);
   };
 
   const handlePreview = (e) => {
     e.stopPropagation();
-    if (previewUrl) window.open(previewUrl, "_blank", "noopener,noreferrer");
+    if (previewUrl) {
+      window.open(previewUrl, "_blank", "noopener,noreferrer");
+    }
   };
 
   const isUploading = uploadProgress > 0 && uploadProgress < 100;
+  const isBusy = disabled || isUploading || isValidating;
+
+  const effectiveVerificationMeta =
+    verificationMeta ||
+    (isValidating
+      ? { status: "verifying", message: "Verifying document..." }
+      : null);
 
   return (
     <div className="mb-6">
-      <label className="block text-sm font-medium mb-2">
+      <label className="block text-sm font-medium mb-1">
         {label} {required && <span className="text-red-500">*</span>}
       </label>
 
+      {placeholder && (
+        <label className="block text-xs font-medium text-red-800 italic mb-1">
+          {placeholder}
+        </label>
+      )}
+
       <div
-        onClick={() => !disabled && !isUploading && inputRef.current?.click()}
+        onClick={() => !isBusy && inputRef.current?.click()}
         onDragOver={handleDragOver}
         onDragLeave={handleDragLeave}
         onDrop={handleDrop}
         className={`border-2 border-dashed rounded-lg p-6 text-center transition-colors ${
-          disabled || isUploading
-            ? "opacity-60 cursor-not-allowed"
-            : "cursor-pointer"
-        } ${isDragging ? "border-gray-500 bg-gray-100" : "border-gray-300 hover:border-gray-400 bg-gray-50"}`}
+          isBusy ? "opacity-60 cursor-not-allowed" : "cursor-pointer"
+        } ${
+          isDragging
+            ? "border-gray-500 bg-gray-100"
+            : "border-gray-300 hover:border-gray-400 bg-gray-50"
+        }`}
       >
         <input
           ref={inputRef}
@@ -147,39 +203,28 @@ const FileUploadField = ({
           onChange={handleFileChange}
           accept={acceptTypes}
           className="hidden"
-          disabled={disabled || isUploading}
+          disabled={isBusy}
         />
 
         {file ? (
           <div className="text-center">
             <CheckCircle className="h-8 w-8 text-green-500 mx-auto mb-2" />
+
             <p className="text-sm font-medium text-gray-900">
-              {/* {file.name} */}
-              {/* {actualFile?.name} */}
               {actualFile?.name ||
                 existingUploadedFile?.original_filename ||
                 "Uploaded file"}
             </p>
 
-            {placeholderText && !isUploading && (
-              <p className="text-xs text-gray-400 mt-1">{placeholderText}</p>
-            )}
-
             <p className="text-xs text-gray-500 mt-1">
+              {actualFile?.size
+                ? formatFileSize(actualFile.size)
+                : existingUploadedFile?.mime_type || "Previously uploaded"}
               {actualFile?.size
                 ? formatFileSize(actualFile.size)
                 : existingUploadedFile?.mime_type || "Previously uploaded"}
             </p>
 
-            {/* {previewUrl && (
-              <button
-                type="button"
-                onClick={handlePreview}
-                className="mt-2 text-sm text-blue-600 hover:underline"
-              >
-                View file
-              </button>
-            )} */}
             {previewUrl && actualFile && (
               <button
                 type="button"
@@ -219,16 +264,110 @@ const FileUploadField = ({
                 strokeLinejoin="round"
               />
             </svg>
+
             <p className="mt-2 text-sm text-gray-600">
               <span className="font-medium text-primary cursor-pointer">
                 Click to upload
               </span>{" "}
               or drag and drop
             </p>
+
             <p className="text-xs text-gray-500 mt-1">{helpText}</p>
           </div>
         )}
       </div>
+
+      {localError && (
+        <div className="mt-2 rounded-md border border-red-200 bg-red-50 px-3 py-2">
+          <div className="flex items-center gap-2 text-sm text-red-700">
+            <AlertCircle className="h-4 w-4" />
+            <span>{localError}</span>
+          </div>
+        </div>
+      )}
+
+      {effectiveVerificationMeta?.status === "verifying" && (
+        <div className="mt-2 flex items-center gap-2 text-sm text-amber-700">
+          <Loader2 className="h-4 w-4 animate-spin" />
+          <span>{effectiveVerificationMeta.message || "Verifying..."}</span>
+        </div>
+      )}
+
+      {effectiveVerificationMeta?.status === "verified" && (
+        <div className="mt-2 rounded-md border border-green-200 bg-green-50 px-3 py-2">
+          <div className="flex items-center gap-2 text-sm text-green-700">
+            <CheckCircle className="h-4 w-4" />
+            <span>
+              {effectiveVerificationMeta.message ||
+                "Document verified successfully."}
+            </span>
+          </div>
+
+          {effectiveVerificationMeta.detectedType && (
+            <p className="mt-1 text-xs text-green-700">
+              Detected type:{" "}
+              <span className="font-medium">
+                {effectiveVerificationMeta.detectedType}
+              </span>
+            </p>
+          )}
+        </div>
+      )}
+
+      {effectiveVerificationMeta?.status === "failed" && (
+        <div className="mt-2 rounded-md border border-red-200 bg-red-50 px-3 py-2">
+          <div className="flex items-center gap-2 text-sm text-red-700">
+            <AlertCircle className="h-4 w-4" />
+            <span>
+              {effectiveVerificationMeta.message ||
+                "Document verification failed."}
+            </span>
+          </div>
+
+          {effectiveVerificationMeta.expectedType && (
+            <p className="mt-1 text-xs text-red-700">
+              Expected type:{" "}
+              <span className="font-medium">
+                {effectiveVerificationMeta.expectedType}
+              </span>
+            </p>
+          )}
+
+          {effectiveVerificationMeta.detectedType && (
+            <p className="mt-1 text-xs text-red-700">
+              Detected type:{" "}
+              <span className="font-medium">
+                {effectiveVerificationMeta.detectedType}
+              </span>
+            </p>
+          )}
+        </div>
+      )}
+
+      {ocr && (
+        <div className="mt-2">
+          {ocrLoading && (
+            <div className="flex items-start gap-2 text-sm text-amber-600">
+              <AlertCircle className="h-4 w-4 mt-0.5 shrink-0" />
+              <p>{ocrMessage || "Processing document and autofilling fields..."}</p>
+            </div>
+          )}
+
+          {!ocrLoading && ocrStatus === "completed" && (
+            <div className="flex items-start gap-2 text-sm text-green-600">
+              <CheckCircle className="h-4 w-4 mt-0.5 shrink-0" />
+              <p>{ocrMessage || "Autofill completed. Please review."}</p>
+            </div>
+          )}
+
+          {!ocrLoading && ocrStatus === "failed" && (
+            <div className="flex items-start gap-2 text-sm text-red-600">
+              <AlertCircle className="h-4 w-4 mt-0.5 shrink-0" />
+              <p>{ocrMessage || "OCR failed."}</p>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 };

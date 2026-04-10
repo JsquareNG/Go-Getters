@@ -21,6 +21,10 @@ const FormFieldGroup = ({
   options = [],
 }) => {
   // for single inputs: text, textarea, select
+
+  const normalizedValue =
+    type === "checkbox" ? (Array.isArray(value) ? value : []) : (value ?? "");
+
   const handleChange = (e) => {
     const val = e.target.value;
     onChange?.(fieldName, val);
@@ -33,7 +37,7 @@ const FormFieldGroup = ({
   //     ? currentValue.filter((v) => v !== optionValue) // remove
   //     : [...currentValue, optionValue]; // add
   //   onChange?.(fieldName, newValue);
-  // };
+  // }
 
   return (
     <div className="mb-6">
@@ -45,7 +49,8 @@ const FormFieldGroup = ({
       {type === "textarea" ? (
         <textarea
           id={fieldName}
-          value={value}
+          // value={value}
+          value={normalizedValue}
           onChange={handleChange}
           placeholder={placeholder}
           disabled={disabled}
@@ -58,7 +63,8 @@ const FormFieldGroup = ({
       type === "select" ? (
         <select
           id={fieldName}
-          value={value}
+          // value={value}
+          value={normalizedValue}
           onChange={handleChange}
           disabled={disabled}
           className={`w-full px-3 py-2 border rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-red-500 ${
@@ -72,35 +78,14 @@ const FormFieldGroup = ({
             </option>
           ))}
         </select>
-      ) : // type === "select" ? (
-      //   <div className="flex flex-col gap-2">
-      //     {options.map((option) => (
-      //       <label
-      //         key={option.value}
-      //         className="inline-flex items-center gap-2"
-      //       >
-      //         <input
-      //           type="checkbox"
-      //           value={option.value}
-      //           checked={
-      //             Array.isArray(value) ? value.includes(option.value) : false
-      //           }
-      //           onChange={() => handleCheckboxChange(option.value)}
-      //           disabled={disabled}
-      //           className="form-checkbox h-4 w-4 text-red-500"
-      //         />
-      //         <span className="text-sm">{option.label}</span>
-      //       </label>
-      //     ))}
-      //   </div>
-      // ):
-      /* CHECKBOX -> MULTI SELECT DROPDOWN */
+      ) : /* CHECKBOX -> MULTI SELECT DROPDOWN */
       type === "checkbox" ? (
         <Select
           inputId={fieldName}
           isMulti
           options={options}
-          value={options.filter((opt) => (value || []).includes(opt.value))}
+          // value={options.filter((opt) => (value || []).includes(opt.value))}
+          value={options.filter((opt) => normalizedValue.includes(opt.value))}
           onChange={(selected) =>
             onChange?.(fieldName, selected ? selected.map((s) => s.value) : [])
           }

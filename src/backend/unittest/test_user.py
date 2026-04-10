@@ -64,6 +64,12 @@ class FakeUser:
         self.user_role = user_role
 
 
+SME_USER = {"user_id": "U1", "role": "SME"}
+OTHER_SME_USER = {"user_id": "U2", "role": "SME"}
+STAFF_USER = {"user_id": "S1", "role": "STAFF"}
+MGMT_USER = {"user_id": "M1", "role": "MANAGEMENT"}
+
+
 # ----------------------------
 # Password helper tests
 # ----------------------------
@@ -223,7 +229,10 @@ def test_get_all_staff_returns_only_serialized_fields():
     ]
     db.set_query(user_module.User, all=staff_users)
 
-    result = user_module.get_all_staff(db=db)
+    result = user_module.get_all_staff(
+        db=db,
+        current_user=STAFF_USER,
+    )
 
     assert len(result) == 2
     assert result[0] == {
@@ -242,7 +251,10 @@ def test_get_all_sme_returns_only_serialized_fields():
     ]
     db.set_query(user_module.User, all=sme_users)
 
-    result = user_module.get_all_sme(db=db)
+    result = user_module.get_all_sme(
+        db=db,
+        current_user=STAFF_USER,
+    )
 
     assert len(result) == 1
     assert result[0] == {
@@ -251,6 +263,34 @@ def test_get_all_sme_returns_only_serialized_fields():
         "last_name": "Tan",
         "email": "jane@example.com",
     }
+
+
+def test_get_all_staff_forbidden_for_sme():
+    db = FakeDB()
+    db.set_query(user_module.User, all=[])
+
+    with pytest.raises(HTTPException) as exc:
+        user_module.get_all_staff(
+            db=db,
+            current_user=SME_USER,
+        )
+
+    assert exc.value.status_code == 403
+    assert exc.value.detail == "Forbidden"
+
+
+def test_get_all_sme_forbidden_for_sme():
+    db = FakeDB()
+    db.set_query(user_module.User, all=[])
+
+    with pytest.raises(HTTPException) as exc:
+        user_module.get_all_sme(
+            db=db,
+            current_user=SME_USER,
+        )
+
+    assert exc.value.status_code == 403
+    assert exc.value.detail == "Forbidden"
 
 
 # ----------------------------
@@ -270,7 +310,11 @@ def test_create_staff_raises_when_email_exists():
     }
 
     with pytest.raises(HTTPException) as exc:
-        user_module.create_staff(data=payload, db=db)
+        user_module.create_staff(
+            data=payload,
+            db=db,
+            current_user=MGMT_USER,
+        )
 
     assert exc.value.status_code == 400
     assert exc.value.detail == "Email exists"
@@ -287,7 +331,11 @@ def test_create_staff_creates_staff_successfully():
         "password": "temp-pass",
     }
 
-    result = user_module.create_staff(data=payload, db=db)
+    result = user_module.create_staff(
+        data=payload,
+        db=db,
+        current_user=MGMT_USER,
+    )
 
     assert db.committed is True
     assert len(db.added) == 1
@@ -302,6 +350,28 @@ def test_create_staff_creates_staff_successfully():
     assert result["message"] == "Staff created successfully"
 
 
+def test_create_staff_forbidden_for_staff():
+    db = FakeDB()
+    db.set_query(user_module.User, first=None)
+
+    payload = {
+        "first_name": "Alice",
+        "last_name": "Reviewer",
+        "email": "alice@example.com",
+        "password": "temp-pass",
+    }
+
+    with pytest.raises(HTTPException) as exc:
+        user_module.create_staff(
+            data=payload,
+            db=db,
+            current_user=STAFF_USER,
+        )
+
+    assert exc.value.status_code == 403
+    assert exc.value.detail == "Forbidden"
+
+
 # ----------------------------
 # get_user_by_id
 # ----------------------------
@@ -311,7 +381,11 @@ def test_get_user_by_id_raises_when_missing():
     db.set_query(user_module.User, first=None)
 
     with pytest.raises(HTTPException) as exc:
-        user_module.get_user_by_id("missing-id", db=db)
+        user_module.get_user_by_id(
+            "missing-id",
+            db=db,
+            current_user=STAFF_USER,
+        )
 
     assert exc.value.status_code == 404
     assert exc.value.detail == "User not found"
@@ -328,7 +402,11 @@ def test_get_user_by_id_returns_serialized_user():
     )
     db.set_query(user_module.User, first=user)
 
-    result = user_module.get_user_by_id("U99", db=db)
+    result = user_module.get_user_by_id(
+        "U99",
+        db=db,
+        current_user=STAFF_USER,
+    )
 
     assert result == {
         "user_id": "U99",
@@ -337,3 +415,46 @@ def test_get_user_by_id_returns_serialized_user():
         "email": "test@example.com",
         "user_role": "SME",
     }
+
+
+def test_get_user_by_id_allows_sme_to_view_own_profile():
+    db = FakeDB()
+    user = FakeUser(
+        user_id="U1",
+        first_name="John",
+        last_name="Doe",
+        email="john@example.com",
+        user_role="SME",
+    )
+    db.set_query(user_module.User, first=user)
+
+    result = user_module.get_user_by_id(
+        "U1",
+        db=db,
+        current_user=SME_USER,
+    )
+
+    assert result["user_id"] == "U1"
+    assert result["email"] == "john@example.com"
+
+
+def test_get_user_by_id_forbidden_for_sme_viewing_other_profile():
+    db = FakeDB()
+    user = FakeUser(
+        user_id="U99",
+        first_name="Other",
+        last_name="User",
+        email="other@example.com",
+        user_role="SME",
+    )
+    db.set_query(user_module.User, first=user)
+
+    with pytest.raises(HTTPException) as exc:
+        user_module.get_user_by_id(
+            "U99",
+            db=db,
+            current_user=SME_USER,
+        )
+
+    assert exc.value.status_code == 403
+    assert exc.value.detail == "Forbidden"

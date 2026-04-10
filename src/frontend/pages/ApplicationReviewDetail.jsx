@@ -401,14 +401,14 @@ export default function ApplicationReviewDetail() {
 
   const riskTone = useMemo(() => {
     switch (riskGrade) {
-      case "Enhanced CDD":
+      case "Enhanced Due Diligence (EDD)":
         return {
           badge: "bg-red-500 text-white border-red-500",
           soft: "border-red-500/20 bg-red-500/5",
           text: "text-red-500",
           icon: "text-red-500",
         };
-      case "Standard CDD":
+      case "Standard Due Diligence (CDD)":
         return {
           badge: "bg-orange-400 text-white border-orange-400",
           soft: "border-orange-400/20 bg-orange-400/5",

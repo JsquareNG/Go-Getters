@@ -34,13 +34,13 @@ import {
 import { getAllLivenessDetections } from "../../../api/livenessDetectionApi";
 
 const COLORS = {
-  verificationVolume: "hsl(217, 91%, 60%)", // blue-500
+  verificationVolume: "hsl(217, 91%, 60%)",
   verificationVolumeFill: "hsl(217, 91%, 60%)",
-  riskFlag: "hsl(262, 83%, 58%)", // violet-500
-  success: "#34d399", // emerald-400
-  danger: "#ef4444", // red-500
-  warning: "#f59e0b", // amber-500
-  neutral: "#64748b", // slate-500
+  riskFlag: "hsl(262, 83%, 58%)",
+  success: "#34d399",
+  danger: "#ef4444",
+  warning: "#f59e0b",
+  neutral: "#64748b",
 };
 
 const volumeConfig = {
@@ -237,7 +237,8 @@ function buildLivenessDistribution(rows) {
   return buckets.map((bucket) => ({
     range: bucket.range,
     count: bucket.count,
-    percentage: total > 0 ? Number(((bucket.count / total) * 100).toFixed(1)) : 0,
+    percentage:
+      total > 0 ? Number(((bucket.count / total) * 100).toFixed(1)) : 0,
   }));
 }
 
@@ -270,12 +271,14 @@ function buildRiskFlagBreakdown(rows) {
 function buildLivenessMetrics(rows) {
   const total = rows.length;
 
-  const avgSimilarityScore =
+  const avgFaceMatchScore =
     total > 0
       ? Number(
           (
-            rows.reduce((sum, row) => sum + safeNumber(row.face_match_score, 0), 0) /
-            total
+            rows.reduce(
+              (sum, row) => sum + safeNumber(row.face_match_score, 0),
+              0
+            ) / total
           ).toFixed(2)
         )
       : 0;
@@ -284,21 +287,20 @@ function buildLivenessMetrics(rows) {
     total > 0
       ? Number(
           (
-            rows.reduce((sum, row) => sum + safeNumber(row.liveness_score, 0), 0) /
-            total
+            rows.reduce(
+              (sum, row) => sum + safeNumber(row.liveness_score, 0),
+              0
+            ) / total
           ).toFixed(2)
         )
       : 0;
 
-  const reVerificationRate =
-    total > 0
-      ? Number(
-          (
-            (rows.filter((row) => safeNumber(row.provider_session_number, 0) > 1).length /
-              total) *
-            100
-          ).toFixed(1)
-        )
+  const finishedSessions = rows.filter((row) => isFinished(row.overall_status)).length;
+  const approvedSessions = rows.filter((row) => isApproved(row.overall_status)).length;
+
+  const conversionRate =
+    finishedSessions > 0
+      ? Number(((approvedSessions / finishedSessions) * 100).toFixed(1))
       : 0;
 
   const livenessPassRate =
@@ -313,18 +315,18 @@ function buildLivenessMetrics(rows) {
 
   return [
     {
-      label: "Avg Similarity Score",
-      value: avgSimilarityScore,
-      suffix: "",
+      label: "Conversion Rate",
+      value: conversionRate,
+      suffix: "%",
+    },
+    {
+      label: "Avg Face Match Score",
+      value: avgFaceMatchScore,
+      suffix: "%",
     },
     {
       label: "Avg Liveness Score",
       value: avgLivenessScore,
-      suffix: "%",
-    },
-    {
-      label: "Re-verification Rate",
-      value: reVerificationRate,
       suffix: "%",
     },
     {
@@ -483,6 +485,7 @@ export function KycDocumentsTab({ dateRange, preset }) {
   const [allRows, setAllRows] = useState([]);
   const [loading, setLoading] = useState(true);
   const [demographicView, setDemographicView] = useState("gender");
+  const [verificationView, setVerificationView] = useState("scores");
 
   useEffect(() => {
     const fetchRows = async () => {
@@ -543,7 +546,6 @@ export function KycDocumentsTab({ dateRange, preset }) {
   const riskFlagRows = useMemo(() => buildRiskFlagBreakdown(rows), [rows]);
   const genderDemographics = useMemo(() => buildGenderDemographics(rows), [rows]);
   const ageDemographics = useMemo(() => buildAgeDemographics(rows), [rows]);
-  const conversionRateData = useMemo(() => buildConversionRateData(rows), [rows]);
 
   const overallConversion = useMemo(() => {
     const finished = rows.filter((row) => isFinished(row.overall_status)).length;
@@ -592,64 +594,245 @@ export function KycDocumentsTab({ dateRange, preset }) {
         <CardHeader className="flex-row items-start justify-between pb-2">
           <div>
             <CardTitle className="text-base font-medium">
-              Verification Volume
+              Liveness & Verification
             </CardTitle>
-            <CardDescription>{rangeDescription}</CardDescription>
+            <CardDescription>
+              Toggle between score-based metrics and status-based results
+            </CardDescription>
           </div>
-          <div className="text-right">
-            <p className="text-2xl font-bold text-foreground tabular-nums">
-              {verificationVolume.total}
-              <span className="ml-1 text-sm font-normal text-muted-foreground">
-                Verifications
-              </span>
-            </p>
+
+          <div className="inline-flex rounded-full bg-muted p-1">
+            <button
+              type="button"
+              onClick={() => setVerificationView("scores")}
+              className={cn(
+                "rounded-full px-4 py-1.5 text-sm transition-colors",
+                verificationView === "scores"
+                  ? "bg-neutral-950 text-white shadow-sm"
+                  : "text-muted-foreground"
+              )}
+            >
+              Scores
+            </button>
+            <button
+              type="button"
+              onClick={() => setVerificationView("results")}
+              className={cn(
+                "rounded-full px-4 py-1.5 text-sm transition-colors",
+                verificationView === "results"
+                  ? "bg-neutral-950 text-white shadow-sm"
+                  : "text-muted-foreground"
+              )}
+            >
+              Results
+            </button>
           </div>
         </CardHeader>
+
         <CardContent>
-          <ChartContainer config={volumeConfig} className="h-[220px] w-full">
-            <AreaChart
-              data={dailyVerifications}
-              margin={{ top: 5, right: 10, left: -20, bottom: 0 }}
-            >
-              <defs>
-                <linearGradient id="volumeFill" x1="0" y1="0" x2="0" y2="1">
-                  <stop
-                    offset="0%"
-                    stopColor={COLORS.verificationVolumeFill}
-                    stopOpacity={0.2}
-                  />
-                  <stop
-                    offset="100%"
-                    stopColor={COLORS.verificationVolumeFill}
-                    stopOpacity={0}
-                  />
-                </linearGradient>
-              </defs>
-              <CartesianGrid strokeDasharray="3 3" className="stroke-border/40" />
-              <XAxis
-                dataKey="date"
-                tick={{ fontSize: 11 }}
-                className="text-muted-foreground"
-              />
-              <YAxis
-                tick={{ fontSize: 11 }}
-                className="text-muted-foreground"
-                allowDecimals={false}
-              />
-              <ChartTooltip content={<ChartTooltipContent />} />
-              <Area
-                type="monotone"
-                dataKey="verifications"
-                stroke={COLORS.verificationVolume}
-                strokeWidth={2}
-                fill="url(#volumeFill)"
-                dot={{ r: 0 }}
-                activeDot={{ r: 4, strokeWidth: 2 }}
-              />
-            </AreaChart>
-          </ChartContainer>
+          {verificationView === "scores" ? (
+            <>
+              <div className="mb-5 grid grid-cols-2 gap-3">
+                {livenessMetrics.map((m) => (
+                  <div
+                    key={m.label}
+                    className="space-y-1 rounded-lg border bg-slate-300/30 p-3"
+                  >
+                    <p className="text-xs text-muted-foreground">{m.label}</p>
+                    <p className="text-xl font-semibold text-foreground tabular-nums">
+                      {m.value}
+                      <span className="ml-0.5 text-sm font-normal text-muted-foreground">
+                        {m.suffix}
+                      </span>
+                    </p>
+                  </div>
+                ))}
+              </div>
+
+              <div>
+                <p className="mb-3 text-sm font-medium text-foreground">
+                  Liveness Score Distribution
+                </p>
+                <div className="space-y-2">
+                  {livenessDistribution.map((d) => (
+                    <div key={d.range} className="flex items-center gap-3">
+                      <span className="w-20 shrink-0 text-xs text-muted-foreground">
+                        {d.range}
+                      </span>
+                      <div className="h-2 flex-1 overflow-hidden rounded-full bg-slate-200">
+                        <div
+                          className="h-full rounded-full bg-blue-500"
+                          style={{ width: `${d.percentage}%` }}
+                        />
+                      </div>
+                      <span className="w-12 text-right text-xs font-medium text-foreground tabular-nums">
+                        {d.count}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </>
+          ) : (
+            <div className="space-y-4">
+              {verificationResults.map((metric) => {
+                const isWarning = metric.passRate < 92;
+
+                return (
+                  <div key={metric.label} className="space-y-2">
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="font-medium text-foreground">
+                        {metric.label}
+                      </span>
+                      <div className="flex items-center gap-3">
+                        <div className="flex items-center gap-1.5 text-xs">
+                          <CheckCircle2 className="h-3 w-3 text-green-500" />
+                          <span className="tabular-nums text-muted-foreground">
+                            {metric.passed}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-1.5 text-xs">
+                          <XCircle className="h-3 w-3 text-red-500" />
+                          <span className="tabular-nums text-muted-foreground">
+                            {metric.failed}
+                          </span>
+                        </div>
+                        <span
+                          className={cn(
+                            "font-semibold tabular-nums",
+                            isWarning
+                              ? "text-status-in-review"
+                              : "text-status-approved"
+                          )}
+                        >
+                          {metric.passRate}%
+                        </span>
+                      </div>
+                    </div>
+                    <div className="h-2 w-full overflow-hidden rounded-full bg-slate-200">
+                      <div
+                        className={cn(
+                          "h-full rounded-full transition-all",
+                          isWarning ? "bg-amber-500" : "bg-green-500"
+                        )}
+                        style={{ width: `${metric.passRate}%` }}
+                      />
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
         </CardContent>
       </Card>
+      <Card>
+          <CardHeader className="flex-row items-start justify-between pb-2">
+            <div>
+              <CardTitle className="text-base font-medium">
+                Demographics
+              </CardTitle>
+              <CardDescription>
+                Gender and age distribution from liveness verification records
+              </CardDescription>
+            </div>
+
+            <div className="inline-flex rounded-full bg-muted p-1">
+              <button
+                type="button"
+                onClick={() => setDemographicView("gender")}
+                className={cn(
+                  "rounded-full px-4 py-1.5 text-sm transition-colors",
+                  demographicView === "gender"
+                    ? "bg-neutral-950 text-white shadow-sm"
+                    : "text-muted-foreground"
+                )}
+              >
+                Gender
+              </button>
+              <button
+                type="button"
+                onClick={() => setDemographicView("age")}
+                className={cn(
+                  "rounded-full px-4 py-1.5 text-sm transition-colors",
+                  demographicView === "age"
+                    ? "bg-neutral-950 text-white shadow-sm"
+                    : "text-muted-foreground"
+                )}
+              >
+                Age
+              </button>
+            </div>
+          </CardHeader>
+
+          <CardContent>
+            {demographicView === "gender" ? (
+              <>
+                <div className="mb-4 flex flex-wrap gap-4 text-sm">
+                  {genderDemographics.map((item) => (
+                    <div key={item.label} className="flex items-center gap-2">
+                      <span
+                        className="h-3 w-3 rounded-full"
+                        style={{ backgroundColor: item.fill }}
+                      />
+                      <span className="text-muted-foreground">{item.label}</span>
+                      <span className="font-medium text-foreground">
+                        {item.count}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+
+                <ChartContainer config={demographicsConfig} className="h-[260px] w-full">
+                  <BarChart
+                    data={genderDemographics}
+                    margin={{ top: 5, right: 10, left: -20, bottom: 0 }}
+                  >
+                    <CartesianGrid strokeDasharray="3 3" className="stroke-border/40" />
+                    <XAxis dataKey="label" tick={{ fontSize: 11 }} className="text-muted-foreground" />
+                    <YAxis tick={{ fontSize: 11 }} className="text-muted-foreground" allowDecimals={false} />
+                    <ChartTooltip content={<ChartTooltipContent />} />
+                    <Bar dataKey="count" radius={[6, 6, 0, 0]}>
+                      {genderDemographics.map((entry) => (
+                        <Cell key={entry.label} fill={entry.fill} />
+                      ))}
+                    </Bar>
+                  </BarChart>
+                </ChartContainer>
+              </>
+            ) : (
+              <>
+                <div className="mb-4 flex flex-wrap gap-4 text-sm">
+                  {ageDemographics.map((item) => (
+                    <div key={item.label} className="flex items-center gap-2">
+                      <span
+                        className="h-3 w-3 rounded-full"
+                        style={{ backgroundColor: item.fill }}
+                      />
+                      <span className="text-muted-foreground">{item.label}</span>
+                    </div>
+                  ))}
+                </div>
+
+                <ChartContainer config={demographicsConfig} className="h-[260px] w-full">
+                  <BarChart
+                    data={ageDemographics}
+                    margin={{ top: 5, right: 10, left: -20, bottom: 0 }}
+                  >
+                    <CartesianGrid strokeDasharray="3 3" className="stroke-border/40" />
+                    <XAxis dataKey="label" tick={{ fontSize: 11 }} className="text-muted-foreground" />
+                    <YAxis tick={{ fontSize: 11 }} className="text-muted-foreground" allowDecimals={false} />
+                    <ChartTooltip content={<ChartTooltipContent />} />
+                    <Bar dataKey="count" radius={[6, 6, 0, 0]}>
+                      {ageDemographics.map((entry) => (
+                        <Cell key={entry.label} fill={entry.fill} />
+                      ))}
+                    </Bar>
+                  </BarChart>
+                </ChartContainer>
+              </>
+            )}
+          </CardContent>
+        </Card>
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         <Card>
@@ -734,305 +917,6 @@ export function KycDocumentsTab({ dateRange, preset }) {
                   dataKey="count"
                   fill={COLORS.riskFlag}
                   radius={[4, 4, 0, 0]}
-                />
-              </BarChart>
-            </ChartContainer>
-          </CardContent>
-        </Card>
-      </div>
-
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base font-medium">
-              Verification Results
-            </CardTitle>
-            <CardDescription>
-              Pass and fail rates from database statuses
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              {verificationResults.map((metric) => {
-                const isWarning = metric.passRate < 92;
-
-                return (
-                  <div key={metric.label} className="space-y-2">
-                    <div className="flex items-center justify-between text-sm">
-                      <span className="font-medium text-foreground">
-                        {metric.label}
-                      </span>
-                      <div className="flex items-center gap-3">
-                        <div className="flex items-center gap-1.5 text-xs">
-                          <CheckCircle2 className="h-3 w-3 text-green-500" />
-                          <span className="tabular-nums text-muted-foreground">
-                            {metric.passed}
-                          </span>
-                        </div>
-                        <div className="flex items-center gap-1.5 text-xs">
-                          <XCircle className="h-3 w-3 text-red-500" />
-                          <span className="tabular-nums text-muted-foreground">
-                            {metric.failed}
-                          </span>
-                        </div>
-                        <span
-                          className={cn(
-                            "font-semibold tabular-nums",
-                            isWarning
-                              ? "text-status-in-review"
-                              : "text-status-approved"
-                          )}
-                        >
-                          {metric.passRate}%
-                        </span>
-                      </div>
-                    </div>
-                    <div className="h-2 w-full overflow-hidden rounded-full bg-slate-200">
-                      <div
-                        className={cn(
-                          "h-full rounded-full transition-all",
-                          isWarning ? "bg-amber-500" : "bg-green-500"
-                        )}
-                        style={{ width: `${metric.passRate}%` }}
-                      />
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base font-medium">
-              Liveness Detection
-            </CardTitle>
-            <CardDescription>
-              Biometric verification scores and outcomes
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="mb-5 grid grid-cols-2 gap-3">
-              {livenessMetrics.map((m) => (
-                <div
-                  key={m.label}
-                  className="space-y-1 rounded-lg border bg-slate-300/30 p-3"
-                >
-                  <p className="text-xs text-muted-foreground">{m.label}</p>
-                  <p className="text-xl font-semibold text-foreground tabular-nums">
-                    {m.value}
-                    <span className="ml-0.5 text-sm font-normal text-muted-foreground">
-                      {m.suffix}
-                    </span>
-                  </p>
-                </div>
-              ))}
-            </div>
-
-            <div>
-              <p className="mb-3 text-sm font-medium text-foreground">
-                Liveness Score Distribution
-              </p>
-              <div className="space-y-2">
-                {livenessDistribution.map((d) => (
-                  <div key={d.range} className="flex items-center gap-3">
-                    <span className="w-20 shrink-0 text-xs text-muted-foreground">
-                      {d.range}
-                    </span>
-                    <div className="h-2 flex-1 overflow-hidden rounded-full bg-slate-200">
-                      <div
-                        className="h-full rounded-full bg-blue-500"
-                        style={{ width: `${d.percentage}%` }}
-                      />
-                    </div>
-                    <span className="w-12 text-right text-xs font-medium text-foreground tabular-nums">
-                      {d.count}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-        <Card>
-          <CardHeader className="flex-row items-start justify-between pb-2">
-            <div>
-              <CardTitle className="text-base font-medium">
-                Demographics
-              </CardTitle>
-              <CardDescription>
-                Gender and age distribution from liveness verification records
-              </CardDescription>
-            </div>
-
-            <div className="inline-flex rounded-full bg-muted p-1">
-              <button
-                type="button"
-                onClick={() => setDemographicView("gender")}
-                className={cn(
-                  "rounded-full px-4 py-1.5 text-sm transition-colors",
-                  demographicView === "gender"
-                    ? "bg-background text-foreground shadow-sm"
-                    : "text-muted-foreground"
-                )}
-              >
-                Gender
-              </button>
-              <button
-                type="button"
-                onClick={() => setDemographicView("age")}
-                className={cn(
-                  "rounded-full px-4 py-1.5 text-sm transition-colors",
-                  demographicView === "age"
-                    ? "bg-background text-foreground shadow-sm"
-                    : "text-muted-foreground"
-                )}
-              >
-                Age
-              </button>
-            </div>
-          </CardHeader>
-
-          <CardContent>
-            {demographicView === "gender" ? (
-              <>
-                <div className="mb-4 flex flex-wrap gap-4 text-sm">
-                  {genderDemographics.map((item) => (
-                    <div key={item.label} className="flex items-center gap-2">
-                      <span
-                        className="h-3 w-3 rounded-full"
-                        style={{ backgroundColor: item.fill }}
-                      />
-                      <span className="text-muted-foreground">{item.label}</span>
-                      <span className="font-medium text-foreground">
-                        {item.count}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-
-                <ChartContainer config={demographicsConfig} className="h-[260px] w-full">
-                  <BarChart
-                    data={genderDemographics}
-                    margin={{ top: 5, right: 10, left: -20, bottom: 0 }}
-                  >
-                    <CartesianGrid strokeDasharray="3 3" className="stroke-border/40" />
-                    <XAxis dataKey="label" tick={{ fontSize: 11 }} className="text-muted-foreground" />
-                    <YAxis tick={{ fontSize: 11 }} className="text-muted-foreground" allowDecimals={false} />
-                    <ChartTooltip content={<ChartTooltipContent />} />
-                    <Bar dataKey="count" radius={[6, 6, 0, 0]}>
-                      {genderDemographics.map((entry) => (
-                        <Cell key={entry.label} fill={entry.fill} />
-                      ))}
-                    </Bar>
-                  </BarChart>
-                </ChartContainer>
-              </>
-            ) : (
-              <>
-                <div className="mb-4 flex flex-wrap gap-4 text-sm">
-                  {ageDemographics.map((item) => (
-                    <div key={item.label} className="flex items-center gap-2">
-                      <span
-                        className="h-3 w-3 rounded-full"
-                        style={{ backgroundColor: item.fill }}
-                      />
-                      <span className="text-muted-foreground">{item.label}</span>
-                    </div>
-                  ))}
-                </div>
-
-                <ChartContainer config={demographicsConfig} className="h-[260px] w-full">
-                  <BarChart
-                    data={ageDemographics}
-                    margin={{ top: 5, right: 10, left: -20, bottom: 0 }}
-                  >
-                    <CartesianGrid strokeDasharray="3 3" className="stroke-border/40" />
-                    <XAxis dataKey="label" tick={{ fontSize: 11 }} className="text-muted-foreground" />
-                    <YAxis tick={{ fontSize: 11 }} className="text-muted-foreground" allowDecimals={false} />
-                    <ChartTooltip content={<ChartTooltipContent />} />
-                    <Bar dataKey="count" radius={[6, 6, 0, 0]}>
-                      {ageDemographics.map((entry) => (
-                        <Cell key={entry.label} fill={entry.fill} />
-                      ))}
-                    </Bar>
-                  </BarChart>
-                </ChartContainer>
-              </>
-            )}
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex-row items-start justify-between pb-2">
-            <div>
-              <CardTitle className="text-base font-medium">
-                Conversion Rate
-              </CardTitle>
-              <CardDescription>
-                Ratio of approved sessions to total finished sessions (approved + declined)
-              </CardDescription>
-            </div>
-
-            <div className="text-right">
-              <p className="text-2xl font-bold text-foreground tabular-nums">
-                {overallConversion.rate}%
-              </p>
-              <p className="text-xs text-muted-foreground">
-                {overallConversion.converted} / {overallConversion.finished}
-              </p>
-            </div>
-          </CardHeader>
-
-          <CardContent>
-            <div className="mb-4 flex flex-wrap gap-4 text-sm">
-              <div className="flex items-center gap-2">
-                <span
-                  className="h-3 w-3 rounded-full"
-                  style={{ backgroundColor: conversionConfig.totalFinished.color }}
-                />
-                <span className="text-muted-foreground">Total finished</span>
-              </div>
-
-              <div className="flex items-center gap-2">
-                <span
-                  className="h-3 w-3 rounded-full"
-                  style={{ backgroundColor: conversionConfig.converted.color }}
-                />
-                <span className="text-muted-foreground">Converted</span>
-              </div>
-            </div>
-
-            <ChartContainer config={conversionConfig} className="h-[260px] w-full">
-              <BarChart
-                data={conversionRateData}
-                margin={{ top: 5, right: 10, left: -20, bottom: 0 }}
-              >
-                <CartesianGrid strokeDasharray="3 3" className="stroke-border/40" />
-                <XAxis
-                  dataKey="date"
-                  tick={{ fontSize: 11 }}
-                  className="text-muted-foreground"
-                />
-                <YAxis
-                  tick={{ fontSize: 11 }}
-                  className="text-muted-foreground"
-                  allowDecimals={false}
-                />
-                <ChartTooltip content={<ChartTooltipContent />} />
-                <Bar
-                  dataKey="totalFinished"
-                  fill={conversionConfig.totalFinished.color}
-                  radius={[6, 6, 0, 0]}
-                />
-                <Bar
-                  dataKey="converted"
-                  fill={conversionConfig.converted.color}
-                  radius={[6, 6, 0, 0]}
                 />
               </BarChart>
             </ChartContainer>

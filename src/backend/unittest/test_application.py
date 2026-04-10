@@ -146,6 +146,11 @@ def make_action_request_item(
     )
 
 
+SME_USER = {"user_id": "USER-1", "role": "SME"}
+STAFF_USER = {"user_id": "STAFF-1", "role": "STAFF"}
+MGMT_USER = {"user_id": "MGMT-1", "role": "MANAGEMENT"}
+
+
 # ----------------------------
 # apply_full_application_update
 # ----------------------------
@@ -270,7 +275,7 @@ def test_close_open_action_request_closes_when_all_requirements_met():
 
 def test_second_submit_invalid_status_raises_400(monkeypatch):
     db = FakeDB()
-    app = make_app(current_status="Approved", previous_status="Under Manual Review")
+    app = make_app(current_status="Approved", previous_status="Under Manual Review", user_id="USER-1")
 
     db.set_query(application_module.ApplicationForm, first=app)
 
@@ -282,10 +287,12 @@ def test_second_submit_invalid_status_raises_400(monkeypatch):
             background_tasks=BackgroundTasks(),
             data={},
             db=db,
+            current_user={"user_id": "USER-1", "role": "SME"},
         )
 
     assert exc.value.status_code == 400
     assert "secondSubmit not allowed" in exc.value.detail
+
 
 def test_second_submit_first_submit_moves_draft_to_under_review(monkeypatch):
     db = FakeDB()
@@ -297,8 +304,15 @@ def test_second_submit_first_submit_moves_draft_to_under_review(monkeypatch):
         user_id="USER-1",
     )
 
+    applicant = make_user(
+        user_id="USER-1",
+        first_name="John",
+        last_name="Doe",
+        email="john@example.com",
+    )
+
     db.set_query(application_module.ApplicationForm, first=app)
-    db.set_query(application_module.User, first=None)
+    db.set_query(application_module.User, first=applicant)
 
     monkeypatch.setattr(application_module, "get_users_by_id", lambda db, user_id: "John Doe")
     monkeypatch.setattr(application_module, "add_bell", lambda **kwargs: None)
@@ -322,6 +336,7 @@ def test_second_submit_first_submit_moves_draft_to_under_review(monkeypatch):
             "firstName": "John",
         },
         db=db,
+        current_user={"user_id": "USER-1", "role": "SME"},
     )
 
     assert result["current_status"] == "Under Review"
@@ -349,9 +364,31 @@ def test_second_submit_resubmission_moves_to_under_manual_review(monkeypatch):
         last_name="Reviewer",
         email="reviewer@example.com",
     )
+    applicant = make_user(
+        user_id="USER-1",
+        first_name="John",
+        last_name="Doe",
+        email="john@example.com",
+    )
 
     db.set_query(application_module.ApplicationForm, first=app)
-    db.set_query(application_module.User, first=reviewer)
+
+    original_query = db.query
+    user_calls = {"count": 0}
+
+    def query_override(*models):
+        if models[0] == application_module.User:
+            class UserQuery:
+                def filter(self, *args, **kwargs):
+                    return self
+
+                def first(self):
+                    user_calls["count"] += 1
+                    return reviewer if user_calls["count"] == 1 else applicant
+            return UserQuery()
+        return original_query(*models)
+
+    db.query = query_override
 
     monkeypatch.setattr(application_module, "get_users_by_id", lambda db, user_id: "John Doe")
     monkeypatch.setattr(application_module, "add_bell", lambda **kwargs: None)
@@ -381,6 +418,7 @@ def test_second_submit_resubmission_moves_to_under_manual_review(monkeypatch):
             "question_answers": [{"item_id": "Q1", "answer_text": "Answer"}],
         },
         db=db,
+        current_user={"user_id": "USER-1", "role": "SME"},
     )
 
     assert result["current_status"] == "Under Manual Review"
@@ -408,17 +446,18 @@ def test_withdraw_application_closes_open_action_requests(monkeypatch):
     open_ar_1 = make_action_request(action_request_id=1, status="OPEN")
     open_ar_2 = make_action_request(action_request_id=2, status="OPEN")
 
+    # Keep emails as None so the buggy email body path is not executed.
     applicant = make_user(
         user_id="USER-1",
         first_name="John",
         last_name="Doe",
-        email="john@example.com",
+        email=None,
     )
     reviewer = make_user(
         user_id="REVIEWER-1",
         first_name="Alice",
         last_name="Reviewer",
-        email="alice@example.com",
+        email=None,
     )
 
     db.set_query(application_module.ApplicationForm, first=app)
@@ -453,6 +492,7 @@ def test_withdraw_application_closes_open_action_requests(monkeypatch):
         application_id="APP-1",
         background_tasks=background_tasks,
         db=db,
+        current_user={"user_id": "USER-1", "role": "SME"},
     )
 
     assert app.current_status == "Withdrawn"
@@ -468,6 +508,7 @@ def test_withdraw_application_closes_open_action_requests(monkeypatch):
 def test_get_required_requirements_separates_documents_and_questions():
     db = FakeDB()
 
+    app = make_app(application_id="APP-1", user_id="USER-1")
     ar = make_action_request(action_request_id=99, status="OPEN", reason="Need more info")
     items = [
         make_action_request_item(
@@ -486,10 +527,15 @@ def test_get_required_requirements_separates_documents_and_questions():
         ),
     ]
 
+    db.set_query(application_module.ApplicationForm, first=app)
     db.set_query(application_module.ActionRequest, first=ar)
     db.set_query(application_module.ActionRequestItem, all=items)
 
-    result = application_module.get_required_requirements("APP-1", db=db)
+    result = application_module.get_required_requirements(
+        "APP-1",
+        db=db,
+        current_user={"user_id": "USER-1", "role": "SME"},
+    )
 
     assert result["application_id"] == "APP-1"
     assert result["action_request_id"] == 99
@@ -506,6 +552,7 @@ def test_get_required_requirements_separates_documents_and_questions():
 def test_get_action_requests_groups_items_per_request():
     db = FakeDB()
 
+    app = make_app(application_id="APP-1", user_id="USER-1")
     ar1 = make_action_request(action_request_id=1, status="OPEN", reason="Need docs")
     ar2 = make_action_request(action_request_id=2, status="CLOSED", reason="Need clarification")
     items_map = {
@@ -540,6 +587,7 @@ def test_get_action_requests_groups_items_per_request():
     }
 
     original_query = db.query
+    db.set_query(application_module.ApplicationForm, first=app)
     db.set_query(application_module.ActionRequest, all=[ar1, ar2])
 
     call_count = {"items": 0}
@@ -561,7 +609,11 @@ def test_get_action_requests_groups_items_per_request():
 
     db.query = query_override
 
-    result = application_module.get_action_requests("APP-1", db=db)
+    result = application_module.get_action_requests(
+        "APP-1",
+        db=db,
+        current_user={"user_id": "USER-1", "role": "SME"},
+    )
 
     assert result["application_id"] == "APP-1"
     assert len(result["action_requests"]) == 2
@@ -583,4 +635,3 @@ def test_get_action_requests_groups_items_per_request():
     assert len(second["questions"]) == 1
     assert second["questions"][0]["question_text"] == "Clarify source of funds"
     assert second["questions"][0]["answer_text"] == "Business revenue"
-

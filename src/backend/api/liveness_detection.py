@@ -1,14 +1,131 @@
-from fastapi import APIRouter, Depends, Body, HTTPException
+from fastapi import APIRouter, Depends, Body, HTTPException, status
 from sqlalchemy.orm import Session
 from datetime import datetime, date
 from zoneinfo import ZoneInfo
 
+from backend.auth.dependencies import get_current_user
 from backend.database import get_db
 from backend.models.liveness_detection import LivenessDetection
+from backend.models.application import ApplicationForm
 from backend.services.kyc_media_service import download_upload_and_get_kyc_public_url
 
 router = APIRouter(prefix="/liveness-detection", tags=["liveness_detection"])
 
+
+# =====================================================
+# Auth / authorization helpers
+# =====================================================
+
+def _current_user_id(current_user: dict) -> str:
+    user_id = current_user.get("user_id")
+    if not user_id:
+        raise HTTPException(status_code=401, detail="Invalid token payload")
+    return user_id
+
+
+def _current_user_role(current_user: dict) -> str:
+    role = current_user.get("role")
+    if not role:
+        raise HTTPException(status_code=401, detail="Invalid token payload")
+    return str(role).upper().strip()
+
+
+def _ensure_staff_or_management(current_user: dict):
+    role = _current_user_role(current_user)
+    if role not in {"STAFF", "MANAGEMENT"}:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Forbidden",
+        )
+
+
+def _get_application_or_404(db: Session, application_id: str) -> ApplicationForm:
+    app = (
+        db.query(ApplicationForm)
+        .filter(ApplicationForm.application_id == application_id)
+        .first()
+    )
+    if not app:
+        raise HTTPException(status_code=404, detail="Application not found")
+    return app
+
+
+def _get_liveness_by_session_or_404(db: Session, provider_session_id: str) -> LivenessDetection:
+    row = (
+        db.query(LivenessDetection)
+        .filter(LivenessDetection.provider_session_id == provider_session_id)
+        .first()
+    )
+    if not row:
+        raise HTTPException(status_code=404, detail="Liveness detection record not found")
+    return row
+
+
+def _ensure_application_access(app: ApplicationForm, current_user: dict):
+    role = _current_user_role(current_user)
+    user_id = _current_user_id(current_user)
+
+    if role == "SME":
+        if app.user_id != user_id:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Forbidden",
+            )
+        return
+
+    if role in {"STAFF", "MANAGEMENT"}:
+        return
+
+    raise HTTPException(
+        status_code=status.HTTP_403_FORBIDDEN,
+        detail="Forbidden",
+    )
+
+
+def _ensure_application_owner(app: ApplicationForm, current_user: dict):
+    role = _current_user_role(current_user)
+    user_id = _current_user_id(current_user)
+
+    if role != "SME":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Forbidden",
+        )
+
+    if app.user_id != user_id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Forbidden",
+        )
+
+
+def _ensure_liveness_access(row: LivenessDetection, db: Session, current_user: dict):
+    role = _current_user_role(current_user)
+
+    if role in {"STAFF", "MANAGEMENT"}:
+        return
+
+    if role == "SME":
+        application_id = getattr(row, "application_id", None)
+        if not application_id:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Forbidden",
+            )
+
+        app = _get_application_or_404(db, application_id)
+        _ensure_application_access(app, current_user)
+        return
+
+    raise HTTPException(
+        status_code=status.HTTP_403_FORBIDDEN,
+        detail="Forbidden",
+    )
+
+
+# =====================================================
+# Serialization helpers
+# =====================================================
 
 def model_to_dict(obj):
     result = {}
@@ -51,17 +168,11 @@ def parse_provider_created_at(value: str | None):
 @router.get("/bySessionID/{provider_session_id}")
 def get_liveness_detection_by_session_id(
     provider_session_id: str,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(get_current_user),
 ):
-
-    row = (
-        db.query(LivenessDetection)
-        .filter(LivenessDetection.provider_session_id == provider_session_id)
-        .first()
-    )
-
-    if not row:
-        raise HTTPException(status_code=404, detail="Liveness detection record not found")
+    row = _get_liveness_by_session_or_404(db, provider_session_id)
+    _ensure_liveness_access(row, db, current_user)
 
     return model_to_dict(row)
 
@@ -73,15 +184,14 @@ def get_liveness_detection_by_session_id(
 @router.post("/createDetection")
 def create_liveness_detection(
     data: dict = Body(...),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(get_current_user),
 ):
-
     provider_session_id = data.get("provider_session_id")
 
     if not provider_session_id:
         raise HTTPException(status_code=400, detail="provider_session_id is required")
 
-    # prevent duplicates
     existing = (
         db.query(LivenessDetection)
         .filter(LivenessDetection.provider_session_id == provider_session_id)
@@ -97,16 +207,18 @@ def create_liveness_detection(
     application_id = data.get("application_id")
     images = data.get("images") or {}
 
-    # ---------------------------------------------------
-    # IMPORTANT: choose storage reference
-    # ---------------------------------------------------
+    # If application_id is provided, enforce access to that application.
+    if application_id:
+        app = _get_application_or_404(db, application_id)
 
+        # SMEs can only create for their own application
+        # Staff/Management can also create if needed for internal flows
+        _ensure_application_access(app, current_user)
+
+    # IMPORTANT: choose storage reference
     kyc_ref = application_id if application_id else provider_session_id
 
-    # ---------------------------------------------------
     # DOWNLOAD FROM DIDIT → UPLOAD TO SUPABASE
-    # ---------------------------------------------------
-
     converted_images = {
         "portrait_image_url": download_upload_and_get_kyc_public_url(
             images.get("portrait_image_url"), kyc_ref, "portrait", ".jpg"
@@ -137,12 +249,9 @@ def create_liveness_detection(
         ),
     }
 
-    # ---------------------------------------------------
     # CREATE DATABASE RECORD
-    # ---------------------------------------------------
-
     new_row = LivenessDetection(
-        application_id=application_id,   # can be None
+        application_id=application_id,
         provider=data.get("provider"),
         provider_session_id=provider_session_id,
         provider_session_number=data.get("provider_session_number"),
@@ -194,20 +303,22 @@ def create_liveness_detection(
 def update_liveness_detection_by_session_id(
     provider_session_id: str,
     data: dict = Body(...),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(get_current_user),
 ):
+    row = _get_liveness_by_session_or_404(db, provider_session_id)
 
-    row = (
-        db.query(LivenessDetection)
-        .filter(LivenessDetection.provider_session_id == provider_session_id)
-        .first()
-    )
+    # If row is already linked, enforce access against existing linked application.
+    if row.application_id:
+        existing_app = _get_application_or_404(db, row.application_id)
+        _ensure_application_access(existing_app, current_user)
 
-    if not row:
-        raise HTTPException(status_code=404, detail="Liveness detection record not found")
-
-    if "application_id" in data:
-        row.application_id = data.get("application_id")
+    # If client is trying to link to an application, enforce access to that application too.
+    if "application_id" in data and data.get("application_id"):
+        new_application_id = data.get("application_id")
+        app = _get_application_or_404(db, new_application_id)
+        _ensure_application_access(app, current_user)
+        row.application_id = new_application_id
 
     db.commit()
     db.refresh(row)
@@ -217,6 +328,7 @@ def update_liveness_detection_by_session_id(
         "data": model_to_dict(row)
     }
 
+
 # =====================================================
 # GET KYC BY APPLICATION ID
 # =====================================================
@@ -224,8 +336,12 @@ def update_liveness_detection_by_session_id(
 @router.get("/byApplicationID/{application_id}")
 def get_liveness_detection_by_application_id(
     application_id: str,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(get_current_user),
 ):
+    app = _get_application_or_404(db, application_id)
+    _ensure_application_access(app, current_user)
+
     row = (
         db.query(LivenessDetection)
         .filter(LivenessDetection.application_id == application_id)
@@ -241,12 +357,16 @@ def get_liveness_detection_by_application_id(
 
     return model_to_dict(row)
 
+
 @router.get("/")
 def get_all_liveness_detections(
     from_date: str | None = None,
     to_date: str | None = None,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(get_current_user),
 ):
+    _ensure_staff_or_management(current_user)
+
     query = db.query(LivenessDetection).filter(
         LivenessDetection.application_id.isnot(None)
     )

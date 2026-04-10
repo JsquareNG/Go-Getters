@@ -21,12 +21,7 @@ import {
   ChartTooltipContent,
 } from "../primitives/chart";
 import { KPICard } from "./KPICard";
-import {
-  AlertTriangle,
-  Users,
-  Zap,
-  CheckCircle2,
-} from "lucide-react";
+import { AlertTriangle, Users, CheckCircle2 } from "lucide-react";
 import {
   getAuditMetricsOverview,
   getStaffLeaderboard,
@@ -36,13 +31,7 @@ import {
   getAllApplications,
   getAllJob,
 } from "../../../api/applicationApi";
-import {
-  AreaChart,
-  Area,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-} from "recharts";
+import { AreaChart, Area, XAxis, YAxis, CartesianGrid } from "recharts";
 import { cn } from "@/lib/utils";
 
 const rankColors = [
@@ -74,16 +63,33 @@ function formatDurationFromDays(days) {
   return `${value.toFixed(2)} days`;
 }
 
+function normalizeStatus(status) {
+  return String(status || "").trim().toLowerCase();
+}
+
 function isUnderManualReview(status) {
-  return String(status || "").trim().toLowerCase() === "under manual review";
+  return normalizeStatus(status) === "under manual review";
+}
+
+function isRequiresAction(status) {
+  return normalizeStatus(status) === "requires action";
+}
+
+function isManualReviewProcessStatus(status) {
+  return isUnderManualReview(status) || isRequiresAction(status);
 }
 
 function isApproved(status) {
-  return String(status || "").trim().toLowerCase() === "approved";
+  return normalizeStatus(status) === "approved";
 }
 
-function isUnderReview(status) {
-  return String(status || "").trim().toLowerCase() === "under review";
+function isRejected(status) {
+  const value = normalizeStatus(status);
+  return value === "rejected" || value === "declined";
+}
+
+function isVerdictStatus(status) {
+  return isApproved(status) || isRejected(status);
 }
 
 function isWithinDateRangeFromCreatedAt(app, dateRange) {
@@ -120,6 +126,37 @@ function getMonthLabel(monthKey) {
   });
 }
 
+function buildLatestCompletedJobMap(reviewJobs = []) {
+  const latestCompletedJobMap = new Map();
+
+  reviewJobs.forEach((job) => {
+    if (!job?.application_id || !job?.completed_at) return;
+    if (String(job.status || "").toUpperCase() !== "COMPLETED") return;
+
+    const completedAt = new Date(job.completed_at);
+    if (Number.isNaN(completedAt.getTime())) return;
+
+    const existing = latestCompletedJobMap.get(job.application_id);
+
+    if (!existing) {
+      latestCompletedJobMap.set(job.application_id, job);
+      return;
+    }
+
+    const existingCompletedAt = new Date(existing.completed_at);
+    if (Number.isNaN(existingCompletedAt.getTime())) {
+      latestCompletedJobMap.set(job.application_id, job);
+      return;
+    }
+
+    if (completedAt > existingCompletedAt) {
+      latestCompletedJobMap.set(job.application_id, job);
+    }
+  });
+
+  return latestCompletedJobMap;
+}
+
 function buildProcessingTimeByMonth(reviewJobs, applications, dateRange) {
   const filteredApplications = applications.filter((app) =>
     isWithinDateRangeFromCreatedAt(app, dateRange),
@@ -129,13 +166,11 @@ function buildProcessingTimeByMonth(reviewJobs, applications, dateRange) {
     filteredApplications.map((app) => [app.application_id, app]),
   );
 
+  const latestCompletedJobMap = buildLatestCompletedJobMap(reviewJobs);
   const processingByMonth = {};
 
-  reviewJobs.forEach((job) => {
-    if (!job.application_id || !job.completed_at) return;
-    if (String(job.status || "").toUpperCase() !== "COMPLETED") return;
-
-    const app = applicationMap.get(job.application_id);
+  latestCompletedJobMap.forEach((job, applicationId) => {
+    const app = applicationMap.get(applicationId);
     if (!app?.created_at) return;
 
     const created = new Date(app.created_at);
@@ -182,8 +217,11 @@ export function OperationsTab({ dateRange, preset }) {
   const [overview, setOverview] = useState(null);
   const [teamPerformance, setTeamPerformance] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [stpRate, setStpRate] = useState(0);
   const [processingTime, setProcessingTime] = useState([]);
+  const [manualReviewCounts, setManualReviewCounts] = useState({
+    currentManualReviewCount: 0,
+    totalWentThroughManualReviewCount: 0,
+  });
 
   const filterParams = useMemo(() => {
     return {
@@ -243,23 +281,32 @@ export function OperationsTab({ dateRange, preset }) {
           isWithinDateRangeFromCreatedAt(app, dateRange),
         );
 
-        const stpApplications = filteredApplications.filter(
+        const currentManualReviewCount = filteredApplications.filter(
           (app) =>
-            isUnderReview(app.previous_status) &&
-            isApproved(app.current_status),
-        );
+            isUnderManualReview(app.current_status) ||
+            isRequiresAction(app.current_status),
+        ).length;
 
-        const nextStpRate =
-          filteredApplications.length > 0
-            ? (stpApplications.length / filteredApplications.length) * 100
-            : 0;
+        const totalWentThroughManualReviewCount = filteredApplications.filter(
+          (app) =>
+            isManualReviewProcessStatus(app.current_status) ||
+            isManualReviewProcessStatus(app.previous_status),
+        ).length;
 
-        setStpRate(Number(nextStpRate.toFixed(1)));
+        setManualReviewCounts({
+          currentManualReviewCount,
+          totalWentThroughManualReviewCount,
+        });
 
         setProcessingTime(
-          buildProcessingTimeByMonth(allReviewJobs, allApplications, dateRange),
+          buildProcessingTimeByMonth(
+            allReviewJobs,
+            filteredApplications,
+            dateRange,
+          ),
         );
 
+        const latestCompletedJobMap = buildLatestCompletedJobMap(allReviewJobs);
         const leaderboard = Array.isArray(leaderboardRes) ? leaderboardRes : [];
 
         const enrichedLeaderboard = await Promise.all(
@@ -268,26 +315,80 @@ export function OperationsTab({ dateRange, preset }) {
               const reviewerId = member.staffId;
               const apps = await getApplicationByReviewer(reviewerId);
 
-              const reviewerApps = Array.isArray(apps)
+              const reviewerAppsRaw = Array.isArray(apps)
                 ? apps
                 : Array.isArray(apps?.data)
                   ? apps.data
                   : [];
 
+              const reviewerApps = reviewerAppsRaw.filter((app) =>
+                isWithinDateRangeFromCreatedAt(app, dateRange),
+              );
+
               const assignedApplications = reviewerApps.length;
-              const applicationsLeft = reviewerApps.filter((app) =>
-                isUnderManualReview(app.current_status),
+
+              const processedApplications = reviewerApps.filter((app) =>
+                isVerdictStatus(app.current_status),
+              );
+
+              const processed = processedApplications.length;
+
+              const approvedCount = processedApplications.filter((app) =>
+                isApproved(app.current_status),
               ).length;
+
+              const approvalRate =
+                processed > 0
+                  ? Number(((approvedCount / processed) * 100).toFixed(1))
+                  : 0;
+
+              const avgTimeDurations = processedApplications
+                .map((app) => {
+                  const job = latestCompletedJobMap.get(app.application_id);
+                  if (!job?.completed_at || !app?.created_at) return null;
+
+                  const created = new Date(app.created_at);
+                  const completed = new Date(job.completed_at);
+
+                  if (
+                    Number.isNaN(created.getTime()) ||
+                    Number.isNaN(completed.getTime())
+                  ) {
+                    return null;
+                  }
+
+                  if (completed < created) return null;
+
+                  return (completed - created) / (1000 * 60 * 60 * 24);
+                })
+                .filter((value) => value !== null);
+
+              const avgReviewTimeDays =
+                avgTimeDurations.length > 0
+                  ? avgTimeDurations.reduce((sum, value) => sum + value, 0) /
+                    avgTimeDurations.length
+                  : 0;
+
+              const applicationsLeft = Math.max(
+                0,
+                assignedApplications - processed,
+              );
 
               return {
                 ...member,
                 assignedApplications,
+                processed,
+                avgReviewTimeDays,
+                approvalRate,
                 applicationsLeft,
               };
             } catch (error) {
               return {
                 ...member,
                 assignedApplications: 0,
+                processed: 0,
+                avgReviewTimeDays: 0,
+                approvalRate: 0,
                 applicationsLeft: 0,
               };
             }
@@ -313,8 +414,11 @@ export function OperationsTab({ dateRange, preset }) {
         console.error("Failed to fetch operations metrics:", error);
         setOverview({});
         setTeamPerformance([]);
-        setStpRate(0);
         setProcessingTime([]);
+        setManualReviewCounts({
+          currentManualReviewCount: 0,
+          totalWentThroughManualReviewCount: 0,
+        });
       } finally {
         setLoading(false);
       }
@@ -325,12 +429,13 @@ export function OperationsTab({ dateRange, preset }) {
 
   const operationsKPIs = useMemo(() => {
     return {
-      escalationRate: overview?.escalationRate ?? 0,
+      currentManualReviewCount:
+        manualReviewCounts.currentManualReviewCount ?? 0,
+      totalWentThroughManualReviewCount:
+        manualReviewCounts.totalWentThroughManualReviewCount ?? 0,
       manualReviewTime: overview?.avgManualReviewTimeDays ?? 0,
-      totalEscalations: overview?.totalEscalations ?? 0,
-      stpRate: stpRate ?? 0,
     };
-  }, [overview, stpRate]);
+  }, [manualReviewCounts, overview]);
 
   if (loading) {
     return (
@@ -348,32 +453,24 @@ export function OperationsTab({ dateRange, preset }) {
         <p className="text-sm text-muted-foreground">{operationsDescription}</p>
       </div>
 
-      <div className="grid grid-cols-4 gap-4 lg:grid-cols-4 xl:grid-cols-4">
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-3 xl:grid-cols-3">
         <KPICard
           icon={<AlertTriangle className="h-5 w-5" />}
-          title="Escalation Rate"
-          value={operationsKPIs.escalationRate}
-          suffix="%"
-          trendLabel="of total applications"
+          title="Currently in Manual Review Process"
+          value={operationsKPIs.currentManualReviewCount}
+          trendLabel="Applications under manual review or requires action"
         />
         <KPICard
           icon={<Users className="h-5 w-5" />}
-          title="Manual Review Time"
-          value={formatDurationFromDays(operationsKPIs.manualReviewTime)}
-          trendLabel="Avg per application"
-        />
-        <KPICard
-          icon={<Zap className="h-5 w-5" />}
-          title="Total Escalations"
-          value={operationsKPIs.totalEscalations}
-          trendLabel="Across filtered applications"
+          title="Total Went Through Manual Review"
+          value={operationsKPIs.totalWentThroughManualReviewCount}
+          trendLabel="Past and current applications that gone through Manual Review"
         />
         <KPICard
           icon={<CheckCircle2 className="h-5 w-5" />}
-          title="STP Rate"
-          value={operationsKPIs.stpRate}
-          suffix="%"
-          trendLabel="Under Review → Approved"
+          title="Manual Review Time"
+          value={formatDurationFromDays(operationsKPIs.manualReviewTime)}
+          trendLabel="Avg Time Taken per application"
         />
       </div>
 
@@ -383,7 +480,7 @@ export function OperationsTab({ dateRange, preset }) {
             Application Processing Time Trend
           </CardTitle>
           <CardDescription>
-            Average time from application creation to review completion
+            Average time from application creation to review completion, grouped by application creation month
           </CardDescription>
         </CardHeader>
 
@@ -434,8 +531,8 @@ export function OperationsTab({ dateRange, preset }) {
                 content={
                   <ChartTooltipContent
                     formatter={(value) => [
-                      "Avg Time: ",
                       `${Number(value).toFixed(1)} days`,
+                      "Avg Time",
                     ]}
                   />
                 }
@@ -537,16 +634,7 @@ export function OperationsTab({ dateRange, preset }) {
                         </span>
                       </TableCell>
 
-                      <TableCell
-                        className={cn(
-                          "text-right tabular-nums font-bold",
-                          (member.applicationsLeft ?? 0) > 10
-                            ? "text-black"
-                            : (member.applicationsLeft ?? 0) > 5
-                              ? "text-black"
-                              : "text-black",
-                        )}
-                      >
+                      <TableCell className="text-right tabular-nums font-bold text-black">
                         {member.applicationsLeft ?? 0}
                       </TableCell>
                     </TableRow>
