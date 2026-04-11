@@ -28,24 +28,45 @@ const Step1BasicInformation = ({
   const [existingDocuments, setExistingDocuments] = useState([]);
   const [ocrState, setOcrState] = useState({});
   const [verificationState, setVerificationState] = useState({});
+  const [loadingDocuments, setLoadingDocuments] = useState(false);
 
   const processedOcrFilesRef = useRef({});
   const hydratedSessionsRef = useRef({});
 
+  // useEffect(() => {
+  //   if (!applicationId || applicationId === "new") return;
+
+  //   const fetchDocs = async () => {
+  //     try {
+  //       const docs = await allDocuments(applicationId);
+  //       setExistingDocuments(Array.isArray(docs) ? docs : []);
+  //     } catch (err) {
+  //       console.error("Failed to fetch documents", err);
+  //       setExistingDocuments([]);
+  //     }
+  //   };
+
+  //   fetchDocs();
+  // }, [applicationId]);
+
+  //FETCH EXISTING DOCUMENTS FOR THIS APPLICATION
   useEffect(() => {
     if (!applicationId || applicationId === "new") return;
 
-    const fetchDocs = async () => {
+    const fetchDocuments = async () => {
       try {
+        setLoadingDocuments(true);
         const docs = await allDocuments(applicationId);
         setExistingDocuments(Array.isArray(docs) ? docs : []);
       } catch (err) {
-        console.error("Failed to fetch documents", err);
+        console.error("Failed to fetch existing documents:", err);
         setExistingDocuments([]);
+      } finally {
+        setLoadingDocuments(false);
       }
     };
 
-    fetchDocs();
+    fetchDocuments();
   }, [applicationId]);
 
   const existingDocumentMap = useMemo(() => {
@@ -79,15 +100,28 @@ const Step1BasicInformation = ({
     return data || {};
   };
 
-  // const getNestedValue = (obj, path) => {
-  //   if (!path) return undefined;
+  // helps to find rooted documents - matches uploaded documents to the correct form field using document type normalization
+  const findExistingDocumentForField = (fieldPath, fieldConfig = {}) => {
+    if (!Array.isArray(existingDocuments) || !existingDocuments.length)
+      return null;
 
-  //   return path.split(".").reduce((acc, key) => {
-  //     if (acc == null) return undefined;
-  //     const isIndex = !Number.isNaN(Number(key));
-  //     return isIndex ? acc[Number(key)] : acc[key];
-  //   }, obj);
-  // };
+    const normalizedFieldPath = normalizeDocumentType(fieldPath);
+    const expectedType = normalizeDocumentType(
+      fieldConfig?.ocrTarget ||
+        inferExpectedDocumentType(fieldPath, fieldConfig),
+    );
+
+    return (
+      existingDocuments.find(
+        (doc) =>
+          normalizeDocumentType(doc.document_type) === normalizedFieldPath,
+      ) ||
+      existingDocuments.find(
+        (doc) => normalizeDocumentType(doc.document_type) === expectedType,
+      ) ||
+      null
+    );
+  };
 
   // finds the value from form_data to map it
   const getNestedValue = (objs, path) => {
@@ -189,7 +223,23 @@ const Step1BasicInformation = ({
   const hasUsableLocalFile = (value) =>
     !!value && (value instanceof File || value?.file instanceof File);
 
-  const getDisplayedFileValue = (fieldPath) => {
+  // helper file function
+  const inferExpectedDocumentType = (fieldKey, fieldConfig) => {
+    if (fieldConfig?.ocrTarget === "business_profile") {
+      return "business_profile";
+    }
+
+    const key = String(fieldKey || "").toLowerCase();
+
+    if (key.includes("businessprofile")) return "business_profile";
+    if (key.includes("npwp")) return "npwp_certificate";
+    if (key.includes("proofofaddress")) return "proof_of_address";
+
+    return key;
+  };
+
+  //show on ui
+  const getDisplayedFileValue = (fieldPath, fieldConfig = {}) => {
     const localValue =
       getNestedValue(getFormDataRoot(), fieldPath) ??
       getNestedValue(data, fieldPath) ??
@@ -197,7 +247,9 @@ const Step1BasicInformation = ({
 
     if (hasUsableLocalFile(localValue)) return localValue;
 
-    const existingDoc = existingDocumentMap[fieldPath];
+    const existingDoc = findExistingDocumentForField(fieldPath, fieldConfig);
+
+    // const existingDoc = existingDocumentMap[fieldPath];
     if (!existingDoc) return null;
 
     return {
@@ -224,14 +276,13 @@ const Step1BasicInformation = ({
     if (verificationState[fieldPath]) return verificationState[fieldPath];
 
     if (localValue?.verificationStatus) {
-      console.log("[LOCAL VALUE]", localValue);
       return {
         status: localValue.verificationStatus,
         message: localValue.verificationMessage || "",
         detectedType: localValue.detectedType || null,
         expectedType: localValue.expectedType || null,
-        rawResult: localValue.classificationResult || null,
-        isSupported: localValue.isSupported ?? null,
+        // rawResult: localValue.classificationResult || null,
+        // isSupported: localValue.isSupported ?? null,
       };
     }
 
@@ -256,20 +307,6 @@ const Step1BasicInformation = ({
     };
   };
 
-  const inferExpectedDocumentType = (fieldKey, fieldConfig) => {
-    if (fieldConfig?.ocrTarget === "business_profile") {
-      return "business_profile";
-    }
-
-    const key = String(fieldKey || "").toLowerCase();
-
-    if (key.includes("businessprofile")) return "business_profile";
-    if (key.includes("npwp")) return "npwp_certificate";
-    if (key.includes("proofofaddress")) return "proof_of_address";
-
-    return key;
-  };
-
   const setFieldVerificationState = (fieldKey, nextState) => {
     setVerificationState((prev) => ({
       ...prev,
@@ -280,78 +317,159 @@ const Step1BasicInformation = ({
     }));
   };
 
-  const verifyAndMaybeExtractDocument = async ({
-    file,
-    fieldKey,
-    fieldConfig,
-  }) => {
-    const expectedType = inferExpectedDocumentType(fieldKey, fieldConfig);
+  // const verifyAndMaybeExtractDocument = async ({
+  //   file,
+  //   fieldKey,
+  //   fieldConfig,
+  // }) => {
+  //   const expectedType = inferExpectedDocumentType(fieldKey, fieldConfig);
 
-    const classifyResult = await classifyAndExtractApi(file);
-    console.log("[VERIFY RESULT]", classifyResult);
+  //   const classifyResult = await classifyAndExtractApi(file);
+  //   console.log("[VERIFY RESULT]", classifyResult);
 
-    const detectedType = normalizeDocumentType(
-      classifyResult?.document_type ||
-        classifyResult?.classified_as ||
-        classifyResult?.doc_type ||
-        classifyResult?.label,
-    );
+  //   const detectedType = normalizeDocumentType(
+  //     classifyResult?.document_type ||
+  //       classifyResult?.classified_as ||
+  //       classifyResult?.doc_type ||
+  //       classifyResult?.label,
+  //   );
 
-    const isSupported = classifyResult?.is_supported === true;
+  //   const isSupported = classifyResult?.is_supported === true;
 
-    if (!isSupported) {
-      const errorMessage =
-        classifyResult?.upload_validation?.reasons?.join(", ") ||
-        (detectedType
-          ? `Detected document type "${detectedType}" is not supported.`
-          : "This document is not supported.");
+  //   if (!isSupported) {
+  //     const errorMessage =
+  //       classifyResult?.upload_validation?.reasons?.join(", ") ||
+  //       (detectedType
+  //         ? `Detected document type "${detectedType}" is not supported.`
+  //         : "This document is not supported.");
 
-      throw new Error(errorMessage);
-    }
+  //     throw new Error(errorMessage);
+  //   }
 
-    // if (expectedType && detectedType && expectedType !== detectedType) {
-    //   throw new Error(
-    //     `Wrong document uploaded. Expected "${expectedType}" but detected "${detectedType}".`,
-    //   );
-    // }
+  //   // if (expectedType && detectedType && expectedType !== detectedType) {
+  //   //   throw new Error(
+  //   //     `Wrong document uploaded. Expected "${expectedType}" but detected "${detectedType}".`,
+  //   //   );
+  //   // }
 
-    let extractedData = null;
+  //   let extractedData = null;
 
-    // only do extraction for business profile OCR fields
-    if (fieldConfig?.ocrTarget === "business_profile") {
-      const extractResult = await classifyAndExtractApi(file);
-      extractedData = extractResult?.data || null;
-      console.log("[OCR EXTRACT RESULT]", extractedData);
-    }
+  //   // only do extraction for business profile OCR fields
+  //   if (fieldConfig?.ocrTarget === "business_profile") {
+  //     const extractResult = await classifyAndExtractApi(file);
+  //     extractedData = extractResult?.data || null;
+  //     console.log("[OCR EXTRACT RESULT]", extractedData);
+  //   }
 
-    return {
-      classifyResult,
-      extractedData,
-      detectedType,
-      expectedType,
-      isSupported,
-    };
-  };
+  //   return {
+  //     classifyResult,
+  //     extractedData,
+  //     detectedType,
+  //     expectedType,
+  //     isSupported,
+  //   };
+  // };
+
+  // const buildFileValidator = useCallback(
+  //   (fieldKey, fieldConfig) => async (file) => {
+  //     const expectedType = inferExpectedDocumentType(fieldKey, fieldConfig);
+
+  //     setFieldVerificationState(fieldKey, {
+  //       status: "verifying",
+  //       message: "Verifying document...",
+  //       expectedType,
+  //       detectedType: null,
+  //       // rawResult: null,
+  //     });
+
+  //     try {
+  //       const { classifyResult, extractedData, detectedType, isSupported } =
+  //         await verifyAndMaybeExtractDocument({
+  //           file,
+  //           fieldKey,
+  //           fieldConfig,
+  //         });
+
+  //       const nextValue = {
+  //         file,
+  //         progress: 0,
+  //         verified: true,
+  //         verificationStatus: "verified",
+  //         verificationMessage: "Document verified successfully.",
+  //         detectedType,
+  //         expectedType,
+  //         classificationResult: classifyResult,
+  //         extractedData,
+  //         uploadValidation: classifyResult?.upload_validation || null,
+  //         isSupported,
+  //       };
+
+  //       setFieldVerificationState(fieldKey, {
+  //         status: "verified",
+  //         message: "Document verified successfully.",
+  //         expectedType,
+  //         detectedType,
+  //         rawResult: classifyResult,
+  //       });
+
+  //       return nextValue;
+  //     } catch (err) {
+  //       setFieldVerificationState(fieldKey, {
+  //         status: "failed",
+  //         message:
+  //           err?.response?.data?.detail ||
+  //           err?.message ||
+  //           "Verification failed. Please upload the file again.",
+  //         expectedType,
+  //         detectedType: null,
+  //         rawResult: null,
+  //       });
+
+  //       throw err;
+  //     }
+  //   },
+  //   [],
+  // );
 
   const buildFileValidator = useCallback(
-    (fieldKey, fieldConfig) => async (file) => {
-      const expectedType = inferExpectedDocumentType(fieldKey, fieldConfig);
+    (fieldPath, fieldConfig) => async (file) => {
+      const expectedType = inferExpectedDocumentType(fieldPath, fieldConfig);
 
-      setFieldVerificationState(fieldKey, {
+      setFieldVerificationState(fieldPath, {
         status: "verifying",
         message: "Verifying document...",
         expectedType,
         detectedType: null,
-        rawResult: null,
       });
 
       try {
-        const { classifyResult, extractedData, detectedType, isSupported } =
-          await verifyAndMaybeExtractDocument({
-            file,
-            fieldKey,
-            fieldConfig,
+        const result = await classifyAndExtractApi(file);
+        console.log("classify results:", result);
+
+        const detectedType = normalizeDocumentType(
+          result?.document_type ||
+            result?.classified_as ||
+            result?.doc_type ||
+            result?.label,
+        );
+
+        // FILE VALIDATION
+        const validation = result?.upload_validation;
+        const isNotSupported = validation?.status === "FAIL";
+        if (isNotSupported) {
+          const errorMessage = validation?.reasons[0]
+            ? "Uploaded document does not match expected type OR its quality is too low. Please try again."
+            : "Document is not supported.";
+
+          setFieldVerificationState(fieldPath, {
+            status: "failed",
+            message: errorMessage,
+            expectedType,
+            detectedType,
           });
+
+          throw new Error(errorMessage);
+        }
 
         const nextValue = {
           file,
@@ -361,37 +479,36 @@ const Step1BasicInformation = ({
           verificationMessage: "Document verified successfully.",
           detectedType,
           expectedType,
-          classificationResult: classifyResult,
-          extractedData,
-          uploadValidation: classifyResult?.upload_validation || null,
-          isSupported,
+          extractedData: result,
         };
 
-        setFieldVerificationState(fieldKey, {
+        setFieldVerificationState(fieldPath, {
           status: "verified",
           message: "Document verified successfully.",
           expectedType,
           detectedType,
-          rawResult: classifyResult,
         });
 
         return nextValue;
       } catch (err) {
-        setFieldVerificationState(fieldKey, {
-          status: "failed",
-          message:
-            err?.response?.data?.detail ||
-            err?.message ||
-            "Verification failed. Please upload the file again.",
-          expectedType,
-          detectedType: null,
-          rawResult: null,
-        });
+        if (
+          !verificationState[fieldPath]?.status ||
+          verificationState[fieldPath]?.status === "verifying"
+        ) {
+          setFieldVerificationState(fieldPath, {
+            status: "failed",
+            message:
+              err?.message ||
+              "Verification failed. Please upload the file again.",
+            expectedType,
+            detectedType: null,
+          });
+        }
 
         throw err;
       }
     },
-    [],
+    [verificationState],
   );
 
   const getSelectedVerifiedFileForField = (fieldKey) => {
@@ -586,18 +703,8 @@ const Step1BasicInformation = ({
 
   // to map the extracted OCR data to the form fields, but only apply values to fields that are currently empty to avoid overwriting any existing data that user may have already filled in or edited after OCR autofill
   const applyMappedFieldsToFormData = (updates) => {
-    // const formRoot = getFormDataRoot();
-
     Object.entries(updates).forEach(([fieldKey, nextValue]) => {
-      // const currentValue =
-      //   getNestedValue(formRoot, fieldKey) ?? getNestedValue(data, fieldKey);
-
-      // const isEmpty =
-      //   currentValue === undefined ||
-      //   currentValue === null ||
-      //   currentValue === "";
-
-      console.log(`Applying OCR update for ${fieldKey}:`, nextValue);
+      // console.log(`Applying OCR update for ${fieldKey}:`, nextValue);
 
       if (
         // isEmpty &&
@@ -634,9 +741,7 @@ const Step1BasicInformation = ({
     }));
 
     try {
-      // const result = await classifyAndExtractApi(selectedFile);
-      // const payload = result?.data || {};
-      let payload = fileValue?.extractedData || null;
+      let payload = fileValue?.extractedData?.data || null;
 
       if (!payload) {
         const result = await classifyAndExtractApi(selectedFile);
@@ -703,7 +808,7 @@ const Step1BasicInformation = ({
   });
 
   // since it can be called from multiple places (after KYC verification, on component mount to hydrate from existing sessions), we create a single handler to persist the KYC result both locally and to parent callback if provided
-    const handlePersistKycResultLocal = async ({
+  const handlePersistKycResultLocal = async ({
     provider_session_id,
     kycData,
     diditPayload,
@@ -734,9 +839,7 @@ const Step1BasicInformation = ({
         dateOfBirth: mappedFields?.dateOfBirth || person?.dateOfBirth || "",
         nationality: mappedFields?.nationality || person?.nationality || "",
         residentialAddress:
-          mappedFields?.residentialAddress ||
-          person?.residentialAddress ||
-          "",
+          mappedFields?.residentialAddress || person?.residentialAddress || "",
       };
     });
 
@@ -793,9 +896,11 @@ const Step1BasicInformation = ({
 
         try {
           const detection = await getLivenessDetectionBySessionId(sessionId);
+          console.log("detection for hydration", detection);
 
           const nextKyc = mapDetectionToKyc(detection);
           const mappedFields = mapDetectionToIndividualFields(detection);
+          console.log("[MAP fields]", mappedFields);
 
           const currentPerson = nextFormRoot.individuals[index];
 
@@ -829,8 +934,20 @@ const Step1BasicInformation = ({
           }
 
           hydratedSessionsRef.current[hydrationKey] = true;
+          // } catch (err) {
+          //   console.error(`Failed to hydrate KYC for row ${index}`, err);
+          // }
         } catch (err) {
-          console.error(`Failed to hydrate KYC for row ${index}`, err);
+          const status = err?.response?.status;
+
+          if (status === 404) {
+            console.warn(
+              `[HYDRATE] Liveness detection not found yet for row ${index}, session ${sessionId}`,
+            );
+            continue;
+          }
+
+          console.error(`[HYDRATE] Failed for row ${index}`, err);
         }
       }
 
@@ -928,6 +1045,12 @@ const Step1BasicInformation = ({
       <h2 className="text-2xl font-bold mb-6 text-gray-900">
         Basic Information
       </h2>
+
+      {loadingDocuments && (
+        <p className="mb-4 text-sm text-gray-500">
+          Loading uploaded documents...
+        </p>
+      )}
 
       {Object.entries(basicFieldsConfig).map(([fieldKey, fieldConfig]) => {
         const value =

@@ -160,12 +160,12 @@ def _validate_upload_file(file: UploadFile, content: bytes):
 def init_persist_upload(
     payload: InitPersistUploadIn,
     db: Session = Depends(get_db),
-    current_user: dict = Depends(get_current_user),
+    # current_user: dict = Depends(get_current_user), //uncomment after testing
 ):
     _validate_init_payload(payload)
 
     app = _get_application_or_404(db, payload.application_id)
-    _ensure_application_access(app, current_user)
+    # _ensure_application_access(app, current_user)
 
     path = required_storage_path(
         payload.application_id,

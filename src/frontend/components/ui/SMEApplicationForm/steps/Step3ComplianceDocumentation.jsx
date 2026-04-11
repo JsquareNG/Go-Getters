@@ -33,8 +33,9 @@ const Step3ComplianceDocumentation = ({
     return step4.fields || {};
   }, [activeConfig, data?.businessType]);
 
+  // FETCH EXISTING DOCUMENTS FOR THIS APPLICATION
   useEffect(() => {
-    if (!applicationId) return;
+if (!applicationId || applicationId === "new") return;
 
     const fetchDocuments = async () => {
       try {
@@ -226,19 +227,13 @@ const Step3ComplianceDocumentation = ({
         );
 
         // FILE VALIDATION
-        // const isSupported = result?.is_supported === true;
-
         const validation = result?.upload_validation;
         const isNotSupported = validation?.status === "FAIL";
         if (isNotSupported) {
           const errorMessage = validation?.reasons[0]
             ? "Uploaded document does not match expected type OR its quality is too low. Please try again."
             : "Document is not supported.";
-
-          // const errorMessage = detectedType
-          //   ? `Detected document type "${detectedType}" is not supported.`
-          //   : "This document is not supported.";
-
+            
           setFieldVerificationState(fieldPath, {
             status: "failed",
             message: errorMessage,
@@ -257,8 +252,6 @@ const Step3ComplianceDocumentation = ({
           verificationMessage: "Document verified successfully.",
           detectedType,
           expectedType,
-          // classificationResult: result,
-          // normalized fields for later persistence
           extractedData: result,
         };
 
@@ -331,44 +324,44 @@ const Step3ComplianceDocumentation = ({
       );
     }
 
-    if (fieldCfg.type === "select") {
-      return (
-        <div key={fullPath} className="mb-6">
-          <FormFieldGroup
-            fieldName={fullPath}
-            label={fieldCfg.label}
-            placeholder={fieldCfg.placeholder || ""}
-            value={value ?? ""}
-            onChange={onFieldChange}
-            type="select"
-            options={fieldCfg.options || []}
-            required={fieldCfg.required || false}
-            disabled={disabled}
-          />
+    // if (fieldCfg.type === "select") {
+    //   return (
+    //     <div key={fullPath} className="mb-6">
+    //       <FormFieldGroup
+    //         fieldName={fullPath}
+    //         label={fieldCfg.label}
+    //         placeholder={fieldCfg.placeholder || ""}
+    //         value={value ?? ""}
+    //         onChange={onFieldChange}
+    //         type="select"
+    //         options={fieldCfg.options || []}
+    //         required={fieldCfg.required || false}
+    //         disabled={disabled}
+    //       />
 
-          {fieldCfg.conditionalFields &&
-            value &&
-            Object.entries(fieldCfg.conditionalFields[value] || {}).map(
-              ([condKey, condCfg]) => renderField(condKey, condCfg, parentPath),
-            )}
-        </div>
-      );
-    }
+    //       {fieldCfg.conditionalFields &&
+    //         value &&
+    //         Object.entries(fieldCfg.conditionalFields[value] || {}).map(
+    //           ([condKey, condCfg]) => renderField(condKey, condCfg, parentPath),
+    //         )}
+    //     </div>
+    //   );
+    // }
 
-    return (
-      <FormFieldGroup
-        key={fullPath}
-        fieldName={fullPath}
-        label={fieldCfg.label}
-        placeholder={fieldCfg.placeholder || ""}
-        value={value ?? ""}
-        onChange={onFieldChange}
-        required={fieldCfg.required || false}
-        type={fieldCfg.type || "text"}
-        options={fieldCfg.options || []}
-        disabled={disabled}
-      />
-    );
+    // return (
+    //   <FormFieldGroup
+    //     key={fullPath}
+    //     fieldName={fullPath}
+    //     label={fieldCfg.label}
+    //     placeholder={fieldCfg.placeholder || ""}
+    //     value={value ?? ""}
+    //     onChange={onFieldChange}
+    //     required={fieldCfg.required || false}
+    //     type={fieldCfg.type || "text"}
+    //     options={fieldCfg.options || []}
+    //     disabled={disabled}
+    //   />
+    // );
   };
 
   return (

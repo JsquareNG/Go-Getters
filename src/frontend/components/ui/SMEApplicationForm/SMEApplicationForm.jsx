@@ -297,39 +297,7 @@ const SMEApplicationForm = () => {
           fieldValue,
         );
       });
-
-      // try {
-      //   let savedAppId = currentApp?.applicationId || appId;
-
-      //   const cleanedFormPayload = buildDynamicPayload({
-      //     rawFormData: patchedFormData,
-      //     config: activeConfig,
-      //   });
-
-      //   const payload = {
-      //     ...(savedAppId && savedAppId !== "new"
-      //       ? { application_id: savedAppId }
-      //       : {}),
-      //     user_id: user.user_id,
-      //     email: user.email,
-      //     first_name: user.first_name ?? user.firstName ?? "",
-      //     last_saved_step: currentStepFromRedux,
-      //     previous_status: patchedFormData?.previous_status || null,
-      //     current_status: patchedFormData?.current_status || "Draft",
-      //     form_data: cleanedFormPayload,
-      //   };
-
-      //   const res = await saveApplicationDraftApi(payload);
-      //   savedAppId = res.application_id || savedAppId;
-
-      //   dispatch(saveDraftAction({ appId: savedAppId, data: patchedFormData }));
-      // } catch (err) {
-      //   toast({
-      //     title: "KYC verified but draft not saved",
-      //     description: err?.message || "Please click Save Draft manually.",
-      //     variant: "destructive",
-      //   });
-      // }
+      
       try {
         await persistApplication({
           isInitial: false,
@@ -437,51 +405,6 @@ const SMEApplicationForm = () => {
     try {
       let savedAppId = currentApp?.applicationId || appId;
 
-      // if (isInitial) {
-      //   if (!selectedCountry || !selectedBusinessType) {
-      //     toast({
-      //       title: "Missing required fields",
-      //       description: "Please select country and business type first.",
-      //       variant: "destructive",
-      //     });
-      //     return null;
-      //   }
-
-      //   const initialPayload = {
-      //     ...(savedAppId && savedAppId !== "new"
-      //       ? { application_id: savedAppId }
-      //       : {}),
-      //     user_id: user.user_id,
-      //     form_data: {
-      //       country: selectedCountry,
-      //       businessType: selectedBusinessType,
-      //       businessCountry: selectedCountry,
-      //       businessName: "",
-      //     },
-      //   };
-
-      //   const res = await saveApplicationDraftApi(initialPayload);
-      //   console.log("Initial application created with response:", res);
-      //   savedAppId = res.application_id || savedAppId;
-
-      //   dispatch(
-      //     loadApplication({
-      //       applicationId: savedAppId,
-      //       formData: {
-      //         country: selectedCountry,
-      //         businessType: selectedBusinessType,
-      //         businessCountry: selectedCountry,
-      //         businessName: "",
-      //         last_saved_step: 0,
-      //         previous_status: null,
-      //         current_status: "Draft",
-      //       },
-      //       status: "Draft",
-      //     }),
-      //   );
-
-      //   return savedAppId;
-      // }
       if (isInitial) {
         const existingId = currentApp?.applicationId || appId;
 
@@ -578,7 +501,7 @@ const SMEApplicationForm = () => {
       );
 
       const updatedFormData = {
-        ...effectiveFormData, 
+        ...effectiveFormData,
         ...cleanedFormPayload,
         last_saved_step: resolvedLastSavedStep,
         current_status: resolvedCurrentStatus,
@@ -616,9 +539,22 @@ const SMEApplicationForm = () => {
     }
   };
 
+  // when every switches page, it fetches the latest data from backend to ensure the form is up to date
+  // this causes user's latest changes to be overridden by backend data if they switch page without saving
   useEffect(() => {
     const initApplication = async () => {
       try {
+        //if same app is already loaded, do not overwrite local unsaved changes
+        // if (
+        //   appId &&
+        //   appId !== "new" &&
+        //   currentApp?.applicationId === appId &&
+        //   formData &&
+        //   Object.keys(formData).length > 0
+        // ) {
+        //   return;
+        // }
+
         if (appId && appId !== "new") {
           const app = await getApplicationByAppId(appId);
 
@@ -694,11 +630,59 @@ const SMEApplicationForm = () => {
     initApplication();
   }, [appId, user?.user_id, dispatch, navigate]);
 
+  // }, [appId, user?.user_id, dispatch, navigate, currentApp?.applicationId]);
+
   useEffect(() => {
     if (clampedStep !== currentStepFromRedux) {
       dispatch(setCurrentStep(clampedStep));
     }
   }, [clampedStep, currentStepFromRedux, dispatch]);
+
+  const handleStepNavigation = async (targetStep) => {
+    if (targetStep === 0) {
+      navigate(`/application/${routeMode}/${appId}/${targetStep}`);
+      return;
+    }
+
+    if (!isStep0Valid && targetStep >= 1) {
+      toast({
+        title: "Fill in missing fields first",
+        description:
+          "Please select country and business type before proceeding.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // if draft already exists, auto-save before step change
+    if (appId && appId !== "new") {
+      const savedAppId = await persistApplication({ isInitial: false });
+
+      if (!savedAppId) return;
+
+      navigate(`/application/${routeMode}/${savedAppId}/${targetStep}`);
+      return;
+    }
+
+    // if still new and going beyond step 0, create it first
+    if (appId === "new" && targetStep >= 1) {
+      const savedAppId = await persistApplication({ isInitial: true });
+      if (!savedAppId) return;
+
+      // after initial create, also save current data
+      await persistApplication({
+        isInitial: false,
+        rawFormDataOverride: formData,
+      });
+
+      navigate(`/application/${routeMode}/${savedAppId}/${targetStep}`, {
+        replace: true,
+      });
+      return;
+    }
+
+    navigate(`/application/${routeMode}/${appId}/${targetStep}`);
+  };
 
   const handleSaveDraft = async () => {
     const savedAppId = await persistApplication({ isInitial: false });
@@ -729,12 +713,11 @@ const SMEApplicationForm = () => {
         providerSessionId: formData.provider_session_id || null,
       });
 
-      // const providerSessionId = formData.provider_session_id;
+      console.log("Cleaned form payload for submission:", cleanedFormPayload);
       const providerSessionId =
-        formData?.provider_session_id ||
-        formData?.individuals?.find((p) => p?.provider_session_id)
-          ?.provider_session_id ||
-        null;
+        formData?.individuals?.find(
+          (p) => p?.kyc.livenessStatus === "Approved",
+        ) || null;
 
       if (!providerSessionId) {
         toast({
@@ -869,6 +852,7 @@ const SMEApplicationForm = () => {
                           `/application/${routeMode}/${appId}/${clampedStep - 1}`,
                         )
                       }
+                      // onClick={() => handleStepNavigation(clampedStep - 1)}
                       disabled={clampedStep === 0}
                       variant="outline"
                     >
@@ -894,6 +878,7 @@ const SMEApplicationForm = () => {
                           </Button>
 
                           <Button onClick={() => goToStep(clampedStep + 1)}>
+                            {/* <Button onClick={() => handleStepNavigation(clampedStep + 1)}> */}
                             Next
                           </Button>
                         </>
@@ -905,13 +890,21 @@ const SMEApplicationForm = () => {
                           Submit
                         </Button>
                       ) : (
-                        <Button
-                          variant="outline"
-                          onClick={handleSaveDraft}
-                          disabled={isSubmitting}
-                        >
-                          Save Draft
-                        </Button>
+                        <>
+                          <Button
+                            variant="outline"
+                            onClick={handleSaveDraft}
+                            disabled={isSubmitting}
+                          >
+                            Save Draft
+                          </Button>
+                          <Button
+                            onClick={handleSubmitApplication}
+                            disabled={isSubmitting}
+                          >
+                            Submit
+                          </Button>
+                        </>
                       )}
                     </div>
                   </div>
