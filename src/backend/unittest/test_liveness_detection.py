@@ -69,6 +69,13 @@ class FakeLivenessRow:
         self.__table__ = FakeTable(kwargs.keys())
 
 
+def make_app(application_id="APP-1", user_id="USER-1"):
+    return SimpleNamespace(
+        application_id=application_id,
+        user_id=user_id,
+    )
+
+
 def make_row(**overrides):
     base = {
         "id": 1,
@@ -101,6 +108,11 @@ def make_row(**overrides):
     }
     base.update(overrides)
     return FakeLivenessRow(**base)
+
+
+SME_USER = {"user_id": "USER-1", "role": "SME"}
+STAFF_USER = {"user_id": "STAFF-1", "role": "STAFF"}
+MGMT_USER = {"user_id": "MGMT-1", "role": "MANAGEMENT"}
 
 
 # ----------------------------
@@ -162,10 +174,16 @@ def test_parse_provider_created_at_raises_400_for_invalid_format():
 
 def test_get_liveness_detection_by_session_id_returns_serialized_row():
     db = FakeDB()
-    row = make_row(provider_session_id="sess-999")
+    app = make_app(application_id="APP-1", user_id="USER-1")
+    row = make_row(provider_session_id="sess-999", application_id="APP-1")
     db.set_query(liveness_module.LivenessDetection, first=row)
+    db.set_query(liveness_module.ApplicationForm, first=app)
 
-    result = liveness_module.get_liveness_detection_by_session_id("sess-999", db=db)
+    result = liveness_module.get_liveness_detection_by_session_id(
+        "sess-999",
+        db=db,
+        current_user=SME_USER,
+    )
 
     assert result["provider_session_id"] == "sess-999"
     assert result["application_id"] == "APP-1"
@@ -176,7 +194,11 @@ def test_get_liveness_detection_by_session_id_raises_404_when_missing():
     db.set_query(liveness_module.LivenessDetection, first=None)
 
     with pytest.raises(HTTPException) as exc:
-        liveness_module.get_liveness_detection_by_session_id("missing", db=db)
+        liveness_module.get_liveness_detection_by_session_id(
+            "missing",
+            db=db,
+            current_user=SME_USER,
+        )
 
     assert exc.value.status_code == 404
     assert exc.value.detail == "Liveness detection record not found"
@@ -190,7 +212,11 @@ def test_create_liveness_detection_requires_provider_session_id():
     db = FakeDB()
 
     with pytest.raises(HTTPException) as exc:
-        liveness_module.create_liveness_detection(data={}, db=db)
+        liveness_module.create_liveness_detection(
+            data={},
+            db=db,
+            current_user=SME_USER,
+        )
 
     assert exc.value.status_code == 400
     assert exc.value.detail == "provider_session_id is required"
@@ -205,6 +231,7 @@ def test_create_liveness_detection_rejects_duplicate_provider_session_id():
         liveness_module.create_liveness_detection(
             data={"provider_session_id": "sess-123"},
             db=db,
+            current_user=SME_USER,
         )
 
     assert exc.value.status_code == 400
@@ -213,7 +240,9 @@ def test_create_liveness_detection_rejects_duplicate_provider_session_id():
 
 def test_create_liveness_detection_uses_application_id_as_storage_reference(monkeypatch):
     db = FakeDB()
+    app = make_app(application_id="APP-999", user_id="USER-1")
     db.set_query(liveness_module.LivenessDetection, first=None)
+    db.set_query(liveness_module.ApplicationForm, first=app)
 
     captured_refs = []
 
@@ -238,7 +267,11 @@ def test_create_liveness_detection_uses_application_id_as_storage_reference(monk
         "created_at": "2026-03-11T09:30:42.745584Z",
     }
 
-    result = liveness_module.create_liveness_detection(data=payload, db=db)
+    result = liveness_module.create_liveness_detection(
+        data=payload,
+        db=db,
+        current_user=SME_USER,
+    )
 
     assert db.committed is True
     assert len(db.added) == 1
@@ -278,14 +311,20 @@ def test_create_liveness_detection_falls_back_to_session_id_as_storage_reference
         },
     }
 
-    liveness_module.create_liveness_detection(data=payload, db=db)
+    liveness_module.create_liveness_detection(
+        data=payload,
+        db=db,
+        current_user=SME_USER,
+    )
 
     assert captured_refs[0][1] == "sess-abc"
 
 
 def test_create_liveness_detection_calls_media_conversion_for_all_expected_keys(monkeypatch):
     db = FakeDB()
+    app = make_app(application_id="APP-1", user_id="USER-1")
     db.set_query(liveness_module.LivenessDetection, first=None)
+    db.set_query(liveness_module.ApplicationForm, first=app)
 
     calls = []
 
@@ -315,7 +354,11 @@ def test_create_liveness_detection_calls_media_conversion_for_all_expected_keys(
         },
     }
 
-    liveness_module.create_liveness_detection(data=payload, db=db)
+    liveness_module.create_liveness_detection(
+        data=payload,
+        db=db,
+        current_user=SME_USER,
+    )
 
     expected = {
         ("u1", "APP-1", "portrait", ".jpg"),
@@ -349,7 +392,11 @@ def test_create_liveness_detection_sets_defaults_and_parsed_created_at(monkeypat
         "created_at": "2026-03-11T09:30:42.745584Z",
     }
 
-    liveness_module.create_liveness_detection(data=payload, db=db)
+    liveness_module.create_liveness_detection(
+        data=payload,
+        db=db,
+        current_user=SME_USER,
+    )
 
     stored = db.added[0]
     assert stored.manual_review_required is False
@@ -365,13 +412,16 @@ def test_create_liveness_detection_sets_defaults_and_parsed_created_at(monkeypat
 
 def test_update_liveness_detection_by_session_id_updates_application_id():
     db = FakeDB()
+    app = make_app(application_id="APP-NEW", user_id="USER-1")
     row = make_row(application_id=None, provider_session_id="sess-update")
     db.set_query(liveness_module.LivenessDetection, first=row)
+    db.set_query(liveness_module.ApplicationForm, first=app)
 
     result = liveness_module.update_liveness_detection_by_session_id(
         "sess-update",
         data={"application_id": "APP-NEW"},
         db=db,
+        current_user=SME_USER,
     )
 
     assert db.committed is True
@@ -389,6 +439,7 @@ def test_update_liveness_detection_by_session_id_raises_404_when_missing():
             "missing",
             data={"application_id": "APP-NEW"},
             db=db,
+            current_user=SME_USER,
         )
 
     assert exc.value.status_code == 404
@@ -401,10 +452,16 @@ def test_update_liveness_detection_by_session_id_raises_404_when_missing():
 
 def test_get_liveness_detection_by_application_id_returns_latest_serialized_row():
     db = FakeDB()
+    app = make_app(application_id="APP-X", user_id="USER-1")
     row = make_row(application_id="APP-X")
+    db.set_query(liveness_module.ApplicationForm, first=app)
     db.set_query(liveness_module.LivenessDetection, first=row)
 
-    result = liveness_module.get_liveness_detection_by_application_id("APP-X", db=db)
+    result = liveness_module.get_liveness_detection_by_application_id(
+        "APP-X",
+        db=db,
+        current_user=SME_USER,
+    )
 
     assert result["application_id"] == "APP-X"
     assert result["provider_session_id"] == "sess-123"
@@ -412,10 +469,16 @@ def test_get_liveness_detection_by_application_id_returns_latest_serialized_row(
 
 def test_get_liveness_detection_by_application_id_raises_404_when_missing():
     db = FakeDB()
+    app = make_app(application_id="APP-MISSING", user_id="USER-1")
+    db.set_query(liveness_module.ApplicationForm, first=app)
     db.set_query(liveness_module.LivenessDetection, first=None)
 
     with pytest.raises(HTTPException) as exc:
-        liveness_module.get_liveness_detection_by_application_id("APP-MISSING", db=db)
+        liveness_module.get_liveness_detection_by_application_id(
+            "APP-MISSING",
+            db=db,
+            current_user=SME_USER,
+        )
 
     assert exc.value.status_code == 404
     assert "application_id" in exc.value.detail
@@ -433,7 +496,10 @@ def test_get_all_liveness_detections_returns_serialized_rows():
     ]
     db.set_query(liveness_module.LivenessDetection, all=rows)
 
-    result = liveness_module.get_all_liveness_detections(db=db)
+    result = liveness_module.get_all_liveness_detections(
+        db=db,
+        current_user=STAFF_USER,
+    )
 
     assert len(result) == 2
     assert result[0]["application_id"] == "APP-1"
@@ -449,6 +515,7 @@ def test_get_all_liveness_detections_accepts_from_and_to_date_filters():
         from_date="2026-03-01",
         to_date="2026-03-31",
         db=db,
+        current_user=STAFF_USER,
     )
 
     assert len(result) == 1

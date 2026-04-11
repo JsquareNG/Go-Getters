@@ -65,12 +65,12 @@ def seed_review_job(
     return job
 
 
-def test_get_review_job_by_application_id_success(client, db_session):
+def test_get_review_job_by_application_id_success(staff_client, db_session):
     user = seed_user(db_session, email="review1@example.com")
     app = seed_application(db_session, user.user_id)
     seed_review_job(db_session, application_id=app.application_id)
 
-    response = client.get(f"/reviewJobs/getReviewJob/{app.application_id}")
+    response = staff_client.get(f"/reviewJobs/getReviewJob/{app.application_id}")
 
     assert response.status_code == 200
     data = response.json()
@@ -79,14 +79,14 @@ def test_get_review_job_by_application_id_success(client, db_session):
     assert data["risk_grade"] == "MEDIUM"
 
 
-def test_get_review_job_by_application_id_not_found(client):
-    response = client.get("/reviewJobs/getReviewJob/99999999")
+def test_get_review_job_by_application_id_not_found(staff_client):
+    response = staff_client.get("/reviewJobs/getReviewJob/99999999")
 
     assert response.status_code == 404
     assert response.json()["detail"] == "Review job not found for this application"
 
 
-def test_get_all_review_jobs(client, db_session):
+def test_get_all_review_jobs(staff_client, db_session):
     user = seed_user(db_session, email="review2@example.com")
 
     app1 = seed_application(db_session, user.user_id)
@@ -95,7 +95,7 @@ def test_get_all_review_jobs(client, db_session):
     seed_review_job(db_session, application_id=app1.application_id, risk_grade="LOW")
     seed_review_job(db_session, application_id=app2.application_id, risk_grade="HIGH")
 
-    response = client.get("/reviewJobs/")
+    response = staff_client.get("/reviewJobs/")
 
     assert response.status_code == 200
     data = response.json()

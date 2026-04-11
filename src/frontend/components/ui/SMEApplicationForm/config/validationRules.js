@@ -3,7 +3,7 @@
  * Centralizes all validation logic for form fields
  */
 
-export const VALIDATION_RULES = {
+const VALIDATION_RULES = {
   email: {
     validation: (value) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value),
     error: "Invalid email address",
@@ -108,3 +108,5 @@ export const validateFile = (file, options = {}) => {
 
   return { isValid: true, error: "" };
 };
+
+export { VALIDATION_RULES };
