@@ -702,6 +702,67 @@ const Step1BasicInformation = ({
     residentialAddress: detection?.formatted_address || "",
   });
 
+  // since it can be called from multiple places (after KYC verification, on component mount to hydrate from existing sessions), we create a single handler to persist the KYC result both locally and to parent callback if provided
+    const handlePersistKycResultLocal = async ({
+    provider_session_id,
+    kycData,
+    diditPayload,
+    mappedFields,
+  }) => {
+    const formRoot = getFormDataRoot();
+    const individuals = Array.isArray(formRoot?.individuals)
+      ? formRoot.individuals
+      : [];
+
+    const nextIndividuals = individuals.map((person) => {
+      const matchesSession =
+        person?.provider_session_id === provider_session_id ||
+        person?.providerSessionId === provider_session_id ||
+        person?.kyc?.sessionId === provider_session_id;
+
+      if (!matchesSession) return person;
+
+      return {
+        ...person,
+        provider_session_id,
+        kyc: {
+          ...(person?.kyc || {}),
+          ...(kycData || {}),
+        },
+        fullName: mappedFields?.fullName || person?.fullName || "",
+        idNumber: mappedFields?.idNumber || person?.idNumber || "",
+        dateOfBirth: mappedFields?.dateOfBirth || person?.dateOfBirth || "",
+        nationality: mappedFields?.nationality || person?.nationality || "",
+        residentialAddress:
+          mappedFields?.residentialAddress ||
+          person?.residentialAddress ||
+          "",
+      };
+    });
+
+    const nextFormRoot = {
+      ...formRoot,
+      individuals: nextIndividuals,
+    };
+
+    // immediately update local form state
+    onFieldChange("formData", nextFormRoot);
+
+    // then call parent callback too, if provided
+    if (onPersistKycResult) {
+      try {
+        await onPersistKycResult({
+          provider_session_id,
+          kycData,
+          diditPayload,
+          mappedFields,
+        });
+      } catch (err) {
+        console.error("[STEP1] parent onPersistKycResult failed:", err);
+      }
+    }
+  };
+
   const sessionSignature = JSON.stringify(
     (getFormDataRoot()?.individuals || []).map(
       (person) => person?.provider_session_id || null,
@@ -774,8 +835,8 @@ const Step1BasicInformation = ({
       }
 
       if (hasChanges) {
-        // onFieldChange("formData", nextFormRoot);
-        handleFieldChange("individuals", nextFormRoot.individuals);
+        onFieldChange("formData", nextFormRoot);
+        // handleFieldChange("individuals", nextFormRoot.individuals);
       }
     };
 
@@ -857,6 +918,7 @@ const Step1BasicInformation = ({
         };
 
         onFieldChange("formData", nextFormRoot);
+        // handleFieldChange(storageKey, [...existingRows, ...rowsToAdd]);
       },
     );
   }, [repeatableSectionsConfig]);
@@ -889,7 +951,7 @@ const Step1BasicInformation = ({
                 verificationState,
                 existingDocumentMap,
                 beforeAcceptFile: buildFileValidator,
-                onPersistKycResult,
+                onPersistKycResult: handlePersistKycResultLocal,
                 getDisplayedFileValue,
                 getFieldVerificationMeta,
               }}
@@ -912,7 +974,7 @@ const Step1BasicInformation = ({
               verificationState,
               existingDocumentMap,
               beforeAcceptFile: buildFileValidator,
-              onPersistKycResult,
+              onPersistKycResult: handlePersistKycResultLocal,
               getDisplayedFileValue,
               getFieldVerificationMeta,
             }}
@@ -936,7 +998,7 @@ const Step1BasicInformation = ({
               verificationState,
               existingDocumentMap,
               beforeAcceptFile: buildFileValidator,
-              onPersistKycResult,
+              onPersistKycResult: handlePersistKycResultLocal,
               getDisplayedFileValue,
               getFieldVerificationMeta,
             }}

@@ -59,7 +59,7 @@ const Step3ComplianceDocumentation = ({
     }, {});
   }, [existingDocuments]);
 
-  // helped to find rooted documents
+  // helps to find rooted documents - matches uploaded documents to the correct form field using document type normalization
   const findExistingDocumentForField = (fieldPath, fieldConfig = {}) => {
     if (!Array.isArray(existingDocuments) || !existingDocuments.length)
       return null;
@@ -127,7 +127,8 @@ const Step3ComplianceDocumentation = ({
   const hasUsableLocalFile = (value) =>
     !!value && (value instanceof File || value?.file instanceof File);
 
-  const getDisplayedFileValue = (fieldPath) => {
+  // show on ui
+  const getDisplayedFileValue = (fieldPath, fieldConfig = {}) => {
     const localValue =
       getNestedValue(data?.formData || {}, fieldPath) ??
       getNestedValue(data, fieldPath) ??
@@ -154,7 +155,7 @@ const Step3ComplianceDocumentation = ({
     };
   };
 
-  const getFieldVerificationMeta = (fieldPath) => {
+  const getFieldVerificationMeta = (fieldPath, fieldConfig = {}) => {
     const localValue =
       getNestedValue(data?.formData || {}, fieldPath) ??
       getNestedValue(data, fieldPath) ??
@@ -223,11 +224,19 @@ const Step3ComplianceDocumentation = ({
             result?.label,
         );
 
-        const isSupported = result?.is_supported === true;
-        if (!isSupported) {
-          const errorMessage = detectedType
-            ? `Detected document type "${detectedType}" is not supported.`
-            : "This document is not supported.";
+        // FILE VALIDATION
+        // const isSupported = result?.is_supported === true;
+
+        const validation = result?.upload_validation;
+        const isNotSupported = validation?.status === "FAIL";
+        if (isNotSupported) {
+          const errorMessage = validation?.reasons[0]
+            ? "Uploaded document does not match expected type OR its quality is too low. Please try again."
+            : "Document is not supported.";
+
+          // const errorMessage = detectedType
+          //   ? `Detected document type "${detectedType}" is not supported.`
+          //   : "This document is not supported.";
 
           setFieldVerificationState(fieldPath, {
             status: "failed",
@@ -247,8 +256,13 @@ const Step3ComplianceDocumentation = ({
           verificationMessage: "Document verified successfully.",
           detectedType,
           expectedType,
-          classificationResult: result,
+          // classificationResult: result,
+
+          // normalized fields for later persistence
+          extractedData: result,
         };
+
+        console.log("FILE next value:", nextValue);
 
         setFieldVerificationState(fieldPath, {
           status: "verified",
@@ -306,10 +320,10 @@ const Step3ComplianceDocumentation = ({
           key={fullPath}
           fieldName={fullPath}
           label={fieldCfg.label}
-          file={getDisplayedFileValue(fullPath)}
+          file={getDisplayedFileValue(fullPath, fieldCfg)}
           onChange={(nextValue) => handleFieldChange(fullPath, nextValue)}
           beforeAcceptFile={buildFileValidator(fullPath)}
-          verificationMeta={getFieldVerificationMeta(fullPath)}
+          verificationMeta={getFieldVerificationMeta(fullPath, fieldCfg)}
           required={fieldCfg.required || false}
           acceptTypes="application/pdf,image/jpeg,image/png"
           placeholder={fieldCfg.placeholder || ""}

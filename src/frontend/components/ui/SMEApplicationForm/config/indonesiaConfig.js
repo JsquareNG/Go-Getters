@@ -197,11 +197,11 @@ function getIndividualFields() {
       required: true,
       placeholder: "For Indonesian citizens, use the 16-digit NIK from the KTP",
     },
-    idDocument: {
-      type: "file",
-      label: "KTP / Passport Document",
-      required: true,
-    },
+    // idDocument: {
+    //   type: "file",
+    //   label: "KTP / Passport Document",
+    //   required: true,
+    // },
     nationality: {
       type: "select",
       label: "Nationality",
@@ -545,11 +545,6 @@ const INDONESIA_CONFIG = {
           id: "step4",
           label: "Required Documents",
           fields: {
-            // deedOfEstablishment: {
-            //   type: "file",
-            //   label: "Deed of Establishment (Akta Pendirian Perusahaan)",
-            //   required: true,
-            // },
             npwpCertificate: {
               type: "file",
               label: "NPWP Certificate",
@@ -674,6 +669,11 @@ const INDONESIA_CONFIG = {
                   label: "Share Percentage (%)",
                   min: 0,
                   max: 100,
+                  required: true,
+                },
+                idDocument: {
+                  type: "file",
+                  label: "KTP / Passport Document",
                   required: true,
                 },
                 ...getIndividualFields(),

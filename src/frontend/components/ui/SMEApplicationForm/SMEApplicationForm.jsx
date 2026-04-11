@@ -553,6 +553,8 @@ const SMEApplicationForm = () => {
       // explicitly override / inject metadata into form_data
       cleanedFormPayload.last_saved_step = resolvedLastSavedStep;
       cleanedFormPayload.current_status = resolvedCurrentStatus;
+      cleanedFormPayload.email =
+        effectiveFormData?.email ?? cleanedFormPayload.email ?? "";
 
       const payload = {
         ...(savedAppId && savedAppId !== "new"
@@ -576,7 +578,7 @@ const SMEApplicationForm = () => {
       );
 
       const updatedFormData = {
-        ...effectiveFormData,
+        ...effectiveFormData, 
         ...cleanedFormPayload,
         last_saved_step: resolvedLastSavedStep,
         current_status: resolvedCurrentStatus,

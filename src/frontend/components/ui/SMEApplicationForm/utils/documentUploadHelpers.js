@@ -2,6 +2,35 @@ import { allDocuments } from "@/api/documentApi";
 import { getNestedValue, unwrapFile } from "./formDataHelpers";
 import { getSectionRoleValue } from "./repeatableMappingHelpers";
 
+// helper to transform extracted data into backend payoad
+const buildExtractedDataPayload = (rawValue) => {
+  if (!rawValue || typeof rawValue !== "object") return {};
+
+  return {
+    detected_type: rawValue.detectedType || null,
+    expected_type: rawValue.expectedType || null,
+    verification_status: rawValue.verificationStatus || null,
+    verification_message: rawValue.verificationMessage || null,
+
+    classification_result: rawValue.classificationResult || null,
+    upload_validation: rawValue.uploadValidation || null,
+
+    extracted_fields: rawValue.extractedData || null,
+
+    fraud_check: rawValue.classificationResult?.fraud_check || null,
+    fraud_flags:
+      rawValue.classificationResult?.fraud_flags ||
+      rawValue.classificationResult?.fraud_indicators ||
+      null,
+
+    confidence_score:
+      rawValue.classificationResult?.confidence ||
+      rawValue.classificationResult?.accuracy_percentage ||
+      rawValue.classificationResult?.accuracy ||
+      null,
+  };
+};
+
 export const buildExistingDocumentMap = (documents = []) => {
   return documents.reduce((acc, doc) => {
     acc[doc.document_type] = doc;
@@ -53,6 +82,7 @@ export const collectFilesFromFieldSet = ({
             fieldKey,
           }),
           file,
+          rawValue,
         });
       }
     }
@@ -113,7 +143,9 @@ export const collectFileUploadEntries = (formData, activeConfig) => {
             (row) => row?.role === roleValue,
           );
         } else {
-          rows = Array.isArray(formData?.[sectionKey]) ? formData[sectionKey] : [];
+          rows = Array.isArray(formData?.[sectionKey])
+            ? formData[sectionKey]
+            : [];
         }
 
         rows.forEach((row, rowIndex) => {
@@ -152,7 +184,12 @@ export const replaceDocumentById = async ({ documentId, file }) => {
   return await replaceRes.json();
 };
 
-export const initDocumentUpload = async ({ applicationId, documentType, file }) => {
+export const initDocumentUpload = async ({
+  applicationId,
+  documentType,
+  file,
+  extractedData = {},
+}) => {
   const initRes = await fetch(
     "http://127.0.0.1:8000/documents/init-persist-upload",
     {
@@ -163,6 +200,7 @@ export const initDocumentUpload = async ({ applicationId, documentType, file }) 
         document_type: documentType,
         filename: file.name,
         mime_type: file.type || "application/octet-stream",
+        extracted_data: extractedData,
       }),
     },
   );
@@ -179,6 +217,7 @@ export const uploadSingleDocument = async ({
   documentType,
   file,
   existingDocumentMap = {},
+  extractedData = {},
 }) => {
   const existingDoc = existingDocumentMap[documentType];
 
@@ -193,6 +232,7 @@ export const uploadSingleDocument = async ({
     applicationId,
     documentType,
     file,
+    extractedData,
   });
 
   if (!initData?.document_id) {
@@ -232,11 +272,14 @@ export const uploadAllDocumentsFromFormData = async (
   const uploadedResults = [];
 
   for (const entry of uniqueUploadEntries) {
+    const extractedData = buildExtractedDataPayload(entry.rawValue);
+
     const uploaded = await uploadSingleDocument({
       applicationId,
       documentType: entry.document_type,
       file: entry.file,
       existingDocumentMap,
+      extractedData,
     });
 
     uploadedResults.push({
