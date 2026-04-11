@@ -216,6 +216,7 @@ const Step3ComplianceDocumentation = ({
 
       try {
         const result = await classifyAndExtractApi(file);
+        console.log("classify results:",result)
 
         const detectedType = normalizeDocumentType(
           result?.document_type ||
@@ -257,12 +258,9 @@ const Step3ComplianceDocumentation = ({
           detectedType,
           expectedType,
           // classificationResult: result,
-
           // normalized fields for later persistence
           extractedData: result,
         };
-
-        console.log("FILE next value:", nextValue);
 
         setFieldVerificationState(fieldPath, {
           status: "verified",

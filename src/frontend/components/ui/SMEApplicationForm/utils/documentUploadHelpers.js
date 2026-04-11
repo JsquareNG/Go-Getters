@@ -3,32 +3,47 @@ import { getNestedValue, unwrapFile } from "./formDataHelpers";
 import { getSectionRoleValue } from "./repeatableMappingHelpers";
 
 // helper to transform extracted data into backend payoad
+// const buildExtractedDataPayload = (rawValue) => {
+//   if (!rawValue || typeof rawValue !== "object") return {};
+
+//   return {
+//     detected_type: rawValue.detectedType || null,
+//     expected_type: rawValue.expectedType || null,
+//     verification_status: rawValue.verificationStatus || null,
+//     verification_message: rawValue.verificationMessage || null,
+
+//     // classification_result: rawValue.classificationResult || null,
+//     // upload_validation: rawValue.uploadValidation || null,
+
+//     extracted_fields: rawValue.extractedData || null,
+
+//     // fraud_check: rawValue.classificationResult?.fraud_check || null,
+//     // fraud_flags:
+//     //   rawValue.classificationResult?.fraud_flags ||
+//     //   rawValue.classificationResult?.fraud_indicators ||
+//     //   null,
+
+//     // confidence_score:
+//     //   rawValue.classificationResult?.confidence ||
+//     //   rawValue.classificationResult?.accuracy_percentage ||
+//     //   rawValue.classificationResult?.accuracy ||
+//     //   null,
+//   };
+// };
 const buildExtractedDataPayload = (rawValue) => {
   if (!rawValue || typeof rawValue !== "object") return {};
 
-  return {
-    detected_type: rawValue.detectedType || null,
-    expected_type: rawValue.expectedType || null,
-    verification_status: rawValue.verificationStatus || null,
-    verification_message: rawValue.verificationMessage || null,
+  // preferred: store the full raw classify/extract API response
+  if (
+    rawValue.classificationResult &&
+    typeof rawValue.classificationResult === "object"
+  ) {
+    return rawValue.classificationResult;
+  }
 
-    classification_result: rawValue.classificationResult || null,
-    upload_validation: rawValue.uploadValidation || null,
-
-    extracted_fields: rawValue.extractedData || null,
-
-    fraud_check: rawValue.classificationResult?.fraud_check || null,
-    fraud_flags:
-      rawValue.classificationResult?.fraud_flags ||
-      rawValue.classificationResult?.fraud_indicators ||
-      null,
-
-    confidence_score:
-      rawValue.classificationResult?.confidence ||
-      rawValue.classificationResult?.accuracy_percentage ||
-      rawValue.classificationResult?.accuracy ||
-      null,
-  };
+  // fallback: store the whole raw file value object, minus the actual File blob
+  const { file, ...rest } = rawValue;
+  return rest;
 };
 
 export const buildExistingDocumentMap = (documents = []) => {
@@ -165,9 +180,14 @@ export const collectFileUploadEntries = (formData, activeConfig) => {
   return uploads;
 };
 
-export const replaceDocumentById = async ({ documentId, file }) => {
+export const replaceDocumentById = async ({
+  documentId,
+  file,
+  extractedData,
+}) => {
   const form = new FormData();
   form.append("file", file);
+  form.append("extracted_data", JSON.stringify(extractedData || {}));
 
   const replaceRes = await fetch(
     `http://127.0.0.1:8000/documents/replace-upload/${documentId}`,
@@ -225,6 +245,7 @@ export const uploadSingleDocument = async ({
     return await replaceDocumentById({
       documentId: existingDoc.document_id,
       file,
+      extractedData,
     });
   }
 
@@ -242,6 +263,7 @@ export const uploadSingleDocument = async ({
   return await replaceDocumentById({
     documentId: initData.document_id,
     file,
+    extractedData,
   });
 };
 
@@ -273,6 +295,8 @@ export const uploadAllDocumentsFromFormData = async (
 
   for (const entry of uniqueUploadEntries) {
     const extractedData = buildExtractedDataPayload(entry.rawValue);
+    console.log("[UPLOAD] rawValue:", entry.rawValue);
+    console.log("[UPLOAD] extractedData:", extractedData);
 
     const uploaded = await uploadSingleDocument({
       applicationId,
