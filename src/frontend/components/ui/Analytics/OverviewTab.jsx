@@ -11,13 +11,7 @@ import {
   ChartTooltipContent,
 } from "../primitives/chart";
 import { KPICard } from "./KPICard";
-import {
-  FileText,
-  CheckCircle2,
-  TrendingUp,
-  Users,
-  ChartNoAxesColumn,
-} from "lucide-react";
+import { FileText, TrendingUp, Users } from "lucide-react";
 import { getAllApplications } from "../../../api/applicationApi";
 import {
   AreaChart,
@@ -47,6 +41,75 @@ const industryChartConfig = {
 
 const COUNTRY_COLORS = ["hsl(351, 85%, 49%)", "hsl(210, 100%, 50%)"];
 
+const regionNames = new Intl.DisplayNames(["en"], { type: "region" });
+
+const COUNTRY_NAME_TO_CODE = {
+  singapore: "SG",
+  indonesia: "ID",
+  malaysia: "MY",
+  thailand: "TH",
+  philippines: "PH",
+  vietnam: "VN",
+  china: "CN",
+  "hong kong": "HK",
+  india: "IN",
+  japan: "JP",
+  korea: "KR",
+  "south korea": "KR",
+  "north korea": "KP",
+  taiwan: "TW",
+  australia: "AU",
+  "new zealand": "NZ",
+  "united states": "US",
+  usa: "US",
+  america: "US",
+  canada: "CA",
+  "united kingdom": "GB",
+  uk: "GB",
+  britain: "GB",
+  england: "GB",
+  scotland: "GB",
+  wales: "GB",
+  ireland: "IE",
+  germany: "DE",
+  france: "FR",
+  italy: "IT",
+  spain: "ES",
+  portugal: "PT",
+  netherlands: "NL",
+  belgium: "BE",
+  switzerland: "CH",
+  austria: "AT",
+  sweden: "SE",
+  norway: "NO",
+  denmark: "DK",
+  finland: "FI",
+  poland: "PL",
+  turkey: "TR",
+  "united arab emirates": "AE",
+  uae: "AE",
+  "saudi arabia": "SA",
+  qatar: "QA",
+  kuwait: "KW",
+  bahrain: "BH",
+  oman: "OM",
+  egypt: "EG",
+  "south africa": "ZA",
+  nigeria: "NG",
+  kenya: "KE",
+  brazil: "BR",
+  mexico: "MX",
+  argentina: "AR",
+  chile: "CL",
+  pakistan: "PK",
+  bangladesh: "BD",
+  "sri lanka": "LK",
+  myanmar: "MM",
+  cambodia: "KH",
+  laos: "LA",
+  brunei: "BN",
+};
+
 function safeParseJson(value) {
   if (!value) return {};
   if (typeof value === "object") return value;
@@ -71,13 +134,57 @@ function getCreatedAt(app) {
 }
 
 function normalizeCountry(value) {
-  if (!value) return "Unknown";
-  const v = String(value).trim().toLowerCase();
+  if (!value) {
+    return {
+      label: "Unknown",
+      code: null,
+    };
+  }
 
-  if (v === "sg" || v === "singapore") return "Singapore";
-  if (v === "id" || v === "indonesia") return "Indonesia";
+  const raw = String(value).trim();
 
-  return String(value).trim();
+  if (!raw) {
+    return {
+      label: "Unknown",
+      code: null,
+    };
+  }
+
+  const upper = raw.toUpperCase();
+
+  if (/^[A-Z]{2}$/.test(upper)) {
+    const displayName = regionNames.of(upper);
+
+    return {
+      label: displayName || raw,
+      code: upper,
+    };
+  }
+
+  const normalizedKey = raw.toLowerCase().replace(/[().,]/g, "").trim();
+  const aliasCode = COUNTRY_NAME_TO_CODE[normalizedKey];
+
+  if (aliasCode) {
+    return {
+      label: regionNames.of(aliasCode) || raw,
+      code: aliasCode,
+    };
+  }
+
+  return {
+    label: raw,
+    code: null,
+  };
+}
+
+function getFlagEmoji(countryCode) {
+  if (!countryCode || countryCode.length !== 2) return "🌍";
+
+  return countryCode
+    .toUpperCase()
+    .split("")
+    .map((char) => String.fromCodePoint(127397 + char.charCodeAt(0)))
+    .join("");
 }
 
 function normalizeStatus(value) {
@@ -86,7 +193,6 @@ function normalizeStatus(value) {
   const v = String(value).trim().toLowerCase();
 
   if (v === "draft") return "Draft";
-  if (v === "pending") return "Pending";
   if (v === "under review" || v === "under manual review")
     return "Under Manual Review";
   if (v === "requires action" || v === "action required")
@@ -151,26 +257,34 @@ function buildCountryBreakdown(applications = []) {
 
   applications.forEach((app) => {
     const payload = getPayload(app);
-    const country = normalizeCountry(payload.country);
+    const countryInfo = normalizeCountry(payload.country);
+    const countryKey = countryInfo.label;
     const status = String(getStatus(app)).toLowerCase();
 
-    counts[country] = (counts[country] || 0) + 1;
+    if (!counts[countryKey]) {
+      counts[countryKey] = {
+        code: countryInfo.code || countryInfo.label,
+        country: countryInfo.label,
+        countryCode: countryInfo.code,
+        applications: 0,
+      };
+    }
+
+    counts[countryKey].applications += 1;
 
     if (status === "approved") {
-      approvedCounts[country] = (approvedCounts[country] || 0) + 1;
+      approvedCounts[countryKey] = (approvedCounts[countryKey] || 0) + 1;
     }
 
     total += 1;
   });
 
-  return Object.entries(counts)
-    .map(([country, applicationsCount]) => ({
-      code: country,
-      country,
-      applications: applicationsCount,
-      approved: approvedCounts[country] || 0,
+  return Object.values(counts)
+    .map((item) => ({
+      ...item,
+      approved: approvedCounts[item.country] || 0,
       percentage:
-        total > 0 ? Number(((applicationsCount / total) * 100).toFixed(1)) : 0,
+        total > 0 ? Number(((item.applications / total) * 100).toFixed(1)) : 0,
     }))
     .sort((a, b) => b.applications - a.applications);
 }
@@ -181,27 +295,36 @@ function buildBusinessTypeBreakdown(applications = []) {
 
   applications.forEach((app) => {
     const payload = getPayload(app);
-    const country = normalizeCountry(payload.country);
+    const countryInfo = normalizeCountry(payload.country);
+    const country = countryInfo.label;
+    const countryCode = countryInfo.code;
     const type = formatBusinessType(payload.businessType);
 
     countryTotals[country] = (countryTotals[country] || 0) + 1;
 
     const key = `${country}__${type}`;
-    grouped[key] = (grouped[key] || 0) + 1;
+
+    if (!grouped[key]) {
+      grouped[key] = {
+        country,
+        countryCode,
+        type,
+        count: 0,
+      };
+    }
+
+    grouped[key].count += 1;
   });
 
-  return Object.entries(grouped)
-    .map(([key, count]) => {
-      const [country, type] = key.split("__");
-      const totalForCountry = countryTotals[country] || 0;
+  return Object.values(grouped)
+    .map((item) => {
+      const totalForCountry = countryTotals[item.country] || 0;
 
       return {
-        country,
-        type,
-        count,
+        ...item,
         percentage:
           totalForCountry > 0
-            ? Number(((count / totalForCountry) * 100).toFixed(1))
+            ? Number(((item.count / totalForCountry) * 100).toFixed(1))
             : 0,
       };
     })
@@ -289,26 +412,13 @@ function buildOverviewKPIs(applications = []) {
     (app) => String(getStatus(app)).toLowerCase() === "approved",
   ).length;
 
-  const pendingReview = applications.filter((app) =>
-    ["pending", "under review", "under manual review"].includes(
-      String(getStatus(app)).toLowerCase(),
-    ),
-  ).length;
-
-  const requiresAction = applications.filter((app) =>
-    ["requires action", "action required"].includes(
-      String(getStatus(app)).toLowerCase(),
-    ),
+  const pendingReview = applications.filter(
+    (app) => String(getStatus(app)).toLowerCase() === "under manual review",
   ).length;
 
   const rejected = applications.filter((app) =>
     ["rejected", "declined"].includes(String(getStatus(app)).toLowerCase()),
   ).length;
-
-  const approvalRate =
-    totalApplications > 0
-      ? Number(((approved / totalApplications) * 100).toFixed(1))
-      : 0;
 
   const conversionRate =
     totalApplications > 0
@@ -317,17 +427,8 @@ function buildOverviewKPIs(applications = []) {
 
   return {
     totalApplications,
-    totalApplicationsTrend: 0,
-    approvalRate,
-    approvalRateTrend: 0,
-    avgProcessingDays: 0,
-    avgProcessingDaysTrend: 0,
     pendingReview,
-    pendingReviewTrend: 0,
-    requiresAction,
-    requiresActionTrend: 0,
     conversionRate,
-    conversionRateTrend: 0,
   };
 }
 
@@ -341,7 +442,6 @@ function buildStatusBreakdown(applications = []) {
 
   const preferredOrder = [
     "Draft",
-    "Pending",
     "Under Manual Review",
     "Requires Action",
     "Approved",
@@ -390,11 +490,22 @@ function buildStatusSummary(statusBreakdown = []) {
       key: "Under Manual Review",
       label: "Under Manual Review",
       description: "Awaiting staff review and decision",
-      count: getCount(["Pending", "Under Manual Review", "Requires Action"]),
+      count: getCount(["Under Manual Review"]),
       dotClassName: "bg-amber-500",
       textClassName: "text-amber-600",
       rowClassName: "bg-amber-50 border border-amber-100",
       barClassName: "bg-amber-500",
+    },
+    {
+      key: "Requires Action",
+      label: "Requires Action",
+      description:
+        "Waiting for customer to provide required updates or documents",
+      count: getCount(["Requires Action"]),
+      dotClassName: "bg-orange-500",
+      textClassName: "text-orange-600",
+      rowClassName: "bg-orange-50 border border-orange-100",
+      barClassName: "bg-orange-500",
     },
     {
       key: "Approved",
@@ -415,6 +526,26 @@ function buildStatusSummary(statusBreakdown = []) {
       textClassName: "text-red-600",
       rowClassName: "bg-red-50 border border-red-100",
       barClassName: "bg-red-500",
+    },
+    {
+      key: "Withdrawn",
+      label: "Withdrawn",
+      description: "Applications withdrawn by customers",
+      count: getCount(["Withdrawn"]),
+      dotClassName: "bg-purple-500",
+      textClassName: "text-purple-600",
+      rowClassName: "bg-purple-50 border border-purple-100",
+      barClassName: "bg-purple-500",
+    },
+    {
+      key: "Deleted",
+      label: "Deleted",
+      description: "Applications deleted before completion",
+      count: getCount(["Deleted"]),
+      dotClassName: "bg-zinc-500",
+      textClassName: "text-zinc-600",
+      rowClassName: "bg-zinc-100 border border-zinc-200",
+      barClassName: "bg-zinc-500",
     },
   ];
 
@@ -438,10 +569,6 @@ export function OverviewTab({ dateRange, preset }) {
           : Array.isArray(response?.data)
             ? response.data
             : [];
-
-        console.log("applications response", data);
-        console.log("first row", data[0]);
-        console.log("first form_data", data[0]?.form_data);
 
         setApplications(data);
       } catch (error) {
@@ -512,31 +639,38 @@ export function OverviewTab({ dateRange, preset }) {
     [statusBreakdown],
   );
 
+  const countryFilters = useMemo(() => {
+    const countries = Array.from(
+      new Set(businessTypeBreakdown.map((item) => item.country)),
+    ).sort((a, b) => a.localeCompare(b));
+
+    return ["All", ...countries];
+  }, [businessTypeBreakdown]);
+
   const filteredBusinessTypes =
     selectedCountry === "All"
       ? businessTypeBreakdown
       : businessTypeBreakdown.filter((b) => b.country === selectedCountry);
 
-  const countryChartConfig = {
-    Singapore: { label: "Singapore", color: COUNTRY_COLORS[0] },
-    Indonesia: { label: "Indonesia", color: COUNTRY_COLORS[1] },
-  };
+  const countryChartConfig = useMemo(() => {
+    return countryBreakdown.reduce((acc, item, index) => {
+      acc[item.country] = {
+        label: item.country,
+        color:
+          COUNTRY_COLORS[index] || `hsl(${(index * 57) % 360}, 70%, 50%)`,
+      };
+      return acc;
+    }, {});
+  }, [countryBreakdown]);
 
   return (
     <div className="space-y-6">
-      <div className="grid grid-cols-2 gap-4 lg:grid-cols-3 xl:grid-cols-4">
+      <div className="grid grid-cols-2 gap-4 lg:grid-cols-3 xl:grid-cols-3">
         <KPICard
           icon={<FileText className="h-5 w-5" />}
           title="Total Applications"
           value={overviewKPIs.totalApplications.toLocaleString()}
-          trendLabel="Total Applications"
-        />
-        <KPICard
-          icon={<CheckCircle2 className="h-5 w-5" />}
-          title="Approval Rate"
-          value={overviewKPIs.approvalRate}
-          suffix="%"
-          trendLabel="Approval Rate"
+          trendLabel="Total Number of Applications"
         />
         <KPICard
           icon={<Users className="h-5 w-5" />}
@@ -638,72 +772,69 @@ export function OverviewTab({ dateRange, preset }) {
         </CardContent>
       </Card>
 
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-        <Card className="overflow-hidden border-border/60 shadow-sm">
-          <CardHeader className="pb-4">
-            <div className="flex items-start gap-3">
-              <div>
-                <CardTitle className="text-base font-medium">
-                  Applications by Status
-                </CardTitle>
-                <CardDescription className="mt-1">
-                  Current application counts by onboarding status
-                </CardDescription>
-              </div>
-            </div>
-          </CardHeader>
-
-          <CardContent className="space-y-3">
-            <div className="h-2 w-full overflow-hidden rounded-full bg-muted">
-              <div className="flex h-full w-full">
-                {statusSummary.map((item) => (
-                  <div
-                    key={item.key}
-                    className={item.barClassName}
-                    style={{ width: `${item.percentage}%` }}
-                  />
-                ))}
-              </div>
+      <Card>
+        <CardHeader className="pb-2">
+          <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+            <div>
+              <CardTitle className="text-base font-medium">
+                Business Type Distribution
+              </CardTitle>
+              <CardDescription>
+                Breakdown of entity types by incorporation country
+              </CardDescription>
             </div>
 
-            <div className="space-y-2">
-              {statusSummary.map((item) => (
-                <div
-                  key={item.key}
+            <div className="flex flex-wrap gap-1.5 lg:max-w-[55%] lg:justify-end">
+              {countryFilters.map((filter) => (
+                <button
+                  key={filter}
+                  onClick={() => setSelectedCountry(filter)}
                   className={cn(
-                    "flex items-center justify-between rounded-xl px-4 py-3",
-                    item.rowClassName,
+                    "rounded-full border px-3 py-1 text-xs font-medium transition-colors",
+                    selectedCountry === filter
+                      ? "border-transparent bg-neutral-950 text-white"
+                      : "border-border bg-background text-muted-foreground hover:bg-secondary",
                   )}
                 >
-                  <div className="flex items-center gap-2">
-                    <span
-                      className={cn("h-3 w-3 rounded-full", item.dotClassName)}
-                    />
+                  {filter}
+                </button>
+              ))}
+            </div>
+          </div>
+        </CardHeader>
 
-                    <div>
-                      <p className={cn("text-sm font-medium", item.textClassName)}>
-                        {item.label}
-                      </p>
-                      <p className="text-xs text-muted-foreground">
-                        {item.description}
-                      </p>
-                    </div>
-                  </div>
-
-                  <div className="text-right">
-                    <p className="text-xl font-semibold tabular-nums text-foreground">
-                      {item.count}
-                    </p>
-                    <p className="text-xs text-muted-foreground">
-                      {item.percentage}%
-                    </p>
-                  </div>
+        <CardContent>
+          {filteredBusinessTypes.length === 0 ? (
+            <div className="rounded-lg border border-dashed p-6 text-center text-sm text-muted-foreground">
+              No business type records found for the selected country.
+            </div>
+          ) : (
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+              {filteredBusinessTypes.map((bt) => (
+                <div
+                  key={`${bt.country}-${bt.type}`}
+                  className="space-y-1 rounded-lg border bg-slate-200/30 p-4"
+                >
+                  <p className="text-xs font-medium text-muted-foreground">
+                    {getFlagEmoji(bt.countryCode)} {bt.country}
+                  </p>
+                  <p className="text-sm font-medium text-foreground">
+                    {bt.type}
+                  </p>
+                  <p className="text-xl font-semibold tabular-nums text-foreground">
+                    {bt.count}
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    {bt.percentage}% of {bt.country} total
+                  </p>
                 </div>
               ))}
             </div>
-          </CardContent>
-        </Card>
+          )}
+        </CardContent>
+      </Card>
 
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-base font-medium">
@@ -733,7 +864,8 @@ export function OverviewTab({ dateRange, preset }) {
                     <Cell
                       key={index}
                       fill={
-                        COUNTRY_COLORS[index] || `hsl(${index * 60}, 70%, 50%)`
+                        COUNTRY_COLORS[index] ||
+                        `hsl(${(index * 57) % 360}, 70%, 50%)`
                       }
                     />
                   ))}
@@ -760,7 +892,7 @@ export function OverviewTab({ dateRange, preset }) {
                   className="space-y-1 rounded-lg bg-slate-300/50 p-3"
                 >
                   <p className="text-sm font-medium text-foreground">
-                    {c.country}
+                    {getFlagEmoji(c.countryCode)} {c.country}
                   </p>
                   <p className="text-2xl font-semibold tabular-nums text-foreground">
                     {c.applications}
@@ -771,67 +903,6 @@ export function OverviewTab({ dateRange, preset }) {
                       ? ((c.approved / c.applications) * 100).toFixed(1)
                       : "0.0"}
                     %)
-                  </p>
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-        <Card>
-          <CardHeader className="pb-2">
-            <div className="flex items-center justify-between">
-              <div>
-                <CardTitle className="text-base font-medium">
-                  Business Type Distribution
-                </CardTitle>
-                <CardDescription>
-                  Breakdown of entity types by incorporation country
-                </CardDescription>
-              </div>
-              <div className="flex gap-1.5">
-                {["All", "Singapore", "Indonesia"].map((filter) => (
-                  <button
-                    key={filter}
-                    onClick={() => setSelectedCountry(filter)}
-                    className={cn(
-                      "rounded-full border px-3 py-1 text-xs font-medium transition-colors",
-                      selectedCountry === filter
-                        ? "border-transparent bg-foreground text-background"
-                        : "border-border bg-background text-muted-foreground hover:bg-secondary",
-                    )}
-                  >
-                    {filter}
-                  </button>
-                ))}
-              </div>
-            </div>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-              {filteredBusinessTypes.map((bt) => (
-                <div
-                  key={`${bt.country}-${bt.type}`}
-                  className="space-y-1 rounded-lg border bg-muted/30 p-4"
-                >
-                  <p className="text-xs font-medium text-muted-foreground">
-                    {bt.country === "Singapore"
-                      ? "🇸🇬"
-                      : bt.country === "Indonesia"
-                        ? "🇮🇩"
-                        : "🌍"}{" "}
-                    {bt.country}
-                  </p>
-                  <p className="text-sm font-medium text-foreground">
-                    {bt.type}
-                  </p>
-                  <p className="text-xl font-semibold tabular-nums text-foreground">
-                    {bt.count}
-                  </p>
-                  <p className="text-xs text-muted-foreground">
-                    {bt.percentage}% of {bt.country} total
                   </p>
                 </div>
               ))}

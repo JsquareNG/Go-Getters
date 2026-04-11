@@ -39,7 +39,7 @@ class FakeDB:
 
 
 # ---------------------------
-# Helper (FIXED VERSION)
+# Helper
 # ---------------------------
 
 def make_review_job(
@@ -48,7 +48,7 @@ def make_review_job(
     status="COMPLETED",
     risk_score=72.5,
     risk_grade="MEDIUM",
-    rules_triggered=["RULE_1"],  # default value
+    rules_triggered=["RULE_1"],
     completed_at="2026-03-30T10:00:00Z",
     created_at="2026-03-30T09:00:00Z",
     updated_at="2026-03-30T10:05:00Z",
@@ -59,11 +59,16 @@ def make_review_job(
         status=status,
         risk_score=risk_score,
         risk_grade=risk_grade,
-        rules_triggered=rules_triggered,  # ✅ FIXED
+        rules_triggered=rules_triggered,
         completed_at=completed_at,
         created_at=created_at,
         updated_at=updated_at,
     )
+
+
+STAFF_USER = {"user_id": "STAFF-1", "role": "STAFF"}
+MGMT_USER = {"user_id": "MGMT-1", "role": "MANAGEMENT"}
+SME_USER = {"user_id": "USER-1", "role": "SME"}
 
 
 # ---------------------------
@@ -75,7 +80,11 @@ def test_get_review_by_application_id_returns_review_job():
     job = make_review_job()
     db.set_query(review_jobs_module.ReviewJobs, first=job)
 
-    result = review_jobs_module.get_review_by_application_id("APP-001", db=db)
+    result = review_jobs_module.get_review_by_application_id(
+        "APP-001",
+        db=db,
+        current_user=STAFF_USER,
+    )
 
     assert result == {
         "job_id": 1,
@@ -95,7 +104,11 @@ def test_get_review_by_application_id_raises_404_when_missing():
     db.set_query(review_jobs_module.ReviewJobs, first=None)
 
     with pytest.raises(HTTPException) as exc:
-        review_jobs_module.get_review_by_application_id("APP-404", db=db)
+        review_jobs_module.get_review_by_application_id(
+            "APP-404",
+            db=db,
+            current_user=STAFF_USER,
+        )
 
     assert exc.value.status_code == 404
     assert exc.value.detail == "Review job not found for this application"
@@ -104,12 +117,25 @@ def test_get_review_by_application_id_raises_404_when_missing():
 def test_get_all_review_jobs_returns_all_rows():
     db = FakeDB()
     rows = [
-        make_review_job(job_id=2, application_id="APP-002", risk_grade="HIGH", rules_triggered=["RULE_A", "RULE_B"]),
-        make_review_job(job_id=1, application_id="APP-001", risk_grade="LOW", rules_triggered=["RULE_X"]),
+        make_review_job(
+            job_id=2,
+            application_id="APP-002",
+            risk_grade="HIGH",
+            rules_triggered=["RULE_A", "RULE_B"],
+        ),
+        make_review_job(
+            job_id=1,
+            application_id="APP-001",
+            risk_grade="LOW",
+            rules_triggered=["RULE_X"],
+        ),
     ]
     db.set_query(review_jobs_module.ReviewJobs, all=rows)
 
-    result = review_jobs_module.get_all_review_jobs(db=db)
+    result = review_jobs_module.get_all_review_jobs(
+        db=db,
+        current_user=STAFF_USER,
+    )
 
     assert len(result) == 2
 
@@ -128,7 +154,10 @@ def test_get_all_review_jobs_returns_empty_list_when_no_rows():
     db = FakeDB()
     db.set_query(review_jobs_module.ReviewJobs, all=[])
 
-    result = review_jobs_module.get_all_review_jobs(db=db)
+    result = review_jobs_module.get_all_review_jobs(
+        db=db,
+        current_user=STAFF_USER,
+    )
 
     assert result == []
 
@@ -142,12 +171,15 @@ def test_get_all_review_jobs_defaults_rules_triggered_to_empty_list():
 
     db.set_query(review_jobs_module.ReviewJobs, all=rows)
 
-    result = review_jobs_module.get_all_review_jobs(db=db)
+    result = review_jobs_module.get_all_review_jobs(
+        db=db,
+        current_user=STAFF_USER,
+    )
 
     assert len(result) == 1
     assert result[0]["job_id"] == 3
     assert result[0]["application_id"] == "APP-003"
-    assert result[0]["rules_triggered"] == []  # ✅ important behavior
+    assert result[0]["rules_triggered"] == []
 
 
 def test_get_review_by_application_id_allows_none_rules_triggered():
@@ -156,8 +188,41 @@ def test_get_review_by_application_id_allows_none_rules_triggered():
     job = make_review_job(rules_triggered=None)
     db.set_query(review_jobs_module.ReviewJobs, first=job)
 
-    result = review_jobs_module.get_review_by_application_id("APP-001", db=db)
+    result = review_jobs_module.get_review_by_application_id(
+        "APP-001",
+        db=db,
+        current_user=STAFF_USER,
+    )
 
     assert result["job_id"] == 1
     assert result["application_id"] == "APP-001"
-    assert result["rules_triggered"] is None  # ✅ important difference
+    assert result["rules_triggered"] is None
+
+
+def test_get_review_by_application_id_allows_management_user():
+    db = FakeDB()
+    job = make_review_job()
+    db.set_query(review_jobs_module.ReviewJobs, first=job)
+
+    result = review_jobs_module.get_review_by_application_id(
+        "APP-001",
+        db=db,
+        current_user=MGMT_USER,
+    )
+
+    assert result["job_id"] == 1
+    assert result["application_id"] == "APP-001"
+
+
+def test_get_all_review_jobs_forbidden_for_sme():
+    db = FakeDB()
+    db.set_query(review_jobs_module.ReviewJobs, all=[])
+
+    with pytest.raises(HTTPException) as exc:
+        review_jobs_module.get_all_review_jobs(
+            db=db,
+            current_user=SME_USER,
+        )
+
+    assert exc.value.status_code == 403
+    assert exc.value.detail == "Forbidden"

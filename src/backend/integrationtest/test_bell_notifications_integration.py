@@ -6,7 +6,9 @@ from backend.models.bellNotifications import BellNotification
 
 
 def seed_user(db_session, email="user@example.com", role="SME"):
+    # IMPORTANT: must match authenticated SME user in conftest.py
     user = User(
+        user_id="00000001",
         first_name="Jane",
         last_name="Tan",
         email=email,

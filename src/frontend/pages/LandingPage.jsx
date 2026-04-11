@@ -47,7 +47,6 @@ export default function LandingPage() {
         const apps = Array.isArray(data) ? data : data ? [data] : [];
         setApplications(apps);
       } catch (err) {
-        // ✅ CHANGE: Treat 404 (no applications) as empty state, not an error
         const status = err?.response?.status;
         if (status === 404) {
           setApplications([]);
@@ -90,17 +89,30 @@ export default function LandingPage() {
     );
     const status = blockingApp?.current_status;
 
-    if (status === "Approved")
+    if (status === "Approved") {
       return "Your application for a business account has already been approved.";
-    if (status === "Requires Action")
+    }
+
+    if (status === "Requires Action") {
       return "You already have an SME application that requires action. Please complete it as soon as possible.";
-    if (status === "Draft")
+    }
+
+    if (status === "Draft") {
       return "You already have a draft SME application. Please continue and submit that application as soon as possible.";
+    }
+
     return "You already have an SME application in progress. You can only submit one application per user.";
   }, [applications, blocksNewApplication, BLOCKING_STATUSES]);
 
-  // ✅ NEW: hide button once user already has any application
-  const showNewApplicationButton = applications.length === 0;
+  /**
+   * Show "New Application" button if:
+   * 1. user has no applications
+   * 2. OR all existing applications are Deleted
+   */
+  const showNewApplicationButton = useMemo(() => {
+    if (applications.length === 0) return true;
+    return applications.every((a) => a.current_status === "Deleted");
+  }, [applications]);
 
   // Filter Logic
   const filteredApplications = useMemo(() => {
@@ -114,22 +126,6 @@ export default function LandingPage() {
       return matchesStatus && (q === "" || businessName.includes(q));
     });
   }, [applications, selectedStatus, searchQuery]);
-
-  // // Stats Logic
-  // const stats = useMemo(
-  //   () => ({
-  //     total: applications.length,
-  //     pending: applications.filter((a) =>
-  //       ["Under Manual Review", "Under Review"].includes(a.current_status)
-  //     ).length,
-  //     requiresAction: applications.filter((a) => a.current_status === "Requires Action").length,
-  //     approved: applications.filter((a) => a.current_status === "Approved").length,
-  //   }),
-  //   [applications]
-  // );
-
-  // ✅ new: detect empty state for this user (no apps)
-  const hasNoApplications = applications.length === 0 && !error;
 
   const handleCreateNew = () => {
     if (blocksNewApplication) return;
@@ -165,8 +161,6 @@ export default function LandingPage() {
               </div>
             )}
           </div>
-
-          
         </div>
 
         {pageBanner && (
@@ -194,15 +188,16 @@ export default function LandingPage() {
         </div> */}
 
         {/* APPLICATIONS LIST */}
-        {/* ✅ CHANGE: If there are no applications, show CTA instead of red error banner */}
         {error ? (
           <div className="p-4 bg-red-50 text-red-600 rounded-lg flex items-center gap-2">
             <AlertCircle className="h-5 w-5" /> {error}
           </div>
-        ) : applications.length === 0 ? (
+        ) : showNewApplicationButton ? (
           <div className="rounded-xl border bg-card p-10 flex flex-col items-center text-center gap-3">
             <p className="text-lg font-semibold text-foreground">
-              You don’t have any applications yet.
+              {applications.length === 0
+                ? "You don’t have any applications yet."
+                : "All your previous applications were deleted."}
             </p>
             <p className="text-sm text-muted-foreground">
               Create a new application to get started.
