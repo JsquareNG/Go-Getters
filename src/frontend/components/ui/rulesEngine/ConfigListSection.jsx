@@ -60,6 +60,7 @@ export default function ConfigListSection() {
   const [serverRows, setServerRows] = useState([]);
   const [workingRows, setWorkingRows] = useState([]);
   const [crossTabRows, setCrossTabRows] = useState([]);
+  const [removedRowIds, setRemovedRowIds] = useState([]);
   const [validationErrors, setValidationErrors] = useState({});
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -179,12 +180,14 @@ export default function ConfigListSection() {
 
       setServerRows(normalized);
       setWorkingRows(normalized);
+      setRemovedRowIds([]);
       setBaseVersion(response?.version ?? 1);
       setValidationErrors({});
     } catch (err) {
       if (err?.response?.status === 404) {
         setServerRows([]);
         setWorkingRows([]);
+        setRemovedRowIds([]);
         setValidationErrors({});
         setBaseVersion(null);
       } else {
@@ -207,8 +210,8 @@ export default function ConfigListSection() {
         : "HIGH_RISK_COUNTRIES";
 
     try {
-      const data = await getRiskConfigListByListName(otherTab);
-      const normalized = (data || []).map(normalizeRow);
+      const response = await getRiskConfigListByListName(otherTab);
+      const normalized = (response?.rows || []).map(normalizeRow);
       setCrossTabRows(normalized);
     } catch (err) {
       if (err?.response?.status === 404) {
@@ -251,8 +254,8 @@ export default function ConfigListSection() {
       }))
     );
 
-    return current !== baseline;
-  }, [workingRows, serverRows]);
+    return current !== baseline || removedRowIds.length > 0;
+  }, [workingRows, serverRows, removedRowIds]);
 
   const lastRevised = useMemo(() => {
     if (!serverRows.length) return null;
@@ -470,14 +473,19 @@ export default function ConfigListSection() {
     }, 100);
   };
 
-  const handleRemoveNewRow = (targetRow) => {
-    if (!targetRow.isNew) return;
+  const handleRemoveRow = (targetRow) => {
+    const rowKey = getRowKey(targetRow);
+
+    if (!targetRow.isNew && targetRow.id) {
+      setRemovedRowIds((prev) =>
+        prev.includes(targetRow.id) ? prev : [...prev, targetRow.id]
+      );
+    }
 
     setWorkingRows((prev) =>
-      prev.filter((row) => row.__tempId !== targetRow.__tempId)
+      prev.filter((row) => getRowKey(row) !== rowKey)
     );
 
-    const rowKey = targetRow.__tempId;
     setValidationErrors((prev) => {
       const next = { ...prev };
       delete next[rowKey];
@@ -493,10 +501,6 @@ export default function ConfigListSection() {
       const rowErrors = {};
 
       if (row.item_type === "threshold") {
-        if (!row.item_label?.trim()) {
-          rowErrors.item_label = "Threshold name is required.";
-        }
-
         const rawValue = String(row.item_value ?? "").trim();
         const numericValue = Number(rawValue);
 
@@ -538,7 +542,8 @@ export default function ConfigListSection() {
             const rowKey = getRowKey(row);
             errors[rowKey] = {
               ...(errors[rowKey] || {}),
-              item_label: "Value already exists in this list, remove one to continue.",
+              item_label:
+                "Value already exists in this list, remove one to continue.",
             };
           });
         }
@@ -609,6 +614,7 @@ export default function ConfigListSection() {
 
       const updates = [];
       const creates = [];
+      const deletes = [...removedRowIds];
 
       for (const row of workingRows) {
         if (row.isNew) {
@@ -652,9 +658,6 @@ export default function ConfigListSection() {
         }
       }
 
-      // const payload = {};
-      // if (updates.length) payload.updates = updates;
-      // if (creates.length) payload.creates = creates;
       const payload = {
         list_name: activeTab,
         base_version: baseVersion,
@@ -662,8 +665,9 @@ export default function ConfigListSection() {
 
       if (updates.length) payload.updates = updates;
       if (creates.length) payload.creates = creates;
+      if (deletes.length) payload.deletes = deletes;
 
-      if (!updates.length && !creates.length) {
+      if (!updates.length && !creates.length && !deletes.length) {
         setSuccess("No changes to save.");
         return;
       }
@@ -683,7 +687,7 @@ export default function ConfigListSection() {
           "This config list was updated by another user. Please refresh and try again."
         );
         setSuccess("");
-          window.scrollTo({
+        window.scrollTo({
           top: 0,
           behavior: "smooth",
         });
@@ -698,6 +702,7 @@ export default function ConfigListSection() {
 
   const performResetLocalChanges = () => {
     setWorkingRows(serverRows);
+    setRemovedRowIds([]);
     setValidationErrors({});
     setSuccess("");
     setError("");
@@ -832,7 +837,7 @@ export default function ConfigListSection() {
         getToggleDisabledReason={getRowActivationBlockReason}
         onToggleActive={handleToggleActive}
         onFieldChange={handleFieldChange}
-        onRemoveNewRow={handleRemoveNewRow}
+        onRemoveRow={handleRemoveRow}
         bottomRef={bottomRef}
       />
 

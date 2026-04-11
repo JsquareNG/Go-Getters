@@ -336,6 +336,7 @@ def save_risk_config_list_changes(data: dict = Body(...), db: Session = Depends(
     base_version = data.get("base_version")
     updates = data.get("updates") or []
     creates = data.get("creates") or []
+    deletes = data.get("deletes") or []
 
     if not list_name:
         raise HTTPException(status_code=400, detail="list_name is required")
@@ -480,6 +481,26 @@ def save_risk_config_list_changes(data: dict = Body(...), db: Session = Depends(
             db.add(new_item)
             created_items.append(new_item)
 
+        # -------------------------
+        # Handle deletes
+        # -------------------------
+        for row_id in deletes:
+            row = db.query(RiskConfigList).filter(RiskConfigList.id == row_id).first()
+
+            if not row:
+                raise HTTPException(
+                    status_code=404,
+                    detail=f"Risk config item {row_id} not found"
+                )
+
+            if row.list_name != list_name:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Delete item {row_id} does not belong to list_name '{list_name}'"
+                )
+
+            db.delete(row)
+
         version_row.version += 1
         db.commit()
 
@@ -495,7 +516,8 @@ def save_risk_config_list_changes(data: dict = Body(...), db: Session = Depends(
             "message": "Changes saved successfully",
             "version": version_row.version,
             "updated_items": [to_dict(r) for r in updated_items],
-            "created_items": [to_dict(r) for r in created_items]
+            "created_items": [to_dict(r) for r in created_items],
+            "deleted_ids": deletes,
         }
 
     except HTTPException:
@@ -504,33 +526,3 @@ def save_risk_config_list_changes(data: dict = Body(...), db: Session = Depends(
     except Exception as e:
         db.rollback()
         raise HTTPException(status_code=500, detail=str(e))
-
-def parse_threshold_value(value):
-    try:
-        num = float(value)
-        return int(num) if num.is_integer() else num
-    except (TypeError, ValueError):
-        return value
-    
-
-@router.get("/threshold/{item_label}")
-def get_threshold_by_label(item_label: str, db: Session = Depends(get_db)):
-    row = (
-        db.query(RiskConfigList)
-        .filter(
-            func.lower(RiskConfigList.item_type) == "threshold",
-            func.lower(RiskConfigList.item_label) == item_label.lower(),
-            RiskConfigList.is_active == True
-        )
-        .first()
-    )
-
-    if not row:
-        raise HTTPException(
-            status_code=404,
-            detail=f"Active threshold '{item_label}' not found"
-        )
-
-    return {
-        "item_value": parse_threshold_value(row.item_value),
-    }

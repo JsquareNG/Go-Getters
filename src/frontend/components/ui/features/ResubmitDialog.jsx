@@ -261,18 +261,27 @@ export function ResubmitDialog({
       return;
     }
 
+    setFilesByDocId((prev) => ({
+      ...prev,
+      [docId]: selectedFile,
+    }));
+    setProgressByDocId((prev) => ({
+      ...prev,
+      [docId]: 0,
+    }));
+    setDocumentErrorsById((prev) => ({
+      ...prev,
+      [docId]: "",
+    }));
+    setDocumentValidationById((prev) => ({
+      ...prev,
+      [docId]: null,
+    }));
+
     try {
       setCheckingDocById((prev) => ({
         ...prev,
         [docId]: true,
-      }));
-      setDocumentErrorsById((prev) => ({
-        ...prev,
-        [docId]: "",
-      }));
-      setDocumentValidationById((prev) => ({
-        ...prev,
-        [docId]: null,
       }));
 
       const result = await extractAdditionalDocument(
@@ -286,6 +295,11 @@ export function ResubmitDialog({
         ? uploadValidation.reasons
         : [];
 
+      setDocumentValidationById((prev) => ({
+        ...prev,
+        [docId]: result,
+      }));
+
       if (status === "FAIL") {
         setFilesByDocId((prev) => ({
           ...prev,
@@ -297,11 +311,6 @@ export function ResubmitDialog({
           [docId]: reasons[0] || "Uploaded file failed document checking.",
         }));
 
-        setDocumentValidationById((prev) => ({
-          ...prev,
-          [docId]: result,
-        }));
-
         toast.error("Document check failed", {
           description: reasons[0] || "Please upload the correct document.",
         });
@@ -309,30 +318,12 @@ export function ResubmitDialog({
         return;
       }
 
-      setFilesByDocId((prev) => ({
-        ...prev,
-        [docId]: selectedFile,
-      }));
-
-      setDocumentValidationById((prev) => ({
-        ...prev,
-        [docId]: result,
-      }));
-
       setDocumentErrorsById((prev) => ({
         ...prev,
         [docId]: "",
       }));
 
-      if (status === "WARNING") {
-        toast.warning("Document uploaded with warning", {
-          description:
-            reasons[0] ||
-            "Document quality is moderate. Please verify carefully.",
-        });
-      } else {
-        toast.success("Document checked successfully");
-      }
+      toast.success("Document checked successfully");
     } catch (err) {
       console.error("Required document OCR check failed:", err);
 
@@ -403,21 +394,30 @@ export function ResubmitDialog({
       return;
     }
 
+    setAlternativeFilesByDocId((prev) => ({
+      ...prev,
+      [docId]: selectedFile,
+    }));
+    setAlternativeProgressByDocId((prev) => ({
+      ...prev,
+      [docId]: 0,
+    }));
+    setAlternativeErrorsByDocId((prev) => ({
+      ...prev,
+      [docId]: {
+        ...(prev[docId] || {}),
+        file: "",
+      },
+    }));
+    setAlternativeValidationById((prev) => ({
+      ...prev,
+      [docId]: null,
+    }));
+
     try {
       setCheckingAltDocById((prev) => ({
         ...prev,
         [docId]: true,
-      }));
-      setAlternativeValidationById((prev) => ({
-        ...prev,
-        [docId]: null,
-      }));
-      setAlternativeErrorsByDocId((prev) => ({
-        ...prev,
-        [docId]: {
-          ...(prev[docId] || {}),
-          file: "",
-        },
       }));
 
       const result = await extractAdditionalDocument(
@@ -430,6 +430,11 @@ export function ResubmitDialog({
       const reasons = Array.isArray(uploadValidation?.reasons)
         ? uploadValidation.reasons
         : [];
+
+      setAlternativeValidationById((prev) => ({
+        ...prev,
+        [docId]: result,
+      }));
 
       if (status === "FAIL") {
         setAlternativeFilesByDocId((prev) => ({
@@ -446,11 +451,6 @@ export function ResubmitDialog({
           },
         }));
 
-        setAlternativeValidationById((prev) => ({
-          ...prev,
-          [docId]: result,
-        }));
-
         toast.error("Alternative document check failed", {
           description:
             reasons[0] || "Please upload the correct alternative document.",
@@ -458,16 +458,6 @@ export function ResubmitDialog({
 
         return;
       }
-
-      setAlternativeFilesByDocId((prev) => ({
-        ...prev,
-        [docId]: selectedFile,
-      }));
-
-      setAlternativeValidationById((prev) => ({
-        ...prev,
-        [docId]: result,
-      }));
 
       setAlternativeErrorsByDocId((prev) => ({
         ...prev,
@@ -477,15 +467,7 @@ export function ResubmitDialog({
         },
       }));
 
-      if (status === "WARNING") {
-        toast.warning("Alternative document uploaded with warning", {
-          description:
-            reasons[0] ||
-            "Document quality is moderate. Please verify carefully.",
-        });
-      } else {
-        toast.success("Alternative document checked successfully");
-      }
+      toast.success("Alternative document checked successfully");
     } catch (err) {
       console.error("Alternative document OCR check failed:", err);
 
@@ -516,29 +498,6 @@ export function ResubmitDialog({
       }));
     }
   };
-
-  const totalCompletedDocuments = useMemo(() => {
-    return requiredDocuments.reduce((count, doc) => {
-      const docId = doc.item_id;
-      const isAlternative = !!useAlternativeByDocId[docId];
-
-      if (isAlternative) {
-        const hasReason = !!(alternativeReasonByDocId[docId] || "").trim();
-        const hasType = !!(alternativeTypeByDocId[docId] || "").trim();
-        const hasFile = !!alternativeFilesByDocId[docId];
-        return hasReason && hasType && hasFile ? count + 1 : count;
-      }
-
-      return filesByDocId[docId] ? count + 1 : count;
-    }, 0);
-  }, [
-    requiredDocuments,
-    useAlternativeByDocId,
-    alternativeReasonByDocId,
-    alternativeTypeByDocId,
-    alternativeFilesByDocId,
-    filesByDocId,
-  ]);
 
   const isAnyDocumentChecking = useMemo(() => {
     return (
@@ -824,15 +783,6 @@ export function ResubmitDialog({
                           {error && <p className="text-sm text-red-500">{error}</p>}
 
                           {!error &&
-                            validation?.upload_validation?.status ===
-                              "WARNING" && (
-                              <p className="text-sm text-amber-600">
-                                {validation?.upload_validation?.reasons?.[0] ||
-                                  "Document uploaded with warning."}
-                              </p>
-                            )}
-
-                          {!error &&
                             validation?.upload_validation?.status === "PASS" && (
                               <p className="text-sm text-emerald-600">
                                 Document checked successfully.
@@ -845,7 +795,7 @@ export function ResubmitDialog({
                                 type="button"
                                 variant="outline"
                                 disabled
-                                className="gap-2 w-fit"
+                                className="w-fit gap-2"
                               >
                                 <Loader2 className="h-4 w-4 animate-spin" />
                                 Checking uploaded document...
@@ -1047,7 +997,7 @@ export function ResubmitDialog({
                                 type="button"
                                 variant="outline"
                                 disabled
-                                className="gap-2"
+                                className="w-fit gap-2"
                               >
                                 <Loader2 className="h-4 w-4 animate-spin" />
                                 Checking uploaded document...
@@ -1059,15 +1009,6 @@ export function ResubmitDialog({
                                 {altErrors.file}
                               </p>
                             )}
-
-                            {!altErrors.file &&
-                              altValidation?.upload_validation?.status ===
-                                "WARNING" && (
-                                <p className="text-sm text-amber-600">
-                                  {altValidation?.upload_validation?.reasons?.[0] ||
-                                    "Alternative document uploaded with warning."}
-                                </p>
-                              )}
 
                             {!altErrors.file &&
                               altValidation?.upload_validation?.status ===
