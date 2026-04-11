@@ -401,16 +401,65 @@ class UBODeclarationData(BaseModel):
         description="Any other relevant declarations, checkboxes, certifications, or notes"
     )
     
-class UnknownDocumentData(BaseModel):
-    best_guess_document_type: str = Field(
+
+class GenericAdditionalDocumentData(BaseModel):
+    requested_document_name: str = Field(default="")
+    matched_requested_document: bool = Field(default=True)
+    detected_document_type: str = Field(default="UNKNOWN")
+    document_purpose_summary: str = Field(
         default="",
-        description="Best-effort guess of what the unknown document is, e.g. INVOICE, PAYSLIP, TAX_INVOICE, RECEIPT, else OTHERS"
-    )
-    display_label: str = Field(
-        default="Unsupported Document",
-        description="Frontend-friendly label to show users"
+        description="What this document appears to be used for"
     )
 
+    key_entities: Dict[str, Any] = Field(
+        default_factory=dict,
+        description="Core people, company, authority, counterparty, bank, issuer, etc."
+    )
+
+    key_identifiers: Dict[str, Any] = Field(
+        default_factory=dict,
+        description="Registration number, tax number, account number, invoice number, reference number, etc."
+    )
+
+    important_dates: Dict[str, Any] = Field(
+        default_factory=dict,
+        description="Issue date, incorporation date, expiry date, agreement date, billing period, etc."
+    )
+
+    addresses: Dict[str, Any] = Field(
+        default_factory=dict,
+        description="Registered address, service address, premises address, mailing address, etc."
+    )
+
+    financial_information: Dict[str, Any] = Field(
+        default_factory=dict,
+        description="Amounts, balances, capital, invoice totals, rental, payment obligations, etc."
+    )
+
+    ownership_and_governance: Dict[str, Any] = Field(
+        default_factory=dict,
+        description="Shareholders, directors, partners, authorised signatories, beneficial owners, etc."
+    )
+
+    obligations_and_terms: Dict[str, Any] = Field(
+        default_factory=dict,
+        description="Important clauses, term, validity, lease period, payment due date, conditions, etc."
+    )
+
+    extracted_mapped_fields: Dict[str, Any] = Field(
+        default_factory=dict,
+        description="Optional normalized fields mapped into common business/KYC names when clearly inferable"
+    )
+
+    additional_relevant_info: Dict[str, Any] = Field(
+        default_factory=dict,
+        description="Anything else useful"
+    )
+
+    missing_or_unclear_items: List[str] = Field(
+        default_factory=list,
+        description="Important items that appear missing or unclear"
+    )
 
 DOCUMENT_SCHEMA_REGISTRY: Dict[str, Type[BaseModel]] = {
     "NIB": NIBExtractionData,
@@ -425,7 +474,9 @@ DOCUMENT_SCHEMA_REGISTRY: Dict[str, Type[BaseModel]] = {
     "NPWP_CERTIFICATE": NPWPCertificateData,
     "AKTA_PENDIRIAN": AktaPendirianData,
     "UBO_DECLARATION": UBODeclarationData,
-    "UNKNOWN": UnknownDocumentData
+    "UNKNOWN": GenericAdditionalDocumentData,
+    "ALTERNATIVE_DOCUMENT": GenericAdditionalDocumentData,
+    "GENERIC_ADDITIONAL_DOCUMENT": GenericAdditionalDocumentData,
 }
 
 
