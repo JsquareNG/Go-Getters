@@ -592,18 +592,17 @@ const INDONESIA_CONFIG = {
           id: "step2",
           label: "Basic Information",
           fields: {
-            incorporationUpload: {
-              type: "file",
-              label:
-                "Upload Certificate of Incorporation / Company Deed (OCR autofill)",
-              required: true,
-              ocrTarget: "business_profile",
-            },
+            // incorporationUpload: {
+            //   type: "file",
+            //   label:
+            //     "Upload Certificate of Incorporation / Company Deed (OCR autofill)",
+            //   required: true,
+            //   ocrTarget: "business_profile",
+            // },
             ...getBasicBusinessFields(),
           },
           repeatableSections: {
             ...getRepeatableBusinessActivityFields(),
-
             directors: {
               label: "Director / Authorized Signatory",
               storage: "individuals",
