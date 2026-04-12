@@ -175,72 +175,6 @@ const SMEApplicationForm = () => {
     fetchDocuments();
   }, [appId]);
 
-  // const handlePersistKycResult = useCallback(
-  //   async ({
-  //     provider_session_id,
-  //     kycData,
-  //     providerSessionField = "provider_session_id",
-  //     kycDataField = "kycData",
-  //   }) => {
-  //     dispatch(
-  //       updateField({
-  //         field: providerSessionField,
-  //         value: provider_session_id,
-  //       }),
-  //     );
-  //     dispatch(updateField({ field: kycDataField, value: kycData }));
-
-  //     const patchedFormData = {
-  //       ...formData,
-  //       [providerSessionField]: provider_session_id,
-  //       [kycDataField]: kycData,
-  //     };
-
-  //     try {
-  //       let savedAppId = currentApp?.applicationId || appId;
-
-  //       const cleanedFormPayload = buildDynamicPayload({
-  //         rawFormData: patchedFormData,
-  //         config: activeConfig,
-  //         providerSessionId: provider_session_id,
-  //       });
-
-  //       const payload = {
-  //         ...(savedAppId && savedAppId !== "new"
-  //           ? { application_id: savedAppId }
-  //           : {}),
-  //         user_id: user.user_id,
-  //         email: user.email,
-  //         first_name: user.first_name ?? user.firstName ?? "",
-  //         last_saved_step: currentStepFromRedux,
-  //         previous_status: patchedFormData?.previous_status || null,
-  //         current_status: patchedFormData?.current_status || "Draft",
-  //         form_data: cleanedFormPayload,
-  //       };
-
-  //       const res = await saveApplicationDraftApi(payload);
-  //       savedAppId = res.application_id || savedAppId;
-
-  //       dispatch(saveDraftAction({ appId: savedAppId, data: patchedFormData }));
-  //     } catch (err) {
-  //       toast({
-  //         title: "KYC verified but draft not saved",
-  //         description: err?.message || "Please click Save Draft manually.",
-  //         variant: "destructive",
-  //       });
-  //     }
-  //   },
-  //   [
-  //     dispatch,
-  //     formData,
-  //     currentApp?.applicationId,
-  //     appId,
-  //     activeConfig,
-  //     user,
-  //     currentStepFromRedux,
-  //     toast,
-  //   ],
-  // );
   const handlePersistKycResult = useCallback(
     async ({
       provider_session_id,
@@ -297,7 +231,7 @@ const SMEApplicationForm = () => {
           fieldValue,
         );
       });
-      
+
       try {
         await persistApplication({
           isInitial: false,
@@ -401,7 +335,10 @@ const SMEApplicationForm = () => {
     isInitial = false,
     rawFormDataOverride = null,
   } = {}) => {
-    const effectiveFormData = rawFormDataOverride || formData;
+    // const effectiveFormData = rawFormDataOverride || formData;
+    //nested structures are normalized before payload building and saving.
+    const effectiveFormData = getMergedFormState(rawFormDataOverride || formData);
+
     try {
       let savedAppId = currentApp?.applicationId || appId;
 
@@ -545,15 +482,15 @@ const SMEApplicationForm = () => {
     const initApplication = async () => {
       try {
         //if same app is already loaded, do not overwrite local unsaved changes
-        // if (
-        //   appId &&
-        //   appId !== "new" &&
-        //   currentApp?.applicationId === appId &&
-        //   formData &&
-        //   Object.keys(formData).length > 0
-        // ) {
-        //   return;
-        // }
+        if (
+          appId &&
+          appId !== "new" &&
+          currentApp?.applicationId === appId &&
+          formData &&
+          Object.keys(formData).length > 0
+        ) {
+          return;
+        }
 
         if (appId && appId !== "new") {
           const app = await getApplicationByAppId(appId);
@@ -713,21 +650,52 @@ const SMEApplicationForm = () => {
         providerSessionId: formData.provider_session_id || null,
       });
 
-      console.log("Cleaned form payload for submission:", cleanedFormPayload);
-      const providerSessionId =
-        formData?.individuals?.find(
-          (p) => p?.kyc.livenessStatus === "Approved",
-        ) || null;
+      // const providerSessionId =
+      //   formData?.individuals?.find(
+      //     (p) => p?.kyc.livenessStatus === "Approved",
+      //   ) || null;
 
-      if (!providerSessionId) {
+      // if (!providerSessionId) {
+      //   toast({
+      //     title: "Identity Verification Required",
+      //     description:
+      //       "Please complete identity verification before submitting.",
+      //     variant: "destructive",
+      //   });
+      //   return;
+      // }
+
+      //KYC CHECK: if any individual's KYC is not approved, block submission
+      const individuals = Array.isArray(formData?.individuals)
+        ? formData.individuals
+        : [];
+
+      // only rows that actually require KYC
+      const individualsRequiringKyc = individuals.filter((person) => {
+        return person && Object.prototype.hasOwnProperty.call(person, "kyc");
+      });
+
+      const failedOrIncompleteKyc = individualsRequiringKyc.filter((person) => {
+        const kyc = person?.kyc || {};
+
+        return !(kyc?.livenessStatus === "Approved");
+      });
+
+      if (failedOrIncompleteKyc.length > 0) {
         toast({
           title: "Identity Verification Required",
           description:
-            "Please complete identity verification before submitting.",
+            "All individuals with KYC must complete and pass verification before submitting.",
           variant: "destructive",
         });
         return;
       }
+
+      const providerSessionId =
+        formData?.provider_session_id ||
+        individualsRequiringKyc.find((p) => p?.provider_session_id)
+          ?.provider_session_id ||
+        null;
 
       const payload = {
         ...(savedAppId && savedAppId !== "new"
@@ -847,12 +815,12 @@ const SMEApplicationForm = () => {
                 {!isViewOnly && (
                   <div className="mt-8 flex justify-between border-t pt-6">
                     <Button
-                      onClick={() =>
-                        navigate(
-                          `/application/${routeMode}/${appId}/${clampedStep - 1}`,
-                        )
-                      }
-                      // onClick={() => handleStepNavigation(clampedStep - 1)}
+                      // onClick={() =>
+                      //   navigate(
+                      //     `/application/${routeMode}/${appId}/${clampedStep - 1}`,
+                      //   )
+                      // }
+                      onClick={() => handleStepNavigation(clampedStep - 1)}
                       disabled={clampedStep === 0}
                       variant="outline"
                     >
@@ -877,8 +845,8 @@ const SMEApplicationForm = () => {
                             Save Draft
                           </Button>
 
-                          <Button onClick={() => goToStep(clampedStep + 1)}>
-                            {/* <Button onClick={() => handleStepNavigation(clampedStep + 1)}> */}
+                          {/* <Button onClick={() => goToStep(clampedStep + 1)}> */}
+                            <Button onClick={() => handleStepNavigation(clampedStep + 1)}>
                             Next
                           </Button>
                         </>
