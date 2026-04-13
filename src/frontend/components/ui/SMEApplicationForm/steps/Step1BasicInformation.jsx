@@ -317,119 +317,59 @@ const Step1BasicInformation = ({
     }));
   };
 
-  // const verifyAndMaybeExtractDocument = async ({
-  //   file,
-  //   fieldKey,
-  //   fieldConfig,
-  // }) => {
-  //   const expectedType = inferExpectedDocumentType(fieldKey, fieldConfig);
+  // --------------
+  // ---HELPER ----
+  // --------------
+  //initialise min individuals row
+  const buildDefaultRowFromFields = (fields = {}) => {
+    const row = {};
 
-  //   const classifyResult = await classifyAndExtractApi(file);
-  //   console.log("[VERIFY RESULT]", classifyResult);
+    Object.entries(fields).forEach(([fieldKey, fieldConfig]) => {
+      if (!fieldConfig || typeof fieldConfig !== "object") return;
 
-  //   const detectedType = normalizeDocumentType(
-  //     classifyResult?.document_type ||
-  //       classifyResult?.classified_as ||
-  //       classifyResult?.doc_type ||
-  //       classifyResult?.label,
-  //   );
+      if (fieldConfig.type === "kyc") {
+        row[fieldKey] = {
+          status: "idle",
+          loading: false,
+          sessionId: null,
+          overallStatus: null,
+          idVerificationStatus: null,
+          livenessStatus: null,
+          faceMatchStatus: null,
+          livenessScore: null,
+          faceMatchScore: null,
+        };
+        return;
+      }
 
-  //   const isSupported = classifyResult?.is_supported === true;
+      if (fieldConfig.type === "checkbox") {
+        row[fieldKey] = [];
+        return;
+      }
 
-  //   if (!isSupported) {
-  //     const errorMessage =
-  //       classifyResult?.upload_validation?.reasons?.join(", ") ||
-  //       (detectedType
-  //         ? `Detected document type "${detectedType}" is not supported.`
-  //         : "This document is not supported.");
+      if (fieldConfig.value !== undefined) {
+        row[fieldKey] = fieldConfig.value;
+        return;
+      }
 
-  //     throw new Error(errorMessage);
-  //   }
+      row[fieldKey] = "";
+    });
 
-  //   // if (expectedType && detectedType && expectedType !== detectedType) {
-  //   //   throw new Error(
-  //   //     `Wrong document uploaded. Expected "${expectedType}" but detected "${detectedType}".`,
-  //   //   );
-  //   // }
+    return row;
+  };
 
-  //   let extractedData = null;
+  // create required number of rows for repeatable sections with minRows defined
+  const buildMinRowsForSection = (sectionConfig, count) => {
+  return Array.from({ length: count }, () => {
+    const baseRow = buildDefaultRowFromFields(sectionConfig?.fields || {});
 
-  //   // only do extraction for business profile OCR fields
-  //   if (fieldConfig?.ocrTarget === "business_profile") {
-  //     const extractResult = await classifyAndExtractApi(file);
-  //     extractedData = extractResult?.data || null;
-  //     console.log("[OCR EXTRACT RESULT]", extractedData);
-  //   }
+    if (sectionConfig?.rowTypeField && sectionConfig?.rowTypeValue) {
+      baseRow[sectionConfig.rowTypeField] = sectionConfig.rowTypeValue;
+    }
 
-  //   return {
-  //     classifyResult,
-  //     extractedData,
-  //     detectedType,
-  //     expectedType,
-  //     isSupported,
-  //   };
-  // };
-
-  // const buildFileValidator = useCallback(
-  //   (fieldKey, fieldConfig) => async (file) => {
-  //     const expectedType = inferExpectedDocumentType(fieldKey, fieldConfig);
-
-  //     setFieldVerificationState(fieldKey, {
-  //       status: "verifying",
-  //       message: "Verifying document...",
-  //       expectedType,
-  //       detectedType: null,
-  //       // rawResult: null,
-  //     });
-
-  //     try {
-  //       const { classifyResult, extractedData, detectedType, isSupported } =
-  //         await verifyAndMaybeExtractDocument({
-  //           file,
-  //           fieldKey,
-  //           fieldConfig,
-  //         });
-
-  //       const nextValue = {
-  //         file,
-  //         progress: 0,
-  //         verified: true,
-  //         verificationStatus: "verified",
-  //         verificationMessage: "Document verified successfully.",
-  //         detectedType,
-  //         expectedType,
-  //         classificationResult: classifyResult,
-  //         extractedData,
-  //         uploadValidation: classifyResult?.upload_validation || null,
-  //         isSupported,
-  //       };
-
-  //       setFieldVerificationState(fieldKey, {
-  //         status: "verified",
-  //         message: "Document verified successfully.",
-  //         expectedType,
-  //         detectedType,
-  //         rawResult: classifyResult,
-  //       });
-
-  //       return nextValue;
-  //     } catch (err) {
-  //       setFieldVerificationState(fieldKey, {
-  //         status: "failed",
-  //         message:
-  //           err?.response?.data?.detail ||
-  //           err?.message ||
-  //           "Verification failed. Please upload the file again.",
-  //         expectedType,
-  //         detectedType: null,
-  //         rawResult: null,
-  //       });
-
-  //       throw err;
-  //     }
-  //   },
-  //   [],
-  // );
+    return baseRow;
+  });
+};
 
   const buildFileValidator = useCallback(
     (fieldPath, fieldConfig) => async (file) => {
@@ -546,17 +486,6 @@ const Step1BasicInformation = ({
           message: "",
         },
       }));
-
-      //this will reset the verification state when the field is cleared, which is important to allow re-upload and re-verification of files
-      // setVerificationState((prev) => ({
-      //   ...prev,
-      //   [name]: {
-      //     status: "idle",
-      //     message: "",
-      //     expectedType: null,
-      //     detectedType: null,
-      //   },
-      // }));
     }
 
     onFieldChange(name, value);
@@ -984,61 +913,110 @@ const Step1BasicInformation = ({
   }, [basicFieldsConfig, data, ocrState]);
 
   // ensure minimum rows for repeatable sections are present on initial load
+  // useEffect(() => {
+  //   const formRoot = getFormDataRoot();
+
+  //   Object.entries(repeatableSectionsConfig).forEach(
+  //     ([sectionKey, sectionConfig]) => {
+  //       const storageKey = sectionConfig?.storage;
+  //       const minRows = sectionConfig?.min || 0;
+  //       const rowTypeField = sectionConfig?.rowTypeField;
+  //       const rowTypeValue = sectionConfig?.rowTypeValue;
+  //       const fields = sectionConfig?.fields || {};
+
+  //       if (!storageKey || minRows < 1) return;
+
+  //       const existingRows = Array.isArray(formRoot?.[storageKey])
+  //         ? formRoot[storageKey]
+  //         : [];
+
+  //       const matchingRows =
+  //         rowTypeField && rowTypeValue
+  //           ? existingRows.filter((row) => row?.[rowTypeField] === rowTypeValue)
+  //           : existingRows;
+
+  //       if (matchingRows.length >= minRows) return;
+
+  //       const rowsToAdd = Array.from(
+  //         { length: minRows - matchingRows.length },
+  //         () => {
+  //           const newRow = {};
+
+  //           Object.entries(fields).forEach(([fieldKey, fieldConfig]) => {
+  //             if (fieldConfig?.value !== undefined) {
+  //               newRow[fieldKey] = fieldConfig.value;
+  //             } else {
+  //               newRow[fieldKey] = "";
+  //             }
+  //           });
+
+  //           if (rowTypeField && rowTypeValue && newRow[rowTypeField] == null) {
+  //             newRow[rowTypeField] = rowTypeValue;
+  //           }
+
+  //           return newRow;
+  //         },
+  //       );
+
+  //       const nextFormRoot = {
+  //         ...formRoot,
+  //         [storageKey]: [...existingRows, ...rowsToAdd],
+  //       };
+
+  //       onFieldChange("formData", nextFormRoot);
+  //       // handleFieldChange(storageKey, [...existingRows, ...rowsToAdd]);
+  //     },
+  //   );
+  // }, [repeatableSectionsConfig]);
   useEffect(() => {
-    const formRoot = getFormDataRoot();
+  const minRows = Number(sectionConfig?.min || 0);
+  if (minRows <= 0) return;
 
-    Object.entries(repeatableSectionsConfig).forEach(
-      ([sectionKey, sectionConfig]) => {
-        const storageKey = sectionConfig?.storage;
-        const minRows = sectionConfig?.min || 0;
-        const rowTypeField = sectionConfig?.rowTypeField;
-        const rowTypeValue = sectionConfig?.rowTypeValue;
-        const fields = sectionConfig?.fields || {};
+  if (sectionConfig?.storage === "individuals") {
+    const allIndividuals = Array.isArray(formData?.individuals)
+      ? formData.individuals
+      : [];
 
-        if (!storageKey || minRows < 1) return;
+    const roleField = sectionConfig?.rowTypeField;
+    const roleValue = sectionConfig?.rowTypeValue;
 
-        const existingRows = Array.isArray(formRoot?.[storageKey])
-          ? formRoot[storageKey]
-          : [];
-
-        const matchingRows =
-          rowTypeField && rowTypeValue
-            ? existingRows.filter((row) => row?.[rowTypeField] === rowTypeValue)
-            : existingRows;
-
-        if (matchingRows.length >= minRows) return;
-
-        const rowsToAdd = Array.from(
-          { length: minRows - matchingRows.length },
-          () => {
-            const newRow = {};
-
-            Object.entries(fields).forEach(([fieldKey, fieldConfig]) => {
-              if (fieldConfig?.value !== undefined) {
-                newRow[fieldKey] = fieldConfig.value;
-              } else {
-                newRow[fieldKey] = "";
-              }
-            });
-
-            if (rowTypeField && rowTypeValue && newRow[rowTypeField] == null) {
-              newRow[rowTypeField] = rowTypeValue;
-            }
-
-            return newRow;
-          },
-        );
-
-        const nextFormRoot = {
-          ...formRoot,
-          [storageKey]: [...existingRows, ...rowsToAdd],
-        };
-
-        onFieldChange("formData", nextFormRoot);
-        // handleFieldChange(storageKey, [...existingRows, ...rowsToAdd]);
-      },
+    const matchingRows = allIndividuals.filter(
+      (row) => row?.[roleField] === roleValue,
     );
-  }, [repeatableSectionsConfig]);
+
+    if (matchingRows.length >= minRows) return;
+
+    const rowsToAdd = buildMinRowsForSection(
+      sectionConfig,
+      minRows - matchingRows.length,
+    );
+
+    const nextIndividuals = [...allIndividuals, ...rowsToAdd];
+    onFormDataChange({
+      ...formData,
+      individuals: nextIndividuals,
+    });
+
+    return;
+  }
+
+  const storageKey = sectionConfig?.storage || sectionKey;
+  const existingRows = Array.isArray(formData?.[storageKey])
+    ? formData[storageKey]
+    : [];
+
+  if (existingRows.length >= minRows) return;
+
+  const rowsToAdd = buildMinRowsForSection(
+    sectionConfig,
+    minRows - existingRows.length,
+  );
+
+  onFormDataChange({
+    ...formData,
+    [storageKey]: [...existingRows, ...rowsToAdd],
+  });
+}, [formData, onFormDataChange, sectionConfig, sectionKey]);
 
   return (
     <div>

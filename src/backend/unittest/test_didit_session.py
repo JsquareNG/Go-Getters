@@ -48,7 +48,7 @@ def test_create_didit_session_raises_when_api_key_missing(monkeypatch):
     with pytest.raises(HTTPException) as exc:
         didit_module.create_didit_session(
             payload,
-            current_user=SME_USER,
+            # current_user=SME_USER,
         )
 
     assert exc.value.status_code == 500
@@ -64,7 +64,7 @@ def test_create_didit_session_raises_when_workflow_id_missing(monkeypatch):
     with pytest.raises(HTTPException) as exc:
         didit_module.create_didit_session(
             payload,
-            current_user=SME_USER,
+            # current_user=SME_USER,
         )
 
     assert exc.value.status_code == 500
@@ -102,7 +102,7 @@ def test_create_didit_session_builds_full_body_and_returns_mapped_response(monke
 
     result = didit_module.create_didit_session(
         payload,
-        current_user=SME_USER,
+        # current_user=SME_USER,
     )
 
     assert captured["url"] == didit_module.DIDIT_CREATE_SESSION_URL
@@ -142,7 +142,7 @@ def test_create_didit_session_uses_default_callback_and_current_user_metadata(mo
 
     result = didit_module.create_didit_session(
         payload,
-        current_user=SME_USER,
+        # current_user=SME_USER,
     )
 
     assert captured["json"]["workflow_id"] == "workflow-123"
@@ -169,7 +169,7 @@ def test_create_didit_session_raises_http_exception_for_non_200_response(monkeyp
     with pytest.raises(HTTPException) as exc:
         didit_module.create_didit_session(
             payload,
-            current_user=SME_USER,
+            # current_user=SME_USER,
         )
 
     assert exc.value.status_code == 422
@@ -190,7 +190,7 @@ def test_create_didit_session_wraps_unexpected_exception_as_500(monkeypatch):
     with pytest.raises(HTTPException) as exc:
         didit_module.create_didit_session(
             payload,
-            current_user=SME_USER,
+            # current_user=SME_USER,
         )
 
     assert exc.value.status_code == 500
@@ -207,7 +207,7 @@ def test_get_session_decision_raises_when_api_key_missing(monkeypatch):
     with pytest.raises(HTTPException) as exc:
         didit_module.get_session_decision(
             "sess-001",
-            current_user=STAFF_USER,
+            # current_user=STAFF_USER,
         )
 
     assert exc.value.status_code == 500
@@ -233,7 +233,7 @@ def test_get_session_decision_success(monkeypatch):
 
     result = didit_module.get_session_decision(
         "sess-001",
-        current_user=STAFF_USER,
+        # current_user=STAFF_USER,
     )
 
     assert captured["url"] == "https://verification.didit.me/v3/session/sess-001/decision/"
@@ -258,7 +258,7 @@ def test_get_session_decision_allows_management(monkeypatch):
 
     result = didit_module.get_session_decision(
         "sess-001",
-        current_user=MGMT_USER,
+        # current_user=MGMT_USER,
     )
 
     assert result == {"status": "approved", "session_id": "sess-001"}
@@ -270,7 +270,7 @@ def test_get_session_decision_forbidden_for_sme(monkeypatch):
     with pytest.raises(HTTPException) as exc:
         didit_module.get_session_decision(
             "sess-001",
-            current_user=SME_USER,
+            # current_user=SME_USER,
         )
 
     assert exc.value.status_code == 403
@@ -288,7 +288,7 @@ def test_get_session_decision_raises_for_non_200(monkeypatch):
     with pytest.raises(HTTPException) as exc:
         didit_module.get_session_decision(
             "sess-404",
-            current_user=STAFF_USER,
+            # current_user=STAFF_USER,
         )
 
     assert exc.value.status_code == 404
