@@ -346,6 +346,7 @@ const KycVerificationCard = ({
   };
 
   // Restore already-saved KYC state after reload
+  const restoredSessionRef = useRef("");
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const callbackSessionId = params.get("verificationSessionId");
@@ -357,6 +358,9 @@ const KycVerificationCard = ({
       "";
 
     if (!existingSessionId) return;
+    if (restoredSessionRef.current === existingSessionId) return;
+
+    restoredSessionRef.current = existingSessionId;
 
     const restoreAndRefresh = async () => {
       const cached = loadKycFromSessionStorage(existingSessionId);
@@ -421,18 +425,59 @@ const KycVerificationCard = ({
   //     "";
 
   //   if (!existingSessionId) return;
-  //   if (kycData?.status === "completed") return;
 
-  //   const cached = loadKycFromSessionStorage(existingSessionId);
-  //   if (!cached) return;
+  //   const restoreAndRefresh = async () => {
+  //     const cached = loadKycFromSessionStorage(existingSessionId);
+  //     if (cached) {
+  //       writeKycData(cached);
+  //     }
 
-  //   // updateKycData(cached);
-  //   writeKycData(cached);
+  //     if (!data?.provider_session_id && !data?.providerSessionId) {
+  //       onFieldChange("provider_session_id", existingSessionId);
+  //     }
 
-  //   if (!data?.provider_session_id && !data?.providerSessionId) {
-  //     onFieldChange("provider_session_id", existingSessionId);
-  //   }
-  // }, [data?.provider_session_id, data?.providerSessionId, kycData?.status]);
+  //     try {
+  //       const response = await fetch(
+  //         `http://127.0.0.1:8000/didit/session/${existingSessionId}/decision`,
+  //       );
+
+  //       if (!response.ok) throw new Error("Failed to refresh Didit decision.");
+
+  //       const diditData = await response.json();
+  //       const nextKycData = buildKycSummary(
+  //         diditData,
+  //         existingSessionId,
+  //         diditData?.status,
+  //       );
+
+  //       writeKycData(nextKycData);
+  //       saveKycToSessionStorage(existingSessionId, nextKycData);
+
+  //       const payload = mapDiditToPayload(diditData);
+  //       // await livenessDetectionApi(payload);
+  //       try {
+  //         await livenessDetectionApi(payload);
+  //       } catch (err) {
+  //         console.error("[KYC] failed to persist liveness detection:", err);
+  //       }
+
+  //       const mappedFields = mapDiditToFormFields(diditData);
+
+  //       if (onPersistKycResult) {
+  //         await onPersistKycResult({
+  //           provider_session_id: existingSessionId,
+  //           kycData: nextKycData,
+  //           diditPayload: payload,
+  //           mappedFields,
+  //         });
+  //       }
+  //     } catch (err) {
+  //       console.error("[KYC RESTORE] refresh failed:", err);
+  //     }
+  //   };
+
+  //   restoreAndRefresh();
+  // }, [data?.provider_session_id, data?.providerSessionId, kycData?.sessionId]);
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);

@@ -96,12 +96,6 @@ const Step4 = ({ onEdit, disabled = false, applicationId }) => {
     return `${sectionKey}_${rowIndex + 1}_${fieldKey}`;
   };
 
-  // const existingDocumentMap = useMemo(() => {
-  //   return existingDocuments.reduce((acc, doc) => {
-  //     acc[doc.document_type] = doc;
-  //     return acc;
-  //   }, {});
-  // }, [existingDocuments]);
   const existingDocumentMap = useMemo(() => {
     return existingDocuments.reduce((acc, doc) => {
       const type = normalizeDocType(doc.document_type);
@@ -197,18 +191,6 @@ const Step4 = ({ onEdit, disabled = false, applicationId }) => {
     return sectionConfig?.fields?.role?.value || sectionKey;
   };
 
-  // const getSectionItems = (stepData, sectionKey, sectionConfig) => {
-  //   const merged = getMergedFormState(stepData);
-
-  //   if (sectionConfig?.storage === "individuals") {
-  //     const roleValue = getSectionRoleValue(sectionKey, sectionConfig);
-  //     return (merged.individuals || []).filter(
-  //       (person) => person?.role === roleValue,
-  //     );
-  //   }
-
-  //   return Array.isArray(merged?.[sectionKey]) ? merged[sectionKey] : [];
-  // };
 
   //correctly read repeatable section items, with special handling for "individuals" storage type which nests under formData
   const getSectionItems = (stepData, sectionKey, sectionConfig) => {
@@ -311,13 +293,6 @@ const Step4 = ({ onEdit, disabled = false, applicationId }) => {
             let value = item?.[key] ?? "";
 
             if (cfg.conditionalFields && value in cfg.conditionalFields) {
-              // fields.push({
-              //   label: `${sectionCfg.label} ${idx + 1} - ${cfg.label}`,
-              //   value: value || "Not provided",
-              //   missing:
-              //     cfg.required &&
-              //     (value === "" || value === null || value === undefined),
-              // });
               fields.push({
                 label: `${sectionCfg.label} ${idx + 1} - ${cfg.label}`,
                 value,
@@ -329,11 +304,11 @@ const Step4 = ({ onEdit, disabled = false, applicationId }) => {
 
               const subFields = cfg.conditionalFields[value];
               Object.entries(subFields).forEach(([subKey, subCfg]) => {
-                // fields.push({
-                //   label: `${sectionCfg.label} ${idx + 1} - ${subCfg.label}`,
-                //   value: item?.[subKey] || "Not provided",
-                //   missing: subCfg.required && !item?.[subKey],
-                // });
+                fields.push({
+                  label: `${sectionCfg.label} ${idx + 1} - ${subCfg.label}`,
+                  value: item?.[subKey] || "Not provided",
+                  missing: subCfg.required && !item?.[subKey],
+                });
               });
 
               return;

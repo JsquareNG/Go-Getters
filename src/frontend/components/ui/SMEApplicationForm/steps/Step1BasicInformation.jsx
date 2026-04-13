@@ -360,16 +360,16 @@ const Step1BasicInformation = ({
 
   // create required number of rows for repeatable sections with minRows defined
   const buildMinRowsForSection = (sectionConfig, count) => {
-  return Array.from({ length: count }, () => {
-    const baseRow = buildDefaultRowFromFields(sectionConfig?.fields || {});
+    return Array.from({ length: count }, () => {
+      const baseRow = buildDefaultRowFromFields(sectionConfig?.fields || {});
 
-    if (sectionConfig?.rowTypeField && sectionConfig?.rowTypeValue) {
-      baseRow[sectionConfig.rowTypeField] = sectionConfig.rowTypeValue;
-    }
+      if (sectionConfig?.rowTypeField && sectionConfig?.rowTypeValue) {
+        baseRow[sectionConfig.rowTypeField] = sectionConfig.rowTypeValue;
+      }
 
-    return baseRow;
-  });
-};
+      return baseRow;
+    });
+  };
 
   const buildFileValidator = useCallback(
     (fieldPath, fieldConfig) => async (file) => {
@@ -711,6 +711,31 @@ const Step1BasicInformation = ({
     }
   };
 
+  //helper to determine if KYC result is successful
+  const isSuccessfulKycResult = (kyc) => {
+    if (!kyc || typeof kyc !== "object") return false;
+
+    const overall = String(kyc?.overallStatus || "")
+      .trim()
+      .toLowerCase();
+    const idv = String(kyc?.idVerificationStatus || "")
+      .trim()
+      .toLowerCase();
+    const liveness = String(kyc?.livenessStatus || "")
+      .trim()
+      .toLowerCase();
+    const face = String(kyc?.faceMatchStatus || "")
+      .trim()
+      .toLowerCase();
+
+    return (
+      overall === "approved" &&
+      idv === "approved" &&
+      liveness === "approved" &&
+      face === "approved"
+    );
+  };
+
   const mapDetectionToKyc = (detection) => ({
     status:
       detection?.overall_status || detection?.id_verification_status
@@ -748,6 +773,8 @@ const Step1BasicInformation = ({
       ? formRoot.individuals
       : [];
 
+    const shouldMapIdentityFields = isSuccessfulKycResult(kycData);
+
     const nextIndividuals = individuals.map((person) => {
       const matchesSession =
         person?.provider_session_id === provider_session_id ||
@@ -763,12 +790,29 @@ const Step1BasicInformation = ({
           ...(person?.kyc || {}),
           ...(kycData || {}),
         },
-        fullName: mappedFields?.fullName || person?.fullName || "",
-        idNumber: mappedFields?.idNumber || person?.idNumber || "",
-        dateOfBirth: mappedFields?.dateOfBirth || person?.dateOfBirth || "",
-        nationality: mappedFields?.nationality || person?.nationality || "",
-        residentialAddress:
-          mappedFields?.residentialAddress || person?.residentialAddress || "",
+
+        // only map identity fields if KYC fully passed
+        fullName: shouldMapIdentityFields
+          ? mappedFields?.fullName || person?.fullName || ""
+          : person?.fullName || "",
+        idNumber: shouldMapIdentityFields
+          ? mappedFields?.idNumber || person?.idNumber || ""
+          : person?.idNumber || "",
+        dateOfBirth: shouldMapIdentityFields
+          ? mappedFields?.dateOfBirth || person?.dateOfBirth || ""
+          : person?.dateOfBirth || "",
+        nationality: shouldMapIdentityFields
+          ? mappedFields?.nationality || person?.nationality || ""
+          : person?.nationality || "",
+        residentialAddress: shouldMapIdentityFields
+          ? mappedFields?.residentialAddress || person?.residentialAddress || ""
+          : person?.residentialAddress || "",
+        // fullName: mappedFields?.fullName || person?.fullName || "",
+        // idNumber: mappedFields?.idNumber || person?.idNumber || "",
+        // dateOfBirth: mappedFields?.dateOfBirth || person?.dateOfBirth || "",
+        // nationality: mappedFields?.nationality || person?.nationality || "",
+        // residentialAddress:
+        //   mappedFields?.residentialAddress || person?.residentialAddress || "",
       };
     });
 
@@ -893,24 +937,54 @@ const Step1BasicInformation = ({
     hydratedSessionsRef.current = {};
   }, [applicationId]);
 
-  useEffect(() => {
-    Object.entries(basicFieldsConfig).forEach(([fieldKey, fieldConfig]) => {
-      if (fieldConfig?.type !== "file" || fieldConfig?.ocr !== true) return;
-
+  const ocrEligibleSignature = JSON.stringify(
+  Object.entries(basicFieldsConfig)
+    .filter(([, fieldConfig]) => fieldConfig?.type === "file" && fieldConfig?.ocr === true)
+    .map(([fieldKey]) => {
       const selectedFile = getSelectedVerifiedFileForField(fieldKey);
-      if (!(selectedFile instanceof File)) return;
+      return selectedFile instanceof File
+        ? getFileSignature(selectedFile)
+        : null;
+    }),
+);
 
-      const signature = getFileSignature(selectedFile);
-      const alreadyProcessed =
-        processedOcrFilesRef.current[fieldKey] === signature;
-      const isCurrentlyLoading = ocrState?.[fieldKey]?.loading;
+useEffect(() => {
+  Object.entries(basicFieldsConfig).forEach(([fieldKey, fieldConfig]) => {
+    if (fieldConfig?.type !== "file" || fieldConfig?.ocr !== true) return;
 
-      if (!alreadyProcessed && !isCurrentlyLoading) {
-        processedOcrFilesRef.current[fieldKey] = signature;
-        handleOcrAutofill(fieldKey, fieldConfig);
-      }
-    });
-  }, [basicFieldsConfig, data, ocrState]);
+    const selectedFile = getSelectedVerifiedFileForField(fieldKey);
+    if (!(selectedFile instanceof File)) return;
+
+    const signature = getFileSignature(selectedFile);
+    const alreadyProcessed =
+      processedOcrFilesRef.current[fieldKey] === signature;
+    const isCurrentlyLoading = ocrState?.[fieldKey]?.loading;
+
+    if (!alreadyProcessed && !isCurrentlyLoading) {
+      processedOcrFilesRef.current[fieldKey] = signature;
+      handleOcrAutofill(fieldKey, fieldConfig);
+    }
+  });
+}, [basicFieldsConfig, ocrEligibleSignature]);
+
+  // useEffect(() => {
+  //   Object.entries(basicFieldsConfig).forEach(([fieldKey, fieldConfig]) => {
+  //     if (fieldConfig?.type !== "file" || fieldConfig?.ocr !== true) return;
+
+  //     const selectedFile = getSelectedVerifiedFileForField(fieldKey);
+  //     if (!(selectedFile instanceof File)) return;
+
+  //     const signature = getFileSignature(selectedFile);
+  //     const alreadyProcessed =
+  //       processedOcrFilesRef.current[fieldKey] === signature;
+  //     const isCurrentlyLoading = ocrState?.[fieldKey]?.loading;
+
+  //     if (!alreadyProcessed && !isCurrentlyLoading) {
+  //       processedOcrFilesRef.current[fieldKey] = signature;
+  //       handleOcrAutofill(fieldKey, fieldConfig);
+  //     }
+  //   });
+  // }, [basicFieldsConfig, data, ocrState]);
 
   // ensure minimum rows for repeatable sections are present on initial load
   // useEffect(() => {
@@ -918,44 +992,44 @@ const Step1BasicInformation = ({
 
   //   Object.entries(repeatableSectionsConfig).forEach(
   //     ([sectionKey, sectionConfig]) => {
-  //       const storageKey = sectionConfig?.storage;
-  //       const minRows = sectionConfig?.min || 0;
-  //       const rowTypeField = sectionConfig?.rowTypeField;
-  //       const rowTypeValue = sectionConfig?.rowTypeValue;
-  //       const fields = sectionConfig?.fields || {};
+  //       const minRows = Number(sectionConfig?.min || 0);
+  //       if (minRows <= 0) return;
 
-  //       if (!storageKey || minRows < 1) return;
-
+  //       const storageKey = sectionConfig?.storage || sectionKey;
   //       const existingRows = Array.isArray(formRoot?.[storageKey])
   //         ? formRoot[storageKey]
   //         : [];
 
-  //       const matchingRows =
-  //         rowTypeField && rowTypeValue
-  //           ? existingRows.filter((row) => row?.[rowTypeField] === rowTypeValue)
-  //           : existingRows;
+  //       // special handling for individuals
+  //       if (storageKey === "individuals") {
+  //         const roleField = sectionConfig?.rowTypeField;
+  //         const roleValue = sectionConfig?.rowTypeValue;
 
-  //       if (matchingRows.length >= minRows) return;
+  //         const matchingRows = existingRows.filter(
+  //           (row) => row?.[roleField] === roleValue
+  //         );
 
-  //       const rowsToAdd = Array.from(
-  //         { length: minRows - matchingRows.length },
-  //         () => {
-  //           const newRow = {};
+  //         if (matchingRows.length >= minRows) return;
 
-  //           Object.entries(fields).forEach(([fieldKey, fieldConfig]) => {
-  //             if (fieldConfig?.value !== undefined) {
-  //               newRow[fieldKey] = fieldConfig.value;
-  //             } else {
-  //               newRow[fieldKey] = "";
-  //             }
-  //           });
+  //         const rowsToAdd = buildMinRowsForSection(
+  //           sectionConfig,
+  //           minRows - matchingRows.length
+  //         );
 
-  //           if (rowTypeField && rowTypeValue && newRow[rowTypeField] == null) {
-  //             newRow[rowTypeField] = rowTypeValue;
-  //           }
+  //         const nextFormRoot = {
+  //           ...formRoot,
+  //           individuals: [...existingRows, ...rowsToAdd],
+  //         };
 
-  //           return newRow;
-  //         },
+  //         onFieldChange("formData", nextFormRoot);
+  //         return;
+  //       }
+
+  //       if (existingRows.length >= minRows) return;
+
+  //       const rowsToAdd = buildMinRowsForSection(
+  //         sectionConfig,
+  //         minRows - existingRows.length
   //       );
 
   //       const nextFormRoot = {
@@ -964,114 +1038,79 @@ const Step1BasicInformation = ({
   //       };
 
   //       onFieldChange("formData", nextFormRoot);
-  //       // handleFieldChange(storageKey, [...existingRows, ...rowsToAdd]);
-  //     },
+  //     }
   //   );
-  // }, [repeatableSectionsConfig]);
-//   useEffect(() => {
-//   const minRows = Number(sectionConfig?.min || 0);
-//   if (minRows <= 0) return;
+  // }, [repeatableSectionsConfig, data]);
+  const initializedMinRowsRef = useRef({});
 
-//   if (sectionConfig?.storage === "individuals") {
-//     const allIndividuals = Array.isArray(formData?.individuals)
-//       ? formData.individuals
-//       : [];
+  useEffect(() => {
+    const formRoot = getFormDataRoot();
+    const initKey = `${applicationId || "new"}::${data?.country || ""}::${data?.businessType || ""}`;
 
-//     const roleField = sectionConfig?.rowTypeField;
-//     const roleValue = sectionConfig?.rowTypeValue;
+    if (initializedMinRowsRef.current[initKey]) return;
 
-//     const matchingRows = allIndividuals.filter(
-//       (row) => row?.[roleField] === roleValue,
-//     );
+    let nextFormRoot = formRoot;
+    let hasChanges = false;
 
-//     if (matchingRows.length >= minRows) return;
+    Object.entries(repeatableSectionsConfig).forEach(
+      ([sectionKey, sectionConfig]) => {
+        const minRows = Number(sectionConfig?.min || 0);
+        if (minRows <= 0) return;
 
-//     const rowsToAdd = buildMinRowsForSection(
-//       sectionConfig,
-//       minRows - matchingRows.length,
-//     );
+        const storageKey = sectionConfig?.storage || sectionKey;
+        const existingRows = Array.isArray(nextFormRoot?.[storageKey])
+          ? nextFormRoot[storageKey]
+          : [];
 
-//     const nextIndividuals = [...allIndividuals, ...rowsToAdd];
-//     onFormDataChange({
-//       ...formData,
-//       individuals: nextIndividuals,
-//     });
+        if (storageKey === "individuals") {
+          const roleField = sectionConfig?.rowTypeField;
+          const roleValue = sectionConfig?.rowTypeValue;
 
-//     return;
-//   }
+          const matchingRows = existingRows.filter(
+            (row) => row?.[roleField] === roleValue,
+          );
 
-//   const storageKey = sectionConfig?.storage || sectionKey;
-//   const existingRows = Array.isArray(formData?.[storageKey])
-//     ? formData[storageKey]
-//     : [];
+          if (matchingRows.length >= minRows) return;
 
-//   if (existingRows.length >= minRows) return;
+          const rowsToAdd = buildMinRowsForSection(
+            sectionConfig,
+            minRows - matchingRows.length,
+          );
 
-//   const rowsToAdd = buildMinRowsForSection(
-//     sectionConfig,
-//     minRows - existingRows.length,
-//   );
+          nextFormRoot = {
+            ...nextFormRoot,
+            individuals: [...existingRows, ...rowsToAdd],
+          };
+          hasChanges = true;
+          return;
+        }
 
-//   onFormDataChange({
-//     ...formData,
-//     [storageKey]: [...existingRows, ...rowsToAdd],
-//   });
-// }, [formData, onFormDataChange, sectionConfig, sectionKey]);
-
-useEffect(() => {
-  const formRoot = getFormDataRoot();
-
-  Object.entries(repeatableSectionsConfig).forEach(
-    ([sectionKey, sectionConfig]) => {
-      const minRows = Number(sectionConfig?.min || 0);
-      if (minRows <= 0) return;
-
-      const storageKey = sectionConfig?.storage || sectionKey;
-      const existingRows = Array.isArray(formRoot?.[storageKey])
-        ? formRoot[storageKey]
-        : [];
-
-      // special handling for individuals
-      if (storageKey === "individuals") {
-        const roleField = sectionConfig?.rowTypeField;
-        const roleValue = sectionConfig?.rowTypeValue;
-
-        const matchingRows = existingRows.filter(
-          (row) => row?.[roleField] === roleValue
-        );
-
-        if (matchingRows.length >= minRows) return;
+        if (existingRows.length >= minRows) return;
 
         const rowsToAdd = buildMinRowsForSection(
           sectionConfig,
-          minRows - matchingRows.length
+          minRows - existingRows.length,
         );
 
-        const nextFormRoot = {
-          ...formRoot,
-          individuals: [...existingRows, ...rowsToAdd],
+        nextFormRoot = {
+          ...nextFormRoot,
+          [storageKey]: [...existingRows, ...rowsToAdd],
         };
+        hasChanges = true;
+      },
+    );
 
-        onFieldChange("formData", nextFormRoot);
-        return;
-      }
+    initializedMinRowsRef.current[initKey] = true;
 
-      if (existingRows.length >= minRows) return;
-
-      const rowsToAdd = buildMinRowsForSection(
-        sectionConfig,
-        minRows - existingRows.length
-      );
-
-      const nextFormRoot = {
-        ...formRoot,
-        [storageKey]: [...existingRows, ...rowsToAdd],
-      };
-
+    if (hasChanges) {
       onFieldChange("formData", nextFormRoot);
     }
-  );
-}, [repeatableSectionsConfig, data]);
+  }, [
+    applicationId,
+    data?.country,
+    data?.businessType,
+    repeatableSectionsConfig,
+  ]);
 
   return (
     <div>
