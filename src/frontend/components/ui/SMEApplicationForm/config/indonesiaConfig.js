@@ -197,11 +197,11 @@ function getIndividualFields() {
       required: true,
       placeholder: "For Indonesian citizens, use the 16-digit NIK from the KTP",
     },
-    idDocument: {
-      type: "file",
-      label: "KTP / Passport Document",
-      required: true,
-    },
+    // idDocument: {
+    //   type: "file",
+    //   label: "KTP / Passport Document",
+    //   required: true,
+    // },
     nationality: {
       type: "select",
       label: "Nationality",
@@ -545,11 +545,6 @@ const INDONESIA_CONFIG = {
           id: "step4",
           label: "Required Documents",
           fields: {
-            // deedOfEstablishment: {
-            //   type: "file",
-            //   label: "Deed of Establishment (Akta Pendirian Perusahaan)",
-            //   required: true,
-            // },
             npwpCertificate: {
               type: "file",
               label: "NPWP Certificate",
@@ -597,18 +592,17 @@ const INDONESIA_CONFIG = {
           id: "step2",
           label: "Basic Information",
           fields: {
-            incorporationUpload: {
-              type: "file",
-              label:
-                "Upload Certificate of Incorporation / Company Deed (OCR autofill)",
-              required: true,
-              ocrTarget: "business_profile",
-            },
+            // incorporationUpload: {
+            //   type: "file",
+            //   label:
+            //     "Upload Certificate of Incorporation / Company Deed (OCR autofill)",
+            //   required: true,
+            //   ocrTarget: "business_profile",
+            // },
             ...getBasicBusinessFields(),
           },
           repeatableSections: {
             ...getRepeatableBusinessActivityFields(),
-
             directors: {
               label: "Director / Authorized Signatory",
               storage: "individuals",
@@ -674,6 +668,11 @@ const INDONESIA_CONFIG = {
                   label: "Share Percentage (%)",
                   min: 0,
                   max: 100,
+                  required: true,
+                },
+                idDocument: {
+                  type: "file",
+                  label: "KTP / Passport Document",
                   required: true,
                 },
                 ...getIndividualFields(),
