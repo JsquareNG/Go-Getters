@@ -85,15 +85,30 @@ const RepeatableSectionRenderer = ({
   };
 
   const handleRowFieldChange = (sectionRowIndex, fieldName, value) => {
-    // const updatedRows = updateRowField(rows, rowIndex, fieldName, value);
     const actualIndex = sectionRowIndexes[sectionRowIndex];
-    const updatedRows = updateRowField(allRows, actualIndex, fieldName, value);
+    // const updatedRows = updateRowField(allRows, actualIndex, fieldName, value);
+    const rowPrefix = `${storageKey}.${actualIndex}.`;
+    const relativeFieldName = fieldName.startsWith(rowPrefix)
+      ? fieldName.slice(rowPrefix.length)
+      : fieldName;
+
+    const updatedRows = updateRowField(
+      allRows,
+      actualIndex,
+      relativeFieldName,
+      value,
+    );
 
     onFormDataChange({
       ...formData,
       [storageKey]: updatedRows,
     });
-    console.log("ROW CHANGE", { sectionRowIndex, fieldName, value });
+    console.log("ROW CHANGE", {
+      sectionRowIndex,
+      fieldName,
+      relativeFieldName,
+      value,
+    });
   };
 
   return (

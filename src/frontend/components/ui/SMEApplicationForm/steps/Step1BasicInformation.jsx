@@ -412,26 +412,13 @@ if (existingDoc) {
         );
 
         // FILE VALIDATION
+        
         const validation = result?.upload_validation;
-
-        const isUnknown =
-          detectedType === "unknown" ||
-          normalizeDocumentType(result?.document_type) === "unknown" ||
-          normalizeDocumentType(result?.classified_as) === "unknown";
-
-        const isValidationFail = validation?.status === "FAIL";
-
-        // const typeMismatch =
-        //   expectedType &&
-        //   detectedType &&
-        //   detectedType !== expectedType &&
-        //   detectedType !== "unknown";
-
-        if (isUnknown || isValidationFail) {
-          const errorMessage = isUnknown
-            ? "Document type could not be identified. Please upload a clearer supported document."
-              : validation?.reasons?.[0] ||
-                "Uploaded document does not match expected type or its quality is too low.";
+        const isNotSupported = validation?.status === "FAIL";
+        if (isNotSupported) {
+          const errorMessage = validation?.reasons[0]
+            ? "Uploaded document does not match expected type OR its quality is too low. Please try again."
+            : "Document is not supported.";
 
           setFieldVerificationState(fieldPath, {
             status: "failed",
@@ -442,22 +429,6 @@ if (existingDoc) {
 
           throw new Error(errorMessage);
         }
-        // const validation = result?.upload_validation;
-        // const isNotSupported = validation?.status === "FAIL";
-        // if (isNotSupported) {
-        //   const errorMessage = validation?.reasons[0]
-        //     ? "Uploaded document does not match expected type OR its quality is too low. Please try again."
-        //     : "Document is not supported.";
-
-        //   setFieldVerificationState(fieldPath, {
-        //     status: "failed",
-        //     message: errorMessage,
-        //     expectedType,
-        //     detectedType,
-        //   });
-
-        //   throw new Error(errorMessage);
-        // }
 
         const nextValue = {
           file,
