@@ -240,17 +240,37 @@ const Step4 = ({ onEdit, disabled = false, applicationId }) => {
     return sectionConfig?.fields?.role?.value || sectionKey;
   };
 
+  // const getSectionItems = (stepData, sectionKey, sectionConfig) => {
+  //   const merged = getMergedFormState(stepData);
+
+  //   if (sectionConfig?.storage === "individuals") {
+  //     const roleValue = getSectionRoleValue(sectionKey, sectionConfig);
+  //     return (merged.individuals || []).filter(
+  //       (person) => person?.role === roleValue,
+  //     );
+  //   }
+
+  //   return Array.isArray(merged?.[sectionKey]) ? merged[sectionKey] : [];
+  // };
+
+  //correctly read repeatable section items, with special handling for "individuals" storage type which nests under formData
   const getSectionItems = (stepData, sectionKey, sectionConfig) => {
     const merged = getMergedFormState(stepData);
+    const storageKey = sectionConfig?.storage || sectionKey;
 
-    if (sectionConfig?.storage === "individuals") {
-      const roleValue = getSectionRoleValue(sectionKey, sectionConfig);
+    if (storageKey === "individuals") {
+      const rowTypeField = sectionConfig?.rowTypeField || "role";
+      const rowTypeValue = sectionConfig?.rowTypeValue;
+
+      if (!rowTypeValue)
+        return Array.isArray(merged.individuals) ? merged.individuals : [];
+
       return (merged.individuals || []).filter(
-        (person) => person?.role === roleValue,
+        (person) => person?.[rowTypeField] === rowTypeValue,
       );
     }
 
-    return Array.isArray(merged?.[sectionKey]) ? merged[sectionKey] : [];
+    return Array.isArray(merged?.[storageKey]) ? merged[storageKey] : [];
   };
 
   const buildIndividualDocumentType = (

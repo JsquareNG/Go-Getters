@@ -95,7 +95,8 @@ function getBasicBusinessFields() {
       type: "text",
       label: "NPWP (Tax ID)",
       required: true,
-      placeholder: "NPWP/TIN may appear in 15-digit or 16-digit format",
+      placeholder:
+        "NPWP/TIN may appear in 15-digit or 16-digit format. Enter digits only.",
       validate: {
         pattern: /^[0-9]{15,16}$/,
         message: "NPWP must be 15 or 16 digits.",
@@ -502,6 +503,7 @@ const INDONESIA_CONFIG = {
                   min: 0,
                   max: 100,
                   required: true,
+                  placeholder: "Enter the percentage of shares owned",
                 },
                 ...getIndividualFields(),
                 ...getComplianceDeclarations(),
@@ -530,6 +532,7 @@ const INDONESIA_CONFIG = {
                   min: 0,
                   max: 100,
                   required: true,
+                  placeholder: "Enter the percentage of shares owned",
                 },
                 ...getIndividualFields(),
                 ...getComplianceDeclarations(),
@@ -627,10 +630,12 @@ const INDONESIA_CONFIG = {
                   min: 0,
                   max: 100,
                   required: true,
+                  placeholder:
+                    "Enter the percentage of shares owned, if applicable",
                 },
                 ...getIndividualFields(),
                 ...getComplianceDeclarations(),
-                position: { type: "text", label: "Position", required: true },
+                // position: { type: "text", label: "Position", required: true },
                 authorizedSignatory: {
                   type: "select",
                   label: "Authorized Signatory",
@@ -647,8 +652,14 @@ const INDONESIA_CONFIG = {
               min: 2,
               fields: {
                 role: {
-                  type: "select",
+                  type: "text",
                   label: "Role",
+                  value: "Shareholder",
+                  readonly: true,
+                },
+                shareholderType: {
+                  type: "select",
+                  label: "Shareholder Type",
                   // value: "Shareholder",
                   options: [
                     {
@@ -660,7 +671,7 @@ const INDONESIA_CONFIG = {
                       value: "Corporate Shareholder",
                     },
                   ],
-                  placeholder: "Select your role",
+                  placeholder: "Select your shareholder type",
                   required: true,
                   // readonly: true,
                 },
@@ -670,6 +681,7 @@ const INDONESIA_CONFIG = {
                   min: 0,
                   max: 100,
                   required: true,
+                  placeholder: "Enter the percentage of shares owned",
                 },
                 // idDocument: {
                 //   type: "file",
@@ -705,6 +717,7 @@ const INDONESIA_CONFIG = {
                   min: 0,
                   max: 100,
                   required: true,
+                  placeholder: "Enter the percentage of shares owned",
                 },
                 basisOfControl: {
                   type: "select",

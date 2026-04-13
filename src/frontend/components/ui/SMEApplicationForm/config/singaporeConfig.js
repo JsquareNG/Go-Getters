@@ -376,6 +376,7 @@ const SINGAPORE_CONFIG = {
                   min: 0,
                   max: 24,
                   required: true,
+                  placeholder: "Enter your share percentage",
                 },
                 idDocument: {
                   type: "file",
@@ -409,6 +410,7 @@ const SINGAPORE_CONFIG = {
                   min: 25,
                   max: 100,
                   required: true,
+                  placeholder: "Enter your share percentage",
                 },
                 ...getIndividualFields(),
                 ...getComplianceDeclarations(),
@@ -548,6 +550,7 @@ const SINGAPORE_CONFIG = {
                   min: 0,
                   max: 100,
                   required: true,
+                  placeholder: "Enter your share percentage",
                 },
                 idDocument: {
                   type: "file",
@@ -701,6 +704,12 @@ const SINGAPORE_CONFIG = {
               rowTypeValue: "Shareholder",
               min: 1,
               fields: {
+                role: {
+                  type: "text",
+                  label: "Role",
+                  value: "Shareholder",
+                  readonly: true,
+                },
                 shareholderType: {
                   type: "select",
                   label: "Shareholder Type",
@@ -713,6 +722,14 @@ const SINGAPORE_CONFIG = {
                 },
                 conditionalFields: {
                   Individual: {
+                    sharePercentage: {
+                      type: "number",
+                      label: "Share Percentage (%)",
+                      min: 0,
+                      max: 100,
+                      required: true,
+                      placeholder: "Enter your share percentage",
+                    },
                     name: {
                       type: "text",
                       label: "Name",
@@ -744,6 +761,8 @@ const SINGAPORE_CONFIG = {
                       required: true,
                       placeholder: "Enter your residential address",
                     },
+                  },
+                  Corporate: {
                     sharePercentage: {
                       type: "number",
                       label: "Share Percentage (%)",
@@ -752,8 +771,6 @@ const SINGAPORE_CONFIG = {
                       required: true,
                       placeholder: "Enter your share percentage",
                     },
-                  },
-                  Corporate: {
                     name: {
                       type: "text",
                       label: "Name",
@@ -783,13 +800,6 @@ const SINGAPORE_CONFIG = {
                       label: "Registered Address",
                       required: true,
                       placeholder: "Enter your registered address",
-                    },
-                    sharePercentage: {
-                      type: "number",
-                      label: "Share Percentage (%)",
-                      min: 0,
-                      max: 100,
-                      required: true,
                     },
                   },
                 },
