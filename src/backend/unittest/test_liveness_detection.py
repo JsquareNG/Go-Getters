@@ -182,7 +182,7 @@ def test_get_liveness_detection_by_session_id_returns_serialized_row():
     result = liveness_module.get_liveness_detection_by_session_id(
         "sess-999",
         db=db,
-        current_user=SME_USER,
+        # current_user=SME_USER,
     )
 
     assert result["provider_session_id"] == "sess-999"
@@ -197,7 +197,7 @@ def test_get_liveness_detection_by_session_id_raises_404_when_missing():
         liveness_module.get_liveness_detection_by_session_id(
             "missing",
             db=db,
-            current_user=SME_USER,
+            # current_user=SME_USER,
         )
 
     assert exc.value.status_code == 404

@@ -87,39 +87,6 @@ const applicationFormSlice = createSlice({
   name: "applicationForm",
   initialState,
   reducers: {
-    // Load an application from backend
-    // loadApplication: (state, action) => {
-    //   const { applicationId, formData = {}, status = "Draft" } = action.payload;
-
-    //   state.currentApplicationId = applicationId;
-    //   state.currentMode = status === "Submitted" ? "view" : "edit";
-    //   state.currentStep = 0;
-    //   state.hasUnsavedChanges = false;
-
-    //   state.drafts[applicationId] = {
-    //     formData: { ...formData },
-    //     status,
-    //     lastModified: new Date().toISOString(),
-    //   };
-    // },
-    // loadApplication: (state, action) => {
-    //   const { applicationId, formData = {}, status = "Draft" } = action.payload;
-
-    //   const realAppId = applicationId ? String(applicationId) : null;
-    //   if (!realAppId) return;
-
-    //   state.currentApplicationId = realAppId;
-    //   state.currentMode = status === "Submitted" ? "view" : "edit";
-    //   state.hasUnsavedChanges = false;
-
-    //   state.drafts = {
-    //     [realAppId]: {
-    //       formData: { ...formData },
-    //       status,
-    //       lastModified: new Date().toISOString(),
-    //     },
-    //   };
-    // },
     loadApplication: (state, action) => {
       const { applicationId, formData = {}, status = "Draft" } = action.payload;
 
@@ -136,14 +103,6 @@ const applicationFormSlice = createSlice({
         lastModified: new Date().toISOString(),
       };
     },
-    // startNewApplication: (state) => {
-    //   state.currentApplicationId = null; // backend will create ID
-    //   state.currentMode = "edit";
-    //   state.currentStep = 0;
-    //   state.hasUnsavedChanges = false;
-
-    //   state.drafts = {};
-    // },
     startNewApplication: (state) => {
       state.currentApplicationId = "temp_draft";
       state.currentMode = "edit";
@@ -156,22 +115,6 @@ const applicationFormSlice = createSlice({
         lastModified: new Date().toISOString(),
       };
     },
-    // startNewApplication: (state) => {
-    //   state.currentApplicationId = "temp_draft";
-    //   state.currentMode = "edit";
-    //   state.currentStep = 0;
-    //   state.hasUnsavedChanges = false;
-
-    //   if (!state.drafts["temp_draft"]) {
-    //     state.drafts = {
-    //       temp_draft: {
-    //         formData: {},
-    //         status: "Draft",
-    //         lastModified: new Date().toISOString(),
-    //       },
-    //     };
-    //   }
-    // },
     resetForm: (state) => {
       state.drafts = {};
       state.currentApplicationId = null;
@@ -211,8 +154,13 @@ const applicationFormSlice = createSlice({
       }
 
       try {
-        // setIn(state.drafts[appId].formData, field, value);
-        // state.hasUnsavedChanges = true;
+        // special case: replace entire formData root
+        if (field === "formData") {
+          state.drafts[appId].formData = value || {};
+          state.drafts[appId].lastModified = new Date().toISOString();
+          state.hasUnsavedChanges = true;
+          return;
+        }
         // IMPORTANT: clone formData so React detects change
         const newFormData = { ...state.drafts[appId].formData };
         setIn(newFormData, field, value);
@@ -224,30 +172,6 @@ const applicationFormSlice = createSlice({
         console.error("updateField failed:", field, value, err);
       }
     },
-    // updateField: (state, action) => {
-    //   const { field, value } = action.payload;
-    //   const appId = state.currentApplicationId;
-    //   if (!appId || !field) return;
-
-    //   if (!state.drafts[appId]) {
-    //     state.drafts[appId] = {
-    //       formData: {},
-    //       status: "Draft",
-    //       lastModified: new Date().toISOString(),
-    //     };
-    //   }
-
-    //   try {
-    //     setIn(state.drafts[appId].formData, field, value);
-
-    //   } catch (err) {
-    //     console.error("updateField failed:", field, value, err);
-    //     return;
-    //   }
-
-    //   state.drafts[appId].lastModified = new Date().toISOString();
-    //   state.hasUnsavedChanges = true;
-    // },
 
     // Bulk update (useful when loading multiple fields)
     updateFormData: (state, action) => {
@@ -277,14 +201,7 @@ const applicationFormSlice = createSlice({
     },
 
     // Save draft
-    // saveDraft: (state) => {
-    //   const appId = state.currentApplicationId;
-    //   if (!appId) return;
 
-    //   state.drafts[appId].status = "Draft";
-    //   state.drafts[appId].lastModified = new Date().toISOString();
-    //   state.hasUnsavedChanges = false;
-    // },
     saveDraft: (state, action) => {
       const { appId, data } = action.payload || {};
       const realAppId = appId ? String(appId) : state.currentApplicationId;
@@ -297,13 +214,6 @@ const applicationFormSlice = createSlice({
         state.drafts[realAppId]?.formData ||
         {};
 
-      // state.drafts = {
-      //   [realAppId]: {
-      //     formData: data && Object.keys(data).length ? data : existingFormData,
-      //     status: "Draft",
-      //     lastModified: new Date().toISOString(),
-      //   },
-      // };
       state.drafts[realAppId] = {
         formData: data && Object.keys(data).length ? data : existingFormData,
         status: "Draft",
@@ -315,21 +225,6 @@ const applicationFormSlice = createSlice({
     },
 
     // Submit application
-    // submitApplication: (state) => {
-    //   const appId = state.currentApplicationId;
-    //   if (!appId) return;
-
-    //   state.drafts[appId].status = "Submitted";
-    //   state.drafts[appId].submittedAt = new Date().toISOString();
-
-    //   // Remove any other drafts so only the submitted one remains
-    //   Object.keys(state.drafts).forEach((id) => {
-    //     if (id !== appId) delete state.drafts[id];
-    //   });
-
-    //   state.currentMode = "view";
-    //   state.hasUnsavedChanges = false;
-    // },
     submitApplication: (state, action) => {
       const { appId, data } = action.payload || {};
       const realAppId = appId ? String(appId) : state.currentApplicationId;
@@ -401,17 +296,9 @@ export const selectCurrentApplication = (state) => {
   const id = state.applicationForm.currentApplicationId;
   return id ? state.applicationForm.drafts[id] : null;
 };
-// export const selectFormData = createSelector(
-//   (state) => state.applicationForm.currentApplicationId,
-//   (state) => state.applicationForm.drafts,
-//   (currentApplicationId, drafts) => {
-//     if (!currentApplicationId) return {};
-//     return drafts[currentApplicationId]?.formData || {};
-//   },
-// );
+
 export const selectFormData = (state) => {
   const { drafts, currentApplicationId } = state.applicationForm;
-  // console.log("selector appId:", currentApplicationId);
 
   if (!currentApplicationId) return {};
 

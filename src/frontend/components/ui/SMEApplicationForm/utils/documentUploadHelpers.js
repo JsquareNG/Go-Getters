@@ -2,6 +2,28 @@ import { allDocuments } from "@/api/documentApi";
 import { getNestedValue, unwrapFile } from "./formDataHelpers";
 import { getSectionRoleValue } from "./repeatableMappingHelpers";
 
+// helper to transform extracted data into backend payoad
+const buildExtractedDataPayload = (rawValue) => {
+  if (!rawValue || typeof rawValue !== "object") return {};
+
+  // Step 1 style: full raw OCR/classify response stored under extractedData
+  if (rawValue.extractedData && typeof rawValue.extractedData === "object") {
+    return rawValue.extractedData;
+  }
+
+  // Step 3 / older style: full raw response stored under classificationResult
+  if (
+    rawValue.classificationResult &&
+    typeof rawValue.classificationResult === "object"
+  ) {
+    return rawValue.classificationResult;
+  }
+
+  // fallback: keep other metadata except the actual file blob
+  const { file, ...rest } = rawValue;
+  return rest;
+};
+
 export const buildExistingDocumentMap = (documents = []) => {
   return documents.reduce((acc, doc) => {
     acc[doc.document_type] = doc;
@@ -53,6 +75,7 @@ export const collectFilesFromFieldSet = ({
             fieldKey,
           }),
           file,
+          rawValue,
         });
       }
     }
@@ -113,7 +136,9 @@ export const collectFileUploadEntries = (formData, activeConfig) => {
             (row) => row?.role === roleValue,
           );
         } else {
-          rows = Array.isArray(formData?.[sectionKey]) ? formData[sectionKey] : [];
+          rows = Array.isArray(formData?.[sectionKey])
+            ? formData[sectionKey]
+            : [];
         }
 
         rows.forEach((row, rowIndex) => {
@@ -133,9 +158,14 @@ export const collectFileUploadEntries = (formData, activeConfig) => {
   return uploads;
 };
 
-export const replaceDocumentById = async ({ documentId, file }) => {
+export const replaceDocumentById = async ({
+  documentId,
+  file,
+  extractedData,
+}) => {
   const form = new FormData();
   form.append("file", file);
+  form.append("extracted_data", JSON.stringify(extractedData || {}));
 
   const replaceRes = await fetch(
     `http://127.0.0.1:8000/documents/replace-upload/${documentId}`,
@@ -152,7 +182,12 @@ export const replaceDocumentById = async ({ documentId, file }) => {
   return await replaceRes.json();
 };
 
-export const initDocumentUpload = async ({ applicationId, documentType, file }) => {
+export const initDocumentUpload = async ({
+  applicationId,
+  documentType,
+  file,
+  extractedData = {},
+}) => {
   const initRes = await fetch(
     "http://127.0.0.1:8000/documents/init-persist-upload",
     {
@@ -163,6 +198,7 @@ export const initDocumentUpload = async ({ applicationId, documentType, file }) 
         document_type: documentType,
         filename: file.name,
         mime_type: file.type || "application/octet-stream",
+        extracted_data: extractedData,
       }),
     },
   );
@@ -179,6 +215,7 @@ export const uploadSingleDocument = async ({
   documentType,
   file,
   existingDocumentMap = {},
+  extractedData = {},
 }) => {
   const existingDoc = existingDocumentMap[documentType];
 
@@ -186,6 +223,7 @@ export const uploadSingleDocument = async ({
     return await replaceDocumentById({
       documentId: existingDoc.document_id,
       file,
+      extractedData,
     });
   }
 
@@ -193,6 +231,7 @@ export const uploadSingleDocument = async ({
     applicationId,
     documentType,
     file,
+    extractedData,
   });
 
   if (!initData?.document_id) {
@@ -202,6 +241,7 @@ export const uploadSingleDocument = async ({
   return await replaceDocumentById({
     documentId: initData.document_id,
     file,
+    extractedData,
   });
 };
 
@@ -232,11 +272,14 @@ export const uploadAllDocumentsFromFormData = async (
   const uploadedResults = [];
 
   for (const entry of uniqueUploadEntries) {
+    const extractedData = buildExtractedDataPayload(entry.rawValue);
+
     const uploaded = await uploadSingleDocument({
       applicationId,
       documentType: entry.document_type,
       file: entry.file,
       existingDocumentMap,
+      extractedData,
     });
 
     uploadedResults.push({

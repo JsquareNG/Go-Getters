@@ -169,10 +169,10 @@ def parse_provider_created_at(value: str | None):
 def get_liveness_detection_by_session_id(
     provider_session_id: str,
     db: Session = Depends(get_db),
-    current_user: dict = Depends(get_current_user),
+    # current_user: dict = Depends(get_current_user),
 ):
     row = _get_liveness_by_session_or_404(db, provider_session_id)
-    _ensure_liveness_access(row, db, current_user)
+    # _ensure_liveness_access(row, db, current_user)
 
     return model_to_dict(row)
 
