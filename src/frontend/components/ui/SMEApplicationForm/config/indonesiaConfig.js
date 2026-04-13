@@ -394,6 +394,7 @@ const INDONESIA_CONFIG = {
                 kyc: {
                   type: "kyc",
                   label: "Liveness Detection Test",
+                  required: true,
                 },
                 role: {
                   type: "text",
@@ -490,6 +491,7 @@ const INDONESIA_CONFIG = {
                 kyc: {
                   type: "kyc",
                   label: "Liveness Detection Test",
+                  required: true,
                 },
                 role: {
                   type: "text",
@@ -519,6 +521,7 @@ const INDONESIA_CONFIG = {
                 kyc: {
                   type: "kyc",
                   label: "Liveness Detection Test",
+                  required: true,
                 },
                 role: {
                   type: "text",
@@ -617,6 +620,7 @@ const INDONESIA_CONFIG = {
                 kyc: {
                   type: "kyc",
                   label: "Liveness Detection Test",
+                  required: true,
                 },
                 role: {
                   type: "text",
@@ -683,11 +687,11 @@ const INDONESIA_CONFIG = {
                   required: true,
                   placeholder: "Enter the percentage of shares owned",
                 },
-                // idDocument: {
-                //   type: "file",
-                //   label: "KTP / Passport Document",
-                //   required: true,
-                // },
+                idDocument: {
+                  type: "file",
+                  label: "KTP / Passport Document",
+                  required: true,
+                },
                 ...getIndividualFields(),
                 ...getComplianceDeclarations(),
               },
@@ -704,6 +708,7 @@ const INDONESIA_CONFIG = {
                 kyc: {
                   type: "kyc",
                   label: "Liveness Detection Test",
+                  required: true,
                 },
                 role: {
                   type: "text",

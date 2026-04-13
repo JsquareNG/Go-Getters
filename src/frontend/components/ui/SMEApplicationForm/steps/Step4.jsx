@@ -152,34 +152,6 @@ const Step4 = ({ onEdit, disabled = false, applicationId }) => {
     return "Not uploaded";
   };
 
-  // const getDisplayedRepeatableDocumentValue = ({
-  //   sectionKey,
-  //   sectionConfig,
-  //   rowIndex,
-  //   fieldKey,
-  //   item,
-  // }) => {
-  //   const localValue = item?.[fieldKey] ?? null;
-  //   const localFile = unwrapLocalFile(localValue);
-
-  //   if (localFile) return localValue;
-
-  //   if (sectionConfig?.storage === "individuals") {
-  //     const documentType = buildIndividualDocumentType(
-  //       sectionKey,
-  //       sectionConfig,
-  //       rowIndex,
-  //       fieldKey,
-  //     );
-
-  //     return existingDocumentMap[documentType] || null;
-  //   }
-
-  //   return (
-  //     existingDocumentMap[`${sectionKey}_${rowIndex + 1}_${fieldKey}`] || null
-  //   );
-  // };
-
   const getDisplayedDocument = ({
     cfg,
     fieldKey,
@@ -210,21 +182,6 @@ const Step4 = ({ onEdit, disabled = false, applicationId }) => {
 
     return existingDocumentMap[normalizeDocType(documentType)] || null;
   };
-
-  // const getDisplayedDocumentValue = (fieldKey, stepData = {}) => {
-  //   const localValue =
-  //     getNestedValue(stepData?.formData || {}, fieldKey) ??
-  //     getNestedValue(stepData, fieldKey) ??
-  //     null;
-
-  //   const localFile = unwrapLocalFile(localValue);
-  //   if (localFile) return localValue;
-
-  //   const backendDoc = existingDocumentMap[fieldKey];
-  //   if (backendDoc) return backendDoc;
-
-  //   return null;
-  // };
 
   // HELPER FOR NESTED INDIVIDUAL FIELDS:
   const getMergedFormState = (rawData = {}) => {
@@ -312,23 +269,15 @@ const Step4 = ({ onEdit, disabled = false, applicationId }) => {
             });
           });
         } else {
-          const localFile = unwrapLocalFile(value);
-
-          if (localFile) {
-            value = `${localFile.name} (${(localFile.size / 1024).toFixed(2)} KB)`;
-          } else if (cfg.type === "file") {
-            // const displayedDoc = getDisplayedDocumentValue(key, data);
-            // value = formatDisplayedDocument(displayedDoc);
+          if (cfg.type === "file") {
             const displayedDoc = getDisplayedDocument({
               cfg,
               fieldKey: key,
               stepData: data,
             });
             value = formatDisplayedDocument(displayedDoc);
-          } else if (typeof value === "object" && value !== null) {
-            value = JSON.stringify(value, null, 2);
-          } else if (value === "") {
-            value = "Not provided";
+          } else {
+            value = formatReviewValue(value, cfg);
           }
 
           fields.push({
@@ -362,21 +311,29 @@ const Step4 = ({ onEdit, disabled = false, applicationId }) => {
             let value = item?.[key] ?? "";
 
             if (cfg.conditionalFields && value in cfg.conditionalFields) {
+              // fields.push({
+              //   label: `${sectionCfg.label} ${idx + 1} - ${cfg.label}`,
+              //   value: value || "Not provided",
+              //   missing:
+              //     cfg.required &&
+              //     (value === "" || value === null || value === undefined),
+              // });
               fields.push({
                 label: `${sectionCfg.label} ${idx + 1} - ${cfg.label}`,
-                value: value || "Not provided",
+                value,
                 missing:
                   cfg.required &&
-                  (value === "" || value === null || value === undefined),
+                  ((cfg.type === "kyc" && isKycIncomplete(item?.[key])) ||
+                    value === "Not provided"),
               });
 
               const subFields = cfg.conditionalFields[value];
               Object.entries(subFields).forEach(([subKey, subCfg]) => {
-                fields.push({
-                  label: `${sectionCfg.label} ${idx + 1} - ${subCfg.label}`,
-                  value: item?.[subKey] || "Not provided",
-                  missing: subCfg.required && !item?.[subKey],
-                });
+                // fields.push({
+                //   label: `${sectionCfg.label} ${idx + 1} - ${subCfg.label}`,
+                //   value: item?.[subKey] || "Not provided",
+                //   missing: subCfg.required && !item?.[subKey],
+                // });
               });
 
               return;
@@ -402,20 +359,15 @@ const Step4 = ({ onEdit, disabled = false, applicationId }) => {
               return;
             }
 
-            const localFile = unwrapLocalFile(value);
-
-            if (localFile) {
-              value = `${localFile.name} (${(localFile.size / 1024).toFixed(2)} KB)`;
-            } else if (typeof value === "object" && value !== null) {
-              value = JSON.stringify(value, null, 2);
-            } else if (value === "") {
-              value = "Not provided";
-            }
+            value = formatReviewValue(value, cfg);
 
             fields.push({
               label: `${sectionCfg.label} ${idx + 1} - ${cfg.label}`,
               value,
-              missing: cfg.required && value === "Not provided",
+              missing:
+                cfg.required &&
+                ((cfg.type === "kyc" && isKycIncomplete(value)) ||
+                  (cfg.type !== "kyc" && value === "Not provided")),
             });
           });
         });
@@ -423,6 +375,75 @@ const Step4 = ({ onEdit, disabled = false, applicationId }) => {
     );
 
     return fields;
+  };
+
+  //helper to format fields based on text, arrays etc:
+  const formatReviewValue = (value, cfg = {}) => {
+    if (value === null || value === undefined || value === "") {
+      return "Not provided";
+    }
+
+    // files
+    const localFile = unwrapLocalFile(value);
+    if (localFile) {
+      return `${localFile.name} (${(localFile.size / 1024).toFixed(2)} KB)`;
+    }
+
+    // arrays
+    if (Array.isArray(value)) {
+      if (value.length === 0) return "Not provided";
+      return value.join(", ");
+    }
+
+    // KYC object
+    if (cfg?.type === "kyc" && typeof value === "object") {
+      console.log("Formatting KYC value:", value);
+      const overallStatus = value?.overallStatus || "Incomplete";
+      return `Status: ${overallStatus}`;
+    }
+
+    // generic object
+    if (typeof value === "object") {
+      return "Provided";
+    }
+
+    return String(value);
+  };
+
+  //manual - missing/declined kyc check handling
+  const isKycIncomplete = (value) => {
+    if (!value || typeof value !== "object") return true;
+
+    const overall = String(value?.overallStatus || "")
+      .trim()
+      .toLowerCase();
+    const liveness = String(value?.livenessStatus || "")
+      .trim()
+      .toLowerCase();
+    const face = String(value?.faceMatchStatus || "")
+      .trim()
+      .toLowerCase();
+
+    if (!overall && !liveness && !face) return true;
+
+    if (
+      overall === "declined" ||
+      liveness === "declined" ||
+      face === "declined"
+    ) {
+      return true;
+    }
+
+    if (
+      overall === "pending" ||
+      overall === "review" ||
+      liveness === "pending" ||
+      face === "pending"
+    ) {
+      return true;
+    }
+
+    return false;
   };
 
   /* ------------------------------------------------ */
@@ -476,6 +497,8 @@ const Step4 = ({ onEdit, disabled = false, applicationId }) => {
         });
 
         if (!displayedDoc) return false;
+      } else if (cfg.type === "kyc") {
+        if (isKycIncomplete(value)) return false;
       } else {
         if (isEmptyValue(value)) return false;
       }

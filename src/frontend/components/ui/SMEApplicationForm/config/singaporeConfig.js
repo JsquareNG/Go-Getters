@@ -276,6 +276,7 @@ const SINGAPORE_CONFIG = {
                 kyc: {
                   type: "kyc",
                   label: "Liveness Detection Test",
+                  required: true,
                 },
                 role: {
                   type: "text",
@@ -339,6 +340,7 @@ const SINGAPORE_CONFIG = {
                 kyc: {
                   type: "kyc",
                   label: "Liveness Detection Test",
+                  required: true,
                 },
                 role: {
                   type: "text",
@@ -397,6 +399,7 @@ const SINGAPORE_CONFIG = {
                 kyc: {
                   type: "kyc",
                   label: "Liveness Detection Test",
+                  required: true,
                 },
                 role: {
                   type: "text",
@@ -513,6 +516,7 @@ const SINGAPORE_CONFIG = {
                 kyc: {
                   type: "kyc",
                   label: "Liveness Detection Test",
+                  required: true,
                 },
                 role: {
                   type: "text",
@@ -679,6 +683,7 @@ const SINGAPORE_CONFIG = {
                 kyc: {
                   type: "kyc",
                   label: "Liveness Detection Test",
+                  required: true,
                 },
                 role: {
                   type: "text",
@@ -821,36 +826,37 @@ const SINGAPORE_CONFIG = {
               kyc: {
                 type: "kyc",
                 label: "Liveness Detection Test",
+                required: true,
               },
-              // name: {
-              //   type: "text",
-              //   label: "Full Name",
-              //   placeholder: "Enter your full legal name",
-              //   required: true,
-              // },
-              // idDocument: {
-              //   type: "file",
-              //   label: "ID Document / Passport",
-              //   required: true,
-              // },
-              // residentialAddress: {
-              //   type: "textarea",
-              //   label: "Residential Address",
-              //   placeholder: "Enter your residential address",
-              //   required: true,
-              // },
-              // nationality: {
-              //   type: "select",
-              //   options: COUNTRIES(),
-              //   label: "Nationality",
-              //   placeholder: "Select your nationality",
-              //   required: true,
-              // },
-              // dateOfBirth: {
-              //   type: "date",
-              //   label: "Date of Birth",
-              //   required: true,
-              // },
+              name: {
+                type: "text",
+                label: "Full Name",
+                placeholder: "Enter your full legal name",
+                required: true,
+              },
+              idDocument: {
+                type: "file",
+                label: "ID Document / Passport",
+                required: true,
+              },
+              residentialAddress: {
+                type: "textarea",
+                label: "Residential Address",
+                placeholder: "Enter your residential address",
+                required: true,
+              },
+              nationality: {
+                type: "select",
+                options: COUNTRIES(),
+                label: "Nationality",
+                placeholder: "Select your nationality",
+                required: true,
+              },
+              dateOfBirth: {
+                type: "date",
+                label: "Date of Birth",
+                required: true,
+              },
               basisOfControl: {
                 type: "select",
                 label: "Basis of Control",
