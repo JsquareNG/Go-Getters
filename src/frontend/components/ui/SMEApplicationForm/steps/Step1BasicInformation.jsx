@@ -229,11 +229,19 @@ const Step1BasicInformation = ({
       return "business_profile";
     }
 
-    const key = String(fieldKey || "").toLowerCase();
+    // const key = String(fieldKey || "").toLowerCase();
+    const key =
+      String(fieldKey || "")
+        .split(".")
+        .pop()
+        ?.toLowerCase() || "";
 
     if (key.includes("businessprofile")) return "business_profile";
     if (key.includes("npwp")) return "npwp_certificate";
     if (key.includes("proofofaddress")) return "proof_of_address";
+    if (key.includes("passport")) return "passport";
+    if (key.includes("ktp")) return "ktp";
+    if (key.includes("id")) return "id_document";
 
     return key;
   };
@@ -286,18 +294,28 @@ const Step1BasicInformation = ({
       };
     }
 
-    if (existingDocumentMap[fieldPath]) {
-      return {
-        status: "verified",
-        message: "Previously uploaded document found.",
-        detectedType: normalizeDocumentType(
-          existingDocumentMap[fieldPath]?.document_type,
-        ),
-        expectedType: normalizeDocumentType(
-          existingDocumentMap[fieldPath]?.document_type,
-        ),
-      };
-    }
+    // if (existingDocumentMap[fieldPath]) {
+    //   return {
+    //     status: "verified",
+    //     message: "Previously uploaded document found.",
+    //     detectedType: normalizeDocumentType(
+    //       existingDocumentMap[fieldPath]?.document_type,
+    //     ),
+    //     expectedType: normalizeDocumentType(
+    //       existingDocumentMap[fieldPath]?.document_type,
+    //     ),
+    //   };
+    // }
+    const existingDoc = findExistingDocumentForField(fieldPath);
+
+if (existingDoc) {
+  return {
+    status: "verified",
+    message: "Previously uploaded document found.",
+    detectedType: normalizeDocumentType(existingDoc?.document_type),
+    expectedType: normalizeDocumentType(existingDoc?.document_type),
+  };
+}
 
     return {
       status: "idle",
@@ -395,11 +413,25 @@ const Step1BasicInformation = ({
 
         // FILE VALIDATION
         const validation = result?.upload_validation;
-        const isNotSupported = validation?.status === "FAIL";
-        if (isNotSupported) {
-          const errorMessage = validation?.reasons[0]
-            ? "Uploaded document does not match expected type OR its quality is too low. Please try again."
-            : "Document is not supported.";
+
+        const isUnknown =
+          detectedType === "unknown" ||
+          normalizeDocumentType(result?.document_type) === "unknown" ||
+          normalizeDocumentType(result?.classified_as) === "unknown";
+
+        const isValidationFail = validation?.status === "FAIL";
+
+        // const typeMismatch =
+        //   expectedType &&
+        //   detectedType &&
+        //   detectedType !== expectedType &&
+        //   detectedType !== "unknown";
+
+        if (isUnknown || isValidationFail) {
+          const errorMessage = isUnknown
+            ? "Document type could not be identified. Please upload a clearer supported document."
+              : validation?.reasons?.[0] ||
+                "Uploaded document does not match expected type or its quality is too low.";
 
           setFieldVerificationState(fieldPath, {
             status: "failed",
@@ -410,6 +442,22 @@ const Step1BasicInformation = ({
 
           throw new Error(errorMessage);
         }
+        // const validation = result?.upload_validation;
+        // const isNotSupported = validation?.status === "FAIL";
+        // if (isNotSupported) {
+        //   const errorMessage = validation?.reasons[0]
+        //     ? "Uploaded document does not match expected type OR its quality is too low. Please try again."
+        //     : "Document is not supported.";
+
+        //   setFieldVerificationState(fieldPath, {
+        //     status: "failed",
+        //     message: errorMessage,
+        //     expectedType,
+        //     detectedType,
+        //   });
+
+        //   throw new Error(errorMessage);
+        // }
 
         const nextValue = {
           file,
@@ -938,109 +986,39 @@ const Step1BasicInformation = ({
   }, [applicationId]);
 
   const ocrEligibleSignature = JSON.stringify(
-  Object.entries(basicFieldsConfig)
-    .filter(([, fieldConfig]) => fieldConfig?.type === "file" && fieldConfig?.ocr === true)
-    .map(([fieldKey]) => {
+    Object.entries(basicFieldsConfig)
+      .filter(
+        ([, fieldConfig]) =>
+          fieldConfig?.type === "file" && fieldConfig?.ocr === true,
+      )
+      .map(([fieldKey]) => {
+        const selectedFile = getSelectedVerifiedFileForField(fieldKey);
+        return selectedFile instanceof File
+          ? getFileSignature(selectedFile)
+          : null;
+      }),
+  );
+
+  useEffect(() => {
+    Object.entries(basicFieldsConfig).forEach(([fieldKey, fieldConfig]) => {
+      if (fieldConfig?.type !== "file" || fieldConfig?.ocr !== true) return;
+
       const selectedFile = getSelectedVerifiedFileForField(fieldKey);
-      return selectedFile instanceof File
-        ? getFileSignature(selectedFile)
-        : null;
-    }),
-);
+      if (!(selectedFile instanceof File)) return;
 
-useEffect(() => {
-  Object.entries(basicFieldsConfig).forEach(([fieldKey, fieldConfig]) => {
-    if (fieldConfig?.type !== "file" || fieldConfig?.ocr !== true) return;
+      const signature = getFileSignature(selectedFile);
+      const alreadyProcessed =
+        processedOcrFilesRef.current[fieldKey] === signature;
+      const isCurrentlyLoading = ocrState?.[fieldKey]?.loading;
 
-    const selectedFile = getSelectedVerifiedFileForField(fieldKey);
-    if (!(selectedFile instanceof File)) return;
+      if (!alreadyProcessed && !isCurrentlyLoading) {
+        processedOcrFilesRef.current[fieldKey] = signature;
+        handleOcrAutofill(fieldKey, fieldConfig);
+      }
+    });
+  }, [basicFieldsConfig, ocrEligibleSignature]);
 
-    const signature = getFileSignature(selectedFile);
-    const alreadyProcessed =
-      processedOcrFilesRef.current[fieldKey] === signature;
-    const isCurrentlyLoading = ocrState?.[fieldKey]?.loading;
-
-    if (!alreadyProcessed && !isCurrentlyLoading) {
-      processedOcrFilesRef.current[fieldKey] = signature;
-      handleOcrAutofill(fieldKey, fieldConfig);
-    }
-  });
-}, [basicFieldsConfig, ocrEligibleSignature]);
-
-  // useEffect(() => {
-  //   Object.entries(basicFieldsConfig).forEach(([fieldKey, fieldConfig]) => {
-  //     if (fieldConfig?.type !== "file" || fieldConfig?.ocr !== true) return;
-
-  //     const selectedFile = getSelectedVerifiedFileForField(fieldKey);
-  //     if (!(selectedFile instanceof File)) return;
-
-  //     const signature = getFileSignature(selectedFile);
-  //     const alreadyProcessed =
-  //       processedOcrFilesRef.current[fieldKey] === signature;
-  //     const isCurrentlyLoading = ocrState?.[fieldKey]?.loading;
-
-  //     if (!alreadyProcessed && !isCurrentlyLoading) {
-  //       processedOcrFilesRef.current[fieldKey] = signature;
-  //       handleOcrAutofill(fieldKey, fieldConfig);
-  //     }
-  //   });
-  // }, [basicFieldsConfig, data, ocrState]);
-
-  // ensure minimum rows for repeatable sections are present on initial load
-  // useEffect(() => {
-  //   const formRoot = getFormDataRoot();
-
-  //   Object.entries(repeatableSectionsConfig).forEach(
-  //     ([sectionKey, sectionConfig]) => {
-  //       const minRows = Number(sectionConfig?.min || 0);
-  //       if (minRows <= 0) return;
-
-  //       const storageKey = sectionConfig?.storage || sectionKey;
-  //       const existingRows = Array.isArray(formRoot?.[storageKey])
-  //         ? formRoot[storageKey]
-  //         : [];
-
-  //       // special handling for individuals
-  //       if (storageKey === "individuals") {
-  //         const roleField = sectionConfig?.rowTypeField;
-  //         const roleValue = sectionConfig?.rowTypeValue;
-
-  //         const matchingRows = existingRows.filter(
-  //           (row) => row?.[roleField] === roleValue
-  //         );
-
-  //         if (matchingRows.length >= minRows) return;
-
-  //         const rowsToAdd = buildMinRowsForSection(
-  //           sectionConfig,
-  //           minRows - matchingRows.length
-  //         );
-
-  //         const nextFormRoot = {
-  //           ...formRoot,
-  //           individuals: [...existingRows, ...rowsToAdd],
-  //         };
-
-  //         onFieldChange("formData", nextFormRoot);
-  //         return;
-  //       }
-
-  //       if (existingRows.length >= minRows) return;
-
-  //       const rowsToAdd = buildMinRowsForSection(
-  //         sectionConfig,
-  //         minRows - existingRows.length
-  //       );
-
-  //       const nextFormRoot = {
-  //         ...formRoot,
-  //         [storageKey]: [...existingRows, ...rowsToAdd],
-  //       };
-
-  //       onFieldChange("formData", nextFormRoot);
-  //     }
-  //   );
-  // }, [repeatableSectionsConfig, data]);
+  // ensure minimum rows for repeatable sections with minRows defined on initial load
   const initializedMinRowsRef = useRef({});
 
   useEffect(() => {
