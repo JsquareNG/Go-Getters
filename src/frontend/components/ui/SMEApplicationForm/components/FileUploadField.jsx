@@ -220,9 +220,9 @@ const FileUploadField = ({
               {actualFile?.size
                 ? formatFileSize(actualFile.size)
                 : existingUploadedFile?.mime_type || "Previously uploaded"}
-              {actualFile?.size
+              {/* {actualFile?.size
                 ? formatFileSize(actualFile.size)
-                : existingUploadedFile?.mime_type || "Previously uploaded"}
+                : existingUploadedFile?.mime_type || "Previously uploaded"} */}
             </p>
 
             {previewUrl && actualFile && (

@@ -3,6 +3,7 @@ import { ArrowRight, ShieldCheck } from "lucide-react";
 import { Button, Badge, Card, CardContent } from "@/components/ui";
 import { livenessDetectionApi } from "@/api/livenessDetectionApi";
 import { getThreshold } from "@/api/riskConfigListApi";
+import { mapIsoToNationalityOption } from "../utils/countries";
 
 const DEFAULT_KYC_DATA = {
   status: "idle",
@@ -71,6 +72,8 @@ const KycVerificationCard = ({
     kycStatus === "completed" &&
     numericFaceMatchScore !== null &&
     numericFaceMatchScore < minFaceMatchScore;
+
+  const isKycMandatoryNotMet = !isKycPassed;
 
   useEffect(() => {
     latestKycDataRef.current = kycData;
@@ -419,6 +422,7 @@ const KycVerificationCard = ({
 
         const mappedFields = mapDiditToFormFields(diditData);
 
+        console.log("[KYC CARD] onPersistKycResult exists?", !!onPersistKycResult);
         if (onPersistKycResult) {
           await onPersistKycResult({
             provider_session_id: verificationSessionId,
@@ -461,6 +465,12 @@ const KycVerificationCard = ({
               : "border-border"
       }`}
     >
+      {isKycMandatoryNotMet && (
+        <div className="mt-3 mx-7 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+          KYC verification is mandatory. This applicant must complete and pass
+          verification before the application can proceed.
+        </div>
+      )}
       <CardContent className="p-6">
         <div className="flex items-start justify-between gap-4">
           <div className="flex items-start gap-4">
@@ -492,6 +502,7 @@ const KycVerificationCard = ({
               <h3 className="font-semibold text-foreground text-sm">
                 Identity Verification (KYC)
               </h3>
+
               <p className="text-sm text-muted-foreground mt-1">
                 {isKycPassed
                   ? "Verification completed successfully. You can proceed with the application."
