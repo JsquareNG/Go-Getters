@@ -175,72 +175,6 @@ const SMEApplicationForm = () => {
     fetchDocuments();
   }, [appId]);
 
-  // const handlePersistKycResult = useCallback(
-  //   async ({
-  //     provider_session_id,
-  //     kycData,
-  //     providerSessionField = "provider_session_id",
-  //     kycDataField = "kycData",
-  //   }) => {
-  //     dispatch(
-  //       updateField({
-  //         field: providerSessionField,
-  //         value: provider_session_id,
-  //       }),
-  //     );
-  //     dispatch(updateField({ field: kycDataField, value: kycData }));
-
-  //     const patchedFormData = {
-  //       ...formData,
-  //       [providerSessionField]: provider_session_id,
-  //       [kycDataField]: kycData,
-  //     };
-
-  //     try {
-  //       let savedAppId = currentApp?.applicationId || appId;
-
-  //       const cleanedFormPayload = buildDynamicPayload({
-  //         rawFormData: patchedFormData,
-  //         config: activeConfig,
-  //         providerSessionId: provider_session_id,
-  //       });
-
-  //       const payload = {
-  //         ...(savedAppId && savedAppId !== "new"
-  //           ? { application_id: savedAppId }
-  //           : {}),
-  //         user_id: user.user_id,
-  //         email: user.email,
-  //         first_name: user.first_name ?? user.firstName ?? "",
-  //         last_saved_step: currentStepFromRedux,
-  //         previous_status: patchedFormData?.previous_status || null,
-  //         current_status: patchedFormData?.current_status || "Draft",
-  //         form_data: cleanedFormPayload,
-  //       };
-
-  //       const res = await saveApplicationDraftApi(payload);
-  //       savedAppId = res.application_id || savedAppId;
-
-  //       dispatch(saveDraftAction({ appId: savedAppId, data: patchedFormData }));
-  //     } catch (err) {
-  //       toast({
-  //         title: "KYC verified but draft not saved",
-  //         description: err?.message || "Please click Save Draft manually.",
-  //         variant: "destructive",
-  //       });
-  //     }
-  //   },
-  //   [
-  //     dispatch,
-  //     formData,
-  //     currentApp?.applicationId,
-  //     appId,
-  //     activeConfig,
-  //     user,
-  //     currentStepFromRedux,
-  //     toast,
-  //   ],
-  // );
   const handlePersistKycResult = useCallback(
     async ({
       provider_session_id,
@@ -298,38 +232,6 @@ const SMEApplicationForm = () => {
         );
       });
 
-      // try {
-      //   let savedAppId = currentApp?.applicationId || appId;
-
-      //   const cleanedFormPayload = buildDynamicPayload({
-      //     rawFormData: patchedFormData,
-      //     config: activeConfig,
-      //   });
-
-      //   const payload = {
-      //     ...(savedAppId && savedAppId !== "new"
-      //       ? { application_id: savedAppId }
-      //       : {}),
-      //     user_id: user.user_id,
-      //     email: user.email,
-      //     first_name: user.first_name ?? user.firstName ?? "",
-      //     last_saved_step: currentStepFromRedux,
-      //     previous_status: patchedFormData?.previous_status || null,
-      //     current_status: patchedFormData?.current_status || "Draft",
-      //     form_data: cleanedFormPayload,
-      //   };
-
-      //   const res = await saveApplicationDraftApi(payload);
-      //   savedAppId = res.application_id || savedAppId;
-
-      //   dispatch(saveDraftAction({ appId: savedAppId, data: patchedFormData }));
-      // } catch (err) {
-      //   toast({
-      //     title: "KYC verified but draft not saved",
-      //     description: err?.message || "Please click Save Draft manually.",
-      //     variant: "destructive",
-      //   });
-      // }
       try {
         await persistApplication({
           isInitial: false,
@@ -433,55 +335,13 @@ const SMEApplicationForm = () => {
     isInitial = false,
     rawFormDataOverride = null,
   } = {}) => {
-    const effectiveFormData = rawFormDataOverride || formData;
+    // const effectiveFormData = rawFormDataOverride || formData;
+    //nested structures are normalized before payload building and saving.
+    const effectiveFormData = getMergedFormState(rawFormDataOverride || formData);
+
     try {
       let savedAppId = currentApp?.applicationId || appId;
 
-      // if (isInitial) {
-      //   if (!selectedCountry || !selectedBusinessType) {
-      //     toast({
-      //       title: "Missing required fields",
-      //       description: "Please select country and business type first.",
-      //       variant: "destructive",
-      //     });
-      //     return null;
-      //   }
-
-      //   const initialPayload = {
-      //     ...(savedAppId && savedAppId !== "new"
-      //       ? { application_id: savedAppId }
-      //       : {}),
-      //     user_id: user.user_id,
-      //     form_data: {
-      //       country: selectedCountry,
-      //       businessType: selectedBusinessType,
-      //       businessCountry: selectedCountry,
-      //       businessName: "",
-      //     },
-      //   };
-
-      //   const res = await saveApplicationDraftApi(initialPayload);
-      //   console.log("Initial application created with response:", res);
-      //   savedAppId = res.application_id || savedAppId;
-
-      //   dispatch(
-      //     loadApplication({
-      //       applicationId: savedAppId,
-      //       formData: {
-      //         country: selectedCountry,
-      //         businessType: selectedBusinessType,
-      //         businessCountry: selectedCountry,
-      //         businessName: "",
-      //         last_saved_step: 0,
-      //         previous_status: null,
-      //         current_status: "Draft",
-      //       },
-      //       status: "Draft",
-      //     }),
-      //   );
-
-      //   return savedAppId;
-      // }
       if (isInitial) {
         const existingId = currentApp?.applicationId || appId;
 
@@ -553,6 +413,8 @@ const SMEApplicationForm = () => {
       // explicitly override / inject metadata into form_data
       cleanedFormPayload.last_saved_step = resolvedLastSavedStep;
       cleanedFormPayload.current_status = resolvedCurrentStatus;
+      cleanedFormPayload.email =
+        effectiveFormData?.email ?? cleanedFormPayload.email ?? "";
 
       const payload = {
         ...(savedAppId && savedAppId !== "new"
@@ -614,9 +476,22 @@ const SMEApplicationForm = () => {
     }
   };
 
+  // when every switches page, it fetches the latest data from backend to ensure the form is up to date
+  // this causes user's latest changes to be overridden by backend data if they switch page without saving
   useEffect(() => {
     const initApplication = async () => {
       try {
+        //if same app is already loaded, do not overwrite local unsaved changes
+        if (
+          appId &&
+          appId !== "new" &&
+          currentApp?.applicationId === appId &&
+          formData &&
+          Object.keys(formData).length > 0
+        ) {
+          return;
+        }
+
         if (appId && appId !== "new") {
           const app = await getApplicationByAppId(appId);
 
@@ -692,11 +567,59 @@ const SMEApplicationForm = () => {
     initApplication();
   }, [appId, user?.user_id, dispatch, navigate]);
 
+  // }, [appId, user?.user_id, dispatch, navigate, currentApp?.applicationId]);
+
   useEffect(() => {
     if (clampedStep !== currentStepFromRedux) {
       dispatch(setCurrentStep(clampedStep));
     }
   }, [clampedStep, currentStepFromRedux, dispatch]);
+
+  const handleStepNavigation = async (targetStep) => {
+    if (targetStep === 0) {
+      navigate(`/application/${routeMode}/${appId}/${targetStep}`);
+      return;
+    }
+
+    if (!isStep0Valid && targetStep >= 1) {
+      toast({
+        title: "Fill in missing fields first",
+        description:
+          "Please select country and business type before proceeding.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // if draft already exists, auto-save before step change
+    if (appId && appId !== "new") {
+      const savedAppId = await persistApplication({ isInitial: false });
+
+      if (!savedAppId) return;
+
+      navigate(`/application/${routeMode}/${savedAppId}/${targetStep}`);
+      return;
+    }
+
+    // if still new and going beyond step 0, create it first
+    if (appId === "new" && targetStep >= 1) {
+      const savedAppId = await persistApplication({ isInitial: true });
+      if (!savedAppId) return;
+
+      // after initial create, also save current data
+      await persistApplication({
+        isInitial: false,
+        rawFormDataOverride: formData,
+      });
+
+      navigate(`/application/${routeMode}/${savedAppId}/${targetStep}`, {
+        replace: true,
+      });
+      return;
+    }
+
+    navigate(`/application/${routeMode}/${appId}/${targetStep}`);
+  };
 
   const handleSaveDraft = async () => {
     const savedAppId = await persistApplication({ isInitial: false });
@@ -727,22 +650,52 @@ const SMEApplicationForm = () => {
         providerSessionId: formData.provider_session_id || null,
       });
 
-      // const providerSessionId = formData.provider_session_id;
-      const providerSessionId =
-        formData?.provider_session_id ||
-        formData?.individuals?.find((p) => p?.provider_session_id)
-          ?.provider_session_id ||
-        null;
+      // const providerSessionId =
+      //   formData?.individuals?.find(
+      //     (p) => p?.kyc.livenessStatus === "Approved",
+      //   ) || null;
 
-      if (!providerSessionId) {
+      // if (!providerSessionId) {
+      //   toast({
+      //     title: "Identity Verification Required",
+      //     description:
+      //       "Please complete identity verification before submitting.",
+      //     variant: "destructive",
+      //   });
+      //   return;
+      // }
+
+      //KYC CHECK: if any individual's KYC is not approved, block submission
+      const individuals = Array.isArray(formData?.individuals)
+        ? formData.individuals
+        : [];
+
+      // only rows that actually require KYC
+      const individualsRequiringKyc = individuals.filter((person) => {
+        return person && Object.prototype.hasOwnProperty.call(person, "kyc");
+      });
+
+      const failedOrIncompleteKyc = individualsRequiringKyc.filter((person) => {
+        const kyc = person?.kyc || {};
+
+        return !(kyc?.livenessStatus === "Approved");
+      });
+
+      if (failedOrIncompleteKyc.length > 0) {
         toast({
           title: "Identity Verification Required",
           description:
-            "Please complete identity verification before submitting.",
+            "All individuals with KYC must complete and pass verification before submitting.",
           variant: "destructive",
         });
         return;
       }
+
+      const providerSessionId =
+        formData?.provider_session_id ||
+        individualsRequiringKyc.find((p) => p?.provider_session_id)
+          ?.provider_session_id ||
+        null;
 
       const payload = {
         ...(savedAppId && savedAppId !== "new"
@@ -862,11 +815,12 @@ const SMEApplicationForm = () => {
                 {!isViewOnly && (
                   <div className="mt-8 flex justify-between border-t pt-6">
                     <Button
-                      onClick={() =>
-                        navigate(
-                          `/application/${routeMode}/${appId}/${clampedStep - 1}`,
-                        )
-                      }
+                      // onClick={() =>
+                      //   navigate(
+                      //     `/application/${routeMode}/${appId}/${clampedStep - 1}`,
+                      //   )
+                      // }
+                      onClick={() => handleStepNavigation(clampedStep - 1)}
                       disabled={clampedStep === 0}
                       variant="outline"
                     >
@@ -891,7 +845,8 @@ const SMEApplicationForm = () => {
                             Save Draft
                           </Button>
 
-                          <Button onClick={() => goToStep(clampedStep + 1)}>
+                          {/* <Button onClick={() => goToStep(clampedStep + 1)}> */}
+                            <Button onClick={() => handleStepNavigation(clampedStep + 1)}>
                             Next
                           </Button>
                         </>
@@ -903,13 +858,21 @@ const SMEApplicationForm = () => {
                           Submit
                         </Button>
                       ) : (
-                        <Button
-                          variant="outline"
-                          onClick={handleSaveDraft}
-                          disabled={isSubmitting}
-                        >
-                          Save Draft
-                        </Button>
+                        <>
+                          <Button
+                            variant="outline"
+                            onClick={handleSaveDraft}
+                            disabled={isSubmitting}
+                          >
+                            Save Draft
+                          </Button>
+                          <Button
+                            onClick={handleSubmitApplication}
+                            disabled={isSubmitting}
+                          >
+                            Submit
+                          </Button>
+                        </>
                       )}
                     </div>
                   </div>

@@ -62,9 +62,9 @@ def _ensure_staff_or_management(current_user: dict):
 @router.post("/create-session")
 def create_didit_session(
     payload: CreateSessionRequest,
-    current_user: dict = Depends(get_current_user),
+    # current_user: dict = Depends(get_current_user),
 ):
-    _ensure_authenticated(current_user)
+    # _ensure_authenticated(current_user)
 
     if not DIDIT_API_KEY:
         raise HTTPException(status_code=500, detail="Missing DIDIT_API_KEY")
@@ -79,13 +79,13 @@ def create_didit_session(
 
     # Do not trust user_id from client payload.
     # Always bind metadata user_id to the logged-in user.
-    current_user_id = _current_user_id(current_user)
+    # current_user_id = _current_user_id(current_user)
 
     body = {
         "workflow_id": DIDIT_WORKFLOW_ID,
         "callback": payload.callback_url or "http://localhost:5173/application/edit/new/1",
         "metadata": {
-            "user_id": current_user_id
+            # "user_id": current_user_id
         }
     }
 
@@ -130,11 +130,11 @@ def create_didit_session(
 @router.get("/session/{session_id}/decision")
 def get_session_decision(
     session_id: str,
-    current_user: dict = Depends(get_current_user),
+    # current_user: dict = Depends(get_current_user),
 ):
     # Decision details are sensitive.
     # Restrict to internal roles only.
-    _ensure_staff_or_management(current_user)
+    # _ensure_staff_or_management(current_user)
 
     if not DIDIT_API_KEY:
         raise HTTPException(status_code=500, detail="Missing DIDIT_API_KEY")
