@@ -140,7 +140,7 @@ function getCoreFinancialFields() {
       type: "text",
       label: "Account Currency",
       required: true,
-      placeholder: "Enter your account currency",
+      placeholder: "Enter the currency of the bank account, e.g., IDR, SGD",
     },
     annualRevenue: {
       type: "number",
@@ -148,16 +148,6 @@ function getCoreFinancialFields() {
       required: true,
       placeholder: "Enter your annual revenue",
     },
-    // taxResidency: {
-    //   country: {
-    //     type: "select",
-    //     label: "Country of Tax Residency",
-    //     required: true,
-
-    //     options: COUNTRIES(),
-    //   },
-    //   tin: { type: "text", label: "TIN", required: true },
-    // },
     expectedCountriesOfTransactionActivity: {
       type: "checkbox",
       label: "Expected Countries of Transaction Activity",

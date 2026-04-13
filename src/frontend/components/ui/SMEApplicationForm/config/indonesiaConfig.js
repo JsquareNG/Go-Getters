@@ -238,6 +238,7 @@ function getCoreFinancialFields() {
       type: "text",
       label: "Account Currency",
       required: true,
+      placeholder: "Enter the currency of the bank account, e.g., IDR, SGD",
     },
     annualRevenue: {
       type: "number",
@@ -670,18 +671,19 @@ const INDONESIA_CONFIG = {
                   max: 100,
                   required: true,
                 },
-                idDocument: {
-                  type: "file",
-                  label: "KTP / Passport Document",
-                  required: true,
-                },
+                // idDocument: {
+                //   type: "file",
+                //   label: "KTP / Passport Document",
+                //   required: true,
+                // },
                 ...getIndividualFields(),
                 ...getComplianceDeclarations(),
               },
             },
             ubo: {
-              label:
-                "Ultimate Beneficial Owner (Owns 25% or more of the company OR Exercises control through other means)",
+              label: "Ultimate Beneficial Owner (Of Ownership >= 25%)",
+              // helpText:
+              //   "(Owns 25% or more of the company OR Exercises control through other means)",
               storage: "individuals",
               rowTypeField: "role",
               rowTypeValue: "Ultimate Beneficial Owner",

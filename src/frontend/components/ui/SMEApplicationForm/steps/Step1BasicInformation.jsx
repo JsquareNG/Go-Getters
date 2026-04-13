@@ -968,55 +968,110 @@ const Step1BasicInformation = ({
   //     },
   //   );
   // }, [repeatableSectionsConfig]);
-  useEffect(() => {
-  const minRows = Number(sectionConfig?.min || 0);
-  if (minRows <= 0) return;
+//   useEffect(() => {
+//   const minRows = Number(sectionConfig?.min || 0);
+//   if (minRows <= 0) return;
 
-  if (sectionConfig?.storage === "individuals") {
-    const allIndividuals = Array.isArray(formData?.individuals)
-      ? formData.individuals
-      : [];
+//   if (sectionConfig?.storage === "individuals") {
+//     const allIndividuals = Array.isArray(formData?.individuals)
+//       ? formData.individuals
+//       : [];
 
-    const roleField = sectionConfig?.rowTypeField;
-    const roleValue = sectionConfig?.rowTypeValue;
+//     const roleField = sectionConfig?.rowTypeField;
+//     const roleValue = sectionConfig?.rowTypeValue;
 
-    const matchingRows = allIndividuals.filter(
-      (row) => row?.[roleField] === roleValue,
-    );
+//     const matchingRows = allIndividuals.filter(
+//       (row) => row?.[roleField] === roleValue,
+//     );
 
-    if (matchingRows.length >= minRows) return;
+//     if (matchingRows.length >= minRows) return;
 
-    const rowsToAdd = buildMinRowsForSection(
-      sectionConfig,
-      minRows - matchingRows.length,
-    );
+//     const rowsToAdd = buildMinRowsForSection(
+//       sectionConfig,
+//       minRows - matchingRows.length,
+//     );
 
-    const nextIndividuals = [...allIndividuals, ...rowsToAdd];
-    onFormDataChange({
-      ...formData,
-      individuals: nextIndividuals,
-    });
+//     const nextIndividuals = [...allIndividuals, ...rowsToAdd];
+//     onFormDataChange({
+//       ...formData,
+//       individuals: nextIndividuals,
+//     });
 
-    return;
-  }
+//     return;
+//   }
 
-  const storageKey = sectionConfig?.storage || sectionKey;
-  const existingRows = Array.isArray(formData?.[storageKey])
-    ? formData[storageKey]
-    : [];
+//   const storageKey = sectionConfig?.storage || sectionKey;
+//   const existingRows = Array.isArray(formData?.[storageKey])
+//     ? formData[storageKey]
+//     : [];
 
-  if (existingRows.length >= minRows) return;
+//   if (existingRows.length >= minRows) return;
 
-  const rowsToAdd = buildMinRowsForSection(
-    sectionConfig,
-    minRows - existingRows.length,
+//   const rowsToAdd = buildMinRowsForSection(
+//     sectionConfig,
+//     minRows - existingRows.length,
+//   );
+
+//   onFormDataChange({
+//     ...formData,
+//     [storageKey]: [...existingRows, ...rowsToAdd],
+//   });
+// }, [formData, onFormDataChange, sectionConfig, sectionKey]);
+
+useEffect(() => {
+  const formRoot = getFormDataRoot();
+
+  Object.entries(repeatableSectionsConfig).forEach(
+    ([sectionKey, sectionConfig]) => {
+      const minRows = Number(sectionConfig?.min || 0);
+      if (minRows <= 0) return;
+
+      const storageKey = sectionConfig?.storage || sectionKey;
+      const existingRows = Array.isArray(formRoot?.[storageKey])
+        ? formRoot[storageKey]
+        : [];
+
+      // special handling for individuals
+      if (storageKey === "individuals") {
+        const roleField = sectionConfig?.rowTypeField;
+        const roleValue = sectionConfig?.rowTypeValue;
+
+        const matchingRows = existingRows.filter(
+          (row) => row?.[roleField] === roleValue
+        );
+
+        if (matchingRows.length >= minRows) return;
+
+        const rowsToAdd = buildMinRowsForSection(
+          sectionConfig,
+          minRows - matchingRows.length
+        );
+
+        const nextFormRoot = {
+          ...formRoot,
+          individuals: [...existingRows, ...rowsToAdd],
+        };
+
+        onFieldChange("formData", nextFormRoot);
+        return;
+      }
+
+      if (existingRows.length >= minRows) return;
+
+      const rowsToAdd = buildMinRowsForSection(
+        sectionConfig,
+        minRows - existingRows.length
+      );
+
+      const nextFormRoot = {
+        ...formRoot,
+        [storageKey]: [...existingRows, ...rowsToAdd],
+      };
+
+      onFieldChange("formData", nextFormRoot);
+    }
   );
-
-  onFormDataChange({
-    ...formData,
-    [storageKey]: [...existingRows, ...rowsToAdd],
-  });
-}, [formData, onFormDataChange, sectionConfig, sectionKey]);
+}, [repeatableSectionsConfig, data]);
 
   return (
     <div>
