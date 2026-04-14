@@ -64,6 +64,7 @@ app.add_middleware(
         "http://localhost:5174",
         "http://localhost:5175",
         "http://localhost:5176",
+        "http://localhost:5177",
         "https://gogettersonboarding.netlify.app",
         ],
     # allow_origins=["*"],
@@ -90,3 +91,4 @@ app.include_router(live_detection_router)
 app.include_router(sim_testing_router)
 app.include_router(didit_session_router)
 app.include_router(smart_ai_router)
+
