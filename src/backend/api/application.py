@@ -305,7 +305,6 @@ def save_application(
     form_data = data.get("form_data", {})
     # provider_session_id = data.get("provider_session_id")
 
-
     new_app = ApplicationForm(
         business_country=form_data["country"],
         business_name=form_data['businessName'],
