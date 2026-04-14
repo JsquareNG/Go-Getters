@@ -84,16 +84,54 @@ const FieldRenderer = ({
     );
   }
 
+  // if (fieldConfig.type === "file") {
+  //   return (
+  //     <FileUploadField
+  //       // fieldName={fieldKey}
+  //       fieldName={fullFieldPath}
+  //       label={fieldConfig.label}
+  //       file={value}
+  //       // onChange={(file) =>
+  //       //   onChange(fieldKey, file ? { file, progress: 0 } : null)
+  //       // }
+  //       onChange={(nextValue) => handleFieldChange(fullFieldPath, nextValue)}
+  //       required={fieldConfig.required}
+  //       disabled={disabled}
+  //       placeholder={fieldConfig.placeholder}
+  //       helpText={fieldConfig.helpText || fieldConfig.helperText}
+  //       acceptTypes="application/pdf,image/jpeg,image/png"
+  //       maxSize={5242880}
+  //       //shared classify-and-extract verification
+  //       beforeAcceptFile={
+  //         context?.beforeAcceptFile
+  //           ? context.beforeAcceptFile(fullFieldPath, fieldConfig)
+  //           : undefined
+  //       }
+  //       verificationMeta={context?.verificationState?.[fullFieldPath] || null}
+  //       ocr={fieldConfig.ocr === true}
+  //       ocrLoading={context?.ocrState?.[fieldKey]?.loading || false}
+  //       ocrStatus={context?.ocrState?.[fieldKey]?.status || ""}
+  //       ocrMessage={context?.ocrState?.[fieldKey]?.message || ""}
+  //     />
+  //   );
+  // }
   if (fieldConfig.type === "file") {
+    const displayedFile = context?.getDisplayedFileValue
+      ? context.getDisplayedFileValue(fullFieldPath, fieldConfig)
+      : value;
+
+    const verificationMeta = context?.getFieldVerificationMeta
+      ? context.getFieldVerificationMeta(fullFieldPath, fieldConfig)
+      : context?.verificationState?.[fullFieldPath] || null;
+
+    const ocrMeta =
+      context?.ocrState?.[fullFieldPath] || context?.ocrState?.[fieldKey] || {};
+
     return (
       <FileUploadField
-        // fieldName={fieldKey}
         fieldName={fullFieldPath}
         label={fieldConfig.label}
-        file={value}
-        // onChange={(file) =>
-        //   onChange(fieldKey, file ? { file, progress: 0 } : null)
-        // }
+        file={displayedFile}
         onChange={(nextValue) => handleFieldChange(fullFieldPath, nextValue)}
         required={fieldConfig.required}
         disabled={disabled}
@@ -101,17 +139,16 @@ const FieldRenderer = ({
         helpText={fieldConfig.helpText || fieldConfig.helperText}
         acceptTypes="application/pdf,image/jpeg,image/png"
         maxSize={5242880}
-        //shared classify-and-extract verification
         beforeAcceptFile={
           context?.beforeAcceptFile
             ? context.beforeAcceptFile(fullFieldPath, fieldConfig)
             : undefined
         }
-        verificationMeta={context?.verificationState?.[fullFieldPath] || null}
+        verificationMeta={verificationMeta}
         ocr={fieldConfig.ocr === true}
-        ocrLoading={context?.ocrState?.[fieldKey]?.loading || false}
-        ocrStatus={context?.ocrState?.[fieldKey]?.status || ""}
-        ocrMessage={context?.ocrState?.[fieldKey]?.message || ""}
+        ocrLoading={ocrMeta.loading || false}
+        ocrStatus={ocrMeta.status || ""}
+        ocrMessage={ocrMeta.message || ""}
       />
     );
   }

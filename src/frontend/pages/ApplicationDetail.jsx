@@ -54,6 +54,10 @@ import { getAuditTrail } from "./../api/auditTrailApi";
 import { generateAlternativeDocumentOptions } from "./../api/smartAI";
 import { ResubmitDialog } from "../components/ui/features/ResubmitDialog";
 import { AuditTrail } from "../components/ui/features/AuditTrail";
+import {
+  SINGAPORE_CONFIG,
+  INDONESIA_CONFIG,
+} from "../components/ui/SMEApplicationForm/config";
 
 const normKey = (v) => {
   if (v == null) return null;
@@ -106,10 +110,12 @@ export default function ApplicationDetail() {
   const [riskError, setRiskError] = useState(null);
 
   // AI alternative-document states
-  const [alternativeDocOptionsByItemId, setAlternativeDocOptionsByItemId] = useState({});
+  const [alternativeDocOptionsByItemId, setAlternativeDocOptionsByItemId] =
+    useState({});
   const [alternativeDocsLoading, setAlternativeDocsLoading] = useState(false);
   const [alternativeDocsError, setAlternativeDocsError] = useState(null);
-  const [hasLoadedAlternativeDocs, setHasLoadedAlternativeDocs] = useState(false);
+  const [hasLoadedAlternativeDocs, setHasLoadedAlternativeDocs] =
+    useState(false);
 
   // -----------------------------
   // Fetch application
@@ -242,6 +248,120 @@ export default function ApplicationDetail() {
   }, [currentStatusKey, previousStatusKey]);
 
   // -----------------------------
+  // HELPER
+  // -----------------------------
+  const CONFIG_MAP = {
+    Singapore: SINGAPORE_CONFIG,
+    Indonesia: INDONESIA_CONFIG,
+  };
+
+  const businessType =
+    formData?.businessType || application?.business_type || "";
+
+  const country =
+    formData?.country ||
+    formData?.businessCountry ||
+    application?.business_country ||
+    "Singapore";
+
+  const activeConfig = CONFIG_MAP[country] || SINGAPORE_CONFIG;
+
+  const entityConfig = useMemo(() => {
+    return activeConfig?.entities?.[businessType] || null;
+  }, [activeConfig, businessType]);
+
+  const step2Config = useMemo(() => {
+    return entityConfig?.steps?.find((s) => s.id === "step2") || null;
+  }, [entityConfig]);
+
+  const step3Config = useMemo(() => {
+    return entityConfig?.steps?.find((s) => s.id === "step3") || null;
+  }, [entityConfig]);
+
+  const step4Config = useMemo(() => {
+    return entityConfig?.steps?.find((s) => s.id === "step4") || null;
+  }, [entityConfig]);
+
+  //read nested values
+  const getNestedValue = (obj, path) => {
+    if (!obj || !path) return undefined;
+
+    return String(path)
+      .split(".")
+      .reduce((acc, key) => {
+        if (acc == null) return undefined;
+        const isIndex = !Number.isNaN(Number(key));
+        return isIndex ? acc[Number(key)] : acc[key];
+      }, obj);
+  };
+
+  //format
+  const prettifyKey = (key) => {
+    return String(key || "")
+      .replace(/([A-Z])/g, " $1")
+      .replace(/_/g, " ")
+      .replace(/\s+/g, " ")
+      .trim()
+      .replace(/\b\w/g, (c) => c.toUpperCase());
+  };
+
+  const formatValue = (value) => {
+    if (value == null || value === "") return "-";
+
+    if (Array.isArray(value)) {
+      if (!value.length) return "-";
+      return value.join(", ");
+    }
+
+    if (typeof value === "object") return "-";
+
+    return String(value);
+  };
+
+  const repeatableSections = step2Config?.repeatableSections || {};
+
+  const businessRepeatableSections = useMemo(() => {
+    return Object.entries(repeatableSections).filter(
+      ([, sectionConfig]) => sectionConfig?.storage === "businessActivities",
+    );
+  }, [repeatableSections]);
+
+  const individualRepeatableSections = useMemo(() => {
+    return Object.entries(repeatableSections).filter(
+      ([, sectionConfig]) => sectionConfig?.storage === "individuals",
+    );
+  }, [repeatableSections]);
+
+  const getBusinessActivityRows = (sectionConfig, formData) => {
+    const storageKey = sectionConfig?.storage;
+    const rows = Array.isArray(formData?.[storageKey])
+      ? formData[storageKey]
+      : [];
+
+    const rowTypeField = sectionConfig?.rowTypeField;
+    const rowTypeValue = sectionConfig?.rowTypeValue;
+
+    if (!rowTypeField || !rowTypeValue) return rows;
+
+    return rows.filter((row) => row?.[rowTypeField] === rowTypeValue);
+  };
+
+  // group individuals by role
+  const getRepeatableSectionRows = (sectionKey, sectionConfig, formData) => {
+    const storageKey = sectionConfig?.storage;
+    const rows = Array.isArray(formData?.[storageKey])
+      ? formData[storageKey]
+      : [];
+
+    const rowTypeField = sectionConfig?.rowTypeField;
+    const rowTypeValue = sectionConfig?.rowTypeValue;
+
+    if (!rowTypeField || !rowTypeValue) return rows;
+
+    return rows.filter((row) => row?.[rowTypeField] === rowTypeValue);
+  };
+
+  // -----------------------------
   // Fetch user info
   // -----------------------------
   useEffect(() => {
@@ -292,7 +412,7 @@ export default function ApplicationDetail() {
           err?.response?.data?.detail ||
             err?.response?.data?.message ||
             err?.message ||
-            "Could not retrieve risk assessment."
+            "Could not retrieve risk assessment.",
         );
         setRules(null);
       } finally {
@@ -400,13 +520,15 @@ export default function ApplicationDetail() {
       })
     : "-";
 
-  const individualsRaw = formData?.individuals;
-  const directors = useMemo(() => {
-    if (Array.isArray(individualsRaw)) return individualsRaw;
-    if (individualsRaw && typeof individualsRaw === "object")
-      return [individualsRaw];
-    return [];
-  }, [individualsRaw]);
+  console.log("application", formData);
+
+  // const individualsRaw = formData?.individuals;
+  // const directors = useMemo(() => {
+  //   if (Array.isArray(individualsRaw)) return individualsRaw;
+  //   if (individualsRaw && typeof individualsRaw === "object")
+  //     return [individualsRaw];
+  //   return [];
+  // }, [individualsRaw]);
 
   const firstActionRequestTime = useMemo(() => {
     if (sortedActionRequestsAsc.length === 0) return null;
@@ -437,27 +559,27 @@ export default function ApplicationDetail() {
           : Infinity;
 
       const groupedDocs = documents
-      .filter((doc) => {
-        const t = new Date(doc?.created_at || 0).getTime();
-        return t && t >= currentTime && t < nextTime;
-      })
-      .map((doc) => {
-        // 🔥 find matching request document
-        const matchedRequestDoc = request.documents?.find(
-          (reqDoc) =>
-            reqDoc.submitted_document_name === doc.document_type
-        );
+        .filter((doc) => {
+          const t = new Date(doc?.created_at || 0).getTime();
+          return t && t >= currentTime && t < nextTime;
+        })
+        .map((doc) => {
+          // 🔥 find matching request document
+          const matchedRequestDoc = request.documents?.find(
+            (reqDoc) => reqDoc.submitted_document_name === doc.document_type,
+          );
 
-        return {
-          ...doc,
-          requested_document_name: matchedRequestDoc?.document_name || null,
-          requested_document_desc: matchedRequestDoc?.document_desc || null,
-          is_substitute: matchedRequestDoc?.is_substitute || false,
-          submitted_document_name: matchedRequestDoc?.submitted_document_name || null,
-          substitution_reason: matchedRequestDoc?.substitution_reason || null,
-          fulfilled_at: matchedRequestDoc?.fulfilled_at || null,
-        };
-      });
+          return {
+            ...doc,
+            requested_document_name: matchedRequestDoc?.document_name || null,
+            requested_document_desc: matchedRequestDoc?.document_desc || null,
+            is_substitute: matchedRequestDoc?.is_substitute || false,
+            submitted_document_name:
+              matchedRequestDoc?.submitted_document_name || null,
+            substitution_reason: matchedRequestDoc?.substitution_reason || null,
+            fulfilled_at: matchedRequestDoc?.fulfilled_at || null,
+          };
+        });
 
       return {
         round: index + 1,
@@ -679,7 +801,8 @@ export default function ApplicationDetail() {
       state: {
         banner: {
           type: "success",
-          message: "You have successfully uploaded the requested documents and submitted your application.",
+          message:
+            "You have successfully uploaded the requested documents and submitted your application.",
         },
       },
     });
@@ -732,7 +855,9 @@ export default function ApplicationDetail() {
               <div>
                 <div className="flex flex-wrap items-center gap-3">
                   <h1 className="text-2xl font-bold tracking-tight text-foreground">
-                    {application?.business_name || formData?.businessName || "-"}
+                    {application?.business_name ||
+                      formData?.businessName ||
+                      "-"}
                   </h1>
                   <StatusBadge status={currentStatus} />
                 </div>
@@ -821,316 +946,333 @@ export default function ApplicationDetail() {
               </CardHeader>
 
               <CardContent>
-                <TabsContent value="overview" className="mt-0 space-y-6">
-                  <div>
-                    <h4 className="mb-3 flex items-center gap-2 text-sm font-semibold text-muted-foreground">
-                      <Building2 className="h-4 w-4" />
-                      Business Details
-                    </h4>
-
-                    <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                <TabsContent value="overview" className="mt-0 space-y-8">
+                  {/* BUSINESS INFORMATION */}
+                  <section className="space-y-4">
+                    <div className="flex items-center gap-2">
+                      <Building2 className="h-5 w-5 text-muted-foreground" />
                       <div>
-                        <p className="text-xs text-muted-foreground">
-                          Registration Number / UEN
-                        </p>
-                        <p className="text-sm font-medium text-foreground">
-                          {formData?.uen || "-"}
-                        </p>
-                      </div>
-
-                      <div>
-                        <p className="text-xs text-muted-foreground">
-                          Name of Corporation
-                        </p>
-                        <p className="text-sm font-medium text-foreground">
-                          {application?.business_name ||
-                            formData?.businessName ||
-                            "-"}
-                        </p>
-                      </div>
-
-                      <div>
-                        <p className="text-xs text-muted-foreground">
-                          Incorporation Date
-                        </p>
-                        <p className="text-sm font-medium text-foreground">
-                          {formData?.registrationDate || "-"}
-                        </p>
-                      </div>
-
-                      <div>
-                        <p className="text-xs text-muted-foreground">
-                          Business Type
-                        </p>
-                        <p className="text-sm font-medium text-foreground">
-                          {formatBusinessType(
-                            application?.business_type || formData?.businessType,
-                          )}
-                        </p>
-                      </div>
-
-                      <div>
-                        <p className="text-xs text-muted-foreground">
-                          Industry
-                        </p>
-                        <p className="text-sm font-medium text-foreground">
-                          {formData?.businessIndustry || "-"}
-                        </p>
-                      </div>
-
-                      <div>
-                        <p className="text-xs text-muted-foreground">
-                          Status
-                        </p>
-                        <p className="text-sm font-medium text-foreground">
-                          {formData?.businessStatus || "-"}
-                        </p>
-                      </div>
-
-                      <div>
-                        <p className="text-xs text-muted-foreground">
-                          Employee Count
-                        </p>
-                        <p className="text-sm font-medium text-foreground">
-                          {formData?.employeeCount || "-"}
-                        </p>
-                      </div>
-
-                      <div>
-                        <p className="text-xs text-muted-foreground">
-                          Annual Revenue
-                        </p>
-                        <p className="text-sm font-medium text-foreground">
-                          ${formData?.annualRevenue || "-"}
-                        </p>
-                      </div>
-
-                      <div>
-                        <p className="text-xs text-muted-foreground">Email</p>
-                        <p className="text-sm font-medium text-foreground">
-                          {formData?.email || "-"}
-                        </p>
-                      </div>
-
-                      <div>
-                        <p className="text-xs text-muted-foreground">Phone</p>
-                        <p className="text-sm font-medium text-foreground">
-                          {formData?.phone || "-"}
-                        </p>
-                      </div>
-
-                      <div>
-                        <p className="text-xs text-muted-foreground">
-                          Account Currency
-                        </p>
-                        <p className="text-sm font-medium text-foreground">
-                          {formData?.accountCurrency || "-"}
-                        </p>
-                      </div>
-
-                      <div>
-                        <p className="text-xs text-muted-foreground">
-                          Bank Account Number
-                        </p>
-                        <p className="text-sm font-medium text-foreground">
-                          {formData?.bankAccountNumber || "-"}
-                        </p>
-                      </div>
-
-                      <div>
-                        <p className="text-xs text-muted-foreground">
-                          SWIFT / BIC
-                        </p>
-                        <p className="text-sm font-medium text-foreground">
-                          {formData?.swiftBic || "-"}
-                        </p>
-                      </div>
-
-                      <div>
-                        <p className="text-xs text-muted-foreground">
-                          Source of Funds
-                        </p>
-                        <p className="text-sm font-medium text-foreground">
-                          {formData?.sourceOfFunds || "-"}
-                        </p>
-                      </div>
-
-                      <div>
-                        <p className="text-xs text-muted-foreground">
-                          Expected Monthly Transaction Volume
-                        </p>
-                        <p className="text-sm font-medium text-foreground">
-                          {formData?.expectedMonthlyTransactionVolume || "-"}
-                        </p>
-                      </div>
-
-                      <div>
-                        <p className="text-xs text-muted-foreground">
-                          Expected Transaction Countries
-                        </p>
-                        <p className="text-sm font-medium text-foreground">
-                          {Array.isArray(
-                            formData?.expectedCountriesOfTransactionActivity,
-                          ) &&
-                          formData.expectedCountriesOfTransactionActivity.length >
-                            0
-                            ? formData.expectedCountriesOfTransactionActivity.join(
-                                ", ",
-                              )
-                            : "-"}
+                        <h3 className="text-base font-semibold text-foreground">
+                          Business Information
+                        </h3>
+                        <p className="text-sm text-muted-foreground">
+                          Core business, activity, and registered address
+                          details submitted in the application.
                         </p>
                       </div>
                     </div>
-                  </div>
 
-                  <Separator />
+                    <div className="rounded-xl border border-border bg-card p-5 space-y-6">
+                      {/* BASIC BUSINESS FIELDS */}
+                      <div>
+                        <div className="grid grid-cols-1 gap-x-8 gap-y-4 md:grid-cols-2">
+                          {Object.entries(step2Config?.fields || {})
+                            .filter(([, fieldCfg]) => fieldCfg?.type !== "file")
+                            .filter(
+                              ([fieldKey]) => fieldKey !== "registeredAddress",
+                            )
+                            .map(([fieldKey, fieldCfg]) => (
+                              <div key={fieldKey} className="space-y-1">
+                                <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground text-red-800">
+                                  {fieldCfg?.label || prettifyKey(fieldKey)}
+                                </p>
+                                <p className="text-sm font-medium text-foreground break-words">
+                                  {formatValue(
+                                    getNestedValue(formData, fieldKey),
+                                  )}
+                                </p>
+                              </div>
+                            ))}
+                        </div>
+                      </div>
 
-                  <div>
-                    <h4 className="mb-3 flex items-center gap-2 text-sm font-semibold text-muted-foreground">
-                      <MapPin className="h-4 w-4" />
-                      Registered Address
-                    </h4>
-                    <p className="text-sm font-medium text-foreground">
-                      {formData?.registeredAddress || "-"}
-                    </p>
-                    <p className="text-sm text-muted-foreground">
-                      {application?.business_country || formData?.country || "-"}
-                    </p>
-                  </div>
+                      {/* BUSINESS ACTIVITY */}
+                      {businessRepeatableSections.length > 0 && (
+                        <>
+                          <Separator />
+                          <div className="space-y-3">
+                            <div>
+                              <h4 className="text-sm font-semibold text-foreground">
+                                Business Activity
+                              </h4>
+                              <p className="text-xs text-muted-foreground">
+                                Declared business activities for this
+                                application.
+                              </p>
+                            </div>
 
-                  <Separator />
+                            {businessRepeatableSections.map(
+                              ([sectionKey, sectionConfig]) => {
+                                const rows = getBusinessActivityRows(
+                                  sectionConfig,
+                                  formData,
+                                );
 
-                  <div>
-                    <h4 className="mb-3 flex items-center gap-2 text-sm font-semibold text-muted-foreground">
-                      <User className="h-4 w-4" />
-                      Individuals ({directors.length})
-                    </h4>
+                                return (
+                                  <div
+                                    key={sectionKey}
+                                    className="rounded-lg border border-border bg-muted/20 p-4"
+                                  >
+                                    <div className="mb-3 flex items-center justify-between">
+                                      <div>
+                                        <p className="text-sm font-medium text-foreground">
+                                          {sectionConfig?.label ||
+                                            prettifyKey(sectionKey)}
+                                        </p>
+                                        <p className="text-xs text-muted-foreground">
+                                          {rows.length} record
+                                          {rows.length === 1 ? "" : "s"}
+                                        </p>
+                                      </div>
 
-                    {directors.length === 0 ? (
-                      <p className="text-sm text-muted-foreground">
-                        No individual details provided.
-                      </p>
-                    ) : (
-                      <Accordion
-                        type="single"
-                        collapsible
-                        defaultValue="director-0"
-                        className="w-full"
-                      >
-                        {directors.map((d, idx) => {
-                          const itemValue = `director-${idx}`;
-                          return (
-                            <AccordionItem
-                              key={itemValue}
-                              value={itemValue}
-                              className="border-border"
-                            >
-                              <AccordionTrigger className="py-2.5 hover:no-underline">
-                                <div className="flex items-center gap-2.5 text-left">
-                                  <div className="flex h-7 w-7 items-center justify-center rounded-full bg-muted">
-                                    <User className="h-3.5 w-3.5 text-muted-foreground" />
+                                      <Badge className="border bg-muted text-foreground">
+                                        {rows.length}
+                                      </Badge>
+                                    </div>
+
+                                    {rows.length === 0 ? (
+                                      <p className="text-sm text-muted-foreground">
+                                        No business activity details provided.
+                                      </p>
+                                    ) : (
+                                      <div className="space-y-3">
+                                        {rows.map((row, idx) => (
+                                          <div
+                                            key={`${sectionKey}-${idx}`}
+                                            className="rounded-lg bg-background p-4"
+                                          >
+                                            <div className="grid grid-cols-1 gap-x-8 gap-y-4 md:grid-cols-2">
+                                              {Object.entries(
+                                                sectionConfig?.fields || {},
+                                              )
+                                                .filter(
+                                                  ([, fieldCfg]) =>
+                                                    fieldCfg?.type !== "file",
+                                                )
+                                                .filter(
+                                                  ([fieldKey]) =>
+                                                    fieldKey !==
+                                                    "conditionalFields",
+                                                )
+                                                .map(([fieldKey, fieldCfg]) => (
+                                                  <div
+                                                    key={fieldKey}
+                                                    className="space-y-1"
+                                                  >
+                                                    <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground text-red-800">
+                                                      {fieldCfg?.label ||
+                                                        prettifyKey(fieldKey)}
+                                                    </p>
+                                                    <p className="text-sm text-foreground break-words">
+                                                      {formatValue(
+                                                        row?.[fieldKey],
+                                                      )}
+                                                    </p>
+                                                  </div>
+                                                ))}
+                                            </div>
+                                          </div>
+                                        ))}
+                                      </div>
+                                    )}
                                   </div>
-                                  <div>
-                                    <p className="text-sm font-medium text-foreground">
-                                      {d?.fullName || `Individual ${idx + 1}`}
-                                    </p>
-                                    <p className="text-xs text-muted-foreground">
-                                      {d?.idNumber || "-"} • {d?.role || "-"}
-                                    </p>
-                                  </div>
-                                </div>
-                              </AccordionTrigger>
+                                );
+                              },
+                            )}
+                          </div>
+                        </>
+                      )}
 
-                              <AccordionContent>
-                                <div className="grid grid-cols-1 gap-3 pl-10 pt-1 md:grid-cols-2">
-                                  <div>
-                                    <p className="text-xs text-muted-foreground">
-                                      Position
-                                    </p>
-                                    <p className="text-sm text-foreground">
-                                      {d?.position || "-"}
-                                    </p>
-                                  </div>
+                      {/* REGISTERED ADDRESS */}
+                      <Separator />
 
-                                  <div>
-                                    <p className="text-xs text-muted-foreground">
-                                      Ownership
-                                    </p>
-                                    <p className="text-sm text-foreground">
-                                      {d?.ownership || "-"}
-                                    </p>
-                                  </div>
+                      <div className="space-y-3">
+                        <div className="flex items-center gap-2">
+                          <MapPin className="h-4 w-4 text-muted-foreground" />
+                          <div>
+                            <h4 className="text-sm font-semibold text-foreground">
+                              Registered Address
+                            </h4>
+                            <p className="text-xs text-muted-foreground">
+                              Official registered address of the business.
+                            </p>
+                          </div>
+                        </div>
 
-                                  <div>
-                                    <p className="text-xs text-muted-foreground">
-                                      Nationality
-                                    </p>
-                                    <p className="text-sm text-foreground">
-                                      {d?.nationality || "-"}
-                                    </p>
-                                  </div>
+                        <div className="rounded-lg border border-border bg-muted/20 p-4">
+                          <p className="text-sm font-medium text-foreground">
+                            {formData?.registeredAddress || "-"}
+                          </p>
+                          <p className="mt-1 text-sm text-muted-foreground">
+                            {application?.business_country ||
+                              formData?.country ||
+                              "-"}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  </section>
 
-                                  <div>
-                                    <p className="text-xs text-muted-foreground">
-                                      Date of Birth
-                                    </p>
-                                    <p className="text-sm text-foreground">
-                                      {d?.dateOfBirth || "-"}
-                                    </p>
-                                  </div>
+                  {/* INDIVIDUALS */}
+                  <section className="space-y-5">
+                    <div className="flex items-center gap-2">
+                      <User className="h-5 w-5 text-muted-foreground" />
+                      <div>
+                        <h3 className="text-base font-semibold text-foreground">
+                          Individuals & Roles
+                        </h3>
+                        <p className="text-sm text-muted-foreground">
+                          Individuals captured in the application, grouped by
+                          role based on the selected entity type.
+                        </p>
+                      </div>
+                    </div>
 
-                                  <div>
-                                    <p className="text-xs text-muted-foreground">
-                                      Residential Address
-                                    </p>
-                                    <p className="text-sm text-foreground">
-                                      {d?.residentialAddress || "-"}
-                                    </p>
-                                  </div>
+                    {individualRepeatableSections.map(
+                      ([sectionKey, sectionConfig]) => {
+                        const rows = getRepeatableSectionRows(
+                          sectionKey,
+                          sectionConfig,
+                          formData,
+                        );
 
-                                  <div>
-                                    <p className="text-xs text-muted-foreground">
-                                      Relationship
-                                    </p>
-                                    <p className="text-sm text-foreground">
-                                      {d?.relationship || "-"}
-                                    </p>
-                                  </div>
+                        return (
+                          <div
+                            key={sectionKey}
+                            className="rounded-xl border border-border bg-card p-5"
+                          >
+                            <div className="mb-4 flex items-center justify-between">
+                              <div>
+                                <h4 className="text-sm font-semibold text-foreground">
+                                  {sectionConfig?.label ||
+                                    prettifyKey(sectionKey)}
+                                </h4>
+                                <p className="text-xs text-muted-foreground">
+                                  {rows.length} record
+                                  {rows.length === 1 ? "" : "s"}
+                                </p>
+                              </div>
 
-                                  <div>
-                                    <p className="text-xs text-muted-foreground">
-                                      PEP Declaration
-                                    </p>
-                                    <p className="text-sm text-foreground">
-                                      {d?.pepDeclaration || "-"}
-                                    </p>
-                                  </div>
+                              <Badge className="border bg-muted text-foreground">
+                                {rows.length}
+                              </Badge>
+                            </div>
 
-                                  <div>
-                                    <p className="text-xs text-muted-foreground">
-                                      FATCA Declaration
-                                    </p>
-                                    <p className="text-sm text-foreground">
-                                      {d?.fatcaDeclaration || "-"}
-                                    </p>
-                                  </div>
+                            {rows.length === 0 ? (
+                              <div className="rounded-lg border border-dashed border-border p-4">
+                                <p className="text-sm text-muted-foreground">
+                                  No details provided for this section.
+                                </p>
+                              </div>
+                            ) : (
+                              <Accordion
+                                type="single"
+                                collapsible
+                                defaultValue={`${sectionKey}-0`}
+                                className="w-full"
+                              >
+                                {rows.map((row, idx) => {
+                                  const itemValue = `${sectionKey}-${idx}`;
 
-                                  <div>
-                                    <p className="text-xs text-muted-foreground">
-                                      Sanctions Declaration
-                                    </p>
-                                    <p className="text-sm text-foreground">
-                                      {d?.sanctionsDeclaration || "-"}
-                                    </p>
-                                  </div>
-                                </div>
-                              </AccordionContent>
-                            </AccordionItem>
-                          );
-                        })}
-                      </Accordion>
+                                  return (
+                                    <AccordionItem
+                                      key={itemValue}
+                                      value={itemValue}
+                                      className="border-border"
+                                    >
+                                      <AccordionTrigger className="py-3 hover:no-underline">
+                                        <div className="flex items-center gap-3 text-left">
+                                          <div className="flex h-9 w-9 items-center justify-center rounded-full bg-muted">
+                                            <User className="h-4 w-4 text-muted-foreground" />
+                                          </div>
+
+                                          <div>
+                                            <p className="text-sm font-semibold text-foreground">
+                                              {row?.fullName ||
+                                                row?.name ||
+                                                `${sectionConfig?.label || "Individual"} ${idx + 1}`}
+                                            </p>
+                                            <p className="text-xs text-muted-foreground">
+                                              {/* {row?.idNumber || "-"} •{" "} */}
+                                              • {row?.role || "-"}
+                                            </p>
+                                          </div>
+                                        </div>
+                                      </AccordionTrigger>
+
+                                      <AccordionContent>
+                                        <div className="rounded-lg bg-muted/30 p-4">
+                                          <div className="grid grid-cols-1 gap-x-8 gap-y-4 md:grid-cols-2">
+                                            {Object.entries(
+                                              sectionConfig?.fields || {},
+                                            )
+                                              .filter(
+                                                ([, fieldCfg]) =>
+                                                  fieldCfg?.type !== "file",
+                                              )
+                                              .filter(
+                                                ([fieldKey]) =>
+                                                  fieldKey !== "kyc",
+                                              )
+                                              // .filter(
+                                              //   ([fieldKey]) =>
+                                              //     fieldKey !==
+                                              //     "conditionalFields",
+                                              // )
+                                              .map(([fieldKey, fieldCfg]) => (
+                                                <div
+                                                  key={fieldKey}
+                                                  className="space-y-1"
+                                                >
+                                                  <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground text-red-800">
+                                                    {fieldCfg?.label ||
+                                                      prettifyKey(fieldKey)}
+                                                  </p>
+                                                  <p className="text-sm text-foreground break-words">
+                                                    {formatValue(
+                                                      row?.[fieldKey],
+                                                    )}
+                                                  </p>
+                                                </div>
+                                              ))}
+
+                                            {/* {row?.kyc && (
+                                              <>
+                                                <div className="space-y-1">
+                                                  <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                                                    KYC Status
+                                                  </p>
+                                                  <p className="text-sm text-foreground">
+                                                    {row?.kyc?.overallStatus ||
+                                                      row?.kyc?.status ||
+                                                      "-"}
+                                                  </p>
+                                                </div>
+
+                                                <div className="space-y-1">
+                                                  <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                                                    Face Match Score
+                                                  </p>
+                                                  <p className="text-sm text-foreground">
+                                                    {row?.kyc?.faceMatchScore ??
+                                                      "-"}
+                                                  </p>
+                                                </div>
+                                              </>
+                                            )} */}
+                                          </div>
+                                        </div>
+                                      </AccordionContent>
+                                    </AccordionItem>
+                                  );
+                                })}
+                              </Accordion>
+                            )}
+                          </div>
+                        );
+                      },
                     )}
-                  </div>
+                  </section>
                 </TabsContent>
 
                 <TabsContent value="documents" className="mt-0">
@@ -1314,13 +1456,15 @@ export default function ApplicationDetail() {
 
                                               {doc.requested_document_name && (
                                                 <p className="mt-1 text-xs text-foreground">
-                                                  Original Requested Document: {doc.requested_document_name}
+                                                  Original Requested Document:{" "}
+                                                  {doc.requested_document_name}
                                                 </p>
                                               )}
 
                                               {doc.substitution_reason && (
                                                 <p className="text-xs text-foreground">
-                                                  Reason of Substitution: {doc.substitution_reason}
+                                                  Reason of Substitution:{" "}
+                                                  {doc.substitution_reason}
                                                 </p>
                                               )}
                                             </div>
@@ -1503,14 +1647,16 @@ export default function ApplicationDetail() {
                       <div className="flex items-center gap-2 text-sm text-muted-foreground">
                         <Loader2 className="h-4 w-4 animate-spin" />
                         <span>
-                          Please wait while we prepare alternative document suggestions to help you complete your submission...
+                          Please wait while we prepare alternative document
+                          suggestions to help you complete your submission...
                         </span>
                       </div>
                     )}
 
                     {alternativeDocsError && (
                       <p className="text-sm text-amber-600">
-                        Could not load suggested alternative documents. You can still continue with the original upload flow.
+                        Could not load suggested alternative documents. You can
+                        still continue with the original upload flow.
                       </p>
                     )}
                   </TabsContent>
