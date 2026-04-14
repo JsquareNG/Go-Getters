@@ -95,7 +95,8 @@ function getBasicBusinessFields() {
       type: "text",
       label: "NPWP (Tax ID)",
       required: true,
-      placeholder: "NPWP/TIN may appear in 15-digit or 16-digit format",
+      placeholder:
+        "NPWP/TIN may appear in 15-digit or 16-digit format. Enter digits only.",
       validate: {
         pattern: /^[0-9]{15,16}$/,
         message: "NPWP must be 15 or 16 digits.",
@@ -238,6 +239,7 @@ function getCoreFinancialFields() {
       type: "text",
       label: "Account Currency",
       required: true,
+      placeholder: "Enter the currency of the bank account, e.g., IDR, SGD",
     },
     annualRevenue: {
       type: "number",
@@ -392,6 +394,7 @@ const INDONESIA_CONFIG = {
                 kyc: {
                   type: "kyc",
                   label: "Liveness Detection Test",
+                  required: true,
                 },
                 role: {
                   type: "text",
@@ -488,6 +491,7 @@ const INDONESIA_CONFIG = {
                 kyc: {
                   type: "kyc",
                   label: "Liveness Detection Test",
+                  required: true,
                 },
                 role: {
                   type: "text",
@@ -501,6 +505,7 @@ const INDONESIA_CONFIG = {
                   min: 0,
                   max: 100,
                   required: true,
+                  placeholder: "Enter the percentage of shares owned",
                 },
                 ...getIndividualFields(),
                 ...getComplianceDeclarations(),
@@ -516,6 +521,7 @@ const INDONESIA_CONFIG = {
                 kyc: {
                   type: "kyc",
                   label: "Liveness Detection Test",
+                  required: true,
                 },
                 role: {
                   type: "text",
@@ -529,6 +535,7 @@ const INDONESIA_CONFIG = {
                   min: 0,
                   max: 100,
                   required: true,
+                  placeholder: "Enter the percentage of shares owned",
                 },
                 ...getIndividualFields(),
                 ...getComplianceDeclarations(),
@@ -613,6 +620,7 @@ const INDONESIA_CONFIG = {
                 kyc: {
                   type: "kyc",
                   label: "Liveness Detection Test",
+                  required: true,
                 },
                 role: {
                   type: "text",
@@ -626,10 +634,12 @@ const INDONESIA_CONFIG = {
                   min: 0,
                   max: 100,
                   required: true,
+                  placeholder:
+                    "Enter the percentage of shares owned, if applicable",
                 },
                 ...getIndividualFields(),
                 ...getComplianceDeclarations(),
-                position: { type: "text", label: "Position", required: true },
+                // position: { type: "text", label: "Position", required: true },
                 authorizedSignatory: {
                   type: "select",
                   label: "Authorized Signatory",
@@ -646,8 +656,14 @@ const INDONESIA_CONFIG = {
               min: 2,
               fields: {
                 role: {
-                  type: "select",
+                  type: "text",
                   label: "Role",
+                  value: "Shareholder",
+                  readonly: true,
+                },
+                shareholderType: {
+                  type: "select",
+                  label: "Shareholder Type",
                   // value: "Shareholder",
                   options: [
                     {
@@ -659,7 +675,7 @@ const INDONESIA_CONFIG = {
                       value: "Corporate Shareholder",
                     },
                   ],
-                  placeholder: "Select your role",
+                  placeholder: "Select your shareholder type",
                   required: true,
                   // readonly: true,
                 },
@@ -669,6 +685,7 @@ const INDONESIA_CONFIG = {
                   min: 0,
                   max: 100,
                   required: true,
+                  placeholder: "Enter the percentage of shares owned",
                 },
                 idDocument: {
                   type: "file",
@@ -680,8 +697,9 @@ const INDONESIA_CONFIG = {
               },
             },
             ubo: {
-              label:
-                "Ultimate Beneficial Owner (Owns 25% or more of the company OR Exercises control through other means)",
+              label: "Ultimate Beneficial Owner (Of Ownership >= 25%)",
+              // helpText:
+              //   "(Owns 25% or more of the company OR Exercises control through other means)",
               storage: "individuals",
               rowTypeField: "role",
               rowTypeValue: "Ultimate Beneficial Owner",
@@ -690,6 +708,7 @@ const INDONESIA_CONFIG = {
                 kyc: {
                   type: "kyc",
                   label: "Liveness Detection Test",
+                  required: true,
                 },
                 role: {
                   type: "text",
@@ -703,6 +722,7 @@ const INDONESIA_CONFIG = {
                   min: 0,
                   max: 100,
                   required: true,
+                  placeholder: "Enter the percentage of shares owned",
                 },
                 basisOfControl: {
                   type: "select",

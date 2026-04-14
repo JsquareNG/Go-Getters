@@ -229,11 +229,19 @@ const Step1BasicInformation = ({
       return "business_profile";
     }
 
-    const key = String(fieldKey || "").toLowerCase();
+    // const key = String(fieldKey || "").toLowerCase();
+    const key =
+      String(fieldKey || "")
+        .split(".")
+        .pop()
+        ?.toLowerCase() || "";
 
     if (key.includes("businessprofile")) return "business_profile";
     if (key.includes("npwp")) return "npwp_certificate";
     if (key.includes("proofofaddress")) return "proof_of_address";
+    if (key.includes("passport")) return "passport";
+    if (key.includes("ktp")) return "ktp";
+    if (key.includes("id")) return "id_document";
 
     return key;
   };
@@ -286,18 +294,28 @@ const Step1BasicInformation = ({
       };
     }
 
-    if (existingDocumentMap[fieldPath]) {
-      return {
-        status: "verified",
-        message: "Previously uploaded document found.",
-        detectedType: normalizeDocumentType(
-          existingDocumentMap[fieldPath]?.document_type,
-        ),
-        expectedType: normalizeDocumentType(
-          existingDocumentMap[fieldPath]?.document_type,
-        ),
-      };
-    }
+    // if (existingDocumentMap[fieldPath]) {
+    //   return {
+    //     status: "verified",
+    //     message: "Previously uploaded document found.",
+    //     detectedType: normalizeDocumentType(
+    //       existingDocumentMap[fieldPath]?.document_type,
+    //     ),
+    //     expectedType: normalizeDocumentType(
+    //       existingDocumentMap[fieldPath]?.document_type,
+    //     ),
+    //   };
+    // }
+    const existingDoc = findExistingDocumentForField(fieldPath);
+
+if (existingDoc) {
+  return {
+    status: "verified",
+    message: "Previously uploaded document found.",
+    detectedType: normalizeDocumentType(existingDoc?.document_type),
+    expectedType: normalizeDocumentType(existingDoc?.document_type),
+  };
+}
 
     return {
       status: "idle",
@@ -360,16 +378,16 @@ const Step1BasicInformation = ({
 
   // create required number of rows for repeatable sections with minRows defined
   const buildMinRowsForSection = (sectionConfig, count) => {
-  return Array.from({ length: count }, () => {
-    const baseRow = buildDefaultRowFromFields(sectionConfig?.fields || {});
+    return Array.from({ length: count }, () => {
+      const baseRow = buildDefaultRowFromFields(sectionConfig?.fields || {});
 
-    if (sectionConfig?.rowTypeField && sectionConfig?.rowTypeValue) {
-      baseRow[sectionConfig.rowTypeField] = sectionConfig.rowTypeValue;
-    }
+      if (sectionConfig?.rowTypeField && sectionConfig?.rowTypeValue) {
+        baseRow[sectionConfig.rowTypeField] = sectionConfig.rowTypeValue;
+      }
 
-    return baseRow;
-  });
-};
+      return baseRow;
+    });
+  };
 
   const buildFileValidator = useCallback(
     (fieldPath, fieldConfig) => async (file) => {
@@ -394,6 +412,7 @@ const Step1BasicInformation = ({
         );
 
         // FILE VALIDATION
+        
         const validation = result?.upload_validation;
         const isNotSupported = validation?.status === "FAIL";
         if (isNotSupported) {
@@ -711,6 +730,31 @@ const Step1BasicInformation = ({
     }
   };
 
+  //helper to determine if KYC result is successful
+  const isSuccessfulKycResult = (kyc) => {
+    if (!kyc || typeof kyc !== "object") return false;
+
+    const overall = String(kyc?.overallStatus || "")
+      .trim()
+      .toLowerCase();
+    const idv = String(kyc?.idVerificationStatus || "")
+      .trim()
+      .toLowerCase();
+    const liveness = String(kyc?.livenessStatus || "")
+      .trim()
+      .toLowerCase();
+    const face = String(kyc?.faceMatchStatus || "")
+      .trim()
+      .toLowerCase();
+
+    return (
+      overall === "approved" &&
+      idv === "approved" &&
+      liveness === "approved" &&
+      face === "approved"
+    );
+  };
+
   const mapDetectionToKyc = (detection) => ({
     status:
       detection?.overall_status || detection?.id_verification_status
@@ -748,6 +792,8 @@ const Step1BasicInformation = ({
       ? formRoot.individuals
       : [];
 
+    const shouldMapIdentityFields = isSuccessfulKycResult(kycData);
+
     const nextIndividuals = individuals.map((person) => {
       const matchesSession =
         person?.provider_session_id === provider_session_id ||
@@ -763,12 +809,29 @@ const Step1BasicInformation = ({
           ...(person?.kyc || {}),
           ...(kycData || {}),
         },
-        fullName: mappedFields?.fullName || person?.fullName || "",
-        idNumber: mappedFields?.idNumber || person?.idNumber || "",
-        dateOfBirth: mappedFields?.dateOfBirth || person?.dateOfBirth || "",
-        nationality: mappedFields?.nationality || person?.nationality || "",
-        residentialAddress:
-          mappedFields?.residentialAddress || person?.residentialAddress || "",
+
+        // only map identity fields if KYC fully passed
+        fullName: shouldMapIdentityFields
+          ? mappedFields?.fullName || person?.fullName || ""
+          : person?.fullName || "",
+        idNumber: shouldMapIdentityFields
+          ? mappedFields?.idNumber || person?.idNumber || ""
+          : person?.idNumber || "",
+        dateOfBirth: shouldMapIdentityFields
+          ? mappedFields?.dateOfBirth || person?.dateOfBirth || ""
+          : person?.dateOfBirth || "",
+        nationality: shouldMapIdentityFields
+          ? mappedFields?.nationality || person?.nationality || ""
+          : person?.nationality || "",
+        residentialAddress: shouldMapIdentityFields
+          ? mappedFields?.residentialAddress || person?.residentialAddress || ""
+          : person?.residentialAddress || "",
+        // fullName: mappedFields?.fullName || person?.fullName || "",
+        // idNumber: mappedFields?.idNumber || person?.idNumber || "",
+        // dateOfBirth: mappedFields?.dateOfBirth || person?.dateOfBirth || "",
+        // nationality: mappedFields?.nationality || person?.nationality || "",
+        // residentialAddress:
+        //   mappedFields?.residentialAddress || person?.residentialAddress || "",
       };
     });
 
@@ -893,6 +956,20 @@ const Step1BasicInformation = ({
     hydratedSessionsRef.current = {};
   }, [applicationId]);
 
+  const ocrEligibleSignature = JSON.stringify(
+    Object.entries(basicFieldsConfig)
+      .filter(
+        ([, fieldConfig]) =>
+          fieldConfig?.type === "file" && fieldConfig?.ocr === true,
+      )
+      .map(([fieldKey]) => {
+        const selectedFile = getSelectedVerifiedFileForField(fieldKey);
+        return selectedFile instanceof File
+          ? getFileSignature(selectedFile)
+          : null;
+      }),
+  );
+
   useEffect(() => {
     Object.entries(basicFieldsConfig).forEach(([fieldKey, fieldConfig]) => {
       if (fieldConfig?.type !== "file" || fieldConfig?.ocr !== true) return;
@@ -910,113 +987,79 @@ const Step1BasicInformation = ({
         handleOcrAutofill(fieldKey, fieldConfig);
       }
     });
-  }, [basicFieldsConfig, data, ocrState]);
+  }, [basicFieldsConfig, ocrEligibleSignature]);
 
-  // ensure minimum rows for repeatable sections are present on initial load
-  // useEffect(() => {
-  //   const formRoot = getFormDataRoot();
+  // ensure minimum rows for repeatable sections with minRows defined on initial load
+  const initializedMinRowsRef = useRef({});
 
-  //   Object.entries(repeatableSectionsConfig).forEach(
-  //     ([sectionKey, sectionConfig]) => {
-  //       const storageKey = sectionConfig?.storage;
-  //       const minRows = sectionConfig?.min || 0;
-  //       const rowTypeField = sectionConfig?.rowTypeField;
-  //       const rowTypeValue = sectionConfig?.rowTypeValue;
-  //       const fields = sectionConfig?.fields || {};
-
-  //       if (!storageKey || minRows < 1) return;
-
-  //       const existingRows = Array.isArray(formRoot?.[storageKey])
-  //         ? formRoot[storageKey]
-  //         : [];
-
-  //       const matchingRows =
-  //         rowTypeField && rowTypeValue
-  //           ? existingRows.filter((row) => row?.[rowTypeField] === rowTypeValue)
-  //           : existingRows;
-
-  //       if (matchingRows.length >= minRows) return;
-
-  //       const rowsToAdd = Array.from(
-  //         { length: minRows - matchingRows.length },
-  //         () => {
-  //           const newRow = {};
-
-  //           Object.entries(fields).forEach(([fieldKey, fieldConfig]) => {
-  //             if (fieldConfig?.value !== undefined) {
-  //               newRow[fieldKey] = fieldConfig.value;
-  //             } else {
-  //               newRow[fieldKey] = "";
-  //             }
-  //           });
-
-  //           if (rowTypeField && rowTypeValue && newRow[rowTypeField] == null) {
-  //             newRow[rowTypeField] = rowTypeValue;
-  //           }
-
-  //           return newRow;
-  //         },
-  //       );
-
-  //       const nextFormRoot = {
-  //         ...formRoot,
-  //         [storageKey]: [...existingRows, ...rowsToAdd],
-  //       };
-
-  //       onFieldChange("formData", nextFormRoot);
-  //       // handleFieldChange(storageKey, [...existingRows, ...rowsToAdd]);
-  //     },
-  //   );
-  // }, [repeatableSectionsConfig]);
   useEffect(() => {
-  const minRows = Number(sectionConfig?.min || 0);
-  if (minRows <= 0) return;
+    const formRoot = getFormDataRoot();
+    const initKey = `${applicationId || "new"}::${data?.country || ""}::${data?.businessType || ""}`;
 
-  if (sectionConfig?.storage === "individuals") {
-    const allIndividuals = Array.isArray(formData?.individuals)
-      ? formData.individuals
-      : [];
+    if (initializedMinRowsRef.current[initKey]) return;
 
-    const roleField = sectionConfig?.rowTypeField;
-    const roleValue = sectionConfig?.rowTypeValue;
+    let nextFormRoot = formRoot;
+    let hasChanges = false;
 
-    const matchingRows = allIndividuals.filter(
-      (row) => row?.[roleField] === roleValue,
+    Object.entries(repeatableSectionsConfig).forEach(
+      ([sectionKey, sectionConfig]) => {
+        const minRows = Number(sectionConfig?.min || 0);
+        if (minRows <= 0) return;
+
+        const storageKey = sectionConfig?.storage || sectionKey;
+        const existingRows = Array.isArray(nextFormRoot?.[storageKey])
+          ? nextFormRoot[storageKey]
+          : [];
+
+        if (storageKey === "individuals") {
+          const roleField = sectionConfig?.rowTypeField;
+          const roleValue = sectionConfig?.rowTypeValue;
+
+          const matchingRows = existingRows.filter(
+            (row) => row?.[roleField] === roleValue,
+          );
+
+          if (matchingRows.length >= minRows) return;
+
+          const rowsToAdd = buildMinRowsForSection(
+            sectionConfig,
+            minRows - matchingRows.length,
+          );
+
+          nextFormRoot = {
+            ...nextFormRoot,
+            individuals: [...existingRows, ...rowsToAdd],
+          };
+          hasChanges = true;
+          return;
+        }
+
+        if (existingRows.length >= minRows) return;
+
+        const rowsToAdd = buildMinRowsForSection(
+          sectionConfig,
+          minRows - existingRows.length,
+        );
+
+        nextFormRoot = {
+          ...nextFormRoot,
+          [storageKey]: [...existingRows, ...rowsToAdd],
+        };
+        hasChanges = true;
+      },
     );
 
-    if (matchingRows.length >= minRows) return;
+    initializedMinRowsRef.current[initKey] = true;
 
-    const rowsToAdd = buildMinRowsForSection(
-      sectionConfig,
-      minRows - matchingRows.length,
-    );
-
-    const nextIndividuals = [...allIndividuals, ...rowsToAdd];
-    onFormDataChange({
-      ...formData,
-      individuals: nextIndividuals,
-    });
-
-    return;
-  }
-
-  const storageKey = sectionConfig?.storage || sectionKey;
-  const existingRows = Array.isArray(formData?.[storageKey])
-    ? formData[storageKey]
-    : [];
-
-  if (existingRows.length >= minRows) return;
-
-  const rowsToAdd = buildMinRowsForSection(
-    sectionConfig,
-    minRows - existingRows.length,
-  );
-
-  onFormDataChange({
-    ...formData,
-    [storageKey]: [...existingRows, ...rowsToAdd],
-  });
-}, [formData, onFormDataChange, sectionConfig, sectionKey]);
+    if (hasChanges) {
+      onFieldChange("formData", nextFormRoot);
+    }
+  }, [
+    applicationId,
+    data?.country,
+    data?.businessType,
+    repeatableSectionsConfig,
+  ]);
 
   return (
     <div>
