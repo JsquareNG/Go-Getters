@@ -89,6 +89,8 @@ const FieldRenderer = ({
       ? context.getDisplayedFileValue(fullFieldPath, fieldConfig)
       : value;
 
+        console.log("file in value", context)
+
     const verificationMeta = context?.getFieldVerificationMeta
       ? context.getFieldVerificationMeta(fullFieldPath, fieldConfig)
       : context?.verificationState?.[fullFieldPath] || null;

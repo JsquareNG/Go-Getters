@@ -35,7 +35,7 @@ const Step3ComplianceDocumentation = ({
 
   // FETCH EXISTING DOCUMENTS FOR THIS APPLICATION
   useEffect(() => {
-if (!applicationId || applicationId === "new") return;
+    if (!applicationId || applicationId === "new") return;
 
     const fetchDocuments = async () => {
       try {
@@ -107,20 +107,20 @@ if (!applicationId || applicationId === "new") return;
   const inferExpectedDocumentType = (fieldPath) => {
     const key = String(fieldPath || "").toLowerCase();
 
-    if (key.includes("businessprofile")) return "business_profile";
+    if (key.includes("businessprofile")) return "businessProfile";
     if (key.includes("businessregistrationupload"))
-      return "business_registration";
+      return "businessRegistration";
     if (key.includes("incorporationupload"))
-      return "certificate_of_incorporation";
-    if (key.includes("boardresolution")) return "board_resolution";
-    if (key.includes("partnershipagreement")) return "partnership_agreement";
-    if (key.includes("lpagreement")) return "lp_agreement";
-    if (key.includes("llpresolution")) return "llp_resolution";
-    if (key.includes("npwp")) return "npwp_certificate";
-    if (key.includes("deedofestablishment")) return "deed_of_establishment";
-    if (key.includes("articlesofassociation")) return "articles_of_association";
-    if (key.includes("bankstatement")) return "bank_statement";
-    if (key.includes("proofofaddress")) return "proof_of_address";
+      return "certificateOfIncorporation";
+    if (key.includes("boardresolution")) return "boardResolution";
+    if (key.includes("partnershipagreement")) return "partnershipAgreement";
+    if (key.includes("lpagreement")) return "lpAgreement";
+    if (key.includes("llpresolution")) return "llpResolution";
+    if (key.includes("npwp")) return "npwpCertificate";
+    if (key.includes("deedofestablishment")) return "deedOfEstablishment";
+    if (key.includes("articlesofassociation")) return "articlesOfAssociation";
+    if (key.includes("bankstatement")) return "bankStatement";
+    if (key.includes("proofofaddress")) return "proofOfAddress";
 
     return key;
   };
@@ -211,13 +211,13 @@ if (!applicationId || applicationId === "new") return;
       setFieldVerificationState(fieldPath, {
         status: "verifying",
         message: "Verifying document...",
-        expectedType,
+        expectedType: null,
         detectedType: null,
       });
 
       try {
         const result = await classifyAndExtractApi(file);
-        console.log("classify results:",result)
+        console.log("classify results:", result);
 
         const detectedType = normalizeDocumentType(
           result?.document_type ||
@@ -226,14 +226,18 @@ if (!applicationId || applicationId === "new") return;
             result?.label,
         );
 
+        // ---------------------
         // FILE VALIDATION
+        // ---------------------
         const validation = result?.upload_validation;
         const isNotSupported = validation?.status === "FAIL";
-        if (isNotSupported) {
+        const isWrongType = expectedType && detectedType !== expectedType;
+
+        if (isNotSupported && isWrongType) {
           const errorMessage = validation?.reasons[0]
             ? "Uploaded document does not match expected type OR its quality is too low. Please try again."
             : "Document is not supported.";
-            
+
           setFieldVerificationState(fieldPath, {
             status: "failed",
             message: errorMessage,
@@ -323,45 +327,6 @@ if (!applicationId || applicationId === "new") return;
         />
       );
     }
-
-    // if (fieldCfg.type === "select") {
-    //   return (
-    //     <div key={fullPath} className="mb-6">
-    //       <FormFieldGroup
-    //         fieldName={fullPath}
-    //         label={fieldCfg.label}
-    //         placeholder={fieldCfg.placeholder || ""}
-    //         value={value ?? ""}
-    //         onChange={onFieldChange}
-    //         type="select"
-    //         options={fieldCfg.options || []}
-    //         required={fieldCfg.required || false}
-    //         disabled={disabled}
-    //       />
-
-    //       {fieldCfg.conditionalFields &&
-    //         value &&
-    //         Object.entries(fieldCfg.conditionalFields[value] || {}).map(
-    //           ([condKey, condCfg]) => renderField(condKey, condCfg, parentPath),
-    //         )}
-    //     </div>
-    //   );
-    // }
-
-    // return (
-    //   <FormFieldGroup
-    //     key={fullPath}
-    //     fieldName={fullPath}
-    //     label={fieldCfg.label}
-    //     placeholder={fieldCfg.placeholder || ""}
-    //     value={value ?? ""}
-    //     onChange={onFieldChange}
-    //     required={fieldCfg.required || false}
-    //     type={fieldCfg.type || "text"}
-    //     options={fieldCfg.options || []}
-    //     disabled={disabled}
-    //   />
-    // );
   };
 
   return (
