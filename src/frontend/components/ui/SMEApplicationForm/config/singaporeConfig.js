@@ -140,7 +140,7 @@ function getCoreFinancialFields() {
       type: "text",
       label: "Account Currency",
       required: true,
-      placeholder: "Enter your account currency",
+      placeholder: "Enter the currency of the bank account, e.g., IDR, SGD",
     },
     annualRevenue: {
       type: "number",
@@ -148,16 +148,6 @@ function getCoreFinancialFields() {
       required: true,
       placeholder: "Enter your annual revenue",
     },
-    // taxResidency: {
-    //   country: {
-    //     type: "select",
-    //     label: "Country of Tax Residency",
-    //     required: true,
-
-    //     options: COUNTRIES(),
-    //   },
-    //   tin: { type: "text", label: "TIN", required: true },
-    // },
     expectedCountriesOfTransactionActivity: {
       type: "checkbox",
       label: "Expected Countries of Transaction Activity",
@@ -286,6 +276,7 @@ const SINGAPORE_CONFIG = {
                 kyc: {
                   type: "kyc",
                   label: "Liveness Detection Test",
+                  required: true,
                 },
                 role: {
                   type: "text",
@@ -349,6 +340,7 @@ const SINGAPORE_CONFIG = {
                 kyc: {
                   type: "kyc",
                   label: "Liveness Detection Test",
+                  required: true,
                 },
                 role: {
                   type: "text",
@@ -386,6 +378,7 @@ const SINGAPORE_CONFIG = {
                   min: 0,
                   max: 24,
                   required: true,
+                  placeholder: "Enter your share percentage",
                 },
                 idDocument: {
                   type: "file",
@@ -406,6 +399,7 @@ const SINGAPORE_CONFIG = {
                 kyc: {
                   type: "kyc",
                   label: "Liveness Detection Test",
+                  required: true,
                 },
                 role: {
                   type: "text",
@@ -419,6 +413,7 @@ const SINGAPORE_CONFIG = {
                   min: 25,
                   max: 100,
                   required: true,
+                  placeholder: "Enter your share percentage",
                 },
                 ...getIndividualFields(),
                 ...getComplianceDeclarations(),
@@ -521,6 +516,7 @@ const SINGAPORE_CONFIG = {
                 kyc: {
                   type: "kyc",
                   label: "Liveness Detection Test",
+                  required: true,
                 },
                 role: {
                   type: "text",
@@ -558,6 +554,7 @@ const SINGAPORE_CONFIG = {
                   min: 0,
                   max: 100,
                   required: true,
+                  placeholder: "Enter your share percentage",
                 },
                 idDocument: {
                   type: "file",
@@ -686,6 +683,7 @@ const SINGAPORE_CONFIG = {
                 kyc: {
                   type: "kyc",
                   label: "Liveness Detection Test",
+                  required: true,
                 },
                 role: {
                   type: "text",
@@ -711,6 +709,12 @@ const SINGAPORE_CONFIG = {
               rowTypeValue: "Shareholder",
               min: 1,
               fields: {
+                role: {
+                  type: "text",
+                  label: "Role",
+                  value: "Shareholder",
+                  readonly: true,
+                },
                 shareholderType: {
                   type: "select",
                   label: "Shareholder Type",
@@ -723,6 +727,14 @@ const SINGAPORE_CONFIG = {
                 },
                 conditionalFields: {
                   Individual: {
+                    sharePercentage: {
+                      type: "number",
+                      label: "Share Percentage (%)",
+                      min: 0,
+                      max: 100,
+                      required: true,
+                      placeholder: "Enter your share percentage",
+                    },
                     name: {
                       type: "text",
                       label: "Name",
@@ -754,6 +766,8 @@ const SINGAPORE_CONFIG = {
                       required: true,
                       placeholder: "Enter your residential address",
                     },
+                  },
+                  Corporate: {
                     sharePercentage: {
                       type: "number",
                       label: "Share Percentage (%)",
@@ -762,8 +776,6 @@ const SINGAPORE_CONFIG = {
                       required: true,
                       placeholder: "Enter your share percentage",
                     },
-                  },
-                  Corporate: {
                     name: {
                       type: "text",
                       label: "Name",
@@ -794,13 +806,6 @@ const SINGAPORE_CONFIG = {
                       required: true,
                       placeholder: "Enter your registered address",
                     },
-                    sharePercentage: {
-                      type: "number",
-                      label: "Share Percentage (%)",
-                      min: 0,
-                      max: 100,
-                      required: true,
-                    },
                   },
                 },
               },
@@ -821,36 +826,37 @@ const SINGAPORE_CONFIG = {
               kyc: {
                 type: "kyc",
                 label: "Liveness Detection Test",
+                required: true,
               },
-              // name: {
-              //   type: "text",
-              //   label: "Full Name",
-              //   placeholder: "Enter your full legal name",
-              //   required: true,
-              // },
-              // idDocument: {
-              //   type: "file",
-              //   label: "ID Document / Passport",
-              //   required: true,
-              // },
-              // residentialAddress: {
-              //   type: "textarea",
-              //   label: "Residential Address",
-              //   placeholder: "Enter your residential address",
-              //   required: true,
-              // },
-              // nationality: {
-              //   type: "select",
-              //   options: COUNTRIES(),
-              //   label: "Nationality",
-              //   placeholder: "Select your nationality",
-              //   required: true,
-              // },
-              // dateOfBirth: {
-              //   type: "date",
-              //   label: "Date of Birth",
-              //   required: true,
-              // },
+              name: {
+                type: "text",
+                label: "Full Name",
+                placeholder: "Enter your full legal name",
+                required: true,
+              },
+              idDocument: {
+                type: "file",
+                label: "ID Document / Passport",
+                required: true,
+              },
+              residentialAddress: {
+                type: "textarea",
+                label: "Residential Address",
+                placeholder: "Enter your residential address",
+                required: true,
+              },
+              nationality: {
+                type: "select",
+                options: COUNTRIES(),
+                label: "Nationality",
+                placeholder: "Select your nationality",
+                required: true,
+              },
+              dateOfBirth: {
+                type: "date",
+                label: "Date of Birth",
+                required: true,
+              },
               basisOfControl: {
                 type: "select",
                 label: "Basis of Control",
