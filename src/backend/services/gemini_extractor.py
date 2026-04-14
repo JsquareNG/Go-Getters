@@ -128,7 +128,6 @@ def parse_universal_document(raw_text: str, doc_type: str) -> dict:
     - Prefer exact values from the OCR text
     - Preserve names and addresses as completely as possible
     - Remove obvious OCR spacing artifacts only when it improves fidelity
-    - Put long narrative clauses, legal boilerplate, and less critical provisions into additional_data
     - For lists of people, return only names where possible
     - For numeric identifiers, preserve the exact number as shown, but remove obvious OCR spacing artifacts when needed
     - If the source document is not in English, translate descriptive field values into natural English.
@@ -179,7 +178,7 @@ def parse_universal_document(raw_text: str, doc_type: str) -> dict:
       - Extract share_count if shown
       - Extract nominal_value_idr if shown
       - Extract ownership_percentage only if explicitly stated or safely derivable from the deed
-    - If the document contains a lot of constitutional boilerplate, do not overpopulate top-level fields with generic governance clauses; keep that in additional_data
+
 
     UBO_DECLARATION extraction guidance:
 

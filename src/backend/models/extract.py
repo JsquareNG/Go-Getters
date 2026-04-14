@@ -53,15 +53,6 @@ class ACRAExtractionData(BaseModel):
             raise ValueError(f"Invalid UEN format from OCR: {cleaned}")
         return cleaned
 
-    additional_data: Dict[str, Any] = Field(
-        default_factory=dict,
-        description="""
-        Extract ALL other information, fields, and tables from the document that are not
-        explicitly requested above. Group them logically (e.g., 'officers', 'activities',
-        'financials'). Use clear, snake_case keys.
-        """,
-    )
-
 
 # 2. Indonesian NIB Schema
 class KBLIDetail(BaseModel):
@@ -122,15 +113,6 @@ class NIBExtractionData(BaseModel):
             cleaned_codes.append(digits)
         return cleaned_codes
 
-    additional_data: Dict[str, Any] = Field(
-        default_factory=dict,
-        description="""
-        Extract ALL other information, fields, and tables from the document that are not
-        explicitly requested above. Group them logically using clear snake_case keys.
-        Only put truly non-essential extra fields here.
-        """,
-    )
-
 
 class BankStatementData(BaseModel):
     bank_name: str = Field(default="", description="Name of the bank")
@@ -160,19 +142,9 @@ class BankStatementData(BaseModel):
 
     unique_counterparties: Optional[int] = Field(default=None, description="Number of unique transaction counterparties")
 
-    additional_data: Dict[str, Any] = Field(
-        default_factory=dict,
-        description="Any other useful extracted data not covered by the main schema",
-    )
-
 
 class ProofOfAddressBase(BaseModel):
     document_date: str = Field(default="", description="Date of document creation shown on the document")
-    additional_data: Dict[str, Any] = Field(
-        default_factory=dict,
-        description="Any other useful extracted data not covered by the main schema"
-    )
-
 
 class UtilityBillData(ProofOfAddressBase):
     account_holder_name: str = Field(default="", description="Name of person or business billed")
@@ -214,8 +186,6 @@ class LPAgreementData(BaseModel):
     capital_contributions: List[Dict[str, Any]] = Field(default_factory=list, description="Partner contributions")
     duration_or_term: str = Field(default="", description="Term/duration if specified")
     signing_parties: List[str] = Field(default_factory=list, description="Agreement signatories")
-    additional_data: Dict[str, Any] = Field(default_factory=dict)
-
 
 class LLPResolutionData(BaseModel):
     llp_name: str = Field(default="", description="Name of the LLP")
@@ -226,7 +196,6 @@ class LLPResolutionData(BaseModel):
     designated_partners: List[str] = Field(default_factory=list, description="Names of designated partners")
     authorised_signatories: List[str] = Field(default_factory=list, description="Names of authorised signatories")
     effective_date: str = Field(default="", description="Effective date if specified")
-    additional_data: Dict[str, Any] = Field(default_factory=dict)
 
 
 class BoardResolutionData(BaseModel):
@@ -238,7 +207,6 @@ class BoardResolutionData(BaseModel):
     authorised_signatories: List[str] = Field(default_factory=list, description="Names of authorised signatories")
     effective_date: str = Field(default="", description="Effective date if specified")
     reference_number: str = Field(default="", description="Board resolution number/reference if present")
-    additional_data: Dict[str, Any] = Field(default_factory=dict)
 
 
 class NPWPCertificateData(BaseModel):
@@ -248,7 +216,6 @@ class NPWPCertificateData(BaseModel):
     taxpayer_status: str = Field(default="", description="Taxpayer status/category if shown")
     issue_date: str = Field(default="", description="Issue or registration date")
     tax_office_name: str = Field(default="", description="Issuing tax office / KPP")
-    additional_data: Dict[str, Any] = Field(default_factory=dict)
 
     @field_validator("npwp_number")
     @classmethod
@@ -318,7 +285,6 @@ class AktaPendirianData(BaseModel):
         default_factory=list,
         description="AHU / ministerial reference numbers mentioned",
     )
-    additional_data: Dict[str, Any] = Field(default_factory=dict)
 
     @field_validator("kbli_codes")
     @classmethod
@@ -404,11 +370,6 @@ class GenericAdditionalDocumentData(BaseModel):
     extracted_mapped_fields: Dict[str, Any] = Field(
         default_factory=dict,
         description="Optional normalized fields mapped into common business/KYC names when clearly inferable"
-    )
-
-    additional_relevant_info: Dict[str, Any] = Field(
-        default_factory=dict,
-        description="Anything else useful"
     )
 
     missing_or_unclear_items: List[str] = Field(
