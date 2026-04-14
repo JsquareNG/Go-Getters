@@ -8,6 +8,8 @@ import {
   User,
   MapPin,
   Download,
+  ShieldAlert,
+  AlertOctagon,
 } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -303,6 +305,48 @@ export default function ManagementApplicationDetail() {
     });
   }, [actionRequests]);
 
+  const riskRules = Array.isArray(rules?.rules_triggered)
+    ? rules.rules_triggered
+    : [];
+
+  const riskGrade = rules?.risk_grade || "";
+
+  const riskTone = useMemo(() => {
+    switch (riskGrade) {
+      case "Enhanced Due Diligence (EDD)":
+        return {
+          badge: "bg-red-500 text-white border-red-500",
+          soft: "border-red-500/20 bg-red-500/5",
+          text: "text-red-500",
+          icon: "text-red-500",
+        };
+      case "Standard Due Diligence (CDD)":
+        return {
+          badge: "bg-orange-400 text-white border-orange-400",
+          soft: "border-orange-400/20 bg-orange-400/5",
+          text: "text-orange-500",
+          icon: "text-orange-500",
+        };
+      case "Simplified CDD":
+        return {
+          badge: "bg-emerald-600 text-white border-emerald-600",
+          soft: "border-emerald-600/20 bg-emerald-600/5",
+          text: "text-emerald-600",
+          icon: "text-emerald-600",
+        };
+      default:
+        return {
+          badge: "bg-muted text-foreground border-border",
+          soft: "border-border bg-muted/30",
+          text: "text-foreground",
+          icon: "text-muted-foreground",
+        };
+    }
+  }, [riskGrade]);
+
+  const latestActionRequest = sortedActionRequests[0] || null;
+  const latestHasOcrWarnings = latestActionRequest?.ocr_warnings === true;
+
   const latestRelevantRequest = useMemo(() => {
     const open = sortedActionRequests.find((r) => r?.status === "OPEN");
     return open || sortedActionRequests[0] || null;
@@ -383,6 +427,44 @@ export default function ManagementApplicationDetail() {
     });
   }, [documents, firstActionRequestTime]);
 
+  const parseExtractedData = (value) => {
+    if (!value) return null;
+
+    if (typeof value === "object") return value;
+
+    if (typeof value === "string") {
+      try {
+        return JSON.parse(value);
+      } catch (err) {
+        console.warn("Failed to parse extracted_data:", err, value);
+        return null;
+      }
+    }
+
+    return null;
+  };
+
+  const getDocumentOcrWarning = (doc) => {
+    const extracted = parseExtractedData(doc?.extracted_data);
+    const uploadValidation = extracted?.upload_validation || {};
+
+    if (uploadValidation?.status !== "WARNING") {
+      return null;
+    }
+
+    const reasons = Array.isArray(uploadValidation?.reasons)
+      ? uploadValidation.reasons
+      : [];
+
+    return {
+      message:
+        reasons[0] ||
+        "Document quality is flagged as moderate. Please review and verify the document's information carefully.",
+      qualityBand: uploadValidation?.ocr_quality?.quality_band || null,
+      qualityScore: uploadValidation?.ocr_quality?.quality_score ?? null,
+    };
+  };
+
   const resubmissionGroups = useMemo(() => {
     if (!Array.isArray(documents) || sortedActionRequestsAsc.length === 0)
       return [];
@@ -406,6 +488,8 @@ export default function ManagementApplicationDetail() {
             (reqDoc) => reqDoc.submitted_document_name === doc.document_type
           );
 
+          const ocrWarning = getDocumentOcrWarning(doc);
+
           return {
             ...doc,
             requested_document_name: matchedRequestDoc?.document_name || null,
@@ -416,6 +500,7 @@ export default function ManagementApplicationDetail() {
             substitution_reason:
               matchedRequestDoc?.substitution_reason || null,
             fulfilled_at: matchedRequestDoc?.fulfilled_at || null,
+            ocr_warning: ocrWarning,
           };
         });
 
@@ -541,6 +626,23 @@ export default function ManagementApplicationDetail() {
         </div>
 
         <div className="space-y-6 pb-20">
+          {latestHasOcrWarnings && (
+            <Card className="border-amber-500 bg-amber-50">
+              <CardContent className="py-4">
+                <div className="flex items-start gap-3">
+                  <AlertCircle className="mt-0.5 h-5 w-5 text-amber-600" />
+                  <div>
+                    <p className="text-sm font-semibold text-amber-700">
+                      Document OCR Warning
+                    </p>
+                    <p className="mt-1 text-sm text-foreground">
+                      Document quality is flagged as moderate. Please review and verify the document's information in the Documents tab.
+                    </p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          )}
           {kycLoading ? (
             <Card>
               <CardContent className="py-4">
@@ -913,25 +1015,44 @@ export default function ManagementApplicationDetail() {
                     <p className="text-sm text-muted-foreground">No risk assessment available.</p>
                   ) : (
                     <>
+                      <div className="flex items-start justify-between gap-3">
+                        <div>
+                          <h4 className="flex items-center gap-2 text-sm font-semibold text-muted-foreground">
+                            <ShieldAlert className={`h-4 w-4 ${riskTone.icon}`} />
+                            Risk Assessment Summary
+                          </h4>
+                        </div>
+                      </div>
+
                       <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                         <div>
                           <p className="text-xs text-muted-foreground">Risk Grade</p>
-                          <p className="text-sm font-semibold">{rules.risk_grade || "-"}</p>
+                          <p className={`text-sm font-semibold ${riskTone.text}`}>
+                            {rules.risk_grade || "-"}
+                          </p>
                         </div>
 
                         <div>
                           <p className="text-xs text-muted-foreground">Risk Score</p>
-                          <p className="text-sm font-medium">{rules.risk_score ?? "-"}</p>
+                          <div className="flex items-center gap-3">
+                            {rules?.risk_score != null && (
+                              <Badge className={`text-xs ${riskTone.badge}`}>
+                                Score: {rules.risk_score}
+                              </Badge>
+                            )}
+                          </div>
                         </div>
 
                         <div>
                           <p className="text-xs text-muted-foreground">Assessment ID</p>
-                          <p className="text-xs font-mono">{rules.job_id || "-"}</p>
+                          <p className="break-all font-mono text-xs text-foreground">
+                            {rules.job_id || "-"}
+                          </p>
                         </div>
 
                         <div>
                           <p className="text-xs text-muted-foreground">Completed At</p>
-                          <p className="text-xs">
+                          <p className="text-xs font-medium text-foreground">
                             {rules.completed_at
                               ? new Date(rules.completed_at).toLocaleString()
                               : "-"}
@@ -943,20 +1064,27 @@ export default function ManagementApplicationDetail() {
 
                       <div>
                         <p className="mb-2 text-xs font-medium text-muted-foreground">
-                          Rules Triggered ({rules?.rules_triggered?.length || 0})
+                          Rules Triggered ({riskRules.length})
                         </p>
 
-                        {rules?.rules_triggered?.length > 0 ? (
+                        {riskRules.length > 0 ? (
                           <div className="space-y-2">
-                            {rules.rules_triggered.map((rule, index) => (
+                            {riskRules.map((rule, index) => (
                               <div
-                                key={index}
-                                className="rounded-lg border p-2.5"
+                                key={`${rule.code || "rule"}-${index}`}
+                                className={`flex items-start gap-2.5 rounded-lg border p-2.5 ${riskTone.soft}`}
                               >
-                                <p className="text-[10px] font-mono text-muted-foreground">
-                                  {rule.code || "-"}
-                                </p>
-                                <p className="text-sm">{rule.description || "-"}</p>
+                                <AlertOctagon
+                                  className={`mt-0.5 h-3.5 w-3.5 shrink-0 ${riskTone.icon}`}
+                                />
+                                <div className="min-w-0">
+                                  <p className="text-[10px] font-mono text-muted-foreground">
+                                    {rule.code || "-"}
+                                  </p>
+                                  <p className="text-sm text-foreground">
+                                    {rule.description || "-"}
+                                  </p>
+                                </div>
                               </div>
                             ))}
                           </div>
@@ -1140,6 +1268,24 @@ export default function ManagementApplicationDetail() {
                                               ? `Uploaded: ${new Date(doc.created_at).toLocaleString()}`
                                               : ""}
                                           </p>
+
+                                          {doc.ocr_warning && (
+                                            <div className="mt-2 rounded-md border border-orange-300 bg-orange-50 p-2">
+                                              <div className="flex items-start gap-2">
+                                                <AlertCircle className="mt-0.5 h-4 w-4 text-orange-600" />
+
+                                                <div>
+                                                  <p className="text-xs font-medium text-orange-700">
+                                                    OCR Warning
+                                                  </p>
+
+                                                  <p className="mt-1 text-xs text-foreground">
+                                                    Document quality is moderate. Extracted data may be inaccurate — please verify against the original document. If already reviewed, you may ignore this warning.
+                                                  </p>
+                                                </div>
+                                              </div>
+                                            </div>
+                                          )}
 
                                           {doc.is_substitute && (
                                             <div className="mt-2 rounded-md border border-amber-200 bg-amber-50 p-2">

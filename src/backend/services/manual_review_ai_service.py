@@ -7,12 +7,6 @@ from pydantic import BaseModel
 
 load_dotenv()
 
-# GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
-# if not GEMINI_API_KEY:
-#     raise ValueError("GEMINI_API_KEY is missing")
-
-# client = genai.Client(api_key=GEMINI_API_KEY)
-
 def get_gemini_client():
     gemini_api_key = os.getenv("GEMINI_API_KEY")
     if not gemini_api_key:
@@ -152,6 +146,21 @@ IMPORTANT GUIDELINES
 - Interpret dates strictly using this format
 - If dates appear unusual or inconsistent (e.g. unrealistic age, future registration date), treat them as potential data inconsistencies requiring clarification
 
+15. Jurisdiction awareness (CRITICAL)
+- Always consider the business_country and regulatory context when making recommendations
+- Tailor suggested documents, questions, and reasoning to the correct jurisdiction
+
+For example:
+• Singapore entities:
+  - Common documents include ACRA Business Profile, UEN-related records
+  - Regulatory expectations follow Singapore compliance standards
+
+• Indonesia entities:
+  - Common documents include NIB (Business Identification Number), NPWP (Tax ID)
+  - Regulatory expectations follow Indonesian compliance requirements
+
+- Do NOT suggest documents or regulatory checks that are not applicable to the business country
+- If the country is unclear or inconsistent, highlight it as a point requiring clarification
 -----------------------------------
 OUTPUT REQUIREMENTS
 -----------------------------------
@@ -248,6 +257,8 @@ Instructions:
 - Use the submitted documents list to determine what documents are already available
 - Consider whether the submitted documents and past answers sufficiently resolve earlier concerns
 - Based on the full current state, recommend the most appropriate next step: approve, reject, or escalate again
+- Pay special attention to the business_country in the application data
+- Ensure all suggested documents and questions are appropriate for that country
 - Escalate again only if additional information is genuinely still needed
 - If approving or rejecting, usually return empty arrays for suggested_documents and suggested_questions unless there is a strong reason otherwise
 """
