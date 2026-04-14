@@ -288,9 +288,10 @@ const Step4 = ({ onEdit, disabled = false, applicationId }) => {
           });
 
           const subFields = cfg.conditionalFields[value];
+          console.log("subfields", subFields)
           Object.entries(subFields).forEach(([subKey, subCfg]) => {
-            // const subValue = data?.[subKey];
-            const subValue = item?.[subKey];
+            const subValue = data?.[subKey];
+            // const subValue = item?.[subKey];
 
             let formattedSubValue;
             if (subCfg.type === "file") {
@@ -379,17 +380,9 @@ const Step4 = ({ onEdit, disabled = false, applicationId }) => {
                     value === "Not provided"),
               });
 
-              // const subFields = cfg.conditionalFields[value];
-              // Object.entries(subFields).forEach(([subKey, subCfg]) => {
-              //   fields.push({
-              //     label: `${sectionCfg.label} ${idx + 1} - ${subCfg.label}`,
-              //     value: item?.[subKey] || "Not provided",
-              //     missing: subCfg.required && !item?.[subKey],
-              //   });
-              // });
               const subFields = cfg.conditionalFields[value];
               Object.entries(subFields).forEach(([subKey, subCfg]) => {
-                const subValue = data?.[subKey];
+                const subValue = item?.[subKey]
 
                 let formattedSubValue;
                 if (subCfg.type === "file") {
