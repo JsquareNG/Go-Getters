@@ -341,66 +341,21 @@ class AktaPendirianData(BaseModel):
         return normalized
 
 class UBODeclarationOwner(BaseModel):
-    full_name: str = Field(default="", description="Full legal name of the beneficial owner / controlling person")
+    full_name: str = Field(default="", description="Full legal name of the person")
     nationality: str = Field(default="", description="Nationality or citizenship if shown")
-    date_of_birth: str = Field(default="", description="Date of birth if shown")
-    id_type: str = Field(default="", description="Type of identification document, e.g. NRIC, Passport")
-    id_number: str = Field(default="", description="Identification number if shown")
-    residential_address: str = Field(default="", description="Residential address if shown")
-    country_of_residence: str = Field(default="", description="Country of residence if shown")
-    ownership_percentage: Optional[float] = Field(
-        default=None,
-        description="Direct or indirect ownership percentage if explicitly stated"
-    )
-    ownership_type: Optional[str] = Field(
-        default="",
-        description="DIRECT, INDIRECT, CONTROL, or OTHER if stated or clearly inferable from the declaration"
-    )
-    control_description: Optional[str] = Field(
-        default="",
-        description="Short description of control basis, e.g. shares, voting rights, other means"
-    )
-    politically_exposed_person: Optional[bool] = Field(
-        default=None,
-        description="Whether the person is declared as a PEP, if explicitly stated"
-    )
-    pep_details: Optional[str] = Field(default="", description="PEP details if stated")
-    sanctions_declared: Optional[bool] = Field(
-        default=None,
-        description="Whether sanctions/adverse declaration is indicated, if explicitly stated"
-    )
-    tax_residency: str = Field(default="", description="Tax residency if shown")
-    source_of_wealth: str = Field(default="", description="Source of wealth if shown")
-    source_of_funds: str = Field(default="", description="Source of funds if shown")
+    ownership_percentage: Optional[float] = Field(default=None, description="Ownership percentage if shown")
 
 
 class UBODeclarationData(BaseModel):
-    company_name: str = Field(default="", description="Company/entity name the declaration relates to")
-    registration_number: str = Field(default="", description="UEN, business registration number, or equivalent if shown")
-    declaration_date: str = Field(default="", description="Date of declaration or form completion")
-    form_title: str = Field(default="", description="Title of the document/form")
-    jurisdiction: str = Field(default="", description="Jurisdiction/country if shown")
-    declares_no_ubo: Optional[bool] = Field(
-        default=None,
-        description="True if the form explicitly states there is no UBO meeting the threshold"
-    )
-    ubo_threshold_percentage: Optional[float] = Field(
-        default=None,
-        description="Threshold used in the declaration, e.g. 25"
-    )
+    company_name: str = Field(default="", description="Company/entity name")
+    registration_number: str = Field(default="", description="Business registration number / UEN if shown")
+    date: str = Field(default="", description="Declaration date or signature date if shown")
+    country_of_incorporation: str = Field(default="", description="Place/country of incorporation or registration")
+    layers_of_ownership: Optional[int] = Field(default=None, description="Maximum number of ownership layers")
     beneficial_owners: List[UBODeclarationOwner] = Field(
         default_factory=list,
-        description="List of declared ultimate beneficial owners / controlling persons"
+        description="List of relevant natural persons/beneficial owners shown in the declaration"
     )
-    declarant_name: str = Field(default="", description="Name of the person signing/completing the declaration")
-    declarant_role: str = Field(default="", description="Role/capacity of the declarant, e.g. Director, Authorised Signatory")
-    signature_date: str = Field(default="", description="Date of signature if shown")
-    contact_details: str = Field(default="", description="Email / phone / contact details if shown")
-    additional_data: Dict[str, Any] = Field(
-        default_factory=dict,
-        description="Any other relevant declarations, checkboxes, certifications, or notes"
-    )
-    
 
 class GenericAdditionalDocumentData(BaseModel):
     requested_document_name: str = Field(default="")

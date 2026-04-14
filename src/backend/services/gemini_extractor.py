@@ -181,41 +181,47 @@ def parse_universal_document(raw_text: str, doc_type: str) -> dict:
       - Extract ownership_percentage only if explicitly stated or safely derivable from the deed
     - If the document contains a lot of constitutional boilerplate, do not overpopulate top-level fields with generic governance clauses; keep that in additional_data
 
-    If doc_type is UBO_DECLARATION, prioritize:
-    1. company_name
-    2. registration_number
-    3. declaration_date / signature_date
-    4. declarant_name and declarant_role
-    5. beneficial_owners
-    6. declares_no_ubo
-    7. ubo_threshold_percentage
-    8. ownership / control basis
-    9. PEP / sanctions / source of wealth / source of funds declarations
-    10. other certifications in additional_data
-
     UBO_DECLARATION extraction guidance:
-    - A beneficial owner / ultimate beneficial owner is usually a natural person who ultimately owns or controls the entity
-    - Extract one object per declared UBO / controlling person
-    - If the form explicitly states no natural person meets the threshold, set declares_no_ubo = true
-    - If the form states a threshold such as 25%, extract it into ubo_threshold_percentage
-    - ownership_type should preferably be:
-      - DIRECT -> direct ownership stated
-      - INDIRECT -> indirect ownership through another entity stated
-      - CONTROL -> control through voting rights / other means stated
-      - OTHER -> another basis is stated but not clearly one of the above
-    - control_description should summarize the declared basis of ownership/control
-    - politically_exposed_person should only be true/false if explicitly shown from checkbox/tick/statement; otherwise null
-    - sanctions_declared should only be true/false if explicitly shown from checkbox/tick/statement; otherwise null
-    - source_of_wealth and source_of_funds should only be extracted if stated in the form
-    - If there are multiple UBOs, return all of them in beneficial_owners
-    - If share percentages are shown, extract numeric percentages without the percent sign
-    - If the document includes ownership chain notes, keep extra details in additional_data
-    - If the form includes checkbox declarations, preserve the meaning accurately in top-level fields or additional_data
-    - Do not invent a UBO where the form does not explicitly identify one
 
-    If doc_type is UNKNOWN, prioritize:
-    1. best_guess_document_type
-    2. display_label
+      CRITICAL: Ownership structure extraction (VERY IMPORTANT)
+      - The document may contain an ownership chart / diagram / appendix (often on later pages).
+      - You MUST analyze ALL pages, including diagrams and appendices, not just tables.
+      - Do NOT rely only on the "Beneficial Owner Details" table.
+
+      Step-by-step reasoning REQUIRED (do NOT skip):
+      1. Identify the declared company (root entity).
+      2. Identify all intermediate corporate shareholders (if any).
+      3. Identify ultimate natural persons at the top.
+      4. Trace the LONGEST ownership path from company → ... → natural person.
+
+      Definition:
+      - layers_of_ownership = MAX number of vertical levels from the company to ultimate natural person.
+
+      Counting rules:
+      - Company → Natural Person = 1 layer
+      - Company → Corporate → Natural Person = 2 layers
+      - Company → Corporate → Corporate → Natural Person = 3 layers
+
+      IMPORTANT:
+      - If an ownership chart exists, ALWAYS use it as the primary source.
+      - If the ownership chart contradicts the table, TRUST the chart.
+      - If multiple paths exist, return the MAXIMUM depth.
+
+      Anti-shortcut rule:
+      - If only beneficial owners are listed (no intermediates), you may return 1.
+      - HOWEVER, if any corporate shareholder appears ANYWHERE, you MUST increase layers.
+
+      Output rule:
+      - If ownership chart is present → layers_of_ownership MUST NOT be null.
+      - If unclear → return null (do NOT guess).
+
+      Sanity check before output:
+      - Ask yourself: "Did I check for corporate layers in diagrams?"
+      - If NO → re-evaluate.
+
+      If doc_type is UNKNOWN, prioritize:
+      1. best_guess_document_type
+      2. display_label
 
     UNKNOWN extraction guidance:
     - This document is not one of the supported onboarding document types
