@@ -226,22 +226,21 @@ const Step1BasicInformation = ({
   // helper file function
   const inferExpectedDocumentType = (fieldKey, fieldConfig) => {
     if (fieldConfig?.ocrTarget === "business_profile") {
-      return "business_profile";
+      return "businessProfile";
     }
 
-    // const key = String(fieldKey || "").toLowerCase();
     const key =
       String(fieldKey || "")
         .split(".")
         .pop()
         ?.toLowerCase() || "";
 
-    if (key.includes("businessprofile")) return "business_profile";
-    if (key.includes("npwp")) return "npwp_certificate";
-    if (key.includes("proofofaddress")) return "proof_of_address";
+    if (key.includes("businessprofile")) return "businessProfile";
+    if (key.includes("npwp")) return "npwpCertificate";
+    if (key.includes("proofofaddress")) return "proofOfAddress";
     if (key.includes("passport")) return "passport";
     if (key.includes("ktp")) return "ktp";
-    if (key.includes("id")) return "id_document";
+    if (key.includes("id")) return "idDocument";
 
     return key;
   };
@@ -257,7 +256,6 @@ const Step1BasicInformation = ({
 
     const existingDoc = findExistingDocumentForField(fieldPath, fieldConfig);
 
-    // const existingDoc = existingDocumentMap[fieldPath];
     if (!existingDoc) return null;
 
     return {
@@ -289,33 +287,18 @@ const Step1BasicInformation = ({
         message: localValue.verificationMessage || "",
         detectedType: localValue.detectedType || null,
         expectedType: localValue.expectedType || null,
-        // rawResult: localValue.classificationResult || null,
-        // isSupported: localValue.isSupported ?? null,
       };
     }
-
-    // if (existingDocumentMap[fieldPath]) {
-    //   return {
-    //     status: "verified",
-    //     message: "Previously uploaded document found.",
-    //     detectedType: normalizeDocumentType(
-    //       existingDocumentMap[fieldPath]?.document_type,
-    //     ),
-    //     expectedType: normalizeDocumentType(
-    //       existingDocumentMap[fieldPath]?.document_type,
-    //     ),
-    //   };
-    // }
     const existingDoc = findExistingDocumentForField(fieldPath);
 
-if (existingDoc) {
-  return {
-    status: "verified",
-    message: "Previously uploaded document found.",
-    detectedType: normalizeDocumentType(existingDoc?.document_type),
-    expectedType: normalizeDocumentType(existingDoc?.document_type),
-  };
-}
+    if (existingDoc) {
+      return {
+        status: "verified",
+        message: "Previously uploaded document found.",
+        detectedType: normalizeDocumentType(existingDoc?.document_type),
+        expectedType: normalizeDocumentType(existingDoc?.document_type),
+      };
+    }
 
     return {
       status: "idle",
@@ -411,11 +394,13 @@ if (existingDoc) {
             result?.label,
         );
 
+        // ----------------------
         // FILE VALIDATION
-        
+        // ----------------------
         const validation = result?.upload_validation;
         const isNotSupported = validation?.status === "FAIL";
-        if (isNotSupported) {
+        const isWrongType = expectedType && detectedType !== expectedType;
+        if (isNotSupported && isWrongType) {
           const errorMessage = validation?.reasons[0]
             ? "Uploaded document does not match expected type OR its quality is too low. Please try again."
             : "Document is not supported.";
@@ -858,6 +843,8 @@ if (existingDoc) {
     }
   };
 
+  // creates a compact signature of all individual session IDs
+  // hydration effect depends on it - when the set of provider_session_id values changes, hydration runs again
   const sessionSignature = JSON.stringify(
     (getFormDataRoot()?.individuals || []).map(
       (person) => person?.provider_session_id || null,
@@ -894,22 +881,58 @@ if (existingDoc) {
           const mappedFields = mapDetectionToIndividualFields(detection);
           console.log("[MAP fields]", mappedFields);
 
+          // const currentPerson = nextFormRoot.individuals[index];
+
+          // const nextPerson = {
+          //   ...currentPerson,
+          //   provider_session_id:
+          //     currentPerson?.provider_session_id ||
+          //     detection?.provider_session_id ||
+          //     "",
+          //   kyc: nextKyc,
+          //   fullName: mappedFields.fullName || currentPerson?.fullName,
+          //   idNumber: mappedFields.idNumber || currentPerson?.idNumber,
+          //   dateOfBirth: mappedFields.dateOfBirth || currentPerson?.dateOfBirth,
+          //   nationality: mappedFields.nationality || currentPerson?.nationality,
+          //   residentialAddress:
+          //     mappedFields.residentialAddress ||
+          //     currentPerson?.residentialAddress,
+          // };
+
+          //stops old declined hydration results from overwriting the new retry session
           const currentPerson = nextFormRoot.individuals[index];
+          const currentSessionId =
+            currentPerson?.provider_session_id ||
+            currentPerson?.kyc?.sessionId ||
+            "";
+
+          if (currentSessionId !== sessionId) {
+            // user already retried or switched session; ignore stale result
+            continue;
+          }
+
+          const shouldMapIdentityFields = isSuccessfulKycResult(nextKyc);
 
           const nextPerson = {
             ...currentPerson,
-            provider_session_id:
-              currentPerson?.provider_session_id ||
-              detection?.provider_session_id ||
-              "",
+            provider_session_id: currentSessionId,
             kyc: nextKyc,
-            fullName: mappedFields.fullName || currentPerson?.fullName,
-            idNumber: mappedFields.idNumber || currentPerson?.idNumber,
-            dateOfBirth: mappedFields.dateOfBirth || currentPerson?.dateOfBirth,
-            nationality: mappedFields.nationality || currentPerson?.nationality,
-            residentialAddress:
-              mappedFields.residentialAddress ||
-              currentPerson?.residentialAddress,
+            fullName: shouldMapIdentityFields
+              ? mappedFields.fullName || currentPerson?.fullName
+              : currentPerson?.fullName,
+            idNumber: shouldMapIdentityFields
+              ? mappedFields.idNumber || currentPerson?.idNumber
+              : currentPerson?.idNumber,
+            dateOfBirth: shouldMapIdentityFields
+              ? mappedFields.dateOfBirth || currentPerson?.dateOfBirth
+              : currentPerson?.dateOfBirth,
+            nationality: shouldMapIdentityFields
+              ? mappedFields.nationality || currentPerson?.nationality
+              : currentPerson?.nationality,
+            residentialAddress: shouldMapIdentityFields
+              ? mappedFields.residentialAddress ||
+                currentPerson?.residentialAddress
+              : currentPerson?.residentialAddress,
           };
 
           const changed =
@@ -926,9 +949,6 @@ if (existingDoc) {
           }
 
           hydratedSessionsRef.current[hydrationKey] = true;
-          // } catch (err) {
-          //   console.error(`Failed to hydrate KYC for row ${index}`, err);
-          // }
         } catch (err) {
           const status = err?.response?.status;
 
@@ -952,9 +972,11 @@ if (existingDoc) {
     hydrateIndividualsFromSessions();
   }, [applicationId, sessionSignature]);
 
+  //clear only when the session signature changes significantly.
+  //This helps prevent old hydration bookkeeping from interfering after retry
   useEffect(() => {
     hydratedSessionsRef.current = {};
-  }, [applicationId]);
+  }, [applicationId, sessionSignature]);
 
   const ocrEligibleSignature = JSON.stringify(
     Object.entries(basicFieldsConfig)
