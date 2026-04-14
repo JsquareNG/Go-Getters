@@ -573,6 +573,9 @@ def close_open_action_request_and_update_answers(db: Session, application_id: st
 
     now = datetime.now(ZoneInfo("Asia/Singapore")).replace(tzinfo=None)
 
+    # NEW: save onto the action request
+    ar.ocr_warnings = data.get("ocr_warnings") or False
+
     doc_items = [i for i in items if i.item_type == "DOCUMENT"]
     alt_docs = data.get("alternative_documents") or []
     alt_map = {
@@ -1420,6 +1423,7 @@ def get_action_requests(
                 "created_at": ar.created_at,
                 "documents": documents,
                 "questions": questions,
+                "ocr_warnings": ar.ocr_warnings
             }
         )
 

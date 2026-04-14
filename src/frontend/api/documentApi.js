@@ -99,12 +99,13 @@ export const uploadDocumentApi = async (payload, file, onProgress) => {
  * Convenience wrapper you can call from submit.
  * IMPORTANT: you MUST pass applicationId now.
  */
-export async function uploadDocument({ applicationId, documentType, file, onProgress }) {
+export async function uploadDocument({ applicationId, documentType, file, onProgress, extracted_data }) {
   const payload = {
     application_id: applicationId,
     document_type: documentType,
     filename: file.name,
     mime_type: file.type || "application/octet-stream",
+    extracted_data: extracted_data
   };
 
   try {
