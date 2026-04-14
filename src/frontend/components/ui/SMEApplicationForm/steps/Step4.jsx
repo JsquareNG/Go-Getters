@@ -70,7 +70,12 @@ const Step4 = ({ onEdit, disabled = false, applicationId }) => {
   /* ------------------------------------------------ */
   /* HELPERS */
   /* ------------------------------------------------ */
-  const normalizeDocType = (value) => (value || "").trim();
+  // const normalizeDocType = (value) => (value || "").trim();
+  const normalizeDocType = (value) =>
+    String(value || "")
+      .trim()
+      .toLowerCase()
+      .replace(/\s+/g, "_");
 
   const getConfigDocumentType = ({
     cfg,
@@ -132,19 +137,40 @@ const Step4 = ({ onEdit, disabled = false, applicationId }) => {
     );
   };
 
+  // const formatDisplayedDocument = (value) => {
+  //   const localFile = unwrapLocalFile(value);
+
+  //   if (localFile) {
+  //     return `${localFile.name} (${(localFile.size / 1024).toFixed(2)} KB)`;
+  //   }
+
+  //   if (isBackendDocument(value)) {
+  //     return value.original_filename || value.document_type || "Uploaded";
+  //   }
+
+  //   return "Not uploaded";
+  // };
   const formatDisplayedDocument = (value) => {
-    const localFile = unwrapLocalFile(value);
+  const localFile = unwrapLocalFile(value);
 
-    if (localFile) {
-      return `${localFile.name} (${(localFile.size / 1024).toFixed(2)} KB)`;
-    }
+  if (localFile) {
+    return `${localFile.name} (${(localFile.size / 1024).toFixed(2)} KB)`;
+  }
 
-    if (isBackendDocument(value)) {
-      return value.original_filename || value.document_type || "Uploaded";
-    }
+  if (isBackendDocument(value)) {
+    return value.original_filename || value.document_type || "Uploaded";
+  }
 
-    return "Not uploaded";
-  };
+  if (
+    value &&
+    typeof value === "object" &&
+    (value.verificationStatus || value.verified || value.detectedType || value.expectedType)
+  ) {
+    return value.original_filename || value.detectedType || value.expectedType || "Uploaded";
+  }
+
+  return "Not uploaded";
+};
 
   const getDisplayedDocument = ({
     cfg,
@@ -162,10 +188,6 @@ const Step4 = ({ onEdit, disabled = false, applicationId }) => {
         getNestedValue(stepData, fieldKey) ??
         null);
 
-    const localFile = unwrapLocalFile(localValue);
-    if (localFile) return localValue;
-
-    // 2. backend document fallback
     const documentType = getConfigDocumentType({
       cfg,
       fieldKey,
@@ -174,7 +196,31 @@ const Step4 = ({ onEdit, disabled = false, applicationId }) => {
       rowIndex,
     });
 
-    return existingDocumentMap[normalizeDocType(documentType)] || null;
+    // return null;
+    const localFile = unwrapLocalFile(localValue);
+
+
+    // PRIORITY 1: any local row value that already represents the current file
+    if (
+      localValue &&
+      (localFile ||
+        localValue?.document_id ||
+        localValue?.original_filename ||
+        localValue?.verificationStatus ||
+        localValue?.uploaded)
+    ) {
+      return localValue;
+    }
+
+    // PRIORITY 2: backend fallback only when there is no current local value
+    const backendDoc =
+      existingDocumentMap[normalizeDocType(documentType)] || null;
+
+    if (backendDoc) return backendDoc;
+
+    return null;
+
+    // return existingDocumentMap[normalizeDocType(documentType)] || null;
   };
 
   // HELPER FOR NESTED INDIVIDUAL FIELDS:
@@ -190,7 +236,6 @@ const Step4 = ({ onEdit, disabled = false, applicationId }) => {
   const getSectionRoleValue = (sectionKey, sectionConfig) => {
     return sectionConfig?.fields?.role?.value || sectionKey;
   };
-
 
   //correctly read repeatable section items, with special handling for "individuals" storage type which nests under formData
   const getSectionItems = (stepData, sectionKey, sectionConfig) => {
@@ -244,10 +289,36 @@ const Step4 = ({ onEdit, disabled = false, applicationId }) => {
 
           const subFields = cfg.conditionalFields[value];
           Object.entries(subFields).forEach(([subKey, subCfg]) => {
+            // const subValue = data?.[subKey];
+            const subValue = item?.[subKey];
+
+            let formattedSubValue;
+            if (subCfg.type === "file") {
+              const displayedDoc = getDisplayedDocument({
+                cfg: subCfg,
+                fieldKey: subKey,
+                stepData: data,
+              });
+              formattedSubValue = formatDisplayedDocument(displayedDoc);
+            } else {
+              formattedSubValue = formatReviewValue(subValue, subCfg);
+            }
+
             fields.push({
               label: prefix + subCfg.label,
-              value: data?.[subKey] || "Not provided",
-              missing: subCfg.required && !data?.[subKey],
+              value: formattedSubValue,
+              missing:
+                cfg.required &&
+                ((cfg.type === "file" &&
+                  !getDisplayedDocument({
+                    cfg,
+                    fieldKey: key,
+                    stepData: data,
+                  })) ||
+                  (cfg.type === "kyc" && isKycIncomplete(data?.[key])) ||
+                  (cfg.type !== "file" &&
+                    cfg.type !== "kyc" &&
+                    value === "Not provided")),
             });
           });
         } else {
@@ -266,14 +337,19 @@ const Step4 = ({ onEdit, disabled = false, applicationId }) => {
             label: prefix + cfg.label,
             value,
             missing:
-              cfg.required &&
-              // ((cfg.type === "file" && !getDisplayedDocumentValue(key, data))
-              ((cfg.type === "file") &
+              (cfg.required &&
+                // ((cfg.type === "file" && !getDisplayedDocumentValue(key, data))
+                cfg.type === "file" &&
                 !getDisplayedDocument({
                   cfg,
                   fieldKey: key,
                   stepData: data,
-                }) ||
+                  // }) ||
+                  // value === "Not provided"),
+                })) ||
+              (cfg.type === "kyc" && isKycIncomplete(data?.[key])) ||
+              (cfg.type !== "file" &&
+                cfg.type !== "kyc" &&
                 value === "Not provided"),
           });
         }
@@ -292,6 +368,7 @@ const Step4 = ({ onEdit, disabled = false, applicationId }) => {
           Object.entries(sectionCfg.fields || {}).forEach(([key, cfg]) => {
             let value = item?.[key] ?? "";
 
+            console.log("repeatable", cfg.conditionalFields);
             if (cfg.conditionalFields && value in cfg.conditionalFields) {
               fields.push({
                 label: `${sectionCfg.label} ${idx + 1} - ${cfg.label}`,
@@ -302,12 +379,53 @@ const Step4 = ({ onEdit, disabled = false, applicationId }) => {
                     value === "Not provided"),
               });
 
+              // const subFields = cfg.conditionalFields[value];
+              // Object.entries(subFields).forEach(([subKey, subCfg]) => {
+              //   fields.push({
+              //     label: `${sectionCfg.label} ${idx + 1} - ${subCfg.label}`,
+              //     value: item?.[subKey] || "Not provided",
+              //     missing: subCfg.required && !item?.[subKey],
+              //   });
+              // });
               const subFields = cfg.conditionalFields[value];
               Object.entries(subFields).forEach(([subKey, subCfg]) => {
+                const subValue = data?.[subKey];
+
+                let formattedSubValue;
+                if (subCfg.type === "file") {
+                  const displayedDoc = getDisplayedDocument({
+                    cfg: subCfg,
+                    fieldKey: subKey,
+                    item,
+                    sectionKey,
+                    sectionConfig: sectionCfg,
+                    rowIndex: idx,
+                    stepData,
+                  });
+                  formattedSubValue = formatDisplayedDocument(displayedDoc);
+                } else {
+                  formattedSubValue = formatReviewValue(subValue, subCfg);
+                }
+
                 fields.push({
                   label: `${sectionCfg.label} ${idx + 1} - ${subCfg.label}`,
-                  value: item?.[subKey] || "Not provided",
-                  missing: subCfg.required && !item?.[subKey],
+                  value: formattedSubValue,
+                  missing:
+                    subCfg.required &&
+                    ((subCfg.type === "file" &&
+                      !getDisplayedDocument({
+                        cfg: subCfg,
+                        fieldKey: subKey,
+                        item,
+                        sectionKey,
+                        sectionConfig: sectionCfg,
+                        rowIndex: idx,
+                        stepData,
+                      })) ||
+                      (subCfg.type === "kyc" && isKycIncomplete(subValue)) ||
+                      (subCfg.type !== "file" &&
+                        subCfg.type !== "kyc" &&
+                        formattedSubValue === "Not provided")),
                 });
               });
 
@@ -378,6 +496,20 @@ const Step4 = ({ onEdit, disabled = false, applicationId }) => {
     }
 
     // generic object
+    // if (typeof value === "object") {
+    //   return "Provided";
+    // }
+    if (
+      value &&
+      typeof value === "object" &&
+      (value.document_id ||
+        value.original_filename ||
+        value.verificationStatus ||
+        value.uploaded)
+    ) {
+      return formatDisplayedDocument(value);
+    }
+
     if (typeof value === "object") {
       return "Provided";
     }

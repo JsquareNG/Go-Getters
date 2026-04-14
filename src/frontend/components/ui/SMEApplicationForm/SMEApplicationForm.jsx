@@ -326,19 +326,19 @@ const SMEApplicationForm = () => {
         return;
       }
 
-      dispatch(
-        updateField({
-          field: qualifiedProviderSessionField,
-          value: provider_session_id,
-        }),
-      );
+      // dispatch(
+      //   updateField({
+      //     field: qualifiedProviderSessionField,
+      //     value: provider_session_id,
+      //   }),
+      // );
 
-      dispatch(
-        updateField({
-          field: qualifiedKycDataField,
-          value: kycData,
-        }),
-      );
+      // dispatch(
+      //   updateField({
+      //     field: qualifiedKycDataField,
+      //     value: kycData,
+      //   }),
+      // );
 
       // patch fields, map KYC and save draft
       let patchedFormData = currentFormRoot;
@@ -357,9 +357,21 @@ const SMEApplicationForm = () => {
 
       patchedFormData = setNestedValue(
         patchedFormData,
+        qualifiedProviderSessionField,
+        provider_session_id,
+      );
+
+      patchedFormData = setNestedValue(
+        patchedFormData,
         qualifiedKycDataField,
         kycData,
       );
+
+      // patchedFormData = setNestedValue(
+      //   patchedFormData,
+      //   qualifiedKycDataField,
+      //   kycData,
+      // );
       const shouldMapIdentityFields = isSuccessfulKycResult(kycData);
 
       if (shouldMapIdentityFields) {
@@ -414,10 +426,14 @@ const SMEApplicationForm = () => {
     [formData, activeConfig, existingDocumentMap],
   );
 
-  const isIncomplete = validationReport.total > 0;
+  // const isIncomplete = validationReport.total > 0;
 
-  const canSubmit =
-    clampedStep === 4 && isStep0Valid && hasConfigSteps && !isIncomplete;
+  // const canSubmit =
+  //   clampedStep === 4 &&
+  //   isStep0Valid &&
+  //   hasConfigSteps &&
+  //   !isIncomplete &&
+  //   isKycComplete;
 
   const goToStep = useCallback(
     (targetStep) => {
@@ -777,7 +793,94 @@ const SMEApplicationForm = () => {
     }
   };
 
+  // KYC approval
+  // const isApprovedKyc = (kyc) => {
+  //   if (!kyc || typeof kyc !== "object") return false;
+
+  //   return (
+  //     String(kyc?.status || "").toLowerCase() === "completed" &&
+  //     String(kyc?.overallStatus || "").toLowerCase() === "approved" &&
+  //     String(kyc?.idVerificationStatus || "").toLowerCase() === "approved" &&
+  //     String(kyc?.livenessStatus || "").toLowerCase() === "approved" &&
+  //     String(kyc?.faceMatchStatus || "").toLowerCase() === "approved"
+  //   );
+  // };
+  const isIncomplete = validationReport.total > 0;
+  console.log("VALIDATION", validationReport);
+
+  const isApprovedKyc = useCallback((kyc) => {
+    if (!kyc || typeof kyc !== "object") return false;
+
+    return (
+      String(kyc?.status || "")
+        .trim()
+        .toLowerCase() === "completed" &&
+      String(kyc?.overallStatus || "")
+        .trim()
+        .toLowerCase() === "approved" &&
+      String(kyc?.idVerificationStatus || "")
+        .trim()
+        .toLowerCase() === "approved" &&
+      String(kyc?.livenessStatus || "")
+        .trim()
+        .toLowerCase() === "approved" &&
+      String(kyc?.faceMatchStatus || "")
+        .trim()
+        .toLowerCase() === "approved"
+    );
+  }, []);
+
+  const individuals = useMemo(
+    () => (Array.isArray(formData?.individuals) ? formData.individuals : []),
+    [formData?.individuals],
+  );
+
+  const individualsRequiringKyc = useMemo(
+    () =>
+      individuals.filter(
+        (person) =>
+          person && Object.prototype.hasOwnProperty.call(person, "kyc"),
+      ),
+    [individuals],
+  );
+
+  const isKycComplete = useMemo(
+    () => individualsRequiringKyc.every((person) => isApprovedKyc(person?.kyc)),
+    [individualsRequiringKyc, isApprovedKyc],
+  );
+
+  const submitReadiness = useMemo(() => {
+    const reasons = [];
+
+    if (clampedStep !== 4)
+      reasons.push("You must be on the Review & Submit step.");
+    if (!isStep0Valid) reasons.push("Country and business type are required.");
+    if (!hasConfigSteps) reasons.push("Form configuration is unavailable.");
+    if (isIncomplete)
+      reasons.push("There are still missing required fields or documents.");
+    if (!isKycComplete)
+      reasons.push("All individuals requiring KYC must complete and pass KYC.");
+
+    return {
+      canSubmit: reasons.length === 0,
+      reasons,
+    };
+  }, [clampedStep, isStep0Valid, hasConfigSteps, isIncomplete, isKycComplete]);
+
+  const canSubmit = submitReadiness.canSubmit;
+
   const handleSubmitApplication = async () => {
+    if (!submitReadiness.canSubmit) {
+      toast({
+        title: "Cannot submit yet",
+        description:
+          submitReadiness.reasons[0] ||
+          "Please complete all required fields before submitting.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     setIsSubmitting(true);
 
     try {
@@ -789,48 +892,31 @@ const SMEApplicationForm = () => {
         providerSessionId: formData.provider_session_id || null,
       });
 
-      // -------------------------------------------------------------------
-      //KYC CHECK: if any individual's KYC is not approved, block submission
-      // -------------------------------------------------------------------
-      const individuals = Array.isArray(formData?.individuals)
-        ? formData.individuals
-        : [];
+      // // -------------------------------------------------------------------
+      // //KYC CHECK: if any individual's KYC is not approved, block submission
+      // // -------------------------------------------------------------------
+      // const individuals = Array.isArray(formData?.individuals)
+      //   ? formData.individuals
+      //   : [];
 
-      // only rows that actually require KYC
-      const individualsRequiringKyc = individuals.filter((person) => {
-        return person && Object.prototype.hasOwnProperty.call(person, "kyc");
-      });
+      // // only rows that actually require KYC
+      // const individualsRequiringKyc = individuals.filter((person) => {
+      //   return person && Object.prototype.hasOwnProperty.call(person, "kyc");
+      // });
 
-      // KYC approval
-      const isApprovedKyc = (kyc) => {
-        if (!kyc || typeof kyc !== "object") return false;
+      // const isKycComplete = individualsRequiringKyc.every((person) =>
+      //   isApprovedKyc(person?.kyc),
+      // );
 
-        return (
-          String(kyc?.status || "").toLowerCase() === "completed" &&
-          String(kyc?.overallStatus || "").toLowerCase() === "approved" &&
-          String(kyc?.idVerificationStatus || "").toLowerCase() ===
-            "approved" &&
-          String(kyc?.livenessStatus || "").toLowerCase() === "approved" &&
-          String(kyc?.faceMatchStatus || "").toLowerCase() === "approved"
-        );
-      };
-
-      const failedOrIncompleteKyc = individualsRequiringKyc.filter((person) => {
-        // const kyc = person?.kyc || {};
-
-        // return !(kyc?.overallStatus === "Approved");
-        return !isApprovedKyc(person?.kyc);
-      });
-
-      if (failedOrIncompleteKyc.length > 0) {
-        toast({
-          title: "Identity Verification Required",
-          description:
-            "All individuals with KYC must complete and pass verification before submitting.",
-          variant: "destructive",
-        });
-        return;
-      }
+      // if (isKycComplete.length > 0) {
+      //   toast({
+      //     title: "Identity Verification Required",
+      //     description:
+      //       "All individuals with KYC must complete and pass verification before submitting.",
+      //     variant: "destructive",
+      //   });
+      //   return;
+      // }
 
       const providerSessionId =
         formData?.provider_session_id ||
@@ -925,6 +1011,16 @@ const SMEApplicationForm = () => {
     }
   };
 
+  //DEBUG
+  // console.log({
+  //   clampedStep,
+  //   isStep0Valid,
+  //   hasConfigSteps,
+  //   isIncomplete,
+  //   canSubmit,
+  //   validationReport,
+  // });
+
   return (
     <div className="h-[calc(100vh-4rem)] flex overflow-hidden bg-gray-50">
       <div className="hidden md:flex flex-col items-center w-96 border-r bg-white">
@@ -995,29 +1091,49 @@ const SMEApplicationForm = () => {
                             Next
                           </Button>
                         </>
-                      ) : canSubmit ? (
-                        <Button
-                          onClick={handleSubmitApplication}
-                          disabled={isSubmitting}
-                        >
-                          Submit
-                        </Button>
                       ) : (
-                        <>
-                          <Button
-                            variant="outline"
-                            onClick={handleSaveDraft}
-                            disabled={isSubmitting}
-                          >
-                            Save Draft
-                          </Button>
-                          <Button
-                            onClick={handleSubmitApplication}
-                            disabled={isSubmitting}
-                          >
-                            Submit
-                          </Button>
-                        </>
+                        // ) : canSubmit ? (
+                        //   <Button
+                        //     onClick={handleSubmitApplication}
+                        //     disabled={isSubmitting}
+                        //   >
+                        //     Submit
+                        //   </Button>
+                        // ) : (
+                        //   <>
+                        //     <Button
+                        //       variant="outline"
+                        //       onClick={handleSaveDraft}
+                        //       disabled={isSubmitting}
+                        //     >
+                        //       Save Draft
+                        //     </Button>
+                        //   </>
+                        // )
+                        <div className="flex flex-col items-end gap-2">
+                          <div className="flex gap-3">
+                            <Button
+                              variant="outline"
+                              onClick={handleSaveDraft}
+                              disabled={isSubmitting}
+                            >
+                              Save Draft
+                            </Button>
+
+                            <Button
+                              onClick={handleSubmitApplication}
+                              disabled={isSubmitting || !canSubmit}
+                            >
+                              Submit
+                            </Button>
+                          </div>
+
+                          {!canSubmit && submitReadiness.reasons.length > 0 && (
+                            <p className="text-sm text-red-600 text-right">
+                              {submitReadiness.reasons[0]}
+                            </p>
+                          )}
+                        </div>
                       )}
                     </div>
                   </div>
