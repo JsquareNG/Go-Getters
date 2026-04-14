@@ -678,7 +678,7 @@ const SMEApplicationForm = () => {
       const failedOrIncompleteKyc = individualsRequiringKyc.filter((person) => {
         const kyc = person?.kyc || {};
 
-        return !(kyc?.livenessStatus === "Approved");
+        return !(kyc?.overallStatus === "Approved");
       });
 
       if (failedOrIncompleteKyc.length > 0) {
