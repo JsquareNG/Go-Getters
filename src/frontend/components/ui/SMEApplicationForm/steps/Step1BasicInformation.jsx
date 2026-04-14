@@ -101,27 +101,92 @@ const Step1BasicInformation = ({
   };
 
   // helps to find rooted documents - matches uploaded documents to the correct form field using document type normalization
+  // const findExistingDocumentForField = (fieldPath, fieldConfig = {}) => {
+  //   if (!Array.isArray(existingDocuments) || !existingDocuments.length)
+  //     return null;
+
+  //   const normalizedFieldPath = normalizeDocumentType(fieldPath);
+  //   const expectedType = normalizeDocumentType(
+  //     fieldConfig?.ocrTarget ||
+  //       inferExpectedDocumentType(fieldPath, fieldConfig),
+  //   );
+
+  //   return (
+  //     existingDocuments.find(
+  //       (doc) =>
+  //         normalizeDocumentType(doc.document_type) === normalizedFieldPath,
+  //     ) ||
+  //     existingDocuments.find(
+  //       (doc) => normalizeDocumentType(doc.document_type) === expectedType,
+  //     ) ||
+  //     null
+  //   );
+  // };
+   const buildRepeatableDocumentType = (fieldPath) => {
+  const parts = String(fieldPath || "").split(".");
+  if (parts.length < 3) return null;
+
+  const [storageKey, rowIndexRaw, fieldKey] = parts;
+  const rowIndex = Number(rowIndexRaw);
+
+  if (storageKey !== "individuals" || Number.isNaN(rowIndex)) return null;
+
+  const formRoot = getFormDataRoot();
+  const row = formRoot?.individuals?.[rowIndex];
+  if (!row) return null;
+
+  const matchedSection = Object.entries(repeatableSectionsConfig || {}).find(
+    ([, sectionConfig]) =>
+      sectionConfig?.storage === "individuals" &&
+      row?.[sectionConfig?.rowTypeField] === sectionConfig?.rowTypeValue,
+  );
+
+  if (!matchedSection) return null;
+
+  const [, sectionConfig] = matchedSection;
+  const roleValue = sectionConfig?.rowTypeValue || row?.role || "Individual";
+
+  const sameRoleRows = (formRoot?.individuals || []).filter(
+    (person) =>
+      person?.[sectionConfig?.rowTypeField] === sectionConfig?.rowTypeValue,
+  );
+
+  const rolePosition =
+    sameRoleRows.findIndex((person) => person === row) + 1;
+
+  return `${roleValue}_${rolePosition}_${fieldKey}`;
+};
+
   const findExistingDocumentForField = (fieldPath, fieldConfig = {}) => {
-    if (!Array.isArray(existingDocuments) || !existingDocuments.length)
-      return null;
+  if (!Array.isArray(existingDocuments) || !existingDocuments.length) {
+    return null;
+  }
 
-    const normalizedFieldPath = normalizeDocumentType(fieldPath);
-    const expectedType = normalizeDocumentType(
-      fieldConfig?.ocrTarget ||
-        inferExpectedDocumentType(fieldPath, fieldConfig),
-    );
+  const normalizedFieldPath = normalizeDocumentType(fieldPath);
+  const expectedType = normalizeDocumentType(
+    fieldConfig?.ocrTarget ||
+      inferExpectedDocumentType(fieldPath, fieldConfig),
+  );
 
-    return (
-      existingDocuments.find(
-        (doc) =>
-          normalizeDocumentType(doc.document_type) === normalizedFieldPath,
-      ) ||
-      existingDocuments.find(
-        (doc) => normalizeDocumentType(doc.document_type) === expectedType,
-      ) ||
-      null
-    );
-  };
+  const repeatableDocType = buildRepeatableDocumentType(fieldPath);
+  const normalizedRepeatableDocType = normalizeDocumentType(repeatableDocType);
+
+  return (
+    existingDocuments.find(
+      (doc) =>
+        normalizeDocumentType(doc.document_type) === normalizedFieldPath,
+    ) ||
+    existingDocuments.find(
+      (doc) =>
+        normalizedRepeatableDocType &&
+        normalizeDocumentType(doc.document_type) === normalizedRepeatableDocType,
+    ) ||
+    existingDocuments.find(
+      (doc) => normalizeDocumentType(doc.document_type) === expectedType,
+    ) ||
+    null
+  );
+};
 
   // finds the value from form_data to map it
   const getNestedValue = (objs, path) => {
@@ -220,8 +285,18 @@ const Step1BasicInformation = ({
       .toLowerCase()
       .replace(/\s+/g, "_");
 
+  // const hasUsableLocalFile = (value) =>
+  //   !!value && (value instanceof File || value?.file instanceof File);
   const hasUsableLocalFile = (value) =>
-    !!value && (value instanceof File || value?.file instanceof File);
+  !!value &&
+  (
+    value instanceof File ||
+    value?.file instanceof File ||
+    value?.uploaded === true ||
+    value?.document_id ||
+    value?.original_filename ||
+    value?.storage_path
+  );
 
   // helper file function
   const inferExpectedDocumentType = (fieldKey, fieldConfig) => {
