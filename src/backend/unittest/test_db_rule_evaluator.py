@@ -2,7 +2,7 @@ import pytest
 from types import SimpleNamespace
 
 from backend.compliance_rules_engine.db_rule_evaluator import (
-    get_company_field_value,
+    get_field_value,
     evaluate_condition,
     evaluate_db_rules_with_trace
 )
@@ -38,15 +38,15 @@ def make_rule(rule_code, conditions):
 
 
 # ==============================
-# Test get_company_field_value
+# Test get_field_value
 # ==============================
 
-def test_get_company_field_value():
+def test_get_field_value():
     company = SimpleNamespace(name="ABC Corp", revenue=1000)
 
-    assert get_company_field_value(company, "name") == "ABC Corp"
-    assert get_company_field_value(company, "revenue") == 1000
-    assert get_company_field_value(company, "missing") is None
+    assert get_field_value(company, "name") == "ABC Corp"
+    assert get_field_value(company, "revenue") == 1000
+    assert get_field_value(company, "missing") is None
 
 
 # ==============================

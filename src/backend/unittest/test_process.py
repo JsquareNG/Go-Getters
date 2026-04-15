@@ -13,27 +13,22 @@ def create_test_company(country="Singapore"):
         name="Test Co",
         country=country,
         entity_type="Private",
-        registration_year=2020,
+        years_incorporated=6,
         industry="Tech",
         annual_revenue=100000,
         expected_tx_volume=50000,
         ownership_layers=1,
-        transaction_countries=["SG"],
+        transaction_country_count=1,
+        director_count= 1,
         individuals=[
             Individual(
                 name="John Doe",
                 nationality="SG",
                 is_pep=False,
                 sanctions_declared=False,
-                tax_residency=True,
                 fatca_us_person=False
             )
         ],
-        acra_profile=True,
-        address_proof=True,
-        bank_statements=True,
-        nib_present=True,
-        npwp_present=True
     )
 
 

@@ -183,6 +183,26 @@ def create_staff(
         "message": "Staff created successfully",
     }
 
+@router.post("/create-management")
+def create_management(data: dict = Body(...), db: Session = Depends(get_db)):
+    if db.query(User).filter(User.email == data["email"]).first():
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "Email exists")
+    
+    new_management = User(
+        first_name=data["first_name"],
+        last_name=data["last_name"],
+        email=data["email"],
+        password=hash_password(data["password"]),  # Temp password
+        user_role="MANAGAMENT"
+    )
+    db.add(new_management)
+    db.commit()
+    db.refresh(new_management)
+    
+    return {
+        "user_id": new_management.user_id,
+        "message": "Management created successfully"
+    }
 
 @router.get("/{user_id}")
 def get_user_by_id(

@@ -11,12 +11,12 @@ export default function ConfigListTable({
   getToggleDisabledReason,
   onToggleActive,
   onFieldChange,
-  onRemoveNewRow,
+  onRemoveRow,
   bottomRef,
 }) {
   const isThreshold = itemType === "threshold";
 
-  const columnCount = isThreshold ? 6 : 4;
+  const columnCount = isThreshold ? 3 : 4;
 
   const getMainColumnLabel = () => {
     if (itemType === "country") return "Country Name";
@@ -43,9 +43,6 @@ export default function ConfigListTable({
                   <th className="px-4 py-3 font-medium">Threshold Name</th>
                   <th className="px-4 py-3 font-medium text-center"> </th>
                   <th className="px-4 py-3 font-medium">Threshold Value</th>
-                  <th className="px-4 py-3 font-medium">Status</th>
-                  <th className="px-4 py-3 font-medium text-center">Active</th>
-                  <th className="px-4 py-3 font-medium text-center">Action</th>
                 </>
               ) : (
                 <>
@@ -94,9 +91,6 @@ export default function ConfigListTable({
                     ? getToggleDisabledReason(row)
                     : "";
 
-                // =====================
-                // THRESHOLD ROW
-                // =====================
                 if (isThreshold) {
                   return (
                     <tr
@@ -108,17 +102,10 @@ export default function ConfigListTable({
                           <input
                             type="text"
                             value={row.item_label}
-                            onChange={(e) =>
-                              onFieldChange(row, "item_label", e.target.value)
-                            }
-                            className={`w-full rounded-lg border px-3 py-2 outline-none focus:border-gray-900 ${
-                              rowErrors.item_label
-                                ? "border-red-500"
-                                : "border-gray-300"
-                            }`}
-                            placeholder="Enter Threshold Name"
+                            readOnly
+                            className="w-full rounded-lg border border-gray-200 bg-gray-100 px-3 py-2 text-gray-700 outline-none cursor-not-allowed"
+                            placeholder="Threshold Name"
                           />
-
                           {rowErrors.item_label && (
                             <p className="mt-1 text-xs text-red-600">
                               {rowErrors.item_label}
@@ -161,48 +148,10 @@ export default function ConfigListTable({
                           )}
                         </div>
                       </td>
-
-                      <td className="px-4 py-3">
-                        <span
-                          className={`inline-flex rounded-full px-3 py-1 text-xs font-medium ${
-                            row.is_active
-                              ? "bg-green-100 text-green-700"
-                              : "bg-gray-200 text-gray-700"
-                          }`}
-                        >
-                          {row.is_active ? "Active" : "Inactive"}
-                        </span>
-                      </td>
-
-                      <td className="px-4 py-3 text-center">
-                        <Toggle
-                          checked={row.is_active}
-                          disabled={toggleDisabled}
-                          title={toggleReason}
-                          onChange={() => onToggleActive(row)}
-                        />
-                      </td>
-
-                      <td className="px-4 py-3 text-center">
-                        {row.isNew ? (
-                          <button
-                            type="button"
-                            onClick={() => onRemoveNewRow(row)}
-                            className="inline-flex items-center justify-center rounded-lg p-2 text-red-600 hover:bg-red-50"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </button>
-                        ) : (
-                          <span className="text-xs text-gray-400">—</span>
-                        )}
-                      </td>
                     </tr>
                   );
                 }
 
-                // =====================
-                // ALL OTHER TABS (NO "=")
-                // =====================
                 return (
                   <tr
                     key={rowKey}
@@ -253,17 +202,14 @@ export default function ConfigListTable({
                     </td>
 
                     <td className="px-4 py-3 text-center">
-                      {row.isNew ? (
-                        <button
-                          type="button"
-                          onClick={() => onRemoveNewRow(row)}
-                          className="inline-flex items-center justify-center rounded-lg p-2 text-red-600 hover:bg-red-50"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </button>
-                      ) : (
-                        <span className="text-xs text-gray-400">—</span>
-                      )}
+                      <button
+                        type="button"
+                        onClick={() => onRemoveRow(row)}
+                        className="inline-flex items-center justify-center rounded-lg p-2 text-red-600 hover:bg-red-50"
+                        title="Remove row"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </button>
                     </td>
                   </tr>
                 );

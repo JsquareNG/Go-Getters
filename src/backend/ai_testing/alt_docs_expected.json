@@ -1,0 +1,42 @@
+{
+  "doc-001": {
+    "document_name": "ACRA Business Profile",
+    "acceptable_values": [
+      "bizfile_extract",
+      "cert_confirmation_registration",
+      "notice_of_registration"
+    ]
+  },
+  "doc-002": {
+    "document_name": "NRIC",
+    "acceptable_values": [
+      "singapore_passport",
+      "singpass_myinfo_export",
+      "singapore_driving_license"
+    ]
+  },
+  "doc-003": {
+    "document_name": "Proof of Business Address",
+    "acceptable_values": [
+      "utility_bill",
+      "tenancy_agreement",
+      "government_letter"
+    ]
+  },
+  "doc-004": {
+    "document_name": "Bank Statement",
+    "acceptable_values": [
+      "bank_account_summary_letter",
+      "transaction_history_report",
+      "financial_statements"
+    ]
+  },
+  "doc-005": {
+    "document_name": "Board Resolution",
+    "acceptable_values": [
+      "authorization_letter",
+      "directors_resolution_extract",
+      "power_of_attorney"
+    ]
+  }
+}

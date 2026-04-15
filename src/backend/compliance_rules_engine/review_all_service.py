@@ -17,15 +17,6 @@ def _safe_float(value: Any, default: float = 0) -> float:
     except (TypeError, ValueError):
         return default
 
-
-def _safe_list(value: Any) -> list:
-    if value is None:
-        return []
-    if isinstance(value, list):
-        return value
-    return [value]
-
-
 def _calculate_years_incorporated(registration_date_str: str | None) -> int:
     if not registration_date_str:
         return 1
@@ -48,11 +39,6 @@ def _calculate_years_incorporated(registration_date_str: str | None) -> int:
 def build_company_from_form(form: Dict[str, Any]) -> Company:
     form = form or {}
 
-    pep_declaration = _safe_bool_yes(form.get("pepDeclaration"))
-    sanctions_declaration = _safe_bool_yes(form.get("sanctionsDeclaration"))
-    tax_residency = _safe_bool_yes(form.get("tax_residency"))
-    fatca_person = _safe_bool_yes(form.get("fatca_us_person"))
-
     people = form.get("individuals", [])
 
     if isinstance(people, dict):
@@ -73,41 +59,34 @@ def build_company_from_form(form: Dict[str, Any]) -> Company:
             Individual(
                 name=p.get("fullName"),
                 nationality=p.get("nationality"),
-                is_pep=pep_declaration,
-                sanctions_declared=sanctions_declaration,
-                tax_residency=tax_residency,
-                fatca_us_person=fatca_person,
+                is_pep=_safe_bool_yes(p.get("pepDeclaration")),
+                sanctions_declared=_safe_bool_yes(p.get("sanctionsDeclaration")),
+                fatca_us_person=_safe_bool_yes(p.get("fatcaDeclaration")),
             )
         )
 
     expected_volume = _safe_float(form.get("expectedMonthlyTransactionVolume"), 0)
     years_incorporated = _calculate_years_incorporated(form.get("registrationDate"))
+    expected_countries = form.get("expectedCountriesOfTransactionActivity", []) or []
+
 
     company = Company(
         name=form.get("businessName"),
         country=form.get("country"),
-        industry=form.get("businessIndustry"),
+        industry=form.get("businessIndustry",""),
         entity_type=form.get("businessType"),
 
-        registration_year=years_incorporated,
+        years_incorporated=years_incorporated,
 
-        annual_revenue=form.get("annual_revenue"),
+        annual_revenue=form.get("annualRevenue"),
         expected_tx_volume=expected_volume,
 
         ownership_layers=form.get("ownership_layers", 1),
 
-        transaction_countries=_safe_list(form.get("transaction_countries")),
+        transaction_country_count=len(expected_countries),
 
         individuals=individuals,
-
-        # documents
-        acra_profile=form.get("acra_profile", False),
-        address_proof=form.get("address_proof", False),
-        bank_statements=form.get("bank_statements", False),
-
-        # indonesia specific
-        nib_present=form.get("nib_present", False),
-        npwp_present=form.get("npwp_present", False),
+        director_count=len(individuals),
     )
 
     return company

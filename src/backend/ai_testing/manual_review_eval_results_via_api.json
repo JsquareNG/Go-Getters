@@ -1,0 +1,223 @@
+{
+  "summary": {
+    "total_cases": 8,
+    "successful_calls": 8,
+    "failed_calls": 0,
+    "action_accuracy": 87.5
+  },
+  "results": [
+    {
+      "name": "sg_sole_prop_clean_low_risk_approve",
+      "expected_action": "approve",
+      "actual_action": "approve",
+      "match": true,
+      "success": true,
+      "error": null,
+      "raw_response": {
+        "success": true,
+        "data": {
+          "case_summary": "TWM RETAIL is a Singapore-based retail business with a low-risk profile (Risk Score 28). The entity is 100% owned by a local individual, Tan Wei Ming, who has no PEP or sanctions exposure. Expected monthly transaction volumes are low ($1,000) and limited to Malaysia. All required documentation, including the ACRA business profile, bank statement, and office lease, has been submitted and verified. While there is a data discrepancy between the declared business type (sole proprietorship) and the UEN format/registration date, the verified ACRA document provides the necessary legal clarity for the reviewer.",
+          "short_reason": "The application is low-risk with all essential documents verified; the minor entity-type discrepancy can be resolved via the already-submitted ACRA profile.",
+          "recommended_action": "approve",
+          "suggested_documents": [],
+          "suggested_questions": []
+        }
+      }
+    },
+    {
+      "name": "sg_private_limited_clean_low_risk_approve",
+      "expected_action": "approve",
+      "actual_action": "escalate",
+      "match": false,
+      "success": true,
+      "error": null,
+      "raw_response": {
+        "success": true,
+        "data": {
+          "case_summary": "Alpha Tech Pte. Ltd. is a Singapore-incorporated technology services company with a standard risk profile (Risk Score 23). While the financial activity and geographic exposure (Singapore and Malaysia) appear consistent with the business model, there is a contradiction in the ownership data. The Ultimate Beneficial Owner (UBO), Melissa Goh, is declared as having 'Indirect ownership through another entity,' yet the shareholder list only contains individuals. Furthermore, the standard ACRA Business Profile required for Singapore entities is currently missing from the application.",
+          "short_reason": "Clarification is required regarding the ownership structure and the missing ACRA Business Profile to verify the entity's legal standing and shareholding.",
+          "recommended_action": "escalate",
+          "suggested_documents": [
+            {
+              "document_name": "ACRA Business Profile",
+              "document_description": "A recent (less than 6 months old) Business Profile from the Accounting and Corporate Regulatory Authority (ACRA) to verify the company's registration, directors, and shareholder structure."
+            }
+          ],
+          "suggested_questions": [
+            "The UBO declaration for Melissa Goh indicates 'Indirect ownership through another entity,' but the shareholder list only shows individual shareholders. Please clarify if there is an intermediate holding company or if the ownership is direct.",
+            "Please provide the full names and identification details of any corporate entities that hold shares in Alpha Tech Pte. Ltd., if applicable."
+          ]
+        }
+      }
+    },
+    {
+      "name": "sg_private_limited_pep_escalate",
+      "expected_action": "escalate",
+      "actual_action": "escalate",
+      "match": true,
+      "success": true,
+      "error": null,
+      "raw_response": {
+        "success": true,
+        "data": {
+          "case_summary": "Northbridge Advisory Pte. Ltd. is a Singapore-incorporated management consultancy. The application is flagged primarily due to the sole Director, Shareholder, and UBO, Aaron Koh, being a confirmed Politically Exposed Person (PEP) serving as a Member of Parliament in Singapore. While the risk score is 45, the PEP status necessitates Enhanced Due Diligence (EDD). Additionally, there is a notable inconsistency between the declared annual revenue (450,000 SGD) and the expected monthly transaction volume (300,000 SGD), which would aggregate to 3.6 million SGD annually.",
+          "short_reason": "Enhanced Due Diligence is required for the PEP UBO, and clarification is needed regarding the discrepancy between declared annual revenue and expected transaction volumes.",
+          "recommended_action": "escalate",
+          "suggested_documents": [
+            {
+              "document_name": "ACRA Business Profile",
+              "document_description": "A recent Business Profile from the Accounting and Corporate Regulatory Authority (ACRA) to verify the company's registration details, directors, and shareholding structure."
+            },
+            {
+              "document_name": "Identification Document for Aaron Koh",
+              "document_description": "A copy of the NRIC (front and back) for the sole director and UBO to verify identity as per Singapore regulatory requirements."
+            },
+            {
+              "document_name": "Source of Wealth (SoW) Evidence",
+              "document_description": "Documentation supporting the UBO's source of wealth (e.g., salary slips, tax returns, or investment statements) as required for Enhanced Due Diligence on PEPs."
+            }
+          ],
+          "suggested_questions": [
+            "Please clarify the discrepancy between the declared annual revenue of 450,000 SGD and the expected monthly transaction volume of 300,000 SGD, which suggests a much higher annual turnover.",
+            "Could you provide more detail on the nature of the consultancy services provided and the typical profile of your clients?",
+            "As the UBO is a Politically Exposed Person, please provide a brief description of the source of funds used to capitalize the business."
+          ]
+        }
+      }
+    },
+    {
+      "name": "sg_private_limited_high_risk_industry_escalate",
+      "expected_action": "escalate",
+      "actual_action": "escalate",
+      "match": true,
+      "success": true,
+      "error": null,
+      "raw_response": {
+        "success": true,
+        "data": {
+          "case_summary": "COINFLOW PTE. LTD. is a Singapore-incorporated startup (August 2023) operating in the high-risk cryptocurrency sector, resulting in an Enhanced Due Diligence (EDD) risk grade. The entity is 100% owned and directed by a single individual, Ethan Tan. While a board resolution and bank statement have been submitted, the application lacks standard Singaporean corporate verification documents (ACRA) and individual KYC for the UBO. Furthermore, there is a notable discrepancy between the declared annual revenue ($900,000) and the expected monthly transaction volume ($900,000), which suggests either a data entry error or a high-velocity business model that requires further investigation.",
+          "short_reason": "Escalation is required to obtain mandatory Singaporean corporate documents, verify the UBO's identity, and clarify the business's regulatory standing and financial projections.",
+          "recommended_action": "escalate",
+          "suggested_documents": [
+            {
+              "document_name": "ACRA Business Profile",
+              "document_description": "A current Business Profile from the Accounting and Corporate Regulatory Authority (ACRA) to verify the company's registration details, directors, and shareholders in Singapore."
+            },
+            {
+              "document_name": "Identification Document for Ethan Tan",
+              "document_description": "A copy of the NRIC (for Singapore citizens/PRs) or Passport to verify the identity of the sole Director and UBO."
+            },
+            {
+              "document_name": "Proof of Residential Address",
+              "document_description": "A recent utility bill or bank statement (within the last 3 months) for Ethan Tan to verify his residential address in Singapore."
+            },
+            {
+              "document_name": "MAS License or Exemption Evidence",
+              "document_description": "Documentation confirming the entity's status under the Singapore Payment Services Act (PSA), such as a MAS license or proof of operating under a specific exemption for Digital Service Token (DPT) services."
+            }
+          ],
+          "suggested_questions": [
+            "Please clarify the discrepancy between the declared annual revenue ($900,000) and the expected monthly transaction volume ($900,000).",
+            "Could you provide a detailed description of the 'Digital asset technology services' provided, including whether the company handles fiat-to-crypto or crypto-to-crypto exchanges?",
+            "Is COINFLOW PTE. LTD. currently licensed or registered with the Monetary Authority of Singapore (MAS) under the Payment Services Act? If not, please provide the basis for your exemption.",
+            "What is the source of the initial capital used to fund the company's operations?"
+          ]
+        }
+      }
+    },
+    {
+      "name": "sg_limited_partnership_unsupported_reject",
+      "expected_action": "reject",
+      "actual_action": "reject",
+      "match": true,
+      "success": true,
+      "error": null,
+      "raw_response": {
+        "success": true,
+        "data": {
+          "case_summary": "ABC LP is a Singapore-registered Limited Partnership (UEN 202412345R) established in June 2024. The application has been flagged for Enhanced Due Diligence (EDD) due to several critical risk factors. Most notably, the applicant declared 'North Korea' as the primary business country, which is a FATF-blacklisted jurisdiction subject to comprehensive international sanctions. Additionally, the entity type (Limited Partnership) is flagged as unsupported for this jurisdiction. There is also a significant financial discrepancy: the expected monthly transaction volume (400,000 SGD) is nearly double the declared annual revenue (250,000 SGD), which is highly inconsistent and suggests potential reporting errors or high-risk activity. While an LP Agreement and Bank Statement were submitted, they do not mitigate the fundamental sanctions and eligibility risks.",
+          "short_reason": "The application is rejected due to the declaration of a FATF-blacklisted business jurisdiction (North Korea), an unsupported entity type for the region, and significant financial inconsistencies between revenue and transaction volume.",
+          "recommended_action": "reject",
+          "suggested_documents": [],
+          "suggested_questions": []
+        }
+      }
+    },
+    {
+      "name": "id_ud_clean_baseline_escalate",
+      "expected_action": "escalate",
+      "actual_action": "escalate",
+      "match": true,
+      "success": true,
+      "error": null,
+      "raw_response": {
+        "success": true,
+        "data": {
+          "case_summary": "MAJU JAYA UD is an Indonesian sole proprietorship (Usaha Dagang) operating in the retail sector since 2018. The business is 100% owned by Budi Santoso. While the applicant has provided the NIB, NPWP, and a bank statement, there are significant discrepancies in the financial data: the declared annual revenue of 600,000,000 IDR (approx. 50,000,000 IDR/month) does not align with the expected monthly transaction volume of 900,000 IDR. Additionally, the applicant is seeking a cross-border payment account but has only listed Indonesia as the expected country of activity. Finally, the owner's personal identification document (KTP) is missing.",
+          "short_reason": "Clarification is required regarding the discrepancy between revenue and transaction volume, the intended use for cross-border payments, and the missing owner's identity document.",
+          "recommended_action": "escalate",
+          "suggested_documents": [
+            {
+              "document_name": "Owner's Identity Card (KTP)",
+              "document_description": "A clear copy of Budi Santoso's Kartu Tanda Penduduk (KTP) to verify the identity of the sole proprietor."
+            }
+          ],
+          "suggested_questions": [
+            "Please clarify the discrepancy between your declared annual revenue (600,000,000 IDR) and the expected monthly transaction volume (900,000 IDR) on this platform.",
+            "As you have only listed Indonesia for transaction activity, please explain your business need for a cross-border payment account and if you intend to trade with other jurisdictions in the future.",
+            "Please confirm if the registered address (Jl. Sudirman No. 10) is a residential address or a dedicated commercial retail space."
+          ]
+        }
+      }
+    },
+    {
+      "name": "id_cv_sanctions_reject",
+      "expected_action": "escalate",
+      "actual_action": "escalate",
+      "match": true,
+      "success": true,
+      "error": null,
+      "raw_response": {
+        "success": true,
+        "data": {
+          "case_summary": "GLOBAL BRIDGE CV is an Indonesian SME (Commanditaire Vennootschap) established in April 2022, operating in the wholesale electronics sector. The application is flagged for Enhanced Due Diligence (EDD) primarily due to a self-declared sanctions exposure by the General Partner, Fajar Pratama, who holds a 55% stake. While the applicant has provided a deed of registration, NPWP, and bank statements, the mandatory Indonesian Business Identification Number (NIB) is missing. The risk profile is further influenced by the relatively short business history and the cross-border nature of transactions between Indonesia and Singapore.",
+          "short_reason": "Clarification is required regarding the General Partner's self-declared sanctions exposure and the missing Indonesian Business Identification Number (NIB).",
+          "recommended_action": "escalate",
+          "suggested_documents": [
+            {
+              "document_name": "Nomor Induk Berusaha (NIB)",
+              "document_description": "The official Business Identification Number issued by the Indonesian government (OSS) which serves as the primary registration and licensing document for CV entities."
+            },
+            {
+              "document_name": "Identity Document (KTP) for Fajar Pratama",
+              "document_description": "A clear copy of the General Partner's Indonesian National ID to facilitate accurate sanctions screening and verify the self-declared exposure."
+            }
+          ],
+          "suggested_questions": [
+            "Please clarify the 'Yes' response to the sanctions declaration for Fajar Pratama. Provide specific details regarding the nature of the exposure or confirm if this was a data entry error.",
+            "Could you provide more detail regarding the 'General trading services' mentioned as a source of funds, specifically how it relates to the primary activity of wholesale electronics?",
+            "Please explain the relationship between the business and the Singapore-based counterparties, including the expected frequency of these cross-border transactions."
+          ]
+        }
+      }
+    },
+    {
+      "name": "fatf_blacklist_country_reject",
+      "expected_action": "reject",
+      "actual_action": "reject",
+      "match": true,
+      "success": true,
+      "error": null,
+      "raw_response": {
+        "success": true,
+        "data": {
+          "case_summary": "The application for 'Blacklisted Trading Co' involves a private limited company incorporated and operating in North Korea, which is a FATF-blacklisted jurisdiction subject to comprehensive international sanctions. The sole director, Kim Yong, is also a North Korean national. The application has triggered a maximum risk score of 100, requiring Enhanced Due Diligence (EDD).",
+          "short_reason": "The business is located in a FATF-blacklisted jurisdiction (North Korea) and involves a national from a comprehensively sanctioned country, which falls outside the acceptable risk appetite for cross-border payment services.",
+          "recommended_action": "reject",
+          "suggested_documents": [],
+          "suggested_questions": []
+        }
+      }
+    }
+  ]
+}

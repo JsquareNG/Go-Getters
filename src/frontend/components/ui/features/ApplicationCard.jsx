@@ -56,7 +56,8 @@ const ApplicationCard = ({
   );
 
   const appId = application.application_id;
-  const companyName = application.business_name || "Untitled Business";
+  const form = application.form_data || {};
+  const companyName = form.businessName
   const country = application.business_country || "N/A";
   const lastUpdated = application.last_edited;
   const riskGrade = application?.risk_grade ?? application?.riskGrade ?? "";

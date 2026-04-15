@@ -9,6 +9,7 @@ from backend.compliance_rules_engine.models import Company, Individual
 from datetime import datetime
 from backend.services.audit_service import create_audit_log
 from backend.models.application import ApplicationForm
+import traceback 
 
 def run_review_job(application_id: str):
     print("[run_review_job] START", application_id)
@@ -57,11 +58,6 @@ def run_review_job(application_id: str):
         individuals = []
 
         people = form.get("individuals", [])
-        pepDeclaration = form.get("pepDeclaration")  == "Yes"
-        sanctionsDeclaration = form.get("sanctionsDeclaration") == "Yes"
-        taxResidency = form.get("tax_residency") == "Yes"
-        fatcaPerson = form.get("fatca_us_person") == "Yes"
-
         if isinstance(people, dict):
             people = [people]
         elif people is None:
@@ -74,10 +70,9 @@ def run_review_job(application_id: str):
                 Individual(
                     name=p.get("fullName"),
                     nationality=p.get("nationality"),
-                    is_pep=pepDeclaration,
-                    sanctions_declared=sanctionsDeclaration,
-                    tax_residency=taxResidency,
-                    fatca_us_person=fatcaPerson
+                    is_pep=(p.get("pepDeclaration") == "Yes"),
+                    sanctions_declared=(p.get("sanctionsDeclaration") == "Yes"),
+                    fatca_us_person=(p.get("fatcaDeclaration") == "Yes"),
                 )
             )
 
@@ -88,6 +83,7 @@ def run_review_job(application_id: str):
             expected_volume = 0
 
         registration_date_str = form.get("registrationDate")
+        expected_countries = form.get("expectedCountriesOfTransactionActivity", [])
 
         years_incorporated = 1  # default fallback
 
@@ -104,35 +100,24 @@ def run_review_job(application_id: str):
 
                 if years_incorporated < 0:
                     years_incorporated = 0
-
             except Exception:
                 years_incorporated = 1
 
         company = Company(
             name=form.get("businessName"),
             country=form.get("country"),
-            industry=form.get("businessIndustry"),
+            industry=form.get("businessIndustry",""),
             entity_type=form.get("businessType"),
 
-            registration_year=years_incorporated,
-
-            annual_revenue=form.get("annual_revenue"),
+            years_incorporated=years_incorporated,
+            annual_revenue=form.get("annualRevenue"),
             expected_tx_volume=expected_volume,
 
             ownership_layers=form.get("ownership_layers", 1),
-
-            transaction_countries=form.get("transaction_countries", []),
+            transaction_country_count = len(expected_countries),
 
             individuals=individuals,
-
-            # documents
-            acra_profile=form.get("acra_profile", False),
-            address_proof=form.get("address_proof", False),
-            bank_statements=form.get("bank_statements", False),
-
-            # indonesia specific
-            nib_present=form.get("nib_present", False),
-            npwp_present=form.get("npwp_present", False),
+            director_count=len(individuals),
         )
 
         result = submit_application(company, db)
@@ -229,12 +214,14 @@ def run_review_job(application_id: str):
         job.status = "COMPLETED"
         job.completed_at = text("(now() AT TIME ZONE 'Asia/Singapore')")
 
-        
-
         db.commit()
 
     except Exception as e:
         db.rollback()
+
+        print("\n🔥 ERROR IN run_review_job 🔥")
+        traceback.print_exc()   # ✅ THIS IS THE KEY LINE
+        print("Error message:", str(e))
 
         failed_job = db.query(ReviewJobs).filter(
             ReviewJobs.application_id == application_id

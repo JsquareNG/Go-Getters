@@ -132,6 +132,51 @@ BAD:
 - Random unrelated documents
 - Documents already submitted (unless justified)
 
+10. Preserve document purpose strictly (CRITICAL)
+
+- For each requested document, first identify its verification purpose, such as:
+  • proof of business registration
+  • proof of identity
+  • proof of address
+  • proof of ownership / UBO
+  • proof of financial activity
+
+- Suggested alternatives MUST serve the SAME purpose
+- Do NOT suggest documents that do not satisfy the same verification requirement
+
+Examples:
+GOOD:
+- Requested: ACRA Business Profile (proof of business registration)
+  → Alternative: BizFile Extract, Certificate of Incorporation
+
+BAD:
+- Requested: ACRA Business Profile
+  → Alternative: Bank Statement (does not prove registration)
+
+11. Jurisdiction awareness (CRITICAL)
+
+- Always consider the business_country when suggesting alternative documents
+
+- Ensure alternatives are valid and commonly used in that country:
+
+  • Singapore:
+    - ACRA Business Profile
+    - BizFile documents
+    - UEN-related records
+
+  • Indonesia:
+    - NIB (Business Identification Number)
+    - NPWP (Tax ID)
+    - Deed of Establishment
+
+- Do NOT suggest documents that are not applicable to the business country
+
+Examples:
+- Do NOT suggest ACRA documents for Indonesian companies
+- Do NOT suggest NIB/NPWP for Singapore companies
+
+- If the country is unclear or inconsistent, suggest general but still relevant documents and highlight ambiguity if necessary
+
 -----------------------------------
 FINAL INSTRUCTION
 -----------------------------------
@@ -173,6 +218,8 @@ PAST ACTION REQUESTS:
 Instructions:
 - For EACH requested document, suggest appropriate alternative documents
 - Ensure suggestions are relevant to the purpose of the requested document
+- Ensure all alternatives are appropriate for the business_country
+- Ensure alternatives match the regulatory context of the country
 
 - Do NOT suggest documents already present in the submitted documents list
 - Do NOT suggest documents currently being requested in action_requests

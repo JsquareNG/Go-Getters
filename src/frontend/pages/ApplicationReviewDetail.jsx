@@ -52,7 +52,7 @@ import {
 } from "@/api/applicationApi";
 import { getAuditTrail } from "@/api/auditTrailApi";
 import { allDocuments, downloadDocuments } from "./../api/documentApi";
-import { getKYCdetails } from "@/api/livenessDetectionApi";
+import { getAllKYCdetails } from "@/api/livenessDetectionApi";
 import RequestDocumentsDialog from "../components/ui/features/RequestDocumentsDialog";
 import { AuditTrail } from "../components/ui/features/AuditTrail";
 import { KycVerificationCard } from "../components/ui/features/kycVerificationCard";
@@ -203,8 +203,10 @@ export default function ApplicationReviewDetail() {
         const appIdToUse = application?.application_id || application?.id || id;
         if (!appIdToUse) return;
 
-        const data = await getKYCdetails(appIdToUse);
-        setKycDetails(data && typeof data === "object" ? data : null);
+        const data = await getAllKYCdetails(appIdToUse);
+        const records = Array.isArray(data?.records) ? data.records : [];
+
+        setKycDetails(records);
       } catch (err) {
         console.error("Error fetching KYC details:", {
           message: err?.message,
@@ -219,7 +221,8 @@ export default function ApplicationReviewDetail() {
             err?.message ||
             "Could not retrieve KYC details.",
         );
-        setKycDetails(null);
+
+        setKycDetails([]);
       } finally {
         setKycLoading(false);
       }
@@ -241,6 +244,7 @@ export default function ApplicationReviewDetail() {
         if (!appIdToUse) return;
 
         const data = await getQnA(appIdToUse);
+        console.log("QnA response:", data);
         setActionRequestsData(data && typeof data === "object" ? data : null);
       } catch (err) {
         console.error("Error fetching QnA:", {
@@ -364,6 +368,9 @@ export default function ApplicationReviewDetail() {
     });
   }, [actionRequests]);
 
+  const latestActionRequest = sortedActionRequests[0] || null;
+  const latestHasOcrWarnings = latestActionRequest?.ocr_warnings === true;
+
   const latestOpenRequest = useMemo(() => {
     return sortedActionRequests.find((r) => r?.status === "OPEN") || null;
   }, [sortedActionRequests]);
@@ -437,15 +444,70 @@ export default function ApplicationReviewDetail() {
     return new Date(sortedActionRequestsAsc[0]?.created_at || 0).getTime();
   }, [sortedActionRequestsAsc]);
 
+  const parseExtractedData = (value) => {
+    if (!value) return null;
+
+    if (typeof value === "object") return value;
+
+    if (typeof value === "string") {
+      try {
+        return JSON.parse(value);
+      } catch (err) {
+        console.warn("Failed to parse extracted_data:", err, value);
+        return null;
+      }
+    }
+
+    return null;
+  };
+
+  const getDocumentOcrWarning = (doc) => {
+    const extracted = parseExtractedData(doc?.extracted_data);
+    const uploadValidation = extracted?.upload_validation || {};
+
+    if (uploadValidation?.status !== "WARNING") {
+      return null;
+    }
+
+    const reasons = Array.isArray(uploadValidation?.reasons)
+      ? uploadValidation.reasons
+      : [];
+
+    return {
+      message:
+        reasons[0] ||
+        "Document quality is flagged as moderate. Please review and verify the document's information carefully.",
+      qualityBand: uploadValidation?.ocr_quality?.quality_band || null,
+      qualityScore: uploadValidation?.ocr_quality?.quality_score ?? null,
+    };
+  };
+
+  // const initialDocuments = useMemo(() => {
+  //   if (!Array.isArray(documents)) return [];
+  //   if (!firstActionRequestTime) return documents;
+
+  //   return documents.filter((doc) => {
+  //     const t = new Date(doc?.created_at || 0).getTime();
+  //     return t && t < firstActionRequestTime;
+  //   });
+  // }, [documents, firstActionRequestTime]);
   const initialDocuments = useMemo(() => {
     if (!Array.isArray(documents)) return [];
-    if (!firstActionRequestTime) return documents;
 
-    return documents.filter((doc) => {
-      const t = new Date(doc?.created_at || 0).getTime();
-      return t && t < firstActionRequestTime;
-    });
+    const filteredDocs = !firstActionRequestTime
+      ? documents
+      : documents.filter((doc) => {
+          const t = new Date(doc?.created_at || 0).getTime();
+          return t && t < firstActionRequestTime;
+        });
+
+    return filteredDocs.map((doc) => ({
+      ...doc,
+      ocr_warning: getDocumentOcrWarning(doc),
+    }));
   }, [documents, firstActionRequestTime]);
+
+  
 
   const resubmissionGroups = useMemo(() => {
     if (!Array.isArray(documents) || sortedActionRequestsAsc.length === 0) return [];
@@ -473,6 +535,8 @@ export default function ApplicationReviewDetail() {
             reqDoc.submitted_document_name === doc.document_type
         );
 
+        const ocrWarning = getDocumentOcrWarning(doc);
+
         return {
           ...doc,
           requested_document_name: matchedRequestDoc?.document_name || null,
@@ -481,6 +545,7 @@ export default function ApplicationReviewDetail() {
           submitted_document_name: matchedRequestDoc?.submitted_document_name || null,
           substitution_reason: matchedRequestDoc?.substitution_reason || null,
           fulfilled_at: matchedRequestDoc?.fulfilled_at || null,
+          ocr_warning: ocrWarning,
         };
       });
 
@@ -495,7 +560,18 @@ export default function ApplicationReviewDetail() {
     });
   }, [documents, sortedActionRequestsAsc]);
 
-  const shouldShowKycBanner = !!kycDetails && !kycLoading && !kycError;
+  const kycRecords = useMemo(() => {
+    return Array.isArray(kycDetails) ? kycDetails : [];
+  }, [kycDetails]);
+
+  const latestKyc = useMemo(() => {
+    return kycRecords[0] || null;
+  }, [kycRecords]);
+
+  const hasMultipleKycRecords = kycRecords.length > 1;
+  const shouldShowKycBanner = !!latestKyc && !kycLoading && !kycError;
+
+  // const shouldShowKycBanner = !!kycDetails && !kycLoading && !kycError;
 
   // -----------------------------
   // Handlers
@@ -529,6 +605,8 @@ export default function ApplicationReviewDetail() {
   };
 
   const handleRequestDocuments = () => {
+    console.log("Opening Request Docs Dialog");
+    console.log("AI Payload:", manualReviewAIPayload);
     setRequestDocsOpen(true);
   };
 
@@ -570,68 +648,6 @@ export default function ApplicationReviewDetail() {
       setIsUpdatingStatus(false);
     }
   };
-
-  // const handleApprove = async () => {
-  //   if (!id) return;
-
-  //   const reason = window.prompt("Reason for approving this application?") || "";
-  //   if (!reason.trim()) {
-  //     toast.error("Reason required", { description: "Please enter a reason to approve." });
-  //     return;
-  //   }
-
-  //   try {
-  //     setIsUpdatingStatus(true);
-  //     const appIdToUse = application?.application_id || id;
-  //     await approveApplication(appIdToUse, reason.trim());
-
-  //     toast.success("Application Approved", {
-  //       description: `${
-  //         application?.business_name || formData?.businessName || "Application"
-  //       } has been approved.`,
-  //     });
-
-  //     navigate("/staff-landingpage");
-  //   } catch (err) {
-  //     console.error("Approve failed:", err);
-  //     toast.error("Approve failed", {
-  //       description: err?.response?.data?.detail || err?.message || "Could not approve application.",
-  //     });
-  //   } finally {
-  //     setIsUpdatingStatus(false);
-  //   }
-  // };
-
-  // const handleReject = async () => {
-  //   if (!id) return;
-
-  //   const reason = window.prompt("Reason for rejecting this application?") || "";
-  //   if (!reason.trim()) {
-  //     toast.error("Reason required", { description: "Please enter a reason to reject." });
-  //     return;
-  //   }
-
-  //   try {
-  //     setIsUpdatingStatus(true);
-  //     const appIdToUse = application?.application_id || id;
-  //     await rejectApplication(appIdToUse, reason.trim());
-
-  //     toast.success("Application Rejected", {
-  //       description: `${
-  //         application?.business_name || formData?.businessName || "Application"
-  //       } has been rejected.`,
-  //     });
-
-  //     navigate("/staff-landingpage");
-  //   } catch (err) {
-  //     console.error("Reject failed:", err);
-  //     toast.error("Reject failed", {
-  //       description: err?.response?.data?.detail || err?.message || "Could not reject application.",
-  //     });
-  //   } finally {
-  //     setIsUpdatingStatus(false);
-  //   }
-  // };
 
   const handleApprove = () => {
     setDecisionType("approve");
@@ -699,7 +715,7 @@ export default function ApplicationReviewDetail() {
     }
   };
 
-
+  
 
   // -----------------------------
   // Loading / error states
@@ -768,6 +784,24 @@ export default function ApplicationReviewDetail() {
         </div>
 
         <div className="space-y-6 pb-20">
+          {latestHasOcrWarnings && (
+            <Card className="border-amber-500 bg-amber-50">
+              <CardContent className="py-4">
+                <div className="flex items-start gap-3">
+                  <AlertCircle className="mt-0.5 h-5 w-5 text-amber-600" />
+                  <div>
+                    <p className="text-sm font-semibold text-amber-700">
+                      Document OCR Warning
+                    </p>
+                    <p className="mt-1 text-sm text-foreground">
+                      Document Quality is flagged as moderate. Please review and verify the document's information in the Documents tab.
+                    </p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
           {kycLoading ? (
             <Card>
               <CardContent className="py-4">
@@ -781,7 +815,7 @@ export default function ApplicationReviewDetail() {
               </CardContent>
             </Card>
           ) : shouldShowKycBanner ? (
-            <KycVerificationCard kyc={kycDetails} />
+            <KycVerificationCard kycRecords={kycRecords} />
           ) : null}
 
           <Card>
@@ -1176,6 +1210,24 @@ export default function ApplicationReviewDetail() {
                                       ? `Uploaded: ${new Date(doc.created_at).toLocaleString()}`
                                       : ""}
                                   </p>
+
+                                  {doc.ocr_warning && (
+                                    <div className="mt-2 rounded-md border border-orange-300 bg-orange-50 p-2">
+                                      <div className="flex items-start gap-2">
+                                        <AlertCircle className="mt-0.5 h-4 w-4 text-orange-600" />
+
+                                        <div>
+                                          <p className="text-xs font-medium text-orange-700">
+                                            OCR Warning
+                                          </p>
+
+                                          <p className="mt-1 text-xs text-foreground">
+                                            Document quality is moderate. Extracted data may be inaccurate — please verify against the original document. If already reviewed, you may ignore this warning.
+                                          </p>
+                                        </div>
+                                      </div>
+                                    </div>
+                                  )}
                                 </div>
 
                                 <Button
@@ -1284,6 +1336,24 @@ export default function ApplicationReviewDetail() {
                                               : ""}
                                           </p>
 
+                                          {doc.ocr_warning && (
+                                            <div className="mt-2 rounded-md border border-orange-300 bg-orange-50 p-2">
+                                              <div className="flex items-start gap-2">
+                                                <AlertCircle className="mt-0.5 h-4 w-4 text-orange-600" />
+
+                                                <div>
+                                                  <p className="text-xs font-medium text-orange-700">
+                                                    OCR Warning
+                                                  </p>
+
+                                                  <p className="mt-1 text-xs text-foreground">
+                                                    Document quality is moderate. Extracted data may be inaccurate — please verify against the original document. If already reviewed, you may ignore this warning.
+                                                  </p>
+                                                </div>
+                                              </div>
+                                            </div>
+                                          )}
+
                                           {doc.is_substitute && (
                                             <div className="mt-2 rounded-md border border-amber-200 bg-amber-50 p-2">
                                               <p className="text-xs font-medium text-amber-700">
@@ -1303,6 +1373,8 @@ export default function ApplicationReviewDetail() {
                                               )}
                                             </div>
                                           )}
+
+                                        
                                         </div>
                                   
 

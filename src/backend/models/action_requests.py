@@ -1,4 +1,6 @@
 import uuid
+from sqlalchemy.dialects.postgresql import JSONB
+from sqlalchemy.ext.mutable import MutableList
 from sqlalchemy import Column, String, ForeignKey, DateTime, Boolean, text, CheckConstraint
 from sqlalchemy.orm import relationship
 from backend.database import Base
@@ -32,6 +34,8 @@ class ActionRequest(Base):
         nullable=False,
         server_default=text("(now() AT TIME ZONE 'Asia/Singapore')")
     )
+
+    ocr_warnings = Column(Boolean, nullable=False, server_default=text("false"))
 
     application = relationship("ApplicationForm", back_populates="action_requests")
 
