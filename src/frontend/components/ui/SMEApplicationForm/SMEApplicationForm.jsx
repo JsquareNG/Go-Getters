@@ -39,8 +39,6 @@ import {
 
 import { allDocuments } from "@/api/documentApi";
 
-import { livenessDetectionApi } from "@/api/livenessDetectionApi";
-
 import { getMergedFormState } from "./utils/formDataHelpers";
 import { buildDynamicPayload } from "./utils/payloadBuilder";
 import {
@@ -204,11 +202,11 @@ const SMEApplicationForm = () => {
     );
   };
 
+  // patch provider_session_id and kyc results into form, map fields, and save draft
   const handlePersistKycResult = useCallback(
     async ({
       provider_session_id,
       kycData,
-      diditPayload = null,
       mappedFields = {},
       providerSessionField = "provider_session_id",
       kycDataField = "kyc",
@@ -287,19 +285,6 @@ const SMEApplicationForm = () => {
           value: patchedFormData,
         }),
       );
-
-      // update backend
-      if (diditPayload?.provider_session_id) {
-        try {
-          const response = await livenessDetectionApi(diditPayload);
-          console.log(
-            "Successfully inject into backend for liveness detection",
-            response,
-          );
-        } catch (err) {
-          console.error("[KYC] failed to persist liveness detection:", err);
-        }
-      }
 
       try {
         await persistApplication({

@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import { ArrowRight, ShieldCheck } from "lucide-react";
 import { Button, Badge, Card, CardContent } from "@/components/ui";
-// import { livenessDetectionApi } from "@/api/livenessDetectionApi";
+import { livenessDetectionApi } from "@/api/livenessDetectionApi";
 import { getThreshold } from "@/api/riskConfigListApi";
 import { mapIsoToNationalityOption } from "../utils/countries";
 
@@ -605,14 +605,23 @@ const KycVerificationCard = ({
         const payload = mapDiditToPayload(diditData);
         const mappedFields = mapDiditToFormFields(diditData);
 
-        //callback path → parent persists
-        //restore path → parent persists too
+        // persist liveness result to backend here
+        try {
+          if (payload?.provider_session_id) {
+            const persistRes = await livenessDetectionApi(payload);
+            console.log("[KYC] liveness persisted:", persistRes);
+          }
+        } catch (err) {
+          console.error("[KYC] failed to persist liveness detection:", err);
+        }
+
+        //update parent form state
         if (onPersistKycResult) {
           try {
             await onPersistKycResult({
               provider_session_id: verificationSessionId,
               kycData: nextKycData,
-              diditPayload: payload,
+              // diditPayload: payload,
               mappedFields,
             });
           } catch (err) {
