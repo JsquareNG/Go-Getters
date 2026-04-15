@@ -461,7 +461,15 @@ const SINGAPORE_CONFIG = {
           id: "step2",
           label: "Basic Information",
           fields: {
-            llpName: {
+            businessProfile: {
+              type: "file",
+              label: "Upload ACRA Business Profile (OCR autofill)",
+              required: true,
+              placeholder: "Upload PDF, then wait for Autofill",
+              ocrTarget: "business_profile",
+              ocr: true,
+            },
+            businessName: {
               type: "text",
               label: "LLP Name",
               required: true,
