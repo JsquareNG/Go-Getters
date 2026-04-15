@@ -3,44 +3,45 @@ from typing import List, Dict, Type, Any, Optional
 import re
 
 class BasicPerson(BaseModel):
-    full_name: str = Field(default="", description="Full legal name")
-    id_number: str = Field(default="", description="NRIC / Passport / ID number")
+    fullName: str = Field(default="", description="Full legal name")
+    idNumber: str = Field(default="", description="NRIC / Passport / ID number")
     nationality: str = Field(default="", description="Nationality")
-    residential_address: str = Field(default="", description="Residential address")
-    date_of_birth: str = Field(default="", description="Date of birth if available")
+    residentialAddress: str = Field(default="", description="Residential address")
+    dateOfBirth: str = Field(default="", description="Date of birth if available")
 
 
 class LLPManager(BaseModel):
-    full_name: str = Field(default="", description="Full legal name")
-    id_number: str = Field(default="", description="NRIC / Passport / ID number")
+    fullName: str = Field(default="", description="Full legal name")
+    idNumber: str = Field(default="", description="NRIC / Passport / ID number")
     nationality: str = Field(default="", description="Nationality")
-    residential_address: str = Field(default="", description="Residential address")
+    residentialAddress: str = Field(default="", description="Residential address")
 
 class ShareholderEntry(BaseModel):
-    name: str = Field(default="", description="Name of founder/shareholder")
-    entity_type: str = Field(default="", description="INDIVIDUAL or COMPANY")
-    id_number: str = Field(default="", description="ID number if individual and clearly shown")
-    registration_number: str = Field(default="", description="Company/entity registration number if clearly shown")
+    fullName: str = Field(default="", description="Name of founder/shareholder")
+    entityType: str = Field(default="", description="INDIVIDUAL or COMPANY")
+    idNumber: str = Field(default="", description="ID number if individual and clearly shown")
+    registrationNumber: str = Field(default="", description="Company/entity registration number if clearly shown")
+    nationality: str = Field(default="", description="Nationality of shareholder if shown")
     address: str = Field(default="", description="Address of shareholder if clearly shown")
-    share_count: Optional[int] = Field(default=None, description="Number of shares subscribed")
-    nominal_value_idr: Optional[float] = Field(default=None, description="Nominal subscription amount in IDR")
-    ownership_percentage: Optional[float] = Field(
+    shareCount: Optional[int] = Field(default=None, description="Number of shares subscribed")
+    nominalValueLdr: Optional[float] = Field(default=None, description="Nominal subscription amount in IDR")
+    sharePercentage: Optional[float] = Field(
         default=None,
         description="Ownership percentage if explicitly stated or safely derivable",
     )
 # 1. ACRA Schema
 class ACRAExtractionData(BaseModel):
-    company_name: str = Field(description="Registered name of the business")
+    businessName: str = Field(description="Registered name of the business")
     uen: str = Field(description="Unique Entity Number")
-    entity_type: str = Field(description="E.g., SOLE-PROPRIETOR, PRIVATE LIMITED")
-    business_start_date: str = Field(description="Date of registration")
-    address: str = Field(description="Registered office address")
-    primary_business_activity: str = Field(description="Primary activity")
+    entityType: str = Field(description="E.g., SOLE PROPRIETOR, PRIVATE LIMITED")
+    registrationDate: str = Field(description="Date of registration")
+    registeredAddress: str = Field(description="Registered office address")
+    businessIndustry: str = Field(description="Primary activity")
     shareholders: Optional[List[ShareholderEntry]] = Field(default_factory=list, description="List of shareholders shown in the ACRA Business Profile")
     owner: Optional[BasicPerson] = None
     partners: List[BasicPerson] = Field(default_factory=list)
-    general_partners: List[BasicPerson] = Field(default_factory=list)
-    limited_partners: List[BasicPerson] = Field(default_factory=list)
+    generalPartners: List[BasicPerson] = Field(default_factory=list)
+    limitedPartners: List[BasicPerson] = Field(default_factory=list)
     managers: List[LLPManager] = Field(default_factory=list)
     directors: List[BasicPerson] = Field(default_factory=list)
     shareholders: List[ShareholderEntry] = Field(default_factory=list)
@@ -53,26 +54,17 @@ class ACRAExtractionData(BaseModel):
             raise ValueError(f"Invalid UEN format from OCR: {cleaned}")
         return cleaned
 
-    additional_data: Dict[str, Any] = Field(
-        default_factory=dict,
-        description="""
-        Extract ALL other information, fields, and tables from the document that are not
-        explicitly requested above. Group them logically (e.g., 'officers', 'activities',
-        'financials'). Use clear, snake_case keys.
-        """,
-    )
-
 
 # 2. Indonesian NIB Schema
 class KBLIDetail(BaseModel):
-    kbli_code: str = Field(default="", description="5-digit KBLI code")
-    kbli_title: str = Field(default="", description="English title/description of the KBLI activity")
-    business_location: str = Field(default="", description="Business location for this activity")
-    risk_classification: str = Field(default="", description="Risk classification of the activity")
-    activity_type: str = Field(default="", description="Activity type if shown")
-    business_permit_legality: str = Field(default="", description="Permit legality / permit status if shown")
+    kbliCode: str = Field(default="", description="5-digit KBLI code")
+    kbliTitle: str = Field(default="", description="English title/description of the KBLI activity")
+    businessLocation: str = Field(default="", description="Business location for this activity")
+    riskClassification: str = Field(default="", description="Risk classification of the activity")
+    activityType: str = Field(default="", description="Activity type if shown")
+    businessPermitLegality: str = Field(default="", description="Permit legality / permit status if shown")
 
-    @field_validator("kbli_code")
+    @field_validator("kbliCode")
     @classmethod
     def validate_kbli_code(cls, v: str) -> str:
         if not v:
@@ -84,24 +76,23 @@ class KBLIDetail(BaseModel):
 
 
 class NIBExtractionData(BaseModel):
-    company_name: str = Field(description="Name of the business")
-    nib_number: str = Field(description="13-digit Nomor Induk Berusaha")
-    company_status: str = Field(description="Status (e.g., PMA or PMDN)")
-    address: str = Field(description="Registered address")
-    kbli_codes: List[str] = Field(default_factory=list, description="List of 5-digit KBLI codes")
+    businessName: str = Field(description="Name of the business")
+    registrationNumber: str = Field(description="13-digit Nomor Induk Berusaha")
+    businessStatus: str = Field(description="Status (e.g., PMA or PMDN)")
+    registeredAddress: str = Field(description="Registered address")
+    kbliCodes: List[str] = Field(default_factory=list, description="List of 5-digit KBLI codes")
 
-    phone_number: str = Field(default="", description="Business phone number if present")
+    phone: str = Field(default="", description="Business phone number if present")
     email: str = Field(default="", description="Business email address if present")
-    issued_date: str = Field(default="", description="Issued date in DD-MM-YYYY if safely inferable")
-    printed_date: str = Field(default="", description="Printed date in DD-MM-YYYY if safely inferable")
+    registrationDate: str = Field(default="", description="Issued date in DD-MM-YYYY if safely inferable")
     issuer: str = Field(default="", description="Issuing authority shown on the NIB document")
 
-    kbli_details: List[KBLIDetail] = Field(
+    businessActivities: List[KBLIDetail] = Field(
         default_factory=list,
         description="Detailed KBLI activity rows shown in the NIB document"
     )
 
-    @field_validator("nib_number")
+    @field_validator("registrationNumber")
     @classmethod
     def validate_nib(cls, v: str) -> str:
         cleaned = re.sub(r"\D", "", v)
@@ -109,7 +100,7 @@ class NIBExtractionData(BaseModel):
             raise ValueError("Invalid NIB format. Must be exactly 13 digits.")
         return cleaned
 
-    @field_validator("kbli_codes")
+    @field_validator("kbliCodes")
     @classmethod
     def validate_kbli(cls, v: List[str]) -> List[str]:
         cleaned_codes = []
@@ -122,66 +113,47 @@ class NIBExtractionData(BaseModel):
             cleaned_codes.append(digits)
         return cleaned_codes
 
-    additional_data: Dict[str, Any] = Field(
-        default_factory=dict,
-        description="""
-        Extract ALL other information, fields, and tables from the document that are not
-        explicitly requested above. Group them logically using clear snake_case keys.
-        Only put truly non-essential extra fields here.
-        """,
-    )
-
 
 class BankStatementData(BaseModel):
-    bank_name: str = Field(default="", description="Name of the bank")
-    account_name: str = Field(default="", description="Name of the account holder")
-    account_number: str = Field(default="", description="The bank account number")
-    account_holder_address: str = Field(default="", description="Address of the account holder")
-    account_currency: str = Field(default="", description="Currency of the account")
-    statement_period: str = Field(default="", description="Period of the statement")
+    bankName: str = Field(default="", description="Name of the bank")
+    accountHolderName: str = Field(default="", description="Name of the account holder")
+    accountNumber: str = Field(default="", description="The bank account number")
+    accountHolderAddress: str = Field(default="", description="Address of the account holder")
+    accountCurrency: str = Field(default="", description="Currency of the account")
+    statementPeriod: str = Field(default="", description="Period of the statement")
 
-    opening_balance: Optional[float] = Field(default=None, description="Balance at start of statement")
-    closing_balance: Optional[float] = Field(default=None, description="Balance at end of statement")
+    openingBalance: Optional[float] = Field(default=None, description="Balance at start of statement")
+    closingBalance: Optional[float] = Field(default=None, description="Balance at end of statement")
 
-    total_inflow: Optional[float] = Field(default=None, description="Total incoming funds during statement period")
-    total_outflow: Optional[float] = Field(default=None, description="Total outgoing funds during statement period")
-    net_cashflow: Optional[float] = Field(default=None, description="Net cashflow (inflow - outflow)")
+    totalInflow: Optional[float] = Field(default=None, description="Total incoming funds during statement period")
+    totalOutflow: Optional[float] = Field(default=None, description="Total outgoing funds during statement period")
+    netCashflow: Optional[float] = Field(default=None, description="Net cashflow (inflow - outflow)")
 
-    average_balance: Optional[float] = Field(default=None, description="Average balance during statement period")
-    minimum_balance: Optional[float] = Field(default=None, description="Lowest balance recorded")
-    maximum_balance: Optional[float] = Field(default=None, description="Highest balance recorded")
+    averageBalance: Optional[float] = Field(default=None, description="Average balance during statement period")
+    minimumBalance: Optional[float] = Field(default=None, description="Lowest balance recorded")
+    maximumBalance: Optional[float] = Field(default=None, description="Highest balance recorded")
 
-    total_transactions: Optional[int] = Field(default=None, description="Total number of transactions")
-    total_credit_transactions: Optional[int] = Field(default=None, description="Number of incoming transactions")
-    total_debit_transactions: Optional[int] = Field(default=None, description="Number of outgoing transactions")
+    totalTransactions: Optional[int] = Field(default=None, description="Total number of transactions")
+    totalCreditTransactions: Optional[int] = Field(default=None, description="Number of incoming transactions")
+    totalDebitTransactions: Optional[int] = Field(default=None, description="Number of outgoing transactions")
 
-    largest_incoming_transaction: Optional[float] = Field(default=None, description="Largest incoming transaction")
-    largest_outgoing_transaction: Optional[float] = Field(default=None, description="Largest outgoing transaction")
+    largestIncomingTransaction: Optional[float] = Field(default=None, description="Largest incoming transaction")
+    largestOutgoingTransaction: Optional[float] = Field(default=None, description="Largest outgoing transaction")
 
-    unique_counterparties: Optional[int] = Field(default=None, description="Number of unique transaction counterparties")
-
-    additional_data: Dict[str, Any] = Field(
-        default_factory=dict,
-        description="Any other useful extracted data not covered by the main schema",
-    )
+    uniqueCounterparties: Optional[int] = Field(default=None, description="Number of unique transaction counterparties")
 
 
 class ProofOfAddressBase(BaseModel):
-    document_date: str = Field(default="", description="Date of document creation shown on the document")
-    additional_data: Dict[str, Any] = Field(
-        default_factory=dict,
-        description="Any other useful extracted data not covered by the main schema"
-    )
-
+    documentDate: str = Field(default="", description="Date of document creation shown on the document")
 
 class UtilityBillData(ProofOfAddressBase):
-    account_holder_name: str = Field(default="", description="Name of person or business billed")
-    service_address: str = Field(default="", description="The service address shown on the bill")
-    billing_period: str = Field(default="", description="Billing period shown on the bill")
-    issue_date: str = Field(default="", description="Bill issue date")
-    due_date: str = Field(default="", description="Payment due date")
-    amount_due: Optional[float] = Field(default=None, description="Amount due on the bill")
-    account_number: str = Field(default="", description="Utility account number")
+    accountHolderName: str = Field(default="", description="Name of person or business billed")
+    serviceAddress: str = Field(default="", description="The service address shown on the bill")
+    billingPeriod: str = Field(default="", description="Billing period shown on the bill")
+    issueDate: str = Field(default="", description="Bill issue date")
+    dueDate: str = Field(default="", description="Payment due date")
+    amountDue: Optional[float] = Field(default=None, description="Amount due on the bill")
+    accountNumber: str = Field(default="", description="Utility account number")
 
 
 class LeaseParty(BaseModel):
@@ -192,65 +164,59 @@ class LeaseParty(BaseModel):
 class TenancyAgreementData(ProofOfAddressBase):
     tenant: LeaseParty = Field(default_factory=LeaseParty, description="Tenant details")
     landlord: LeaseParty = Field(default_factory=LeaseParty, description="Landlord details")
-    leased_premises_address: str = Field(default="", description="Address of leased premises")
-    tenancy_start_date: str = Field(default="", description="Start date of tenancy")
-    tenancy_end_date: str = Field(default="", description="End date of tenancy")
-
+    leasedPremisesAddress: str = Field(default="", description="Address of leased premises")
+    tenancyStartDate: str = Field(default="", description="Start date of tenancy")
+    tenancyEndDate: str = Field(default="", description="End date of tenancy")
 
 class OfficeLeaseData(ProofOfAddressBase):
     tenant: LeaseParty = Field(default_factory=LeaseParty, description="Tenant business details")
     lessor: LeaseParty = Field(default_factory=LeaseParty, description="Lessor / landlord details")
-    leased_office_address: str = Field(default="", description="Office address being leased")
-    lease_start_date: str = Field(default="", description="Lease start date")
-    lease_end_date: str = Field(default="", description="Lease end date")
+    registeredAddress: str = Field(default="", description="Office address being leased")
+    leaseStartDate: str = Field(default="", description="Lease start date")
+    leaseEndDate: str = Field(default="", description="Lease end date")
 
 
 class LPAgreementData(BaseModel):
-    partnership_name: str = Field(default="", description="Name of the limited partnership")
-    general_partners: List[str] = Field(default_factory=list, description="Names of general partners")
-    limited_partners: List[str] = Field(default_factory=list, description="Names of limited partners")
-    agreement_date: str = Field(default="", description="Date of LP agreement")
-    registered_address: str = Field(default="", description="Registered/business address")
-    capital_contributions: List[Dict[str, Any]] = Field(default_factory=list, description="Partner contributions")
-    duration_or_term: str = Field(default="", description="Term/duration if specified")
-    signing_parties: List[str] = Field(default_factory=list, description="Agreement signatories")
-    additional_data: Dict[str, Any] = Field(default_factory=dict)
-
+    businessName: str = Field(default="", description="Name of the limited partnership")
+    generalPartners: List[str] = Field(default_factory=list, description="Names of general partners")
+    limitedPartners: List[str] = Field(default_factory=list, description="Names of limited partners")
+    registrationDate: str = Field(default="", description="Date of LP agreement")
+    registeredAddress: str = Field(default="", description="Registered/business address")
+    capitalContributions: List[Dict[str, Any]] = Field(default_factory=list, description="Partner contributions")
+    durationOrTerm: str = Field(default="", description="Term/duration if specified")
+    signingParties: List[str] = Field(default_factory=list, description="Agreement signatories")
 
 class LLPResolutionData(BaseModel):
-    llp_name: str = Field(default="", description="Name of the LLP")
-    registered_address: str = Field(default="", description="Registered/business address")
-    resolution_date: str = Field(default="", description="Date of resolution")
-    resolution_title: str = Field(default="", description="Title/subject of the resolution")
-    resolution_summary: str = Field(default="", description="Short summary of the resolved matter")
-    designated_partners: List[str] = Field(default_factory=list, description="Names of designated partners")
-    authorised_signatories: List[str] = Field(default_factory=list, description="Names of authorised signatories")
-    effective_date: str = Field(default="", description="Effective date if specified")
-    additional_data: Dict[str, Any] = Field(default_factory=dict)
+    businessName: str = Field(default="", description="Name of the LLP")
+    registeredAddress: str = Field(default="", description="Registered/business address")
+    resolutionDate: str = Field(default="", description="Date of resolution")
+    resolutionTitle: str = Field(default="", description="Title/subject of the resolution")
+    resolutionSummary: str = Field(default="", description="Short summary of the resolved matter")
+    designatedPartners: List[str] = Field(default_factory=list, description="Names of designated partners")
+    authorisedSignatories: List[str] = Field(default_factory=list, description="Names of authorised signatories")
+    effectiveDate: str = Field(default="", description="Effective date if specified")
 
 
 class BoardResolutionData(BaseModel):
-    company_name: str = Field(default="", description="Name of the private limited company")
-    resolution_date: str = Field(default="", description="Date of the board resolution")
-    resolution_title: str = Field(default="", description="Title/subject of the board resolution")
-    resolution_summary: str = Field(default="", description="Short summary of what was approved/resolved")
+    businessName: str = Field(default="", description="Name of the private limited company")
+    resolutionDate: str = Field(default="", description="Date of the board resolution")
+    resolutionTitle: str = Field(default="", description="Title/subject of the board resolution")
+    resolutionSummary: str = Field(default="", description="Short summary of what was approved/resolved")
     directors: List[str] = Field(default_factory=list, description="Names of directors mentioned")
-    authorised_signatories: List[str] = Field(default_factory=list, description="Names of authorised signatories")
-    effective_date: str = Field(default="", description="Effective date if specified")
-    reference_number: str = Field(default="", description="Board resolution number/reference if present")
-    additional_data: Dict[str, Any] = Field(default_factory=dict)
+    authorisedSignatories: List[str] = Field(default_factory=list, description="Names of authorised signatories")
+    effectiveDate: str = Field(default="", description="Effective date if specified")
+    referenceNumber: str = Field(default="", description="Board resolution number/reference if present")
 
 
 class NPWPCertificateData(BaseModel):
-    taxpayer_name: str = Field(default="", description="Registered taxpayer name")
-    npwp_number: str = Field(default="", description="NPWP tax number")
-    registered_address: str = Field(default="", description="Registered taxpayer address")
-    taxpayer_status: str = Field(default="", description="Taxpayer status/category if shown")
-    issue_date: str = Field(default="", description="Issue or registration date")
-    tax_office_name: str = Field(default="", description="Issuing tax office / KPP")
-    additional_data: Dict[str, Any] = Field(default_factory=dict)
+    businessName: str = Field(default="", description="Registered taxpayer name")
+    npwp: str = Field(default="", description="NPWP tax number")
+    registeredAddress: str = Field(default="", description="Registered taxpayer address")
+    taxpayerStatus: str = Field(default="", description="Taxpayer status/category if shown")
+    registrationDate: str = Field(default="", description="Issue or registration date")
+    taxOfficeName: str = Field(default="", description="Issuing tax office / KPP")
 
-    @field_validator("npwp_number")
+    @field_validator("npwp")
     @classmethod
     def validate_npwp(cls, v: str) -> str:
         if not v:
@@ -262,42 +228,39 @@ class NPWPCertificateData(BaseModel):
 
 
 class ShareholderEntry(BaseModel):
-    name: str = Field(default="", description="Name of founder/shareholder")
-    entity_type: str = Field(default="", description="INDIVIDUAL or COMPANY")
-    id_number: str = Field(default="", description="ID number if individual and clearly shown")
-    registration_number: str = Field(default="", description="Company/entity registration number if clearly shown")
-    address: str = Field(default="", description="Address of shareholder if clearly shown")
-    nationality_or_place_of_origin: str = Field(default="", description="Nationality or place of origin of individual")
-    registered_address: str = Field(default="", description="Address of individual or corporate entity")
-    share_percentage: float = Field(default=0.0, description="Percentage of shares")
-    nominal_value_idr: Optional[float] = Field(default=None, description="Nominal subscription amount in IDR")
-    ownership_percentage: Optional[float] = Field(
-        default=None,
-        description="Ownership percentage if explicitly stated or safely derivable",
-    )
+    fullName: str = Field(default="", description="Name of founder/shareholder")
+    entityType: str = Field(default="", description="INDIVIDUAL or COMPANY")
+    nationality: str = Field(default="", description="Nationality or place of origin of individual")
+    idNumber: str = Field(default="", description="ID number if individual and clearly shown")
+    registrationNumber: str = Field(default="", description="Company/entity registration number if clearly shown")
+    residentialAddress: str = Field(default="", description="Address of shareholder if clearly shown")
+    registeredAddress: str = Field(default="", description="Address of individual or corporate entity")
+    sharePercentage: Optional[float] = Field(default=0.0, description="Percentage of shares")
+    nominalValueIdr: Optional[float] = Field(default=None, description="Nominal subscription amount in IDR")
+
 
 
 class AktaPendirianData(BaseModel):
-    company_name: str = Field(default="", description="Registered company name stated in the deed")
-    legal_entity_type: str = Field(default="", description="Usually Perseroan Terbatas / PT")
-    deed_number: str = Field(default="", description="Nomor akta")
-    deed_date: str = Field(default="", description="Tanggal akta / deed date")
-    notary_name: str = Field(default="", description="Name of notary who executed the deed")
-    notary_office_address: str = Field(default="", description="Notary office address if shown")
+    businessName: str = Field(default="", description="Registered company name stated in the deed")
+    entityType: str = Field(default="", description="Usually Perseroan Terbatas / PT")
+    registrationNumber: str = Field(default="", description="Nomor akta")
+    registrationDate: str = Field(default="", description="Tanggal akta / deed date")
+    notaryName: str = Field(default="", description="Name of notary who executed the deed")
+    notaryOfficeAddress: str = Field(default="", description="Notary office address if shown")
 
-    domicile_city: str = Field(default="", description="City of domicile / seat of company")
-    registered_address: str = Field(default="", description="Registered address if explicitly stated in the deed")
+    domicileCity: str = Field(default="", description="City of domicile / seat of company")
+    registeredAddress: str = Field(default="", description="Registered address if explicitly stated in the deed")
     duration: str = Field(default="", description="Company duration / term")
-    business_purpose: str = Field(default="", description="Maksud dan tujuan / main business purpose")
-    business_activities: List[str] = Field(default_factory=list, description="Business activity descriptions")
-    kbli_codes: List[str] = Field(default_factory=list, description="KBLI codes mentioned in the deed")
+    businessPurpose: str = Field(default="", description="Maksud dan tujuan / main business purpose")
+    businessActivities: List[str] = Field(default_factory=list, description="Business activity descriptions")
+    kbliCodes: List[str] = Field(default_factory=list, description="KBLI codes mentioned in the deed")
 
-    authorized_capital_idr: Optional[float] = Field(default=None, description="Modal dasar")
-    authorized_share_count: Optional[int] = Field(default=None, description="Total authorized shares")
-    par_value_per_share_idr: Optional[float] = Field(default=None, description="Nominal value per share")
-    issued_capital_idr: Optional[float] = Field(default=None, description="Modal ditempatkan if identifiable")
-    paid_up_capital_idr: Optional[float] = Field(default=None, description="Modal disetor if identifiable")
-    issued_paid_share_count: Optional[int] = Field(default=None, description="Shares issued and/or paid up")
+    authorizedCapitalIdr: Optional[float] = Field(default=None, description="Modal dasar")
+    authorizedShareCount: Optional[int] = Field(default=None, description="Total authorized shares")
+    parValuePerShareIdr: Optional[float] = Field(default=None, description="Nominal value per share")
+    issuedCapitalIdr: Optional[float] = Field(default=None, description="Modal ditempatkan if identifiable")
+    paidUpCapitalIdr: Optional[float] = Field(default=None, description="Modal disetor if identifiable")
+    issuedPaidShareCount: Optional[int] = Field(default=None, description="Shares issued and/or paid up")
 
     shareholders: List[ShareholderEntry] = Field(
         default_factory=list,
@@ -306,21 +269,7 @@ class AktaPendirianData(BaseModel):
     directors: List[str] = Field(default_factory=list, description="Directors appointed in the deed")
     commissioners: List[str] = Field(default_factory=list, description="Commissioners appointed in the deed")
 
-    representative_parties: List[str] = Field(
-        default_factory=list,
-        description="Persons appearing before the notary / acting for corporate founders",
-    )
-    supporting_entity_names: List[str] = Field(
-        default_factory=list,
-        description="Other entities referenced, e.g. founding shareholder company",
-    )
-    ministerial_reference_numbers: List[str] = Field(
-        default_factory=list,
-        description="AHU / ministerial reference numbers mentioned",
-    )
-    additional_data: Dict[str, Any] = Field(default_factory=dict)
-
-    @field_validator("kbli_codes")
+    @field_validator("kbliCodes")
     @classmethod
     def validate_kbli_codes(cls, v: List[str]) -> List[str]:
         cleaned_codes = []
@@ -341,87 +290,42 @@ class AktaPendirianData(BaseModel):
         return normalized
 
 class UBODeclarationOwner(BaseModel):
-    full_name: str = Field(default="", description="Full legal name of the beneficial owner / controlling person")
+    fullName: str = Field(default="", description="Full legal name of the person")
     nationality: str = Field(default="", description="Nationality or citizenship if shown")
-    date_of_birth: str = Field(default="", description="Date of birth if shown")
-    id_type: str = Field(default="", description="Type of identification document, e.g. NRIC, Passport")
-    id_number: str = Field(default="", description="Identification number if shown")
-    residential_address: str = Field(default="", description="Residential address if shown")
-    country_of_residence: str = Field(default="", description="Country of residence if shown")
-    ownership_percentage: Optional[float] = Field(
-        default=None,
-        description="Direct or indirect ownership percentage if explicitly stated"
-    )
-    ownership_type: Optional[str] = Field(
-        default="",
-        description="DIRECT, INDIRECT, CONTROL, or OTHER if stated or clearly inferable from the declaration"
-    )
-    control_description: Optional[str] = Field(
-        default="",
-        description="Short description of control basis, e.g. shares, voting rights, other means"
-    )
-    politically_exposed_person: Optional[bool] = Field(
-        default=None,
-        description="Whether the person is declared as a PEP, if explicitly stated"
-    )
-    pep_details: Optional[str] = Field(default="", description="PEP details if stated")
-    sanctions_declared: Optional[bool] = Field(
-        default=None,
-        description="Whether sanctions/adverse declaration is indicated, if explicitly stated"
-    )
-    tax_residency: str = Field(default="", description="Tax residency if shown")
-    source_of_wealth: str = Field(default="", description="Source of wealth if shown")
-    source_of_funds: str = Field(default="", description="Source of funds if shown")
+    sharePercentage: Optional[float] = Field(default=None, description="Ownership percentage if shown")
 
 
 class UBODeclarationData(BaseModel):
-    company_name: str = Field(default="", description="Company/entity name the declaration relates to")
-    registration_number: str = Field(default="", description="UEN, business registration number, or equivalent if shown")
-    declaration_date: str = Field(default="", description="Date of declaration or form completion")
-    form_title: str = Field(default="", description="Title of the document/form")
-    jurisdiction: str = Field(default="", description="Jurisdiction/country if shown")
-    declares_no_ubo: Optional[bool] = Field(
-        default=None,
-        description="True if the form explicitly states there is no UBO meeting the threshold"
-    )
-    ubo_threshold_percentage: Optional[float] = Field(
-        default=None,
-        description="Threshold used in the declaration, e.g. 25"
-    )
-    beneficial_owners: List[UBODeclarationOwner] = Field(
+    businessName: str = Field(default="", description="Company/entity name")
+    registrationNumber: str = Field(default="", description="Business registration number / UEN if shown")
+    registrationDate: str = Field(default="", description="Declaration date or signature date if shown")
+    countryOfIncorporation: str = Field(default="", description="Place/country of incorporation or registration")
+    layersOfOwnership: Optional[int] = Field(default=None, description="Maximum number of ownership layers")
+    beneficialOwners: List[UBODeclarationOwner] = Field(
         default_factory=list,
-        description="List of declared ultimate beneficial owners / controlling persons"
+        description="List of relevant natural persons/beneficial owners shown in the declaration"
     )
-    declarant_name: str = Field(default="", description="Name of the person signing/completing the declaration")
-    declarant_role: str = Field(default="", description="Role/capacity of the declarant, e.g. Director, Authorised Signatory")
-    signature_date: str = Field(default="", description="Date of signature if shown")
-    contact_details: str = Field(default="", description="Email / phone / contact details if shown")
-    additional_data: Dict[str, Any] = Field(
-        default_factory=dict,
-        description="Any other relevant declarations, checkboxes, certifications, or notes"
-    )
-    
 
 class GenericAdditionalDocumentData(BaseModel):
-    requested_document_name: str = Field(default="")
-    matched_requested_document: bool = Field(default=True)
-    detected_document_type: str = Field(default="UNKNOWN")
-    document_purpose_summary: str = Field(
+    requestedDocumentName: str = Field(default="")
+    matchedRequestedDocument: bool = Field(default=True)
+    detectedDocumentType: str = Field(default="UNKNOWN")
+    documentPurposeSummary: str = Field(
         default="",
         description="What this document appears to be used for"
     )
 
-    key_entities: Dict[str, Any] = Field(
+    keyEntities: Dict[str, Any] = Field(
         default_factory=dict,
         description="Core people, company, authority, counterparty, bank, issuer, etc."
     )
 
-    key_identifiers: Dict[str, Any] = Field(
+    keyIdentifiers: Dict[str, Any] = Field(
         default_factory=dict,
         description="Registration number, tax number, account number, invoice number, reference number, etc."
     )
 
-    important_dates: Dict[str, Any] = Field(
+    importantDates: Dict[str, Any] = Field(
         default_factory=dict,
         description="Issue date, incorporation date, expiry date, agreement date, billing period, etc."
     )
@@ -431,35 +335,49 @@ class GenericAdditionalDocumentData(BaseModel):
         description="Registered address, service address, premises address, mailing address, etc."
     )
 
-    financial_information: Dict[str, Any] = Field(
+    financialInformation: Dict[str, Any] = Field(
         default_factory=dict,
         description="Amounts, balances, capital, invoice totals, rental, payment obligations, etc."
     )
 
-    ownership_and_governance: Dict[str, Any] = Field(
+    ownershipAndGovernance: Dict[str, Any] = Field(
         default_factory=dict,
         description="Shareholders, directors, partners, authorised signatories, beneficial owners, etc."
     )
 
-    obligations_and_terms: Dict[str, Any] = Field(
+    obligationsAndTerms: Dict[str, Any] = Field(
         default_factory=dict,
         description="Important clauses, term, validity, lease period, payment due date, conditions, etc."
     )
 
-    extracted_mapped_fields: Dict[str, Any] = Field(
+    extractedMappedFields: Dict[str, Any] = Field(
         default_factory=dict,
         description="Optional normalized fields mapped into common business/KYC names when clearly inferable"
     )
 
-    additional_relevant_info: Dict[str, Any] = Field(
-        default_factory=dict,
-        description="Anything else useful"
-    )
-
-    missing_or_unclear_items: List[str] = Field(
+    missingOrUnclearItems: List[str] = Field(
         default_factory=list,
         description="Important items that appear missing or unclear"
     )
+
+class IdentityDocumentData(BaseModel):
+    documentSubtype: str = Field(
+        default="",
+        description="Subtype of identity document, e.g. ID_CARD or PASSPORT"
+    )
+    fullName: str = Field(
+        default="",
+        description="Full legal name shown on the identity document"
+    )
+    idNumber: str = Field(
+        default="",
+        description="Identity number, passport number, or document number shown"
+    )
+    residentialAddress: str = Field(
+        default="",
+        description="Residential address shown on the document, if present"
+    )
+
 
 DOCUMENT_SCHEMA_REGISTRY: Dict[str, Type[BaseModel]] = {
     "NIB": NIBExtractionData,
@@ -477,6 +395,7 @@ DOCUMENT_SCHEMA_REGISTRY: Dict[str, Type[BaseModel]] = {
     "UNKNOWN": GenericAdditionalDocumentData,
     "ALTERNATIVE_DOCUMENT": GenericAdditionalDocumentData,
     "GENERIC_ADDITIONAL_DOCUMENT": GenericAdditionalDocumentData,
+    "ID_DOCUMENT": IdentityDocumentData,
 }
 
 
