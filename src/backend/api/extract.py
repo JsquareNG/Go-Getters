@@ -10,7 +10,7 @@ from backend.services.gemini_extractor import (
     assess_requested_document_match
 )
 from backend.services.document_ai import extract_document_layout
-from backend.models.extract import DOCUMENT_SCHEMA_REGISTRY, SUPPORTED_DOCUMENT_TYPES
+from backend.models.extract import DOCUMENT_SCHEMA_REGISTRY
 
 router = APIRouter(prefix="/extract", tags=["OCR Extraction"])
 

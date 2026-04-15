@@ -107,17 +107,17 @@ function getBasicBusinessFields() {
       label: "Date of Registration",
       required: true,
     },
-    businessStatus: {
-      type: "select",
-      label: "Business Status",
-      required: true,
-      options: [
-        { label: "Low Risk", value: "Low Risk" },
-        { label: "Medium-Low Risk", value: "Medium-Low Risk" },
-        { label: "Medium-High Risk", value: "Medium-High Risk" },
-        { label: "High Risk", value: "High Risk" },
-      ],
-    },
+    // businessStatus: {
+    //   type: "select",
+    //   label: "Business Status",
+    //   required: true,
+    //   options: [
+    //     { label: "Low Risk", value: "Low Risk" },
+    //     { label: "Medium-Low Risk", value: "Medium-Low Risk" },
+    //     { label: "Medium-High Risk", value: "Medium-High Risk" },
+    //     { label: "High Risk", value: "High Risk" },
+    //   ],
+    // },
     registeredAddress: {
       type: "textarea",
       label: "Registered Address",
