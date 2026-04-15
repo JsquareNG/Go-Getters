@@ -175,87 +175,9 @@ const SMEApplicationForm = () => {
     fetchDocuments();
   }, [appId]);
 
-  // const handlePersistKycResult = useCallback(
-  //   async ({
-  //     provider_session_id,
-  //     kycData,
-  //     mappedFields = {},
-  //     providerSessionField = "provider_session_id",
-  //     kycDataField = "kyc",
-  //     rowPrefix = "",
-  //   }) => {
-  //     const qualify = (field) => (rowPrefix ? `${rowPrefix}.${field}` : field);
-
-  //     const qualifiedProviderSessionField = qualify(providerSessionField);
-  //     const qualifiedKycDataField = qualify(kycDataField);
-
-  //     dispatch(
-  //       updateField({
-  //         field: qualifiedProviderSessionField,
-  //         value: provider_session_id,
-  //       }),
-  //     );
-
-  //     dispatch(
-  //       updateField({
-  //         field: qualifiedKycDataField,
-  //         value: kycData,
-  //       }),
-  //     );
-
-  //     let patchedFormData = formData;
-  //     patchedFormData = setNestedValue(
-  //       patchedFormData,
-  //       qualifiedProviderSessionField,
-  //       provider_session_id,
-  //     );
-  //     patchedFormData = setNestedValue(
-  //       patchedFormData,
-  //       qualifiedKycDataField,
-  //       kycData,
-  //     );
-
-  //     Object.entries(mappedFields || {}).forEach(([fieldName, fieldValue]) => {
-  //       const qualifiedField = qualify(fieldName);
-
-  //       dispatch(
-  //         updateField({
-  //           field: qualifiedField,
-  //           value: fieldValue,
-  //         }),
-  //       );
-
-  //       patchedFormData = setNestedValue(
-  //         patchedFormData,
-  //         qualifiedField,
-  //         fieldValue,
-  //       );
-  //     });
-
-  //     try {
-  //       await persistApplication({
-  //         isInitial: false,
-  //         rawFormDataOverride: patchedFormData,
-  //       });
-  //     } catch (err) {
-  //       toast({
-  //         title: "KYC verified but draft not saved",
-  //         description: err?.message || "Please click Save Draft manually.",
-  //         variant: "destructive",
-  //       });
-  //     }
-  //   },
-  //   [
-  //     dispatch,
-  //     formData,
-  //     currentApp?.applicationId,
-  //     appId,
-  //     activeConfig,
-  //     user,
-  //     currentStepFromRedux,
-  //     toast,
-  //   ],
-  // );
+  // ----------------------
+  // KYC VALIDATION
+  // ----------------------
   const isSuccessfulKycResult = (kyc) => {
     if (!kyc || typeof kyc !== "object") return false;
 
@@ -280,6 +202,7 @@ const SMEApplicationForm = () => {
     );
   };
 
+  // patch provider_session_id and kyc results into form, map fields, and save draft
   const handlePersistKycResult = useCallback(
     async ({
       provider_session_id,
@@ -326,34 +249,8 @@ const SMEApplicationForm = () => {
         return;
       }
 
-      // dispatch(
-      //   updateField({
-      //     field: qualifiedProviderSessionField,
-      //     value: provider_session_id,
-      //   }),
-      // );
-
-      // dispatch(
-      //   updateField({
-      //     field: qualifiedKycDataField,
-      //     value: kycData,
-      //   }),
-      // );
-
       // patch fields, map KYC and save draft
       let patchedFormData = currentFormRoot;
-      // let patchedFormData = getMergedFormState(formData);
-
-      // patchedFormData = setNestedValue(
-      //   patchedFormData,
-      //   qualifiedProviderSessionField,
-      //   provider_session_id,
-      // );
-
-      // patchedFormData = setNestedValue(patchedFormData, qualifiedKycDataField, {
-      //   ...(getMergedFormState(formData)?.[qualifiedKycDataField] || {}),
-      //   ...(kycData || {}),
-      // });
 
       patchedFormData = setNestedValue(
         patchedFormData,
@@ -367,11 +264,6 @@ const SMEApplicationForm = () => {
         kycData,
       );
 
-      // patchedFormData = setNestedValue(
-      //   patchedFormData,
-      //   qualifiedKycDataField,
-      //   kycData,
-      // );
       const shouldMapIdentityFields = isSuccessfulKycResult(kycData);
 
       if (shouldMapIdentityFields) {
@@ -494,6 +386,10 @@ const SMEApplicationForm = () => {
       rawFormDataOverride || formData,
     );
 
+    console.log("[1] rawFormDataOverride", rawFormDataOverride);
+    console.log("[2] redux formData", formData);
+    console.log("[3] effectiveFormData", effectiveFormData);
+
     try {
       let savedAppId = currentApp?.applicationId || appId;
 
@@ -571,6 +467,8 @@ const SMEApplicationForm = () => {
       cleanedFormPayload.email =
         effectiveFormData?.email ?? cleanedFormPayload.email ?? "";
 
+      console.log("[4] cleanedFormPayload", cleanedFormPayload);
+
       const payload = {
         ...(savedAppId && savedAppId !== "new"
           ? { application_id: savedAppId }
@@ -583,6 +481,8 @@ const SMEApplicationForm = () => {
         form_data: cleanedFormPayload,
       };
 
+      console.log("[5] final payload", payload);
+
       const res = await saveApplicationDraftApi(payload);
       savedAppId = res.application_id || savedAppId;
 
@@ -591,6 +491,7 @@ const SMEApplicationForm = () => {
       //   activeConfig,
       //   savedAppId,
       // );
+
       try {
         await uploadAllDocumentsFromFormData(
           effectiveFormData,
@@ -815,7 +716,7 @@ const SMEApplicationForm = () => {
   //   );
   // };
   const isIncomplete = validationReport.total > 0;
-  console.log("VALIDATION", validationReport);
+  // console.log("VALIDATION", validationReport);
 
   const isApprovedKyc = useCallback((kyc) => {
     if (!kyc || typeof kyc !== "object") return false;
@@ -979,6 +880,8 @@ const SMEApplicationForm = () => {
     }),
     [formData, handleFieldChange, isViewOnly],
   );
+
+  useEffect(() => console.log("[FORM]: ", formData), [formData]);
 
   const isStep0Locked = Boolean(appId && appId !== "new");
 

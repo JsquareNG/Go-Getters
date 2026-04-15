@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import { ArrowRight, ShieldCheck } from "lucide-react";
 import { Button, Badge, Card, CardContent } from "@/components/ui";
-// import { livenessDetectionApi } from "@/api/livenessDetectionApi";
+import { livenessDetectionApi } from "@/api/livenessDetectionApi";
 import { getThreshold } from "@/api/riskConfigListApi";
 import { mapIsoToNationalityOption } from "../utils/countries";
 
@@ -71,15 +71,19 @@ const KycVerificationCard = ({
 
   const normalizedOverall = String(kycOverallStatus || "")
     .trim()
-    .toLowerCase();
+    .toLowerCase()
+    .replace(/\s+/g, "");
   const normalizedStatus = String(kycStatus || "")
     .trim()
-    .toLowerCase();
+    .toLowerCase()
+    .replace(/\s+/g, "");
 
   const isKycIdle = normalizedStatus === "idle";
 
   const isKycPending =
-    normalizedStatus === "pending" || normalizedOverall === "notstarted";
+    normalizedStatus === "pending" ||
+    normalizedOverall === "notstarted" ||
+    normalizedOverall === "inprogress";
   const isKycDeclined =
     // normalizedStatus === "completed" &&
     normalizedOverall === "declined";
@@ -170,7 +174,7 @@ const KycVerificationCard = ({
       idNumber: idv?.document_number || "",
       dateOfBirth: idv?.date_of_birth || "",
       residentialAddress: idv?.formatted_address || "",
-      nationality: mapIsoToNationalityOption(idv?.issuing_state || null),
+      // nationality: mapIsoToNationalityOption(idv?.issuing_state || null),
     };
   };
 
@@ -601,14 +605,23 @@ const KycVerificationCard = ({
         const payload = mapDiditToPayload(diditData);
         const mappedFields = mapDiditToFormFields(diditData);
 
-        //callback path → parent persists
-        //restore path → parent persists too
+        // persist liveness result to backend here
+        try {
+          if (payload?.provider_session_id) {
+            const persistRes = await livenessDetectionApi(payload);
+            console.log("[KYC] liveness persisted:", persistRes);
+          }
+        } catch (err) {
+          console.error("[KYC] failed to persist liveness detection:", err);
+        }
+
+        //update parent form state
         if (onPersistKycResult) {
           try {
             await onPersistKycResult({
               provider_session_id: verificationSessionId,
               kycData: nextKycData,
-              diditPayload: payload,
+              // diditPayload: payload,
               mappedFields,
             });
           } catch (err) {
@@ -634,18 +647,18 @@ const KycVerificationCard = ({
   // -----------------
   // DEBUG
   // -----------------
-  console.log("[KYC UI STATE]", {
-    rawKycData: kycData,
-    kycStatus,
-    kycOverallStatus,
-    normalizedStatus,
-    normalizedOverall,
+  // console.log("[KYC UI STATE]", {
+  //   rawKycData: kycData,
+  //   kycStatus,
+  //   kycOverallStatus,
+  //   normalizedStatus,
+  //   normalizedOverall,
 
-    isKycIdle,
-    isKycPending,
-    isKycDeclined,
-    isKycApproved,
-  });
+  //   isKycIdle,
+  //   isKycPending,
+  //   isKycDeclined,
+  //   isKycApproved,
+  // });
 
   return (
     <Card
@@ -770,7 +783,7 @@ const KycVerificationCard = ({
             </div>
           </div>
 
-          <div className="shrink-0">
+          {/* <div className="shrink-0">
             {isKycIdle && (
               <Button
                 type="button"
@@ -780,6 +793,17 @@ const KycVerificationCard = ({
               >
                 <ShieldCheck className="h-4 w-4" />
                 {kycLoading ? "Creating session..." : "Start Verification"}
+                {!kycLoading && (
+                  <Button
+                    type="button"
+                    onClick={handleStartKyc}
+                    className="gap-2 bg-red-600"
+                    disabled={disabled || kycLoading}
+                  >
+                    <ShieldCheck className="h-4 w-4" />
+                    {kycLoading ? "Creating session..." : "Retry Verification"}
+                  </Button>
+                )}
               </Button>
             )}
 
@@ -816,6 +840,47 @@ const KycVerificationCard = ({
               >
                 <ShieldCheck className="h-4 w-4" />
                 {kycLoading ? "Creating session..." : "Retry Verification"}
+              </Button>
+            )}
+
+            {MOCK_KYC && (
+              <div className="mt-3 flex gap-2">
+                <Button type="button" onClick={() => finishMockKyc("approved")}>
+                  Mock Approve
+                </Button>
+                <Button type="button" onClick={() => finishMockKyc("declined")}>
+                  Mock Decline
+                </Button>
+                <Button type="button" onClick={() => finishMockKyc("pending")}>
+                  Mock Pending
+                </Button>
+              </div>
+            )}
+          </div> */}
+          <div className="shrink-0">
+            {isKycApproved ? (
+              <Button
+                type="button"
+                variant="outline"
+                className="gap-2"
+                disabled
+              >
+                Verified
+                <ArrowRight className="h-4 w-4" />
+              </Button>
+            ) : (
+              <Button
+                type="button"
+                onClick={handleStartKyc}
+                className="gap-2 bg-red-600"
+                disabled={disabled || kycLoading}
+              >
+                <ShieldCheck className="h-4 w-4" />
+                {kycLoading
+                  ? "Creating session..."
+                  : isKycIdle
+                    ? "Start Verification"
+                    : "Retry Verification"}
               </Button>
             )}
 
