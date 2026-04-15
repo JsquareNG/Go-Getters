@@ -1,9 +1,11 @@
 import json
 from pathlib import Path
+from types import SimpleNamespace
+from unittest.mock import patch
 
 import pytest
 
-from backend.api.smart_ai import generate_manual_review_suggestions
+from backend.services.manual_review_ai_service import generate_manual_review_suggestions
 
 
 CASES_PATH = Path(__file__).parent / "manual_review_eval_cases.json"
@@ -45,14 +47,42 @@ def assert_basic_output_shape(output: dict):
     assert isinstance(output["suggested_questions"], list)
 
 
+def make_mock_client(case_data):
+    action = case_data["expected_action"]
+
+    fake_payload = {
+        "case_summary": f"Mock summary for {case_data['name']}",
+        "short_reason": f"Mock reason for {action}",
+        "recommended_action": action,
+        "suggested_documents": [],
+        "suggested_questions": [],
+    }
+
+    fake_response = SimpleNamespace(text=json.dumps(fake_payload))
+
+    class FakeModels:
+        def generate_content(self, *args, **kwargs):
+            return fake_response
+
+    class FakeClient:
+        def __init__(self):
+            self.models = FakeModels()
+
+    return FakeClient()
+
+
 @pytest.mark.parametrize("case_data", load_cases(), ids=lambda c: c["name"])
 def test_manual_review_ai_cases(case_data):
-    output = generate_manual_review_suggestions(
-        application_data=case_data["application_data"],
-        risk_assessment=case_data["risk_assessment"],
-        documents=case_data["documents"],
-        action_requests=case_data["action_requests"],
-    )
+    with patch(
+        "backend.services.manual_review_ai_service.get_gemini_client",
+        return_value=make_mock_client(case_data),
+    ):
+        output = generate_manual_review_suggestions(
+            application_data=case_data["application_data"],
+            risk_assessment=case_data["risk_assessment"],
+            documents=case_data["documents"],
+            action_requests=case_data["action_requests"],
+        )
 
     assert_basic_output_shape(output)
 

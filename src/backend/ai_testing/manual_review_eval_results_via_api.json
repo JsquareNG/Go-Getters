@@ -1,0 +1,296 @@
+{
+  "summary": {
+    "total_cases": 10,
+    "successful_calls": 7,
+    "failed_calls": 3,
+    "action_accuracy": 30.0
+  },
+  "results": [
+    {
+      "name": "sg_sole_prop_clean_low_risk_approve",
+      "expected_action": "approve",
+      "actual_action": "escalate",
+      "match": false,
+      "success": true,
+      "error": null,
+      "raw_response": {
+        "success": true,
+        "data": {
+          "case_summary": "TWM RETAIL is a Singapore-based sole proprietorship operating in the retail sector since 2016. While the risk score is low (28) and standard documentation (Business Profile, Bank Statement, and Proof of Address) has been verified, there is a significant discrepancy between the declared annual revenue of 120,000 SGD and the expected monthly transaction volume of 500,000 SGD (which equates to 6,000,000 SGD annually).",
+          "short_reason": "The expected monthly transaction volume is 50 times higher than the declared annual revenue, requiring clarification and supporting documentation to justify the business scale.",
+          "recommended_action": "escalate",
+          "suggested_documents": [
+            {
+              "document_name": "Recent Sales Invoices or Contracts",
+              "document_description": "Copies of recent invoices or signed sales contracts that support the projected monthly transaction volume of 500,000 SGD."
+            },
+            {
+              "document_name": "Latest Financial Statements or Management Accounts",
+              "document_description": "The most recent profit and loss statement or management accounts to verify current revenue trends and business scale."
+            }
+          ],
+          "suggested_questions": [
+            "Please clarify the discrepancy between your declared annual revenue of 120,000 SGD and the expected monthly transaction volume of 500,000 SGD.",
+            "Could you provide more detail regarding the nature of the transactions and the specific business partners involved in your operations with Malaysia?"
+          ]
+        }
+      }
+    },
+    {
+      "name": "sg_private_limited_clean_low_risk_approve",
+      "expected_action": "approve",
+      "actual_action": "escalate",
+      "match": false,
+      "success": true,
+      "error": null,
+      "raw_response": {
+        "success": true,
+        "data": {
+          "case_summary": "ALPHA TECH PTE. LTD. is a Singapore-incorporated technology services provider. While the risk assessment indicates a 'Standard Due Diligence' grade, two significant inconsistencies require clarification: first, the expected monthly transaction volume (700,000 SGD) is nearly equal to the declared annual revenue (800,000 SGD), suggesting a potential data error or unexplained high-velocity activity. Second, Melissa Goh is listed as a 60% direct shareholder but her UBO basis of control is cited as 'Indirect ownership through another entity,' which is inconsistent with the provided individual list. Furthermore, standard Singaporean verification documents such as the ACRA Business Profile and NRIC/Passport copies for key individuals are currently missing from the file.",
+          "short_reason": "Significant discrepancy between declared annual revenue and expected transaction volume, alongside inconsistencies in the reported ownership structure.",
+          "recommended_action": "escalate",
+          "suggested_documents": [
+            {
+              "document_name": "ACRA Business Profile",
+              "document_description": "A current (within last 3 months) Business Profile from the Accounting and Corporate Regulatory Authority (ACRA) to verify the company's registration, directorship, and shareholding structure."
+            },
+            {
+              "document_name": "Identification Documents",
+              "document_description": "Clear copies of NRIC (for Singaporeans/PRs) or Passports for Melissa Goh and Jason Lim to verify identity."
+            },
+            {
+              "document_name": "Proof of Business Activity / Invoices",
+              "document_description": "Recent sales contracts or invoices to support the high expected monthly transaction volume relative to the declared annual revenue."
+            }
+          ],
+          "suggested_questions": [
+            "Please clarify the discrepancy between the declared annual revenue (800,000 SGD) and the expected monthly transaction volume (700,000 SGD), as the latter implies an annual volume of 8.4 million SGD.",
+            "The application states Melissa Goh holds control via 'Indirect ownership through another entity.' Please provide details of any intermediate holding companies or clarify if her 60% stake is held directly.",
+            "Please provide a brief explanation of the nature of the cross-border transactions expected with Malaysia."
+          ]
+        }
+      }
+    },
+    {
+      "name": "sg_private_limited_pep_escalate",
+      "expected_action": "escalate",
+      "actual_action": "escalate",
+      "match": true,
+      "success": true,
+      "error": null,
+      "raw_response": {
+        "success": true,
+        "data": {
+          "case_summary": "NORTHBRIDGE ADVISORY PTE. LTD. is a Singapore-incorporated consultancy firm. The application is flagged for manual review due to the sole director and 100% shareholder, Aaron Koh, being a domestic Politically Exposed Person (Member of Parliament). Additionally, there is a significant discrepancy between the declared annual revenue (450,000 SGD) and the expected monthly transaction volume (300,000 SGD), which would equate to 3.6 million SGD annually. While the risk score is 45, the PEP status and financial inconsistencies necessitate Enhanced Due Diligence (EDD).",
+          "short_reason": "Escalation is required to perform Enhanced Due Diligence on the PEP applicant and to clarify the discrepancy between declared annual revenue and expected transaction volumes.",
+          "recommended_action": "escalate",
+          "suggested_documents": [
+            {
+              "document_name": "ACRA Business Profile",
+              "document_description": "A recent Business Profile from the Accounting and Corporate Regulatory Authority (ACRA) to verify company details, directors, and shareholding structure in Singapore."
+            },
+            {
+              "document_name": "Source of Wealth (SoW) Declaration/Evidence",
+              "document_description": "Documentation or a detailed declaration explaining the origin of the UBO's total net worth, required for Enhanced Due Diligence due to PEP status."
+            },
+            {
+              "document_name": "Service Agreements or Sample Invoices",
+              "document_description": "Copies of recent contracts or invoices to justify the high expected monthly transaction volume relative to the declared annual revenue."
+            }
+          ],
+          "suggested_questions": [
+            "Please clarify the discrepancy between the declared annual revenue of 450,000 SGD and the expected monthly transaction volume of 300,000 SGD.",
+            "Could you provide more detail on the specific nature of the business management consulting services provided and the typical profile of your clients?",
+            "As the UBO is a Politically Exposed Person, please provide a brief description of the source of wealth used to fund the business."
+          ]
+        }
+      }
+    },
+    {
+      "name": "sg_private_limited_fatca_escalate",
+      "expected_action": "escalate",
+      "actual_action": "escalate",
+      "match": true,
+      "success": true,
+      "error": null,
+      "raw_response": {
+        "success": true,
+        "data": {
+          "case_summary": "SEASPAN TRADING PTE. LTD. is a Singapore-based marine supplies trading company incorporated in January 2022. The application is flagged due to a FATCA 'Yes' declaration by the sole director and shareholder, Benjamin Lee, and a significant discrepancy between the declared annual revenue (600,000 SGD) and the expected monthly transaction volume (800,000 SGD). While a board resolution and bank statement have been provided, core Singapore-specific corporate and identity verification documents are currently missing.",
+          "short_reason": "Clarification is required regarding the discrepancy between revenue and transaction volume, and mandatory Singapore KYC and FATCA documentation must be obtained.",
+          "recommended_action": "escalate",
+          "suggested_documents": [
+            {
+              "document_name": "ACRA Business Profile",
+              "document_description": "A recent (within 3 months) Business Profile from the Accounting and Corporate Regulatory Authority (ACRA) to verify the company's registration, directors, and shareholding structure."
+            },
+            {
+              "document_name": "Identification Document for Benjamin Lee",
+              "document_description": "A clear copy of the NRIC (front and back) or Passport for the sole director and UBO to verify identity and nationality."
+            },
+            {
+              "document_name": "FATCA Form (W-9 or W-8BEN)",
+              "document_description": "A signed FATCA self-certification form to confirm the tax status of Benjamin Lee, following his 'Yes' declaration in the application."
+            },
+            {
+              "document_name": "Proof of Residential Address",
+              "document_description": "A recent utility bill, bank statement, or government-issued letter (within 3 months) for Benjamin Lee to verify his residential address in Singapore."
+            }
+          ],
+          "suggested_questions": [
+            "Please provide a detailed explanation for the discrepancy between the declared annual revenue of 600,000 SGD and the expected monthly transaction volume of 800,000 SGD.",
+            "Could you please confirm if the expected transaction volume includes non-revenue transfers or if the annual revenue figure provided was an estimate?",
+            "Regarding the FATCA declaration, please specify the nature of Benjamin Lee's tax residency or citizenship status in the United States."
+          ]
+        }
+      }
+    },
+    {
+      "name": "sg_private_limited_high_risk_industry_escalate",
+      "expected_action": "escalate",
+      "actual_action": "escalate",
+      "match": true,
+      "success": true,
+      "error": null,
+      "raw_response": {
+        "success": true,
+        "data": {
+          "case_summary": "COINFLOW PTE. LTD. is a Singapore-based entity operating in the high-risk cryptocurrency industry, incorporated in August 2023. The application is currently flagged for Enhanced Due Diligence (EDD) with a risk score of 73. While the ownership structure is straightforward (100% owned by Ethan Tan), there is a significant discrepancy between the declared annual revenue ($900,000) and the expected monthly transaction volume ($900,000), which would imply an annual volume of $10.8 million. Furthermore, standard Singaporean corporate verification documents and individual identification for the sole director/UBO are currently missing from the submission.",
+          "short_reason": "Escalation is required to resolve financial inconsistencies, verify the entity's regulatory standing in the cryptocurrency sector, and obtain mandatory KYC/KYB documentation.",
+          "recommended_action": "escalate",
+          "suggested_documents": [
+            {
+              "document_name": "ACRA Business Profile",
+              "document_description": "A current (less than 3 months old) Business Profile from the Accounting and Corporate Regulatory Authority (ACRA) to verify the company's registration, directors, and shareholding structure."
+            },
+            {
+              "document_name": "Proof of Identity for Ethan Tan",
+              "document_description": "A clear copy of the NRIC (front and back) or Passport for the sole director and UBO to verify identity."
+            },
+            {
+              "document_name": "Proof of Residential Address",
+              "document_description": "A recent utility bill, bank statement, or government-issued letter (less than 3 months old) for Ethan Tan to verify the residential address."
+            },
+            {
+              "document_name": "AML/CFT Policy and Procedures",
+              "document_description": "The company's internal Anti-Money Laundering and Countering the Financing of Terrorism policy, which is standard for high-risk cryptocurrency service providers."
+            },
+            {
+              "document_name": "MAS License or Exemption Evidence",
+              "document_description": "Evidence of a Payment Services Act (PSA) license from the Monetary Authority of Singapore or proof of operating under a valid exemption for Digital Payment Token services."
+            }
+          ],
+          "suggested_questions": [
+            "Please clarify the discrepancy between your declared annual revenue of $900,000 and your expected monthly transaction volume of $900,000.",
+            "Could you provide a detailed description of the specific 'Digital asset technology services' provided by the company and the typical profile of your customers?",
+            "Does COINFLOW PTE. LTD. hold a license under the Singapore Payment Services Act, or is it currently operating under a specific exemption?",
+            "What is the primary purpose of the cross-border payments to Hong Kong, and who are the main counterparties in that jurisdiction?"
+          ]
+        }
+      }
+    },
+    {
+      "name": "sg_limited_partnership_unsupported_reject",
+      "expected_action": "reject",
+      "actual_action": "escalate",
+      "match": false,
+      "success": true,
+      "error": null,
+      "raw_response": {
+        "success": true,
+        "data": {
+          "case_summary": "ABC LP is a newly registered Singapore Limited Partnership (June 2024) operating in the trading and wholesale distribution sector. The application is flagged for Enhanced Due Diligence (EDD) due to a high-risk industry profile, a young business age, and a significant financial inconsistency: the declared annual revenue is 250,000 SGD, while the expected monthly transaction volume is 400,000 SGD (implying 4.8 million SGD annually). Additionally, the system flagged the entity type as potentially unsupported.",
+          "short_reason": "Significant discrepancy between declared annual revenue and expected monthly transaction volume requires clarification, alongside missing standard Singapore regulatory documents.",
+          "recommended_action": "escalate",
+          "suggested_documents": [
+            {
+              "document_name": "ACRA Business Profile",
+              "document_description": "A recent Business Profile from the Accounting and Corporate Regulatory Authority (ACRA) to verify the partnership's registration, current status, and official list of partners."
+            },
+            {
+              "document_name": "Identification Documents (NRIC or Passport)",
+              "document_description": "Clear copies of NRIC (for Singapore citizens/PRs) or Passports for Lim Ah Huat and Lim Ah See to verify their identities."
+            },
+            {
+              "document_name": "Proof of Business Activity",
+              "document_description": "Recent invoices, purchase orders, or signed contracts with suppliers/customers to validate the nature of the wholesale distribution and the high expected transaction volumes."
+            }
+          ],
+          "suggested_questions": [
+            "Please clarify the discrepancy between your declared annual revenue (250,000 SGD) and your expected monthly transaction volume (400,000 SGD).",
+            "Could you provide more detail on the specific products being traded and the primary geographic locations of your suppliers and customers?",
+            "Please confirm if the business holds any specific licenses required for wholesale distribution in Singapore."
+          ]
+        }
+      }
+    },
+    {
+      "name": "id_ud_clean_baseline_escalate",
+      "expected_action": "escalate",
+      "actual_action": null,
+      "match": false,
+      "success": false,
+      "error": "HTTP 500: {\"detail\":\"429 RESOURCE_EXHAUSTED. {'error': {'code': 429, 'message': 'You exceeded your current quota, please check your plan and billing details. For more information on this error, head to: https://ai.google.dev/gemini-api/docs/rate-limits. To monitor your current usage, head to: https://ai.dev/rate-limit. \\\\n* Quota exceeded for metric: generativelanguage.googleapis.com/generate_content_free_tier_requests, limit: 5, model: gemini-3-flash\\\\nPlease retry in 43.483398081s.', 'status': 'RESOURCE_EXHAUSTED', 'details': [{'@type': 'type.googleapis.com/google.rpc.Help', 'links': [{'description': 'Learn more about Gemini API quotas', 'url': 'https://ai.google.dev/gemini-api/docs/rate-limits'}]}, {'@type': 'type.googleapis.com/google.rpc.QuotaFailure', 'violations': [{'quotaMetric': 'generativelanguage.googleapis.com/generate_content_free_tier_requests', 'quotaId': 'GenerateRequestsPerMinutePerProjectPerModel-FreeTier', 'quotaDimensions': {'location': 'global', 'model': 'gemini-3-flash'}, 'quotaValue': '5'}]}, {'@type': 'type.googleapis.com/google.rpc.RetryInfo', 'retryDelay': '43s'}]}}\"}",
+      "raw_response": {
+        "detail": "429 RESOURCE_EXHAUSTED. {'error': {'code': 429, 'message': 'You exceeded your current quota, please check your plan and billing details. For more information on this error, head to: https://ai.google.dev/gemini-api/docs/rate-limits. To monitor your current usage, head to: https://ai.dev/rate-limit. \\n* Quota exceeded for metric: generativelanguage.googleapis.com/generate_content_free_tier_requests, limit: 5, model: gemini-3-flash\\nPlease retry in 43.483398081s.', 'status': 'RESOURCE_EXHAUSTED', 'details': [{'@type': 'type.googleapis.com/google.rpc.Help', 'links': [{'description': 'Learn more about Gemini API quotas', 'url': 'https://ai.google.dev/gemini-api/docs/rate-limits'}]}, {'@type': 'type.googleapis.com/google.rpc.QuotaFailure', 'violations': [{'quotaMetric': 'generativelanguage.googleapis.com/generate_content_free_tier_requests', 'quotaId': 'GenerateRequestsPerMinutePerProjectPerModel-FreeTier', 'quotaDimensions': {'location': 'global', 'model': 'gemini-3-flash'}, 'quotaValue': '5'}]}, {'@type': 'type.googleapis.com/google.rpc.RetryInfo', 'retryDelay': '43s'}]}}"
+      }
+    },
+    {
+      "name": "id_ud_pep_escalate",
+      "expected_action": "escalate",
+      "actual_action": null,
+      "match": false,
+      "success": false,
+      "error": "HTTP 500: {\"detail\":\"429 RESOURCE_EXHAUSTED. {'error': {'code': 429, 'message': 'You exceeded your current quota, please check your plan and billing details. For more information on this error, head to: https://ai.google.dev/gemini-api/docs/rate-limits. To monitor your current usage, head to: https://ai.dev/rate-limit. \\\\n* Quota exceeded for metric: generativelanguage.googleapis.com/generate_content_free_tier_requests, limit: 5, model: gemini-3-flash\\\\nPlease retry in 42.801531519s.', 'status': 'RESOURCE_EXHAUSTED', 'details': [{'@type': 'type.googleapis.com/google.rpc.Help', 'links': [{'description': 'Learn more about Gemini API quotas', 'url': 'https://ai.google.dev/gemini-api/docs/rate-limits'}]}, {'@type': 'type.googleapis.com/google.rpc.QuotaFailure', 'violations': [{'quotaMetric': 'generativelanguage.googleapis.com/generate_content_free_tier_requests', 'quotaId': 'GenerateRequestsPerMinutePerProjectPerModel-FreeTier', 'quotaDimensions': {'location': 'global', 'model': 'gemini-3-flash'}, 'quotaValue': '5'}]}, {'@type': 'type.googleapis.com/google.rpc.RetryInfo', 'retryDelay': '42s'}]}}\"}",
+      "raw_response": {
+        "detail": "429 RESOURCE_EXHAUSTED. {'error': {'code': 429, 'message': 'You exceeded your current quota, please check your plan and billing details. For more information on this error, head to: https://ai.google.dev/gemini-api/docs/rate-limits. To monitor your current usage, head to: https://ai.dev/rate-limit. \\n* Quota exceeded for metric: generativelanguage.googleapis.com/generate_content_free_tier_requests, limit: 5, model: gemini-3-flash\\nPlease retry in 42.801531519s.', 'status': 'RESOURCE_EXHAUSTED', 'details': [{'@type': 'type.googleapis.com/google.rpc.Help', 'links': [{'description': 'Learn more about Gemini API quotas', 'url': 'https://ai.google.dev/gemini-api/docs/rate-limits'}]}, {'@type': 'type.googleapis.com/google.rpc.QuotaFailure', 'violations': [{'quotaMetric': 'generativelanguage.googleapis.com/generate_content_free_tier_requests', 'quotaId': 'GenerateRequestsPerMinutePerProjectPerModel-FreeTier', 'quotaDimensions': {'location': 'global', 'model': 'gemini-3-flash'}, 'quotaValue': '5'}]}, {'@type': 'type.googleapis.com/google.rpc.RetryInfo', 'retryDelay': '42s'}]}}"
+      }
+    },
+    {
+      "name": "id_pt_high_risk_industry_escalate",
+      "expected_action": "escalate",
+      "actual_action": null,
+      "match": false,
+      "success": false,
+      "error": "HTTP 500: {\"detail\":\"429 RESOURCE_EXHAUSTED. {'error': {'code': 429, 'message': 'You exceeded your current quota, please check your plan and billing details. For more information on this error, head to: https://ai.google.dev/gemini-api/docs/rate-limits. To monitor your current usage, head to: https://ai.dev/rate-limit. \\\\n* Quota exceeded for metric: generativelanguage.googleapis.com/generate_content_free_tier_requests, limit: 5, model: gemini-3-flash\\\\nPlease retry in 42.177179335s.', 'status': 'RESOURCE_EXHAUSTED', 'details': [{'@type': 'type.googleapis.com/google.rpc.Help', 'links': [{'description': 'Learn more about Gemini API quotas', 'url': 'https://ai.google.dev/gemini-api/docs/rate-limits'}]}, {'@type': 'type.googleapis.com/google.rpc.QuotaFailure', 'violations': [{'quotaMetric': 'generativelanguage.googleapis.com/generate_content_free_tier_requests', 'quotaId': 'GenerateRequestsPerMinutePerProjectPerModel-FreeTier', 'quotaDimensions': {'location': 'global', 'model': 'gemini-3-flash'}, 'quotaValue': '5'}]}, {'@type': 'type.googleapis.com/google.rpc.RetryInfo', 'retryDelay': '42s'}]}}\"}",
+      "raw_response": {
+        "detail": "429 RESOURCE_EXHAUSTED. {'error': {'code': 429, 'message': 'You exceeded your current quota, please check your plan and billing details. For more information on this error, head to: https://ai.google.dev/gemini-api/docs/rate-limits. To monitor your current usage, head to: https://ai.dev/rate-limit. \\n* Quota exceeded for metric: generativelanguage.googleapis.com/generate_content_free_tier_requests, limit: 5, model: gemini-3-flash\\nPlease retry in 42.177179335s.', 'status': 'RESOURCE_EXHAUSTED', 'details': [{'@type': 'type.googleapis.com/google.rpc.Help', 'links': [{'description': 'Learn more about Gemini API quotas', 'url': 'https://ai.google.dev/gemini-api/docs/rate-limits'}]}, {'@type': 'type.googleapis.com/google.rpc.QuotaFailure', 'violations': [{'quotaMetric': 'generativelanguage.googleapis.com/generate_content_free_tier_requests', 'quotaId': 'GenerateRequestsPerMinutePerProjectPerModel-FreeTier', 'quotaDimensions': {'location': 'global', 'model': 'gemini-3-flash'}, 'quotaValue': '5'}]}, {'@type': 'type.googleapis.com/google.rpc.RetryInfo', 'retryDelay': '42s'}]}}"
+      }
+    },
+    {
+      "name": "id_cv_sanctions_reject",
+      "expected_action": "reject",
+      "actual_action": "escalate",
+      "match": false,
+      "success": true,
+      "error": null,
+      "raw_response": {
+        "success": true,
+        "data": {
+          "case_summary": "GLOBAL BRIDGE CV is an Indonesian partnership (CV) operating in the electronics wholesale sector, currently flagged for Enhanced Due Diligence (EDD) with a risk score of 165. The primary concern is a self-declared sanctions exposure by the General Partner, Fajar Pratama, who holds a 55% stake. Additionally, the business registered address is identical to the General Partner's residential address. While basic registration and tax documents have been uploaded, specific Indonesian regulatory documents such as the NIB and SK Kemenkumham are missing, and the nature of the sanctions declaration remains unverified.",
+          "short_reason": "The General Partner has self-declared sanctions exposure, which requires urgent clarification and specific supporting evidence to assess the entity's eligibility.",
+          "recommended_action": "escalate",
+          "suggested_documents": [
+            {
+              "document_name": "Nomor Induk Berusaha (NIB)",
+              "document_description": "The Business Identification Number is the standard registration requirement for all Indonesian entities under the OSS system."
+            },
+            {
+              "document_name": "SK Kemenkumham (Approval Decree)",
+              "document_description": "The official decree from the Ministry of Law and Human Rights confirming the registration of the CV's Deed of Establishment."
+            },
+            {
+              "document_name": "Sanctions Clarification Evidence",
+              "document_description": "Official documentation, legal opinion, or correspondence from relevant authorities regarding the nature, status, or resolution of the self-declared sanctions exposure for Fajar Pratama."
+            }
+          ],
+          "suggested_questions": [
+            "Please provide a detailed explanation regarding the self-declared sanctions exposure for Mr. Fajar Pratama, including the specific sanctions list, the reason for the listing, and any steps taken for delisting.",
+            "Could you clarify the nature of the business premises, as the registered address 'Jl. Ahmad Yani No. 20, Surabaya' is also listed as the General Partner's residential address?",
+            "Please confirm if the business holds any specific import/export licenses required for the wholesale of electronics in Indonesia."
+          ]
+        }
+      }
+    }
+  ]
+}
