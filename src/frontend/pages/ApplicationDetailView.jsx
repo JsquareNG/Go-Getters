@@ -38,7 +38,7 @@ import {
 import { allDocuments, downloadDocuments } from "./../api/documentApi";
 import { getAuditTrail } from "./../api/auditTrailApi";
 import { AuditTrail } from "../components/ui/features/AuditTrail";
-import { getKYCdetails } from "@/api/livenessDetectionApi";
+import { getAllKYCdetails } from "@/api/livenessDetectionApi";
 import { KycVerificationCard } from "../components/ui/features/kycVerificationCard";
 
 const normKey = (v) => {
@@ -261,18 +261,26 @@ export default function ManagementApplicationDetail() {
         const appIdToUse = application?.application_id || application?.id || id;
         if (!appIdToUse) return;
 
-        const data = await getKYCdetails(appIdToUse);
-        setKycDetails(data && typeof data === "object" ? data : null);
+        const data = await getAllKYCdetails(appIdToUse);
+        const records = Array.isArray(data?.records) ? data.records : [];
+
+        setKycDetails(records);
       } catch (err) {
-        console.error("Error fetching KYC details:", err);
+        console.error("Error fetching KYC details:", {
+          message: err?.message,
+          status: err?.response?.status,
+          data: err?.response?.data,
+          url: err?.config?.url,
+        });
 
         setKycError(
           err?.response?.data?.detail ||
-          err?.response?.data?.message ||
-          err?.message ||
-          "Could not retrieve KYC details."
+            err?.response?.data?.message ||
+            err?.message ||
+            "Could not retrieve KYC details."
         );
-        setKycDetails(null);
+
+        setKycDetails([]);
       } finally {
         setKycLoading(false);
       }
@@ -531,6 +539,14 @@ export default function ManagementApplicationDetail() {
     });
   }, [documents, sortedActionRequestsAsc]);
 
+  const kycRecords = useMemo(() => {
+    return Array.isArray(kycDetails) ? kycDetails : [];
+  }, [kycDetails]);
+
+  const latestKyc = useMemo(() => {
+    return kycRecords[0] || null;
+  }, [kycRecords]);
+
   // -----------------------------
   // Handlers
   // -----------------------------
@@ -672,7 +688,7 @@ export default function ManagementApplicationDetail() {
               </CardContent>
             </Card>
           ) : kycDetails ? (
-            <KycVerificationCard kyc={kycDetails} />
+            <KycVerificationCard kycRecords={kycRecords} />
           ) : null}
 
           <Card>

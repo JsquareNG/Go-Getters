@@ -52,7 +52,7 @@ import {
 } from "@/api/applicationApi";
 import { getAuditTrail } from "@/api/auditTrailApi";
 import { allDocuments, downloadDocuments } from "./../api/documentApi";
-import { getKYCdetails } from "@/api/livenessDetectionApi";
+import { getAllKYCdetails } from "@/api/livenessDetectionApi";
 import RequestDocumentsDialog from "../components/ui/features/RequestDocumentsDialog";
 import { AuditTrail } from "../components/ui/features/AuditTrail";
 import { KycVerificationCard } from "../components/ui/features/kycVerificationCard";
@@ -203,8 +203,10 @@ export default function ApplicationReviewDetail() {
         const appIdToUse = application?.application_id || application?.id || id;
         if (!appIdToUse) return;
 
-        const data = await getKYCdetails(appIdToUse);
-        setKycDetails(data && typeof data === "object" ? data : null);
+        const data = await getAllKYCdetails(appIdToUse);
+        const records = Array.isArray(data?.records) ? data.records : [];
+
+        setKycDetails(records);
       } catch (err) {
         console.error("Error fetching KYC details:", {
           message: err?.message,
@@ -219,7 +221,8 @@ export default function ApplicationReviewDetail() {
             err?.message ||
             "Could not retrieve KYC details.",
         );
-        setKycDetails(null);
+
+        setKycDetails([]);
       } finally {
         setKycLoading(false);
       }
@@ -557,7 +560,18 @@ export default function ApplicationReviewDetail() {
     });
   }, [documents, sortedActionRequestsAsc]);
 
-  const shouldShowKycBanner = !!kycDetails && !kycLoading && !kycError;
+  const kycRecords = useMemo(() => {
+    return Array.isArray(kycDetails) ? kycDetails : [];
+  }, [kycDetails]);
+
+  const latestKyc = useMemo(() => {
+    return kycRecords[0] || null;
+  }, [kycRecords]);
+
+  const hasMultipleKycRecords = kycRecords.length > 1;
+  const shouldShowKycBanner = !!latestKyc && !kycLoading && !kycError;
+
+  // const shouldShowKycBanner = !!kycDetails && !kycLoading && !kycError;
 
   // -----------------------------
   // Handlers
@@ -801,7 +815,7 @@ export default function ApplicationReviewDetail() {
               </CardContent>
             </Card>
           ) : shouldShowKycBanner ? (
-            <KycVerificationCard kyc={kycDetails} />
+            <KycVerificationCard kycRecords={kycRecords} />
           ) : null}
 
           <Card>

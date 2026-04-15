@@ -17,6 +17,14 @@ export const getKYCdetails = async (appId) => {
   return res.data;
 };
 
+export const getAllKYCdetails = async (appId) => {
+  // Using the specific endpoint you provided
+  const res = await axiosClient.get(
+    `/liveness-detection/getAllByApplicationID/${appId}`,
+  );
+  return res.data;
+};
+
 export const getAllLivenessDetections = async (params = {}) => {
   const res = await axiosClient.get(`/liveness-detection/`, {
     params,
