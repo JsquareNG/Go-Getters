@@ -815,7 +815,7 @@ const SMEApplicationForm = () => {
   //   );
   // };
   const isIncomplete = validationReport.total > 0;
-  console.log("VALIDATION", validationReport);
+  // console.log("VALIDATION", validationReport);
 
   const isApprovedKyc = useCallback((kyc) => {
     if (!kyc || typeof kyc !== "object") return false;
