@@ -7,10 +7,28 @@ import {
 import { getSectionRoleValue } from "./repeatableMappingHelpers";
 import { buildDocumentType } from "./documentUploadHelpers";
 
-export const hasUploadedDocument = ({ value, documentType, existingDocumentMap }) => {
+export const hasUploadedDocument = ({
+  value,
+  documentType,
+  existingDocumentMap,
+}) => {
   const localFile = unwrapFile(value);
   if (localFile) return true;
+
+  //added
+  const hasStoredMetadata =
+    !!value &&
+    typeof value === "object" &&
+    (value.uploaded === true ||
+      value.document_id ||
+      value.original_filename ||
+      value.storage_path ||
+      value.verificationStatus === "verified");
+
+  if (hasStoredMetadata) return true;
+
   if (documentType && existingDocumentMap[documentType]) return true;
+
   return false;
 };
 
@@ -33,7 +51,9 @@ export const validateStepConfig = ({
       if (fieldDef.type === "file") {
         const documentType = buildDocumentType({ fieldKey: key });
 
-        if (!hasUploadedDocument({ value, documentType, existingDocumentMap })) {
+        if (
+          !hasUploadedDocument({ value, documentType, existingDocumentMap })
+        ) {
           missing.push({
             field: key,
             label: fieldDef.label || key,
@@ -92,16 +112,34 @@ export const validateStepConfig = ({
     }
   }
 
+  // for (const [sectionKey, section] of Object.entries(
+  //   stepConfig.repeatableSections || {},
+  // )) {
+  //   let rows = [];
+
+  //   if (section?.storage === "individuals") {
+  //     const roleValue = getSectionRoleValue(sectionKey, section);
+  //     rows = (data.individuals || []).filter((x) => x?.role === roleValue);
+  //   } else {
+  //     rows = Array.isArray(data[sectionKey]) ? data[sectionKey] : [];
+  //   }
   for (const [sectionKey, section] of Object.entries(
     stepConfig.repeatableSections || {},
   )) {
     let rows = [];
 
-    if (section?.storage === "individuals") {
+    const storageKey = section?.storage || sectionKey;
+    const sourceRows = Array.isArray(data[storageKey]) ? data[storageKey] : [];
+
+    if (storageKey === "individuals") {
       const roleValue = getSectionRoleValue(sectionKey, section);
-      rows = (data.individuals || []).filter((x) => x?.role === roleValue);
+      rows = sourceRows.filter((x) => x?.role === roleValue);
+    } else if (section?.rowTypeField && section?.rowTypeValue != null) {
+      rows = sourceRows.filter(
+        (x) => x?.[section.rowTypeField] === section.rowTypeValue,
+      );
     } else {
-      rows = Array.isArray(data[sectionKey]) ? data[sectionKey] : [];
+      rows = sourceRows;
     }
 
     if ((section.min ?? 0) > rows.length) {
@@ -245,7 +283,8 @@ export const buildValidationReport = ({
       missing: [
         {
           field: "config",
-          label: "No application form configuration found for selected business type",
+          label:
+            "No application form configuration found for selected business type",
         },
       ],
     });

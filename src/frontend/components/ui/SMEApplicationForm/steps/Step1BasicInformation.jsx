@@ -32,22 +32,7 @@ const Step1BasicInformation = ({
 
   const processedOcrFilesRef = useRef({});
   const hydratedSessionsRef = useRef({});
-
-  // useEffect(() => {
-  //   if (!applicationId || applicationId === "new") return;
-
-  //   const fetchDocs = async () => {
-  //     try {
-  //       const docs = await allDocuments(applicationId);
-  //       setExistingDocuments(Array.isArray(docs) ? docs : []);
-  //     } catch (err) {
-  //       console.error("Failed to fetch documents", err);
-  //       setExistingDocuments([]);
-  //     }
-  //   };
-
-  //   fetchDocs();
-  // }, [applicationId]);
+  const hasHydratedRef = useRef(false);
 
   //FETCH EXISTING DOCUMENTS FOR THIS APPLICATION
   useEffect(() => {
@@ -101,9 +86,65 @@ const Step1BasicInformation = ({
   };
 
   // helps to find rooted documents - matches uploaded documents to the correct form field using document type normalization
+  // const findExistingDocumentForField = (fieldPath, fieldConfig = {}) => {
+  //   if (!Array.isArray(existingDocuments) || !existingDocuments.length)
+  //     return null;
+
+  //   const normalizedFieldPath = normalizeDocumentType(fieldPath);
+  //   const expectedType = normalizeDocumentType(
+  //     fieldConfig?.ocrTarget ||
+  //       inferExpectedDocumentType(fieldPath, fieldConfig),
+  //   );
+
+  //   return (
+  //     existingDocuments.find(
+  //       (doc) =>
+  //         normalizeDocumentType(doc.document_type) === normalizedFieldPath,
+  //     ) ||
+  //     existingDocuments.find(
+  //       (doc) => normalizeDocumentType(doc.document_type) === expectedType,
+  //     ) ||
+  //     null
+  //   );
+  // };
+  const buildRepeatableDocumentType = (fieldPath) => {
+    const parts = String(fieldPath || "").split(".");
+    if (parts.length < 3) return null;
+
+    const [storageKey, rowIndexRaw, fieldKey] = parts;
+    const rowIndex = Number(rowIndexRaw);
+
+    if (storageKey !== "individuals" || Number.isNaN(rowIndex)) return null;
+
+    const formRoot = getFormDataRoot();
+    const row = formRoot?.individuals?.[rowIndex];
+    if (!row) return null;
+
+    const matchedSection = Object.entries(repeatableSectionsConfig || {}).find(
+      ([, sectionConfig]) =>
+        sectionConfig?.storage === "individuals" &&
+        row?.[sectionConfig?.rowTypeField] === sectionConfig?.rowTypeValue,
+    );
+
+    if (!matchedSection) return null;
+
+    const [, sectionConfig] = matchedSection;
+    const roleValue = sectionConfig?.rowTypeValue || row?.role || "Individual";
+
+    const sameRoleRows = (formRoot?.individuals || []).filter(
+      (person) =>
+        person?.[sectionConfig?.rowTypeField] === sectionConfig?.rowTypeValue,
+    );
+
+    const rolePosition = sameRoleRows.findIndex((person) => person === row) + 1;
+
+    return `${roleValue}_${rolePosition}_${fieldKey}`;
+  };
+
   const findExistingDocumentForField = (fieldPath, fieldConfig = {}) => {
-    if (!Array.isArray(existingDocuments) || !existingDocuments.length)
+    if (!Array.isArray(existingDocuments) || !existingDocuments.length) {
       return null;
+    }
 
     const normalizedFieldPath = normalizeDocumentType(fieldPath);
     const expectedType = normalizeDocumentType(
@@ -111,10 +152,20 @@ const Step1BasicInformation = ({
         inferExpectedDocumentType(fieldPath, fieldConfig),
     );
 
+    const repeatableDocType = buildRepeatableDocumentType(fieldPath);
+    const normalizedRepeatableDocType =
+      normalizeDocumentType(repeatableDocType);
+
     return (
       existingDocuments.find(
         (doc) =>
           normalizeDocumentType(doc.document_type) === normalizedFieldPath,
+      ) ||
+      existingDocuments.find(
+        (doc) =>
+          normalizedRepeatableDocType &&
+          normalizeDocumentType(doc.document_type) ===
+            normalizedRepeatableDocType,
       ) ||
       existingDocuments.find(
         (doc) => normalizeDocumentType(doc.document_type) === expectedType,
@@ -220,27 +271,42 @@ const Step1BasicInformation = ({
       .toLowerCase()
       .replace(/\s+/g, "_");
 
+  // const hasUsableLocalFile = (value) =>
+  //   !!value && (value instanceof File || value?.file instanceof File);
   const hasUsableLocalFile = (value) =>
-    !!value && (value instanceof File || value?.file instanceof File);
+    !!value &&
+    (value instanceof File ||
+      value?.file instanceof File ||
+      value?.uploaded === true ||
+      value?.document_id ||
+      value?.original_filename ||
+      value?.storage_path);
 
   // helper file function
   const inferExpectedDocumentType = (fieldKey, fieldConfig) => {
-    if (fieldConfig?.ocrTarget === "business_profile") {
-      return "businessProfile";
-    }
+    // if (fieldConfig?.ocrTarget === "business_profile") {
+    //   return "businessProfile";
+    // }
 
     const key =
       String(fieldKey || "")
         .split(".")
         .pop()
         ?.toLowerCase() || "";
+      console.log("key", key)
 
-    if (key.includes("businessprofile")) return "businessProfile";
-    if (key.includes("npwp")) return "npwpCertificate";
-    if (key.includes("proofofaddress")) return "proofOfAddress";
-    if (key.includes("passport")) return "passport";
+    if (key.includes("businessprofile")) return "acra";
+    if (key.includes("acra")) return "acra";
+    if (key.includes("npwp")) return "npwp_certificate";
+    if (key.includes("proofofaddress")) return "proof_of_address";
+
+    if (key.includes("passport")) return "id_document";
     if (key.includes("ktp")) return "ktp";
-    if (key.includes("id")) return "idDocument";
+    if (key.includes("id")) return "id_document";
+    
+    if (key.includes("nib")) return "nib";
+    if (key.includes("businessregistration"))
+      return "nib";
 
     return key;
   };
@@ -248,14 +314,18 @@ const Step1BasicInformation = ({
   //show on ui
   const getDisplayedFileValue = (fieldPath, fieldConfig = {}) => {
     const localValue =
-      getNestedValue(getFormDataRoot(), fieldPath) ??
+      getNestedValue(data?.formData || {}, fieldPath) ??
       getNestedValue(data, fieldPath) ??
       null;
 
-    if (hasUsableLocalFile(localValue)) return localValue;
+    if (
+      localValue &&
+      (localValue instanceof File || localValue?.file instanceof File)
+    ) {
+      return localValue;
+    }
 
     const existingDoc = findExistingDocumentForField(fieldPath, fieldConfig);
-
     if (!existingDoc) return null;
 
     return {
@@ -367,7 +437,7 @@ const Step1BasicInformation = ({
       if (sectionConfig?.rowTypeField && sectionConfig?.rowTypeValue) {
         baseRow[sectionConfig.rowTypeField] = sectionConfig.rowTypeValue;
       }
-
+      // console.log("base", baseRow);
       return baseRow;
     });
   };
@@ -375,6 +445,7 @@ const Step1BasicInformation = ({
   const buildFileValidator = useCallback(
     (fieldPath, fieldConfig) => async (file) => {
       const expectedType = inferExpectedDocumentType(fieldPath, fieldConfig);
+      console.log("expectedtype", expectedType)
 
       setFieldVerificationState(fieldPath, {
         status: "verifying",
@@ -384,7 +455,7 @@ const Step1BasicInformation = ({
       });
 
       try {
-        const result = await classifyAndExtractApi(file);
+        const result = await classifyAndExtractApi(file, expectedType);
         console.log("classify results:", result);
 
         const detectedType = normalizeDocumentType(
@@ -398,12 +469,12 @@ const Step1BasicInformation = ({
         // FILE VALIDATION
         // ----------------------
         const validation = result?.upload_validation;
-        const isNotSupported = validation?.status === "FAIL";
-        const isWrongType = expectedType && detectedType !== expectedType;
-        if (isNotSupported && isWrongType) {
-          const errorMessage = validation?.reasons[0]
-            ? "Uploaded document does not match expected type OR its quality is too low. Please try again."
-            : "Document is not supported.";
+        const validationStatus = validation?.status;
+        const validationReasons = validation?.reasons || [];
+        if (validationStatus === "FAIL") {
+          const errorMessage =
+            validationReasons[0] ||
+            "Uploaded document does not match expected type OR its quality is too low. Please try again.";
 
           setFieldVerificationState(fieldPath, {
             status: "failed",
@@ -452,7 +523,8 @@ const Step1BasicInformation = ({
         throw err;
       }
     },
-    [verificationState],
+    [setVerificationState],
+    // [verificationState],
   );
 
   const getSelectedVerifiedFileForField = (fieldKey) => {
@@ -678,6 +750,7 @@ const Step1BasicInformation = ({
 
       if (!payload) {
         const result = await classifyAndExtractApi(selectedFile);
+        // console.log("step1", result)
         payload = result?.data || {};
       }
 
@@ -766,217 +839,216 @@ const Step1BasicInformation = ({
   });
 
   // since it can be called from multiple places (after KYC verification, on component mount to hydrate from existing sessions), we create a single handler to persist the KYC result both locally and to parent callback if provided
-  const handlePersistKycResultLocal = async ({
-    provider_session_id,
-    kycData,
-    diditPayload,
-    mappedFields,
-  }) => {
+  // const handlePersistKycResultLocal = async ({
+  //   provider_session_id,
+  //   kycData,
+  //   diditPayload,
+  //   mappedFields,
+  // }) => {
+  //   const formRoot = getFormDataRoot();
+  //   const individuals = Array.isArray(formRoot?.individuals)
+  //     ? formRoot.individuals
+  //     : [];
+
+  //   const shouldMapIdentityFields = isSuccessfulKycResult(kycData);
+
+  //   const nextIndividuals = individuals.map((person) => {
+  //     const matchesSession =
+  //       person?.provider_session_id === provider_session_id ||
+  //       person?.providerSessionId === provider_session_id ||
+  //       person?.kyc?.sessionId === provider_session_id;
+
+  //     if (!matchesSession) return person;
+
+  //     return {
+  //       ...person,
+  //       provider_session_id,
+  //       kyc: {
+  //         ...(person?.kyc || {}),
+  //         ...(kycData || {}),
+  //       },
+
+  //       // only map identity fields if KYC fully passed
+  //       fullName: shouldMapIdentityFields
+  //         ? mappedFields?.fullName || person?.fullName || ""
+  //         : person?.fullName || "",
+  //       idNumber: shouldMapIdentityFields
+  //         ? mappedFields?.idNumber || person?.idNumber || ""
+  //         : person?.idNumber || "",
+  //       dateOfBirth: shouldMapIdentityFields
+  //         ? mappedFields?.dateOfBirth || person?.dateOfBirth || ""
+  //         : person?.dateOfBirth || "",
+  //       nationality: shouldMapIdentityFields
+  //         ? mappedFields?.nationality || person?.nationality || ""
+  //         : person?.nationality || "",
+  //       residentialAddress: shouldMapIdentityFields
+  //         ? mappedFields?.residentialAddress || person?.residentialAddress || ""
+  //         : person?.residentialAddress || "",
+  //       // fullName: mappedFields?.fullName || person?.fullName || "",
+  //       // idNumber: mappedFields?.idNumber || person?.idNumber || "",
+  //       // dateOfBirth: mappedFields?.dateOfBirth || person?.dateOfBirth || "",
+  //       // nationality: mappedFields?.nationality || person?.nationality || "",
+  //       // residentialAddress:
+  //       //   mappedFields?.residentialAddress || person?.residentialAddress || "",
+  //     };
+  //   });
+
+  //   const nextFormRoot = {
+  //     ...formRoot,
+  //     individuals: nextIndividuals,
+  //   };
+
+  //   // immediately update local form state
+  //   onFieldChange("formData", nextFormRoot);
+
+  //   // then call parent callback too, if provided
+  //   if (onPersistKycResult) {
+  //     try {
+  //       await onPersistKycResult({
+  //         provider_session_id,
+  //         kycData,
+  //         diditPayload,
+  //         mappedFields,
+  //       });
+  //     } catch (err) {
+  //       console.error("[STEP1] parent onPersistKycResult failed:", err);
+  //     }
+  //   }
+  // };
+
+  // creates a compact signature of all individual session IDs
+  // hydration effect depends on it - when the set of provider_session_id values changes, hydration runs again
+  // const sessionSignature = JSON.stringify(
+  //   (getFormDataRoot()?.individuals || []).map(
+  //     (person) => person?.provider_session_id || null,
+  //   ),
+  // );
+
+  const hydrateIndividualsFromSessions = async () => {
     const formRoot = getFormDataRoot();
     const individuals = Array.isArray(formRoot?.individuals)
       ? formRoot.individuals
       : [];
 
-    const shouldMapIdentityFields = isSuccessfulKycResult(kycData);
+    if (!individuals.length) return;
 
-    const nextIndividuals = individuals.map((person) => {
-      const matchesSession =
-        person?.provider_session_id === provider_session_id ||
-        person?.providerSessionId === provider_session_id ||
-        person?.kyc?.sessionId === provider_session_id;
+    let nextFormRoot = formRoot;
+    let hasChanges = false;
 
-      if (!matchesSession) return person;
+    for (let index = 0; index < individuals.length; index++) {
+      const person = individuals[index];
+      const sessionId = person?.provider_session_id;
 
-      return {
-        ...person,
-        provider_session_id,
-        kyc: {
-          ...(person?.kyc || {}),
-          ...(kycData || {}),
-        },
+      if (!sessionId) continue;
 
-        // only map identity fields if KYC fully passed
-        fullName: shouldMapIdentityFields
-          ? mappedFields?.fullName || person?.fullName || ""
-          : person?.fullName || "",
-        idNumber: shouldMapIdentityFields
-          ? mappedFields?.idNumber || person?.idNumber || ""
-          : person?.idNumber || "",
-        dateOfBirth: shouldMapIdentityFields
-          ? mappedFields?.dateOfBirth || person?.dateOfBirth || ""
-          : person?.dateOfBirth || "",
-        nationality: shouldMapIdentityFields
-          ? mappedFields?.nationality || person?.nationality || ""
-          : person?.nationality || "",
-        residentialAddress: shouldMapIdentityFields
-          ? mappedFields?.residentialAddress || person?.residentialAddress || ""
-          : person?.residentialAddress || "",
-        // fullName: mappedFields?.fullName || person?.fullName || "",
-        // idNumber: mappedFields?.idNumber || person?.idNumber || "",
-        // dateOfBirth: mappedFields?.dateOfBirth || person?.dateOfBirth || "",
-        // nationality: mappedFields?.nationality || person?.nationality || "",
-        // residentialAddress:
-        //   mappedFields?.residentialAddress || person?.residentialAddress || "",
-      };
-    });
+      const hydrationKey = `${index}:${sessionId}`;
+      if (hydratedSessionsRef.current[hydrationKey]) continue;
 
-    const nextFormRoot = {
-      ...formRoot,
-      individuals: nextIndividuals,
-    };
-
-    // immediately update local form state
-    onFieldChange("formData", nextFormRoot);
-
-    // then call parent callback too, if provided
-    if (onPersistKycResult) {
       try {
-        await onPersistKycResult({
-          provider_session_id,
-          kycData,
-          diditPayload,
-          mappedFields,
-        });
+        const detection = await getLivenessDetectionBySessionId(sessionId);
+        console.log("detection for hydration", detection);
+        if (!detection) {
+          hydratedSessionsRef.current[hydrationKey] = true;
+          continue; // STOP HERE
+        }
+
+        const nextKyc = mapDetectionToKyc(detection);
+        const mappedFields = mapDetectionToIndividualFields(detection);
+        console.log("[MAP fields]", mappedFields);
+
+        // const currentPerson = nextFormRoot.individuals[index];
+
+        // const nextPerson = {
+        //   ...currentPerson,
+        //   provider_session_id:
+        //     currentPerson?.provider_session_id ||
+        //     detection?.provider_session_id ||
+        //     "",
+        //   kyc: nextKyc,
+        //   fullName: mappedFields.fullName || currentPerson?.fullName,
+        //   idNumber: mappedFields.idNumber || currentPerson?.idNumber,
+        //   dateOfBirth: mappedFields.dateOfBirth || currentPerson?.dateOfBirth,
+        //   nationality: mappedFields.nationality || currentPerson?.nationality,
+        //   residentialAddress:
+        //     mappedFields.residentialAddress ||
+        //     currentPerson?.residentialAddress,
+        // };
+
+        //stops old declined hydration results from overwriting the new retry session
+        const currentPerson = nextFormRoot.individuals[index];
+        const currentSessionId =
+          currentPerson?.provider_session_id ||
+          currentPerson?.kyc?.sessionId ||
+          "";
+
+        if (currentSessionId !== sessionId) {
+          // user already retried or switched session; ignore stale result
+          continue;
+        }
+
+        const shouldMapIdentityFields = isSuccessfulKycResult(nextKyc);
+
+        const nextPerson = {
+          ...currentPerson,
+          provider_session_id: currentSessionId,
+          kyc: nextKyc,
+          fullName: shouldMapIdentityFields
+            ? mappedFields.fullName || currentPerson?.fullName
+            : currentPerson?.fullName,
+          idNumber: shouldMapIdentityFields
+            ? mappedFields.idNumber || currentPerson?.idNumber
+            : currentPerson?.idNumber,
+          dateOfBirth: shouldMapIdentityFields
+            ? mappedFields.dateOfBirth || currentPerson?.dateOfBirth
+            : currentPerson?.dateOfBirth,
+          nationality: shouldMapIdentityFields
+            ? mappedFields.nationality || currentPerson?.nationality
+            : currentPerson?.nationality,
+          residentialAddress: shouldMapIdentityFields
+            ? mappedFields.residentialAddress ||
+              currentPerson?.residentialAddress
+            : currentPerson?.residentialAddress,
+        };
+
+        // const changed =
+        //   JSON.stringify(currentPerson) !== JSON.stringify(nextPerson);
+        const changed =
+          currentPerson.kyc?.overallStatus !== nextPerson.kyc?.overallStatus ||
+          currentPerson.provider_session_id !== nextPerson.provider_session_id;
+
+        if (changed) {
+          nextFormRoot = {
+            ...nextFormRoot,
+            individuals: nextFormRoot.individuals.map((p, idx) =>
+              idx === index ? nextPerson : p,
+            ),
+          };
+          hasChanges = true;
+        }
+
+        hydratedSessionsRef.current[hydrationKey] = true;
       } catch (err) {
-        console.error("[STEP1] parent onPersistKycResult failed:", err);
+        console.error(`[HYDRATE] Failed for row ${index}`, err);
+        hydratedSessionsRef.current[hydrationKey] = true;
+        continue;
       }
     }
+
+    if (hasChanges) {
+      // onFieldChange("formData", nextFormRoot);
+      onFieldChange("individuals", nextFormRoot.individuals);
+    }
   };
-
-  // creates a compact signature of all individual session IDs
-  // hydration effect depends on it - when the set of provider_session_id values changes, hydration runs again
-  const sessionSignature = JSON.stringify(
-    (getFormDataRoot()?.individuals || []).map(
-      (person) => person?.provider_session_id || null,
-    ),
-  );
-  useEffect(() => {
-    if (!applicationId || applicationId === "new") return;
-
-    const hydrateIndividualsFromSessions = async () => {
-      const formRoot = getFormDataRoot();
-      const individuals = Array.isArray(formRoot?.individuals)
-        ? formRoot.individuals
-        : [];
-
-      if (!individuals.length) return;
-
-      let nextFormRoot = formRoot;
-      let hasChanges = false;
-
-      for (let index = 0; index < individuals.length; index++) {
-        const person = individuals[index];
-        const sessionId = person?.provider_session_id;
-
-        if (!sessionId) continue;
-
-        const hydrationKey = `${index}:${sessionId}`;
-        if (hydratedSessionsRef.current[hydrationKey]) continue;
-
-        try {
-          const detection = await getLivenessDetectionBySessionId(sessionId);
-          console.log("detection for hydration", detection);
-
-          const nextKyc = mapDetectionToKyc(detection);
-          const mappedFields = mapDetectionToIndividualFields(detection);
-          console.log("[MAP fields]", mappedFields);
-
-          // const currentPerson = nextFormRoot.individuals[index];
-
-          // const nextPerson = {
-          //   ...currentPerson,
-          //   provider_session_id:
-          //     currentPerson?.provider_session_id ||
-          //     detection?.provider_session_id ||
-          //     "",
-          //   kyc: nextKyc,
-          //   fullName: mappedFields.fullName || currentPerson?.fullName,
-          //   idNumber: mappedFields.idNumber || currentPerson?.idNumber,
-          //   dateOfBirth: mappedFields.dateOfBirth || currentPerson?.dateOfBirth,
-          //   nationality: mappedFields.nationality || currentPerson?.nationality,
-          //   residentialAddress:
-          //     mappedFields.residentialAddress ||
-          //     currentPerson?.residentialAddress,
-          // };
-
-          //stops old declined hydration results from overwriting the new retry session
-          const currentPerson = nextFormRoot.individuals[index];
-          const currentSessionId =
-            currentPerson?.provider_session_id ||
-            currentPerson?.kyc?.sessionId ||
-            "";
-
-          if (currentSessionId !== sessionId) {
-            // user already retried or switched session; ignore stale result
-            continue;
-          }
-
-          const shouldMapIdentityFields = isSuccessfulKycResult(nextKyc);
-
-          const nextPerson = {
-            ...currentPerson,
-            provider_session_id: currentSessionId,
-            kyc: nextKyc,
-            fullName: shouldMapIdentityFields
-              ? mappedFields.fullName || currentPerson?.fullName
-              : currentPerson?.fullName,
-            idNumber: shouldMapIdentityFields
-              ? mappedFields.idNumber || currentPerson?.idNumber
-              : currentPerson?.idNumber,
-            dateOfBirth: shouldMapIdentityFields
-              ? mappedFields.dateOfBirth || currentPerson?.dateOfBirth
-              : currentPerson?.dateOfBirth,
-            nationality: shouldMapIdentityFields
-              ? mappedFields.nationality || currentPerson?.nationality
-              : currentPerson?.nationality,
-            residentialAddress: shouldMapIdentityFields
-              ? mappedFields.residentialAddress ||
-                currentPerson?.residentialAddress
-              : currentPerson?.residentialAddress,
-          };
-
-          const changed =
-            JSON.stringify(currentPerson) !== JSON.stringify(nextPerson);
-
-          if (changed) {
-            nextFormRoot = {
-              ...nextFormRoot,
-              individuals: nextFormRoot.individuals.map((p, idx) =>
-                idx === index ? nextPerson : p,
-              ),
-            };
-            hasChanges = true;
-          }
-
-          hydratedSessionsRef.current[hydrationKey] = true;
-        } catch (err) {
-          const status = err?.response?.status;
-
-          if (status === 404) {
-            console.warn(
-              `[HYDRATE] Liveness detection not found yet for row ${index}, session ${sessionId}`,
-            );
-            continue;
-          }
-
-          console.error(`[HYDRATE] Failed for row ${index}`, err);
-        }
-      }
-
-      if (hasChanges) {
-        onFieldChange("formData", nextFormRoot);
-        // handleFieldChange("individuals", nextFormRoot.individuals);
-      }
-    };
-
-    hydrateIndividualsFromSessions();
-  }, [applicationId, sessionSignature]);
 
   //clear only when the session signature changes significantly.
   //This helps prevent old hydration bookkeeping from interfering after retry
   useEffect(() => {
-    hydratedSessionsRef.current = {};
-  }, [applicationId, sessionSignature]);
+    if (!applicationId || applicationId === "new") return;
+    if (hasHydratedRef.current) return;
+
+    hydrateIndividualsFromSessions();
+    hasHydratedRef.current = true;
+  }, [applicationId]);
 
   const ocrEligibleSignature = JSON.stringify(
     Object.entries(basicFieldsConfig)
@@ -1016,9 +1088,9 @@ const Step1BasicInformation = ({
 
   useEffect(() => {
     const formRoot = getFormDataRoot();
-    const initKey = `${applicationId || "new"}::${data?.country || ""}::${data?.businessType || ""}`;
+    // const initKey = `${applicationId || "new"}::${data?.country || ""}::${data?.businessType || ""}`;
 
-    if (initializedMinRowsRef.current[initKey]) return;
+    // if (initializedMinRowsRef.current[initKey]) return;
 
     let nextFormRoot = formRoot;
     let hasChanges = false;
@@ -1041,6 +1113,15 @@ const Step1BasicInformation = ({
             (row) => row?.[roleField] === roleValue,
           );
 
+          console.log("INIT SECTION CHECK", {
+            sectionKey,
+            storageKey,
+            roleField: sectionConfig?.rowTypeField,
+            roleValue: sectionConfig?.rowTypeValue,
+            minRows,
+            existingRows,
+            matchingRows,
+          });
           if (matchingRows.length >= minRows) return;
 
           const rowsToAdd = buildMinRowsForSection(
@@ -1071,7 +1152,7 @@ const Step1BasicInformation = ({
       },
     );
 
-    initializedMinRowsRef.current[initKey] = true;
+    // initializedMinRowsRef.current[initKey] = true;
 
     if (hasChanges) {
       onFieldChange("formData", nextFormRoot);
@@ -1081,6 +1162,7 @@ const Step1BasicInformation = ({
     data?.country,
     data?.businessType,
     repeatableSectionsConfig,
+    data?.formData,
   ]);
 
   return (
@@ -1117,7 +1199,8 @@ const Step1BasicInformation = ({
                 verificationState,
                 existingDocumentMap,
                 beforeAcceptFile: buildFileValidator,
-                onPersistKycResult: handlePersistKycResultLocal,
+                // onPersistKycResult: handlePersistKycResultLocal,
+                onPersistKycResult,
                 getDisplayedFileValue,
                 getFieldVerificationMeta,
               }}
@@ -1140,7 +1223,8 @@ const Step1BasicInformation = ({
               verificationState,
               existingDocumentMap,
               beforeAcceptFile: buildFileValidator,
-              onPersistKycResult: handlePersistKycResultLocal,
+              // onPersistKycResult: handlePersistKycResultLocal,
+              onPersistKycResult,
               getDisplayedFileValue,
               getFieldVerificationMeta,
             }}
@@ -1164,7 +1248,8 @@ const Step1BasicInformation = ({
               verificationState,
               existingDocumentMap,
               beforeAcceptFile: buildFileValidator,
-              onPersistKycResult: handlePersistKycResultLocal,
+              // onPersistKycResult: handlePersistKycResultLocal,
+              onPersistKycResult,
               getDisplayedFileValue,
               getFieldVerificationMeta,
             }}
