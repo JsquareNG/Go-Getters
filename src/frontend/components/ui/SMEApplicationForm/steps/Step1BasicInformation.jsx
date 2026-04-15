@@ -266,17 +266,17 @@ const Step1BasicInformation = ({
   };
 
   const ddMmYyyyToISO = (dateStr) => {
-  if (!dateStr || typeof dateStr !== "string") return "";
+    if (!dateStr || typeof dateStr !== "string") return "";
 
-  const parts = dateStr.split("-");
-  if (parts.length !== 3) return "";
+    const parts = dateStr.split("-");
+    if (parts.length !== 3) return "";
 
-  const [day, month, year] = parts;
+    const [day, month, year] = parts;
 
-  if (!day || !month || !year) return "";
+    if (!day || !month || !year) return "";
 
-  return `${year}-${month.padStart(2, "0")}-${day.padStart(2, "0")}`;
-};
+    return `${year}-${month.padStart(2, "0")}-${day.padStart(2, "0")}`;
+  };
 
   const normalizeDocumentType = (value) =>
     String(value || "")
@@ -606,7 +606,7 @@ const Step1BasicInformation = ({
         payload.date_of_registration,
         payload.issued_date,
         payload.additional_data?.issuance_information?.issued_date,
-        payload.registrationDate
+        payload.registrationDate,
       );
       const phone = pickFirstNonEmpty(
         payload.phone,
@@ -620,23 +620,23 @@ const Step1BasicInformation = ({
       const businessName = pickFirstNonEmpty(
         payload.business_name,
         payload.company_name,
-        payload.businessName
+        payload.businessName,
       );
       const registrationNumber = pickFirstNonEmpty(
         payload.business_registration_number,
         payload.nib_number,
         // payload.businessName
-        payload.registrationNumber
+        payload.registrationNumber,
       );
       const address = pickFirstNonEmpty(
         payload.registered_address,
         payload.address,
-        payload.registeredAddress
+        payload.registeredAddress,
       );
       const businessStatus = pickFirstNonEmpty(
         payload.business_status,
         payload.company_status,
-        payload.businessStatus
+        payload.businessStatus,
       );
 
       if (businessName) {
@@ -651,22 +651,19 @@ const Step1BasicInformation = ({
         updates.registeredAddress = address;
       }
 
-      // if (issuedDate) {
-      //   updates.registrationDate = indoDateToISO(issuedDate);
-      // }
       if (issuedDate) {
-  let normalizedDate = "";
+        let normalizedDate = "";
 
-  if (issuedDate.includes("-")) {
-    // handles 19-01-2022
-    normalizedDate = ddMmYyyyToISO(issuedDate);
-  } else {
-    // handles "19 Januari 2022"
-    normalizedDate = indoDateToISO(issuedDate);
-  }
+        if (issuedDate.includes("-")) {
+          // handles 19-01-2022
+          normalizedDate = ddMmYyyyToISO(issuedDate);
+        } else {
+          // handles "19 Januari 2022"
+          normalizedDate = indoDateToISO(issuedDate);
+        }
 
-  updates.registrationDate = normalizedDate;
-}
+        updates.registrationDate = normalizedDate;
+      }
 
       if (payload.npwp) {
         updates.npwp = payload.npwp;
@@ -704,18 +701,18 @@ const Step1BasicInformation = ({
       const uen = pickFirstNonEmpty(
         payload.business_registration_number,
         payload.uen,
-        payload.registrationNumber
+        payload.registrationNumber,
       );
       const address = pickFirstNonEmpty(
         payload.registered_address,
         payload.address,
-        payload.registeredAddress
+        payload.registeredAddress,
       );
       const registrationDate = pickFirstNonEmpty(
         payload.date_of_registration,
         payload.registration_date,
         payload.business_start_date,
-        payload.registrationDate
+        payload.registrationDate,
       );
       const phone = pickFirstNonEmpty(
         payload.phone,
@@ -885,95 +882,8 @@ const Step1BasicInformation = ({
     dateOfBirth: detection?.date_of_birth || "",
     // nationality: detection?.issuing_state_code || "",
     nationality: mapIsoToNationalityOption(detection?.issuing_state_code),
-
     residentialAddress: detection?.formatted_address || "",
   });
-
-  // since it can be called from multiple places (after KYC verification, on component mount to hydrate from existing sessions), we create a single handler to persist the KYC result both locally and to parent callback if provided
-  // const handlePersistKycResultLocal = async ({
-  //   provider_session_id,
-  //   kycData,
-  //   diditPayload,
-  //   mappedFields,
-  // }) => {
-  //   const formRoot = getFormDataRoot();
-  //   const individuals = Array.isArray(formRoot?.individuals)
-  //     ? formRoot.individuals
-  //     : [];
-
-  //   const shouldMapIdentityFields = isSuccessfulKycResult(kycData);
-
-  //   const nextIndividuals = individuals.map((person) => {
-  //     const matchesSession =
-  //       person?.provider_session_id === provider_session_id ||
-  //       person?.providerSessionId === provider_session_id ||
-  //       person?.kyc?.sessionId === provider_session_id;
-
-  //     if (!matchesSession) return person;
-
-  //     return {
-  //       ...person,
-  //       provider_session_id,
-  //       kyc: {
-  //         ...(person?.kyc || {}),
-  //         ...(kycData || {}),
-  //       },
-
-  //       // only map identity fields if KYC fully passed
-  //       fullName: shouldMapIdentityFields
-  //         ? mappedFields?.fullName || person?.fullName || ""
-  //         : person?.fullName || "",
-  //       idNumber: shouldMapIdentityFields
-  //         ? mappedFields?.idNumber || person?.idNumber || ""
-  //         : person?.idNumber || "",
-  //       dateOfBirth: shouldMapIdentityFields
-  //         ? mappedFields?.dateOfBirth || person?.dateOfBirth || ""
-  //         : person?.dateOfBirth || "",
-  //       nationality: shouldMapIdentityFields
-  //         ? mappedFields?.nationality || person?.nationality || ""
-  //         : person?.nationality || "",
-  //       residentialAddress: shouldMapIdentityFields
-  //         ? mappedFields?.residentialAddress || person?.residentialAddress || ""
-  //         : person?.residentialAddress || "",
-  //       // fullName: mappedFields?.fullName || person?.fullName || "",
-  //       // idNumber: mappedFields?.idNumber || person?.idNumber || "",
-  //       // dateOfBirth: mappedFields?.dateOfBirth || person?.dateOfBirth || "",
-  //       // nationality: mappedFields?.nationality || person?.nationality || "",
-  //       // residentialAddress:
-  //       //   mappedFields?.residentialAddress || person?.residentialAddress || "",
-  //     };
-  //   });
-
-  //   const nextFormRoot = {
-  //     ...formRoot,
-  //     individuals: nextIndividuals,
-  //   };
-
-  //   // immediately update local form state
-  //   onFieldChange("formData", nextFormRoot);
-
-  //   // then call parent callback too, if provided
-  //   if (onPersistKycResult) {
-  //     try {
-  //       await onPersistKycResult({
-  //         provider_session_id,
-  //         kycData,
-  //         diditPayload,
-  //         mappedFields,
-  //       });
-  //     } catch (err) {
-  //       console.error("[STEP1] parent onPersistKycResult failed:", err);
-  //     }
-  //   }
-  // };
-
-  // creates a compact signature of all individual session IDs
-  // hydration effect depends on it - when the set of provider_session_id values changes, hydration runs again
-  // const sessionSignature = JSON.stringify(
-  //   (getFormDataRoot()?.individuals || []).map(
-  //     (person) => person?.provider_session_id || null,
-  //   ),
-  // );
 
   const hydrateIndividualsFromSessions = async () => {
     const formRoot = getFormDataRoot();
@@ -1006,24 +916,6 @@ const Step1BasicInformation = ({
         const nextKyc = mapDetectionToKyc(detection);
         const mappedFields = mapDetectionToIndividualFields(detection);
         console.log("[MAP fields]", mappedFields);
-
-        // const currentPerson = nextFormRoot.individuals[index];
-
-        // const nextPerson = {
-        //   ...currentPerson,
-        //   provider_session_id:
-        //     currentPerson?.provider_session_id ||
-        //     detection?.provider_session_id ||
-        //     "",
-        //   kyc: nextKyc,
-        //   fullName: mappedFields.fullName || currentPerson?.fullName,
-        //   idNumber: mappedFields.idNumber || currentPerson?.idNumber,
-        //   dateOfBirth: mappedFields.dateOfBirth || currentPerson?.dateOfBirth,
-        //   nationality: mappedFields.nationality || currentPerson?.nationality,
-        //   residentialAddress:
-        //     mappedFields.residentialAddress ||
-        //     currentPerson?.residentialAddress,
-        // };
 
         //stops old declined hydration results from overwriting the new retry session
         const currentPerson = nextFormRoot.individuals[index];
@@ -1160,6 +1052,7 @@ const Step1BasicInformation = ({
           const roleField = sectionConfig?.rowTypeField;
           const roleValue = sectionConfig?.rowTypeValue;
 
+          // find the type of individual
           const matchingRows = existingRows.filter(
             (row) => row?.[roleField] === roleValue,
           );

@@ -386,6 +386,10 @@ const SMEApplicationForm = () => {
       rawFormDataOverride || formData,
     );
 
+    console.log("[1] rawFormDataOverride", rawFormDataOverride);
+    console.log("[2] redux formData", formData);
+    console.log("[3] effectiveFormData", effectiveFormData);
+
     try {
       let savedAppId = currentApp?.applicationId || appId;
 
@@ -463,6 +467,8 @@ const SMEApplicationForm = () => {
       cleanedFormPayload.email =
         effectiveFormData?.email ?? cleanedFormPayload.email ?? "";
 
+      console.log("[4] cleanedFormPayload", cleanedFormPayload);
+
       const payload = {
         ...(savedAppId && savedAppId !== "new"
           ? { application_id: savedAppId }
@@ -475,6 +481,8 @@ const SMEApplicationForm = () => {
         form_data: cleanedFormPayload,
       };
 
+      console.log("[5] final payload", payload);
+
       const res = await saveApplicationDraftApi(payload);
       savedAppId = res.application_id || savedAppId;
 
@@ -483,6 +491,7 @@ const SMEApplicationForm = () => {
       //   activeConfig,
       //   savedAppId,
       // );
+
       try {
         await uploadAllDocumentsFromFormData(
           effectiveFormData,

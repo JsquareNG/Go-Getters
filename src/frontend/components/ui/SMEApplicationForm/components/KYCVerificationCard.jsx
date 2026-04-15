@@ -174,7 +174,7 @@ const KycVerificationCard = ({
       idNumber: idv?.document_number || "",
       dateOfBirth: idv?.date_of_birth || "",
       residentialAddress: idv?.formatted_address || "",
-      nationality: mapIsoToNationalityOption(idv?.issuing_state || null),
+      // nationality: mapIsoToNationalityOption(idv?.issuing_state || null),
     };
   };
 
