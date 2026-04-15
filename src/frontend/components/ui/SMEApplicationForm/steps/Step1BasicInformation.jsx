@@ -299,9 +299,11 @@ const Step1BasicInformation = ({
     if (key.includes("acra")) return "acra";
     if (key.includes("npwp")) return "npwp_certificate";
     if (key.includes("proofofaddress")) return "proof_of_address";
-    if (key.includes("passport")) return "passport";
+
+    if (key.includes("passport")) return "id_document";
     if (key.includes("ktp")) return "ktp";
     if (key.includes("id")) return "id_document";
+    
     if (key.includes("nib")) return "nib";
     if (key.includes("businessregistration"))
       return "nib";

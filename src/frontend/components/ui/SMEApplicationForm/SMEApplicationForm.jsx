@@ -586,11 +586,20 @@ const SMEApplicationForm = () => {
       const res = await saveApplicationDraftApi(payload);
       savedAppId = res.application_id || savedAppId;
 
-      await uploadAllDocumentsFromFormData(
-        effectiveFormData,
-        activeConfig,
-        savedAppId,
-      );
+      // await uploadAllDocumentsFromFormData(
+      //   effectiveFormData,
+      //   activeConfig,
+      //   savedAppId,
+      // );
+      try {
+        await uploadAllDocumentsFromFormData(
+          effectiveFormData,
+          activeConfig,
+          savedAppId,
+        );
+      } catch (err) {
+        console.error("[DOCUMENT UPLOAD FAILED]", err);
+      }
 
       const updatedFormData = {
         ...effectiveFormData,
