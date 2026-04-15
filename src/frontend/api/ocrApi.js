@@ -1,9 +1,13 @@
 import axiosClient from "./axiosClient";
 
 // Classify + full extract
-export const classifyAndExtractApi = async (file) => {
+export const classifyAndExtractApi = async (file, expectedDocType = null) => {
   const formData = new FormData();
   formData.append("file", file);
+
+  if (expectedDocType) {
+    formData.append("expected_doc_type", expectedDocType);
+  }
 
   try {
     const res = await axiosClient.post(
@@ -13,14 +17,17 @@ export const classifyAndExtractApi = async (file) => {
         headers: {
           "Content-Type": "multipart/form-data",
         },
-      }
+      },
     );
 
     return res.data;
   } catch (err) {
-    console.error("classifyAndExtractApi error:", err?.response?.data || err.message);
+    console.error(
+      "classifyAndExtractApi error:",
+      err?.response?.data || err.message,
+    );
     throw new Error(
-      err?.response?.data?.detail || "Failed to classify document"
+      err?.response?.data?.detail || "Failed to classify document",
     );
   }
 };

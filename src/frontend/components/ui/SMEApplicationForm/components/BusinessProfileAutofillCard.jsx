@@ -274,6 +274,7 @@ const BusinessProfileAutofillCard = ({
 
     try {
       const result = await classifyAndExtractApi(selectedFile);
+      console.log("ocr", result)
 
       if (!result?.document_type || result.document_type === "UNKNOWN") {
         throw new Error(

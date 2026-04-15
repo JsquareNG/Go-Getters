@@ -114,16 +114,47 @@ const FileUploadField = ({
     try {
       setIsValidating(true);
 
+      // Immediately replace currently shown file with the newly selected file
+      onChange({
+        file: selectedFile,
+        progress: 0,
+        verified: false,
+        verificationStatus: "verifying",
+        verificationMessage: "Verifying document...",
+      });
+
       if (beforeAcceptFile) {
         const processedValue = await beforeAcceptFile(selectedFile);
-        onChange(processedValue ?? null);
+
+        onChange(
+          processedValue ?? {
+            file: selectedFile,
+            progress: 0,
+            verified: false,
+            verificationStatus: "failed",
+            verificationMessage: "Document verification failed.",
+          },
+        );
       } else {
-        onChange(selectedFile);
+        onChange({
+          file: selectedFile,
+          progress: 0,
+          verified: true,
+          verificationStatus: "verified",
+          verificationMessage: "Document uploaded successfully.",
+        });
       }
     } catch (err) {
-      // Do NOT set localError here.
-      // Async verification/classification errors should come from verificationMeta
-      onChange(null);
+      // Keep the newly selected file instead of clearing it,
+      // so it replaces the old file even when validation fails
+      onChange({
+        file: selectedFile,
+        progress: 0,
+        verified: false,
+        verificationStatus: "failed",
+        verificationMessage:
+          err?.message || "Document verification failed.",
+      });
     } finally {
       setIsValidating(false);
     }
@@ -167,9 +198,34 @@ const FileUploadField = ({
 
   const effectiveVerificationMeta =
     verificationMeta ||
-    (isValidating
-      ? { status: "verifying", message: "Verifying document..." }
-      : null);
+    (file?.verificationStatus
+      ? {
+          status: file.verificationStatus,
+          message: file.verificationMessage,
+          expectedType: file.expectedType || null,
+          detectedType: file.detectedType || null,
+        }
+      : isValidating
+        ? { status: "verifying", message: "Verifying document..." }
+        : null);
+
+  const visualStatus =
+    effectiveVerificationMeta?.status ||
+    (existingUploadedFile ? "verified" : "idle");
+
+  const FileStatusIcon =
+    visualStatus === "failed"
+      ? AlertCircle
+      : visualStatus === "verifying"
+        ? Loader2
+        : CheckCircle;
+
+  const fileStatusIconClass =
+    visualStatus === "failed"
+      ? "h-8 w-8 text-red-500 mx-auto mb-2"
+      : visualStatus === "verifying"
+        ? "h-8 w-8 text-amber-500 mx-auto mb-2 animate-spin"
+        : "h-8 w-8 text-green-500 mx-auto mb-2";
 
   return (
     <div className="mb-6">
@@ -193,7 +249,9 @@ const FileUploadField = ({
         } ${
           isDragging
             ? "border-gray-500 bg-gray-100"
-            : "border-gray-300 hover:border-gray-400 bg-gray-50"
+            : visualStatus === "failed"
+              ? "border-red-300 bg-red-50"
+              : "border-gray-300 hover:border-gray-400 bg-gray-50"
         }`}
       >
         <input
@@ -208,7 +266,7 @@ const FileUploadField = ({
 
         {file ? (
           <div className="text-center">
-            <CheckCircle className="h-8 w-8 text-green-500 mx-auto mb-2" />
+            <FileStatusIcon className={fileStatusIconClass} />
 
             <p className="text-sm font-medium text-gray-900">
               {actualFile?.name ||
@@ -220,9 +278,6 @@ const FileUploadField = ({
               {actualFile?.size
                 ? formatFileSize(actualFile.size)
                 : existingUploadedFile?.mime_type || "Previously uploaded"}
-              {/* {actualFile?.size
-                ? formatFileSize(actualFile.size)
-                : existingUploadedFile?.mime_type || "Previously uploaded"} */}
             </p>
 
             {previewUrl && actualFile && (
