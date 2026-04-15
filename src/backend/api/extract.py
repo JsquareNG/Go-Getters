@@ -415,6 +415,7 @@ async def ocr_quality_only(file: UploadFile = File(...)):
         )
 
         return {
+            "raw_text": raw_text,
             "ocr_quality": ocr_quality_assessment,
             "ocr_confidence_stats": doc_ai_result.get("ocr_confidence_stats", {}),
         }
@@ -425,7 +426,6 @@ async def ocr_quality_only(file: UploadFile = File(...)):
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Processing Error: {str(e)}")
-
 
 @router.post("/classify-and-extract")
 async def classify_and_extract_document(

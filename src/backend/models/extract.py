@@ -33,7 +33,7 @@ class ShareholderEntry(BaseModel):
 class ACRAExtractionData(BaseModel):
     businessName: str = Field(description="Registered name of the business")
     uen: str = Field(description="Unique Entity Number")
-    entityType: str = Field(description="E.g., SOLE-PROPRIETOR, PRIVATE LIMITED")
+    entityType: str = Field(description="E.g., SOLE PROPRIETOR, PRIVATE LIMITED")
     registrationDate: str = Field(description="Date of registration")
     registeredAddress: str = Field(description="Registered office address")
     businessIndustry: str = Field(description="Primary activity")
@@ -360,6 +360,25 @@ class GenericAdditionalDocumentData(BaseModel):
         description="Important items that appear missing or unclear"
     )
 
+class IdentityDocumentData(BaseModel):
+    documentSubtype: str = Field(
+        default="",
+        description="Subtype of identity document, e.g. ID_CARD or PASSPORT"
+    )
+    fullName: str = Field(
+        default="",
+        description="Full legal name shown on the identity document"
+    )
+    idNumber: str = Field(
+        default="",
+        description="Identity number, passport number, or document number shown"
+    )
+    residentialAddress: str = Field(
+        default="",
+        description="Residential address shown on the document, if present"
+    )
+
+
 DOCUMENT_SCHEMA_REGISTRY: Dict[str, Type[BaseModel]] = {
     "NIB": NIBExtractionData,
     "BANK_STATEMENT": BankStatementData,
@@ -376,6 +395,7 @@ DOCUMENT_SCHEMA_REGISTRY: Dict[str, Type[BaseModel]] = {
     "UNKNOWN": GenericAdditionalDocumentData,
     "ALTERNATIVE_DOCUMENT": GenericAdditionalDocumentData,
     "GENERIC_ADDITIONAL_DOCUMENT": GenericAdditionalDocumentData,
+    "ID_DOCUMENT": IdentityDocumentData,
 }
 
 

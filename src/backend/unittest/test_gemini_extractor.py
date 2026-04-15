@@ -1,107 +1,185 @@
 import json
-import pytest
 import sys
 from unittest.mock import patch, MagicMock
 
+import pytest
+
+# Prevent real Vertex AI import/init during tests
 sys.modules["vertexai"] = MagicMock()
 sys.modules["vertexai.generative_models"] = MagicMock()
 
 from backend.services.gemini_extractor import (
     classify_document,
-    parse_universal_document
+    parse_universal_document,
 )
-
 from backend.models.extract import DOCUMENT_SCHEMA_REGISTRY
-
-
-# -------------------------------------------------------------------
-# Helper: Generate schema-valid mock data
-# -------------------------------------------------------------------
-def build_valid_mock_data(schema_class):
-    schema = schema_class.model_json_schema()
-    mock_data = {}
-
-    for key, value in schema.get("properties", {}).items():
-        field_type = value.get("type")
-
-        if field_type == "string":
-            # Special handling for known constrained fields
-            if "nib" in key.lower():
-                mock_data[key] = "1234567890123"  # 13-digit valid NIB
-            else:
-                mock_data[key] = "test"
-
-        elif field_type == "array":
-            mock_data[key] = []
-
-        elif field_type == "object":
-            mock_data[key] = {}
-
-        elif field_type == "integer":
-            mock_data[key] = 123
-
-        elif field_type == "number":
-            mock_data[key] = 123.45
-
-        elif field_type == "boolean":
-            mock_data[key] = False
-
-        else:
-            mock_data[key] = None
-
-    return mock_data
 
 
 # -------------------------------------------------------------------
 # TEST: classify_document
 # -------------------------------------------------------------------
 @patch("backend.services.gemini_extractor.GenerativeModel")
-def test_classify_document(mock_model_class):
+def test_classify_document_acra(mock_model_class):
     mock_model = MagicMock()
-
-    mock_model.generate_content.return_value.text = "ACRA_BUSINESS_PROFILE"
+    mock_model.generate_content.return_value.text = "ACRA"
     mock_model_class.return_value = mock_model
 
-    result = classify_document("some ACRA text")
+    result = classify_document("ACCOUNTING AND CORPORATE REGULATORY AUTHORITY")
 
-    assert result == "ACRA_BUSINESS_PROFILE"
+    assert result == "ACRA"
 
 
 @patch("backend.services.gemini_extractor.GenerativeModel")
-def test_classify_document_fallback(mock_model_class):
+def test_classify_document_nib(mock_model_class):
     mock_model = MagicMock()
-
-    mock_model.generate_content.return_value.text = "unknown"
+    mock_model.generate_content.return_value.text = "NIB"
     mock_model_class.return_value = mock_model
 
-    result = classify_document("random text")
+    result = classify_document("Nomor Induk Berusaha")
+
+    assert result == "NIB"
+
+
+@patch("backend.services.gemini_extractor.GenerativeModel")
+def test_classify_document_unknown(mock_model_class):
+    mock_model = MagicMock()
+    mock_model.generate_content.return_value.text = "UNKNOWN"
+    mock_model_class.return_value = mock_model
+
+    result = classify_document("random unreadable text")
 
     assert result == "UNKNOWN"
 
 
+@patch("backend.services.gemini_extractor.GenerativeModel")
+def test_classify_document_uppercases_and_trims(mock_model_class):
+    mock_model = MagicMock()
+    mock_model.generate_content.return_value.text = "  acra  "
+    mock_model_class.return_value = mock_model
+
+    result = classify_document("some text")
+
+    assert result == "ACRA"
+
+
+@patch("backend.services.gemini_extractor.GenerativeModel")
+def test_classify_document_large_input(mock_model_class):
+    mock_model = MagicMock()
+    mock_model.generate_content.return_value.text = "NIB"
+    mock_model_class.return_value = mock_model
+
+    long_text = "A" * 10000
+    result = classify_document(long_text)
+
+    assert result == "NIB"
+    mock_model.generate_content.assert_called_once()
+
+
 # -------------------------------------------------------------------
-# TEST: parse_universal_document (valid)
+# TEST: parse_universal_document (valid ACRA)
 # -------------------------------------------------------------------
 @patch("backend.services.gemini_extractor.GenerativeModel")
-def test_parse_universal_document_valid(mock_model_class):
+def test_parse_universal_document_acra_valid(mock_model_class):
     mock_model = MagicMock()
 
-    # Pick any valid document type
-    doc_type = list(DOCUMENT_SCHEMA_REGISTRY.keys())[0]
-    schema_class = DOCUMENT_SCHEMA_REGISTRY[doc_type]
-
-    # Generate schema-valid mock response
-    mock_data = build_valid_mock_data(schema_class)
+    mock_data = {
+        "businessName": "Test Company Pte Ltd",
+        "uen": "123456789A",
+        "entityType": "PRIVATE LIMITED",
+        "registrationDate": "01-01-2024",
+        "registeredAddress": "123 Test Street, Singapore",
+        "businessIndustry": "Software Development",
+        "owner": None,
+        "partners": [],
+        "generalPartners": [],
+        "limitedPartners": [],
+        "managers": [],
+        "directors": [],
+        "shareholders": [],
+    }
 
     mock_model.generate_content.return_value.text = json.dumps(mock_data)
     mock_model_class.return_value = mock_model
 
     result = parse_universal_document(
-        raw_text="dummy text",
-        doc_type=doc_type
+        raw_text="dummy OCR text",
+        doc_type="ACRA",
     )
 
     assert isinstance(result, dict)
+    assert result["businessName"] == "Test Company Pte Ltd"
+    assert result["uen"] == "123456789A"
+    assert result["entityType"] == "PRIVATE LIMITED"
+
+
+# -------------------------------------------------------------------
+# TEST: parse_universal_document (valid NIB)
+# -------------------------------------------------------------------
+@patch("backend.services.gemini_extractor.GenerativeModel")
+def test_parse_universal_document_nib_valid(mock_model_class):
+    mock_model = MagicMock()
+
+    mock_data = {
+        "businessName": "PT Maju Jaya",
+        "registrationNumber": "1234567890123",
+        "businessStatus": "PMDN",
+        "registeredAddress": "Jakarta, Indonesia",
+        "kbliCodes": ["62010"],
+        "phone": "",
+        "email": "",
+        "registrationDate": "01-01-2024",
+        "issuer": "BKPM",
+        "businessActivities": [],
+    }
+
+    mock_model.generate_content.return_value.text = json.dumps(mock_data)
+    mock_model_class.return_value = mock_model
+
+    result = parse_universal_document(
+        raw_text="dummy OCR text",
+        doc_type="NIB",
+    )
+
+    assert isinstance(result, dict)
+    assert result["businessName"] == "PT Maju Jaya"
+    assert result["registrationNumber"] == "1234567890123"
+    assert result["kbliCodes"] == ["62010"]
+
+
+# -------------------------------------------------------------------
+# TEST: parse_universal_document (valid UNKNOWN)
+# -------------------------------------------------------------------
+@patch("backend.services.gemini_extractor.GenerativeModel")
+def test_parse_universal_document_unknown_valid(mock_model_class):
+    mock_model = MagicMock()
+
+    mock_data = {
+        "requestedDocumentName": "",
+        "matchedRequestedDocument": True,
+        "detectedDocumentType": "UNKNOWN",
+        "documentPurposeSummary": "Unsupported document",
+        "keyEntities": {},
+        "keyIdentifiers": {},
+        "importantDates": {},
+        "addresses": {},
+        "financialInformation": {},
+        "ownershipAndGovernance": {},
+        "obligationsAndTerms": {},
+        "extractedMappedFields": {},
+        "missingOrUnclearItems": [],
+    }
+
+    mock_model.generate_content.return_value.text = json.dumps(mock_data)
+    mock_model_class.return_value = mock_model
+
+    result = parse_universal_document(
+        raw_text="dummy OCR text",
+        doc_type="UNKNOWN",
+    )
+
+    assert isinstance(result, dict)
+    assert result["detectedDocumentType"] == "UNKNOWN"
+    assert isinstance(result["missingOrUnclearItems"], list)
 
 
 # -------------------------------------------------------------------
@@ -110,8 +188,8 @@ def test_parse_universal_document_valid(mock_model_class):
 def test_parse_universal_document_invalid_type():
     with pytest.raises(ValueError) as exc:
         parse_universal_document(
-            raw_text="dummy text",
-            doc_type="INVALID_TYPE"
+            raw_text="dummy OCR text",
+            doc_type="INVALID_TYPE",
         )
 
     assert "Unsupported document type" in str(exc.value)
@@ -123,14 +201,36 @@ def test_parse_universal_document_invalid_type():
 @patch("backend.services.gemini_extractor.GenerativeModel")
 def test_parse_universal_document_invalid_json(mock_model_class):
     mock_model = MagicMock()
-
     mock_model.generate_content.return_value.text = "not-json"
     mock_model_class.return_value = mock_model
 
-    doc_type = list(DOCUMENT_SCHEMA_REGISTRY.keys())[0]
+    with pytest.raises(Exception):
+        parse_universal_document(
+            raw_text="dummy OCR text",
+            doc_type="ACRA",
+        )
+
+
+# -------------------------------------------------------------------
+# TEST: missing required fields should fail
+# -------------------------------------------------------------------
+@patch("backend.services.gemini_extractor.GenerativeModel")
+def test_parse_universal_document_missing_required_fields(mock_model_class):
+    mock_model = MagicMock()
+    mock_model.generate_content.return_value.text = "{}"
+    mock_model_class.return_value = mock_model
 
     with pytest.raises(Exception):
         parse_universal_document(
-            raw_text="dummy text",
-            doc_type=doc_type
+            raw_text="dummy OCR text",
+            doc_type="ACRA",
         )
+
+
+# -------------------------------------------------------------------
+# TEST: registry sanity
+# -------------------------------------------------------------------
+def test_document_schema_registry_contains_expected_keys():
+    assert "ACRA" in DOCUMENT_SCHEMA_REGISTRY
+    assert "NIB" in DOCUMENT_SCHEMA_REGISTRY
+    assert "UNKNOWN" in DOCUMENT_SCHEMA_REGISTRY
