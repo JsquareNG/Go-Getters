@@ -5,6 +5,7 @@ import vertexai
 from vertexai.generative_models import GenerativeModel, GenerationConfig
 from backend.models.extract import DOCUMENT_SCHEMA_REGISTRY
 
+
 # Initialize Vertex AI
 project_id = os.getenv("GCP_PROJECT_ID")
 vertex_location = "asia-southeast1"
@@ -82,6 +83,20 @@ def classify_document(raw_text: str) -> str:
     - If the document mainly records a formal LLP decision -> LLP_RESOLUTION
     - If the document mainly declares the natural persons who ultimately own/control an entity -> UBO_DECLARATION
 
+    If doc_type is IDENTITY_DOCUMENT, extract ONLY:
+    1. documentSubtype -> ID_CARD or PASSPORT
+    2. fullName
+    3. idNumber
+    4. residentialAddress
+
+    IDENTITY_DOCUMENT extraction rules:
+    - Extract only fields that are clearly visible in the OCR text
+    - For passport, residentialAddress is usually not present, so return empty string
+    - idNumber should contain the passport number or identity number exactly as shown
+    - fullName should be the document holder's full legal name
+    - Do not invent missing values
+    - Ignore unrelated fields such as issuing authority, expiry date, nationality, sex, place of birth, MRZ lines, and document metadata unless needed to determine subtype
+    
     OCR TEXT:
     {raw_text[:5000]}
     """
@@ -237,6 +252,9 @@ def parse_universal_document(raw_text: str, doc_type: str) -> dict:
 
     response = model.generate_content(prompt, generation_config=config)
     validated_data = TargetSchemaClass.model_validate_json(response.text)
+    print("DOC TYPE:", doc_type_upper)
+    print("SCHEMA CLASS:", TargetSchemaClass.__name__)
+    print("MODEL DUMP:", validated_data.model_dump())
     return validated_data.model_dump()
 
 
