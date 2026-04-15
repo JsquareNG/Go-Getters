@@ -34,7 +34,8 @@ function getActionText(status) {
 const ApplicationReviewCard = ({ application, onReview }) => {
   // Map fields (supports snake_case + fallback)
   const appId = application.application_id ?? application.id;
-  const companyName = application.business_name ?? application.businessName ?? "Untitled Business";
+  const form = application.form_data || {};
+  const companyName = form.businessName
   const country = application.business_country ?? application.businessCountry ?? "N/A";
   const status = application.current_status ?? application.status ?? "N/A";
   const lastUpdated = application.last_edited ?? application.lastEdited ?? null;

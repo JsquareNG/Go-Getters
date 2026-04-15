@@ -26,8 +26,8 @@ export const getAllLivenessDetections = async (params = {}) => {
 
 export const getLivenessDetectionBySessionId = async (sessionId) => {
   try {
-    const res = await axios.get(
-      `http://127.0.0.1:8000/liveness-detection/bySessionID/${sessionId}`,
+    const res = await axiosClient.get(
+      `/liveness-detection/bySessionID/${sessionId}`,
     );
 
     console.log("[LIVENESS API] success:", res.data);

@@ -9,7 +9,6 @@ class Individual:
     nationality: str
     is_pep: bool
     sanctions_declared: bool
-    tax_residency: bool
     fatca_us_person: bool
 
 
@@ -19,7 +18,7 @@ class Company:
     name: str
     country: str
     entity_type: str
-    registration_year: int
+    years_incorporated: int
     industry: str
 
     annual_revenue: float
@@ -32,12 +31,3 @@ class Company:
     individuals: List[Individual]
 
     director_count: int
-
-    # documents
-    acra_profile: bool
-    address_proof: bool
-    bank_statements: bool
-
-    # indonesia specific
-    nib_present: bool
-    npwp_present: bool

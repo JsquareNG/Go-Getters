@@ -417,16 +417,6 @@ export default function ManagementApplicationDetail() {
     return new Date(sortedActionRequestsAsc[0]?.created_at || 0).getTime();
   }, [sortedActionRequestsAsc]);
 
-  const initialDocuments = useMemo(() => {
-    if (!Array.isArray(documents)) return [];
-    if (!firstActionRequestTime) return documents;
-
-    return documents.filter((doc) => {
-      const t = new Date(doc?.created_at || 0).getTime();
-      return t && t < firstActionRequestTime;
-    });
-  }, [documents, firstActionRequestTime]);
-
   const parseExtractedData = (value) => {
     if (!value) return null;
 
@@ -464,6 +454,32 @@ export default function ManagementApplicationDetail() {
       qualityScore: uploadValidation?.ocr_quality?.quality_score ?? null,
     };
   };
+
+  // const initialDocuments = useMemo(() => {
+  //   if (!Array.isArray(documents)) return [];
+  //   if (!firstActionRequestTime) return documents;
+
+  //   return documents.filter((doc) => {
+  //     const t = new Date(doc?.created_at || 0).getTime();
+  //     return t && t < firstActionRequestTime;
+  //   });
+  // }, [documents, firstActionRequestTime]);
+
+  const initialDocuments = useMemo(() => {
+    if (!Array.isArray(documents)) return [];
+
+    const filteredDocs = !firstActionRequestTime
+      ? documents
+      : documents.filter((doc) => {
+          const t = new Date(doc?.created_at || 0).getTime();
+          return t && t < firstActionRequestTime;
+        });
+
+    return filteredDocs.map((doc) => ({
+      ...doc,
+      ocr_warning: getDocumentOcrWarning(doc),
+    }));
+  }, [documents, firstActionRequestTime]);
 
   const resubmissionGroups = useMemo(() => {
     if (!Array.isArray(documents) || sortedActionRequestsAsc.length === 0)
@@ -1152,6 +1168,24 @@ export default function ManagementApplicationDetail() {
                                       ? `Uploaded: ${new Date(doc.created_at).toLocaleString()}`
                                       : ""}
                                   </p>
+
+                                  {doc.ocr_warning && (
+                                    <div className="mt-2 rounded-md border border-orange-300 bg-orange-50 p-2">
+                                      <div className="flex items-start gap-2">
+                                        <AlertCircle className="mt-0.5 h-4 w-4 text-orange-600" />
+
+                                        <div>
+                                          <p className="text-xs font-medium text-orange-700">
+                                            OCR Warning
+                                          </p>
+
+                                          <p className="mt-1 text-xs text-foreground">
+                                            Document quality is moderate. Extracted data may be inaccurate — please verify against the original document. If already reviewed, you may ignore this warning.
+                                          </p>
+                                        </div>
+                                      </div>
+                                    </div>
+                                  )}
                                 </div>
 
                                 <Button
