@@ -85,11 +85,30 @@ const FieldRenderer = ({
   }
 
   if (fieldConfig.type === "file") {
-    const displayedFile = context?.getDisplayedFileValue
-      ? context.getDisplayedFileValue(fullFieldPath, fieldConfig)
-      : value;
+    // const displayedFile = context?.getDisplayedFileValue
+    //   ? context.getDisplayedFileValue(fullFieldPath, fieldConfig)
+    //   : value;
 
-        console.log("file in value", context)
+    //     console.log("file in value", context)
+    // const hasLocalFile =
+    //   value instanceof File || value?.file instanceof File || value?.uploaded;
+
+    // const displayedFile = hasLocalFile
+    //   ? value
+    //   : context?.getDisplayedFileValue
+    //     ? context.getDisplayedFileValue(fullFieldPath, fieldConfig)
+    //     : value;
+    const hasLocalFile =
+      value instanceof File ||
+      value?.file instanceof File ||
+      value?.uploaded ||
+      value?.document_id;
+
+    const displayedFile = hasLocalFile
+      ? value
+      : context?.getDisplayedFileValue
+        ? context.getDisplayedFileValue(fullFieldPath, fieldConfig)
+        : value;
 
     const verificationMeta = context?.getFieldVerificationMeta
       ? context.getFieldVerificationMeta(fullFieldPath, fieldConfig)

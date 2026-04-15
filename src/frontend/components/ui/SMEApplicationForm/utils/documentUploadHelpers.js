@@ -24,12 +24,25 @@ const buildExtractedDataPayload = (rawValue) => {
   return rest;
 };
 
+const normalizeDocumentType = (value) =>
+  String(value || "")
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, "_");
+
 export const buildExistingDocumentMap = (documents = []) => {
   return documents.reduce((acc, doc) => {
-    acc[doc.document_type] = doc;
+    const key = normalizeDocumentType(doc.document_type);
+    if (key) acc[key] = doc;
     return acc;
   }, {});
 };
+// export const buildExistingDocumentMap = (documents = []) => {
+//   return documents.reduce((acc, doc) => {
+//     acc[doc.document_type] = doc;
+//     return acc;
+//   }, {});
+// };
 
 export const sanitizeDocumentFieldKey = (fieldKey) =>
   String(fieldKey || "").replace(/\./g, "_");

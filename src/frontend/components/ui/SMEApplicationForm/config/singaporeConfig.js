@@ -614,14 +614,14 @@ const SINGAPORE_CONFIG = {
           id: "step2",
           label: "Basic Info & Shareholders",
           fields: {
-            // businessProfile: {
-            //   type: "file",
-            //   label: "Upload ACRA Business Profile (OCR autofill)",
-            //   required: true,
-            //   placeholder: "Upload PDF, then wait for Autofill",
-            //   ocrTarget: "business_profile",
-            //   ocr: true,
-            // },
+            businessProfile: {
+              type: "file",
+              label: "Upload ACRA Business Profile (OCR autofill)",
+              required: true,
+              placeholder: "Upload PDF, then wait for Autofill",
+              ocrTarget: "business_profile",
+              ocr: true,
+            },
             businessName: {
               type: "text",
               label: "Business Name",
@@ -656,7 +656,7 @@ const SINGAPORE_CONFIG = {
               type: "checkbox",
               label: "Business Industry",
               required: true,
-              option: INDUSTRY_OPTIONS,
+              options: INDUSTRY_OPTIONS,
               placeholder: "Select your industry",
             },
             email: {
@@ -724,8 +724,7 @@ const SINGAPORE_CONFIG = {
                   ],
                   required: true,
                   placeholder: "Select your shareholder type",
-                },
-                conditionalFields: {
+                  conditionalFields: {
                   Individual: {
                     sharePercentage: {
                       type: "number",
@@ -788,7 +787,7 @@ const SINGAPORE_CONFIG = {
                       required: true,
                       placeholder: "Enter your UEN / Registration Number",
                     },
-                    idDocument: {
+                    uen: {
                       type: "file",
                       label: "UEN / Registration Number Document",
                       required: true,
@@ -808,11 +807,11 @@ const SINGAPORE_CONFIG = {
                     },
                   },
                 },
+                },
               },
               ...getComplianceDeclarations(),
             },
-          },
-          // --- UBO conditional field ---
+            // --- UBO conditional field ---
           ubo: {
             // type: "conditional",
             label: "Ultimate Beneficial Owner (Of Ownership >= 25%)",
@@ -882,21 +881,92 @@ const SINGAPORE_CONFIG = {
               ...getComplianceDeclarations(),
             },
           },
+          },
+          // // --- UBO conditional field ---
+          // ubo: {
+          //   // type: "conditional",
+          //   label: "Ultimate Beneficial Owner (Of Ownership >= 25%)",
+          //   storage: "individuals",
+          //   rowTypeField: "role",
+          //   rowTypeValue: "Ultimate Beneficial Owner",
+          //   // description:
+          //   //   "Auto-detected if shareholding ≥25%. Requires full KYC. Manual add allowed for control through other means.",
+          //   // condition: (shareholder) => shareholder.sharePercentage >= 25,
+          //   fields: {
+          //     kyc: {
+          //       type: "kyc",
+          //       label: "Liveness Detection Test",
+          //       required: true,
+          //     },
+          //     name: {
+          //       type: "text",
+          //       label: "Full Name",
+          //       placeholder: "Enter your full legal name",
+          //       required: true,
+          //     },
+          //     idDocument: {
+          //       type: "file",
+          //       label: "ID Document / Passport",
+          //       required: true,
+          //     },
+          //     residentialAddress: {
+          //       type: "textarea",
+          //       label: "Residential Address",
+          //       placeholder: "Enter your residential address",
+          //       required: true,
+          //     },
+          //     nationality: {
+          //       type: "select",
+          //       options: COUNTRIES(),
+          //       label: "Nationality",
+          //       placeholder: "Select your nationality",
+          //       required: true,
+          //     },
+          //     dateOfBirth: {
+          //       type: "date",
+          //       label: "Date of Birth",
+          //       required: true,
+          //     },
+          //     basisOfControl: {
+          //       type: "select",
+          //       label: "Basis of Control",
+          //       options: [
+          //         {
+          //           label: "Indirect ownership through another entity",
+          //           value: "Indirect ownership through another entity",
+          //         },
+          //         {
+          //           label: "Control through voting rights",
+          //           value: "Control through voting rights",
+          //         },
+          //         {
+          //           label: "Control through agreements or other arrangements",
+          //           value: "Control through agreements or other arrangements",
+          //         },
+          //         {
+          //           label: "Control through voting rights",
+          //           value: "Control through voting rights",
+          //         },
+          //       ],
+          //     },
+          //     ...getComplianceDeclarations(),
+          //   },
+          // },
         },
         {
           id: "step3",
           label: "Financial Details",
           fields: {
             ...getCoreFinancialFields(),
-            expectedTransactionSize: {
-              type: "number",
-              label: "Expected Transaction Size",
-            },
-            countriesTransactingWith: {
-              type: "checkbox",
-              label: "Countries Transacting With",
-              option: COUNTRIES(),
-            },
+            // expectedTransactionSize: {
+            //   type: "number",
+            //   label: "Expected Transaction Size",
+            // },
+            // countriesTransactingWith: {
+            //   type: "checkbox",
+            //   label: "Countries Transacting With",
+            //   option: COUNTRIES(),
+            // },
           },
         },
         {

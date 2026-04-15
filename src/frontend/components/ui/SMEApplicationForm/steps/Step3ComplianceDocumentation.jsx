@@ -107,20 +107,21 @@ const Step3ComplianceDocumentation = ({
   const inferExpectedDocumentType = (fieldPath) => {
     const key = String(fieldPath || "").toLowerCase();
 
-    if (key.includes("businessprofile")) return "businessProfile";
+    if (key.includes("businessprofile")) return "business_profile";
     if (key.includes("businessregistrationupload"))
-      return "businessRegistration";
+      return "business_registration";
     if (key.includes("incorporationupload"))
-      return "certificateOfIncorporation";
-    if (key.includes("boardresolution")) return "boardResolution";
-    if (key.includes("partnershipagreement")) return "partnershipAgreement";
-    if (key.includes("lpagreement")) return "lpAgreement";
-    if (key.includes("llpresolution")) return "llpResolution";
-    if (key.includes("npwp")) return "npwpCertificate";
-    if (key.includes("deedofestablishment")) return "deedOfEstablishment";
-    if (key.includes("articlesofassociation")) return "articlesOfAssociation";
-    if (key.includes("bankstatement")) return "bankStatement";
-    if (key.includes("proofofaddress")) return "proofOfAddress";
+      return "certificate_of_incorporation";
+    if (key.includes("boardresolution")) return "board_resolution";
+    if (key.includes("partnershipagreement")) return "partnership_agreement";
+    if (key.includes("lpagreement")) return "lp_agreement";
+    if (key.includes("llpresolution")) return "llp_resolution";
+    if (key.includes("npwp")) return "npwp_certificate";
+    if (key.includes("deedofestablishment")) return "deed_of_establishment";
+    if (key.includes("articlesofassociation")) return "articles_of_association";
+    if (key.includes("bankstatement")) return "bank_statement";
+    if (key.includes("proofofaddress")) return "proof_of_address";
+    if (key.includes("ubo")) return "ubo_declaration";
 
     return key;
   };
@@ -129,15 +130,54 @@ const Step3ComplianceDocumentation = ({
     !!value && (value instanceof File || value?.file instanceof File);
 
   // show on ui
+  // const getDisplayedFileValue = (fieldPath, fieldConfig = {}) => {
+  //   const localValue =
+  //     getNestedValue(data?.formData || {}, fieldPath) ??
+  //     getNestedValue(data, fieldPath) ??
+  //     null;
+
+  //   if (hasUsableLocalFile(localValue)) return localValue;
+
+  //   // const existingDoc = existingDocumentMap[fieldPath];
+  //   const existingDoc = findExistingDocumentForField(fieldPath, fieldConfig);
+  //   if (!existingDoc) return null;
+
+  //   return {
+  //     uploaded: true,
+  //     verified: true,
+  //     verificationStatus: "verified",
+  //     verificationMessage: "Previously uploaded document found.",
+  //     document_id: existingDoc.document_id,
+  //     document_type: existingDoc.document_type,
+  //     original_filename: existingDoc.original_filename,
+  //     storage_path: existingDoc.storage_path,
+  //     mime_type: existingDoc.mime_type,
+  //     status: existingDoc.status,
+  //     created_at: existingDoc.created_at,
+  //   };
+  // };
   const getDisplayedFileValue = (fieldPath, fieldConfig = {}) => {
     const localValue =
       getNestedValue(data?.formData || {}, fieldPath) ??
       getNestedValue(data, fieldPath) ??
       null;
 
-    if (hasUsableLocalFile(localValue)) return localValue;
+    // Prefer any locally controlled value, including failed/verifying replacements
+    if (
+      localValue &&
+      (localValue instanceof File ||
+        localValue?.file instanceof File 
+        // ||
+        // localValue?.verificationStatus
+        )
+    ) // if (
+    //   localValue &&
+    //   (localValue instanceof File || localValue?.file instanceof File)
+    // )
+    {
+      return localValue;
+    }
 
-    // const existingDoc = existingDocumentMap[fieldPath];
     const existingDoc = findExistingDocumentForField(fieldPath, fieldConfig);
     if (!existingDoc) return null;
 
@@ -162,8 +202,17 @@ const Step3ComplianceDocumentation = ({
       getNestedValue(data, fieldPath) ??
       null;
 
-    if (verificationState[fieldPath]) return verificationState[fieldPath];
+    // if (verificationState[fieldPath]) return verificationState[fieldPath];
 
+    // if (localValue?.verificationStatus) {
+    //   return {
+    //     status: localValue.verificationStatus,
+    //     message: localValue.verificationMessage || "",
+    //     detectedType: localValue.detectedType || null,
+    //     expectedType: localValue.expectedType || null,
+    //   };
+    // }
+    // 1. Prefer latest local value (source of truth)
     if (localValue?.verificationStatus) {
       return {
         status: localValue.verificationStatus,
@@ -173,16 +222,37 @@ const Step3ComplianceDocumentation = ({
       };
     }
 
-    if (existingDocumentMap[fieldPath]) {
+    // 2. Then fallback to transient UI state
+    // if (verificationState[fieldPath]) {
+    //   return verificationState[fieldPath];
+    // }
+    if (
+      verificationState[fieldPath] &&
+      verificationState[fieldPath].status === "verifying"
+    ) {
+      return verificationState[fieldPath];
+    }
+
+    // if (existingDocumentMap[fieldPath]) {
+    //   return {
+    //     status: "verified",
+    //     message: "Previously uploaded document found.",
+    //     detectedType: normalizeDocumentType(
+    //       existingDocumentMap[fieldPath]?.document_type,
+    //     ),
+    //     expectedType: normalizeDocumentType(
+    //       existingDocumentMap[fieldPath]?.document_type,
+    //     ),
+    //   };
+    // }
+    const existingDoc = findExistingDocumentForField(fieldPath, fieldConfig);
+
+    if (existingDoc) {
       return {
         status: "verified",
         message: "Previously uploaded document found.",
-        detectedType: normalizeDocumentType(
-          existingDocumentMap[fieldPath]?.document_type,
-        ),
-        expectedType: normalizeDocumentType(
-          existingDocumentMap[fieldPath]?.document_type,
-        ),
+        detectedType: normalizeDocumentType(existingDoc?.document_type),
+        expectedType: normalizeDocumentType(existingDoc?.document_type),
       };
     }
 
@@ -207,20 +277,31 @@ const Step3ComplianceDocumentation = ({
   const buildFileValidator = useCallback(
     (fieldPath) => async (file) => {
       const expectedType = inferExpectedDocumentType(fieldPath);
+      console.log("[VERIFY START]", {
+        fieldPath,
+        fileName: file?.name,
+        expectedType,
+      });
 
       setFieldVerificationState(fieldPath, {
         status: "verifying",
         message: "Verifying document...",
-        expectedType: null,
+        expectedType,
         detectedType: null,
       });
 
       try {
-        const result = await classifyAndExtractApi(file);
+        const result = await classifyAndExtractApi(file, expectedType);
         console.log("classify results:", result);
+         console.log("[VERIFY DONE]", {
+        fieldPath,
+        result,
+      });
+
 
         const detectedType = normalizeDocumentType(
-          result?.document_type ||
+          result?.detected_type ||
+            result?.document_type ||
             result?.classified_as ||
             result?.doc_type ||
             result?.label,
@@ -230,13 +311,24 @@ const Step3ComplianceDocumentation = ({
         // FILE VALIDATION
         // ---------------------
         const validation = result?.upload_validation;
-        const isNotSupported = validation?.status === "FAIL";
-        const isWrongType = expectedType && detectedType !== expectedType;
+        const validationStatus = validation?.status;
+        const validationReasons = validation?.reasons || [];
 
-        if (isNotSupported && isWrongType) {
-          const errorMessage = validation?.reasons[0]
-            ? "Uploaded document does not match expected type OR its quality is too low. Please try again."
-            : "Document is not supported.";
+        if (validationStatus === "FAIL") {
+          const errorMessage =
+            validationReasons[0] ||
+            "Uploaded document does not match expected type or its quality is too low. Please try again.";
+
+          const failedValue = {
+            file,
+            progress: 0,
+            verified: false,
+            verificationStatus: "failed",
+            verificationMessage: errorMessage,
+            detectedType,
+            expectedType,
+            extractedData: result,
+          };
 
           setFieldVerificationState(fieldPath, {
             status: "failed",
@@ -245,7 +337,7 @@ const Step3ComplianceDocumentation = ({
             detectedType,
           });
 
-          throw new Error(errorMessage);
+          return failedValue;
         }
 
         const nextValue = {
@@ -268,24 +360,31 @@ const Step3ComplianceDocumentation = ({
 
         return nextValue;
       } catch (err) {
-        if (
-          !verificationState[fieldPath]?.status ||
-          verificationState[fieldPath]?.status === "verifying"
-        ) {
-          setFieldVerificationState(fieldPath, {
-            status: "failed",
-            message:
-              err?.message ||
-              "Verification failed. Please upload the file again.",
-            expectedType,
-            detectedType: null,
-          });
-        }
+        const errorMessage =
+          err?.message || "Verification failed. Please upload the file again.";
 
-        throw err;
+        const failedValue = {
+          file,
+          progress: 0,
+          verified: false,
+          verificationStatus: "failed",
+          verificationMessage: errorMessage,
+          detectedType: null,
+          expectedType,
+          extractedData: null,
+        };
+
+        setFieldVerificationState(fieldPath, {
+          status: "failed",
+          message: errorMessage,
+          expectedType,
+          detectedType: null,
+        });
+
+        return failedValue;
       }
     },
-    [verificationState],
+    [],
   );
 
   const renderField = (fieldKey, fieldCfg, parentPath = "") => {
