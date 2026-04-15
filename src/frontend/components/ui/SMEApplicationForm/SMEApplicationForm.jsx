@@ -39,6 +39,8 @@ import {
 
 import { allDocuments } from "@/api/documentApi";
 
+import { livenessDetectionApi } from "@/api/livenessDetectionApi";
+
 import { getMergedFormState } from "./utils/formDataHelpers";
 import { buildDynamicPayload } from "./utils/payloadBuilder";
 import {
@@ -175,87 +177,9 @@ const SMEApplicationForm = () => {
     fetchDocuments();
   }, [appId]);
 
-  // const handlePersistKycResult = useCallback(
-  //   async ({
-  //     provider_session_id,
-  //     kycData,
-  //     mappedFields = {},
-  //     providerSessionField = "provider_session_id",
-  //     kycDataField = "kyc",
-  //     rowPrefix = "",
-  //   }) => {
-  //     const qualify = (field) => (rowPrefix ? `${rowPrefix}.${field}` : field);
-
-  //     const qualifiedProviderSessionField = qualify(providerSessionField);
-  //     const qualifiedKycDataField = qualify(kycDataField);
-
-  //     dispatch(
-  //       updateField({
-  //         field: qualifiedProviderSessionField,
-  //         value: provider_session_id,
-  //       }),
-  //     );
-
-  //     dispatch(
-  //       updateField({
-  //         field: qualifiedKycDataField,
-  //         value: kycData,
-  //       }),
-  //     );
-
-  //     let patchedFormData = formData;
-  //     patchedFormData = setNestedValue(
-  //       patchedFormData,
-  //       qualifiedProviderSessionField,
-  //       provider_session_id,
-  //     );
-  //     patchedFormData = setNestedValue(
-  //       patchedFormData,
-  //       qualifiedKycDataField,
-  //       kycData,
-  //     );
-
-  //     Object.entries(mappedFields || {}).forEach(([fieldName, fieldValue]) => {
-  //       const qualifiedField = qualify(fieldName);
-
-  //       dispatch(
-  //         updateField({
-  //           field: qualifiedField,
-  //           value: fieldValue,
-  //         }),
-  //       );
-
-  //       patchedFormData = setNestedValue(
-  //         patchedFormData,
-  //         qualifiedField,
-  //         fieldValue,
-  //       );
-  //     });
-
-  //     try {
-  //       await persistApplication({
-  //         isInitial: false,
-  //         rawFormDataOverride: patchedFormData,
-  //       });
-  //     } catch (err) {
-  //       toast({
-  //         title: "KYC verified but draft not saved",
-  //         description: err?.message || "Please click Save Draft manually.",
-  //         variant: "destructive",
-  //       });
-  //     }
-  //   },
-  //   [
-  //     dispatch,
-  //     formData,
-  //     currentApp?.applicationId,
-  //     appId,
-  //     activeConfig,
-  //     user,
-  //     currentStepFromRedux,
-  //     toast,
-  //   ],
-  // );
+  // ----------------------
+  // KYC VALIDATION
+  // ----------------------
   const isSuccessfulKycResult = (kyc) => {
     if (!kyc || typeof kyc !== "object") return false;
 
@@ -284,6 +208,7 @@ const SMEApplicationForm = () => {
     async ({
       provider_session_id,
       kycData,
+      diditPayload = null,
       mappedFields = {},
       providerSessionField = "provider_session_id",
       kycDataField = "kyc",
@@ -326,34 +251,8 @@ const SMEApplicationForm = () => {
         return;
       }
 
-      // dispatch(
-      //   updateField({
-      //     field: qualifiedProviderSessionField,
-      //     value: provider_session_id,
-      //   }),
-      // );
-
-      // dispatch(
-      //   updateField({
-      //     field: qualifiedKycDataField,
-      //     value: kycData,
-      //   }),
-      // );
-
       // patch fields, map KYC and save draft
       let patchedFormData = currentFormRoot;
-      // let patchedFormData = getMergedFormState(formData);
-
-      // patchedFormData = setNestedValue(
-      //   patchedFormData,
-      //   qualifiedProviderSessionField,
-      //   provider_session_id,
-      // );
-
-      // patchedFormData = setNestedValue(patchedFormData, qualifiedKycDataField, {
-      //   ...(getMergedFormState(formData)?.[qualifiedKycDataField] || {}),
-      //   ...(kycData || {}),
-      // });
 
       patchedFormData = setNestedValue(
         patchedFormData,
@@ -367,11 +266,6 @@ const SMEApplicationForm = () => {
         kycData,
       );
 
-      // patchedFormData = setNestedValue(
-      //   patchedFormData,
-      //   qualifiedKycDataField,
-      //   kycData,
-      // );
       const shouldMapIdentityFields = isSuccessfulKycResult(kycData);
 
       if (shouldMapIdentityFields) {
@@ -393,6 +287,19 @@ const SMEApplicationForm = () => {
           value: patchedFormData,
         }),
       );
+
+      // update backend
+      if (diditPayload?.provider_session_id) {
+        try {
+          const response = await livenessDetectionApi(diditPayload);
+          console.log(
+            "Successfully inject into backend for liveness detection",
+            response,
+          );
+        } catch (err) {
+          console.error("[KYC] failed to persist liveness detection:", err);
+        }
+      }
 
       try {
         await persistApplication({
@@ -979,6 +886,8 @@ const SMEApplicationForm = () => {
     }),
     [formData, handleFieldChange, isViewOnly],
   );
+
+  useEffect(() => console.log("[FORM]: ", formData), [formData]);
 
   const isStep0Locked = Boolean(appId && appId !== "new");
 

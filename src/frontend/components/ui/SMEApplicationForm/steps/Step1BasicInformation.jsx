@@ -265,6 +265,19 @@ const Step1BasicInformation = ({
     return `${year}-${month}-${paddedDay}`;
   };
 
+  const ddMmYyyyToISO = (dateStr) => {
+  if (!dateStr || typeof dateStr !== "string") return "";
+
+  const parts = dateStr.split("-");
+  if (parts.length !== 3) return "";
+
+  const [day, month, year] = parts;
+
+  if (!day || !month || !year) return "";
+
+  return `${year}-${month.padStart(2, "0")}-${day.padStart(2, "0")}`;
+};
+
   const normalizeDocumentType = (value) =>
     String(value || "")
       .trim()
@@ -293,7 +306,7 @@ const Step1BasicInformation = ({
         .split(".")
         .pop()
         ?.toLowerCase() || "";
-      console.log("key", key)
+    console.log("key", key);
 
     if (key.includes("businessprofile")) return "acra";
     if (key.includes("acra")) return "acra";
@@ -303,10 +316,9 @@ const Step1BasicInformation = ({
     if (key.includes("passport")) return "id_document";
     if (key.includes("ktp")) return "ktp";
     if (key.includes("id")) return "id_document";
-    
+
     if (key.includes("nib")) return "nib";
-    if (key.includes("businessregistration"))
-      return "nib";
+    if (key.includes("businessregistration")) return "nib";
 
     return key;
   };
@@ -437,7 +449,7 @@ const Step1BasicInformation = ({
       if (sectionConfig?.rowTypeField && sectionConfig?.rowTypeValue) {
         baseRow[sectionConfig.rowTypeField] = sectionConfig.rowTypeValue;
       }
-      // console.log("base", baseRow);
+      console.log("base", baseRow);
       return baseRow;
     });
   };
@@ -445,7 +457,7 @@ const Step1BasicInformation = ({
   const buildFileValidator = useCallback(
     (fieldPath, fieldConfig) => async (file) => {
       const expectedType = inferExpectedDocumentType(fieldPath, fieldConfig);
-      console.log("expectedtype", expectedType)
+      console.log("expectedtype", expectedType);
 
       setFieldVerificationState(fieldPath, {
         status: "verifying",
@@ -594,6 +606,7 @@ const Step1BasicInformation = ({
         payload.date_of_registration,
         payload.issued_date,
         payload.additional_data?.issuance_information?.issued_date,
+        payload.registrationDate
       );
       const phone = pickFirstNonEmpty(
         payload.phone,
@@ -607,18 +620,23 @@ const Step1BasicInformation = ({
       const businessName = pickFirstNonEmpty(
         payload.business_name,
         payload.company_name,
+        payload.businessName
       );
       const registrationNumber = pickFirstNonEmpty(
         payload.business_registration_number,
         payload.nib_number,
+        // payload.businessName
+        payload.registrationNumber
       );
       const address = pickFirstNonEmpty(
         payload.registered_address,
         payload.address,
+        payload.registeredAddress
       );
       const businessStatus = pickFirstNonEmpty(
         payload.business_status,
         payload.company_status,
+        payload.businessStatus
       );
 
       if (businessName) {
@@ -633,9 +651,22 @@ const Step1BasicInformation = ({
         updates.registeredAddress = address;
       }
 
+      // if (issuedDate) {
+      //   updates.registrationDate = indoDateToISO(issuedDate);
+      // }
       if (issuedDate) {
-        updates.registrationDate = indoDateToISO(issuedDate);
-      }
+  let normalizedDate = "";
+
+  if (issuedDate.includes("-")) {
+    // handles 19-01-2022
+    normalizedDate = ddMmYyyyToISO(issuedDate);
+  } else {
+    // handles "19 Januari 2022"
+    normalizedDate = indoDateToISO(issuedDate);
+  }
+
+  updates.registrationDate = normalizedDate;
+}
 
       if (payload.npwp) {
         updates.npwp = payload.npwp;
@@ -673,15 +704,27 @@ const Step1BasicInformation = ({
       const uen = pickFirstNonEmpty(
         payload.business_registration_number,
         payload.uen,
+        payload.registrationNumber
       );
       const address = pickFirstNonEmpty(
         payload.registered_address,
         payload.address,
+        payload.registeredAddress
       );
       const registrationDate = pickFirstNonEmpty(
         payload.date_of_registration,
         payload.registration_date,
         payload.business_start_date,
+        payload.registrationDate
+      );
+      const phone = pickFirstNonEmpty(
+        payload.phone,
+        payload.phone_number,
+        payload.additional_data?.contact_information?.phone_number,
+      );
+      const email = pickFirstNonEmpty(
+        payload.email,
+        payload.additional_data?.contact_information?.email,
       );
 
       if (businessName) {
@@ -698,6 +741,14 @@ const Step1BasicInformation = ({
 
       if (registrationDate) {
         updates.registrationDate = ddMmmYyyyToISO(registrationDate);
+      }
+
+      if (phone) {
+        updates.phone = phone;
+      }
+
+      if (email) {
+        updates.email = email;
       }
 
       return updates;
@@ -1092,7 +1143,7 @@ const Step1BasicInformation = ({
 
     // if (initializedMinRowsRef.current[initKey]) return;
 
-    let nextFormRoot = formRoot;
+    let nextFormRoot = formRoot; //should overwrite
     let hasChanges = false;
 
     Object.entries(repeatableSectionsConfig).forEach(

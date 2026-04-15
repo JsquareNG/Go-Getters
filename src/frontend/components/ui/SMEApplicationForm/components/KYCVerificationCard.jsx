@@ -71,15 +71,19 @@ const KycVerificationCard = ({
 
   const normalizedOverall = String(kycOverallStatus || "")
     .trim()
-    .toLowerCase();
+    .toLowerCase()
+    .replace(/\s+/g, "");
   const normalizedStatus = String(kycStatus || "")
     .trim()
-    .toLowerCase();
+    .toLowerCase()
+    .replace(/\s+/g, "");
 
   const isKycIdle = normalizedStatus === "idle";
 
   const isKycPending =
-    normalizedStatus === "pending" || normalizedOverall === "notstarted";
+    normalizedStatus === "pending" ||
+    normalizedOverall === "notstarted" ||
+    normalizedOverall === "inprogress";
   const isKycDeclined =
     // normalizedStatus === "completed" &&
     normalizedOverall === "declined";
@@ -634,18 +638,18 @@ const KycVerificationCard = ({
   // -----------------
   // DEBUG
   // -----------------
-  console.log("[KYC UI STATE]", {
-    rawKycData: kycData,
-    kycStatus,
-    kycOverallStatus,
-    normalizedStatus,
-    normalizedOverall,
+  // console.log("[KYC UI STATE]", {
+  //   rawKycData: kycData,
+  //   kycStatus,
+  //   kycOverallStatus,
+  //   normalizedStatus,
+  //   normalizedOverall,
 
-    isKycIdle,
-    isKycPending,
-    isKycDeclined,
-    isKycApproved,
-  });
+  //   isKycIdle,
+  //   isKycPending,
+  //   isKycDeclined,
+  //   isKycApproved,
+  // });
 
   return (
     <Card
@@ -770,7 +774,7 @@ const KycVerificationCard = ({
             </div>
           </div>
 
-          <div className="shrink-0">
+          {/* <div className="shrink-0">
             {isKycIdle && (
               <Button
                 type="button"
@@ -780,6 +784,17 @@ const KycVerificationCard = ({
               >
                 <ShieldCheck className="h-4 w-4" />
                 {kycLoading ? "Creating session..." : "Start Verification"}
+                {!kycLoading && (
+                  <Button
+                    type="button"
+                    onClick={handleStartKyc}
+                    className="gap-2 bg-red-600"
+                    disabled={disabled || kycLoading}
+                  >
+                    <ShieldCheck className="h-4 w-4" />
+                    {kycLoading ? "Creating session..." : "Retry Verification"}
+                  </Button>
+                )}
               </Button>
             )}
 
@@ -816,6 +831,47 @@ const KycVerificationCard = ({
               >
                 <ShieldCheck className="h-4 w-4" />
                 {kycLoading ? "Creating session..." : "Retry Verification"}
+              </Button>
+            )}
+
+            {MOCK_KYC && (
+              <div className="mt-3 flex gap-2">
+                <Button type="button" onClick={() => finishMockKyc("approved")}>
+                  Mock Approve
+                </Button>
+                <Button type="button" onClick={() => finishMockKyc("declined")}>
+                  Mock Decline
+                </Button>
+                <Button type="button" onClick={() => finishMockKyc("pending")}>
+                  Mock Pending
+                </Button>
+              </div>
+            )}
+          </div> */}
+          <div className="shrink-0">
+            {isKycApproved ? (
+              <Button
+                type="button"
+                variant="outline"
+                className="gap-2"
+                disabled
+              >
+                Verified
+                <ArrowRight className="h-4 w-4" />
+              </Button>
+            ) : (
+              <Button
+                type="button"
+                onClick={handleStartKyc}
+                className="gap-2 bg-red-600"
+                disabled={disabled || kycLoading}
+              >
+                <ShieldCheck className="h-4 w-4" />
+                {kycLoading
+                  ? "Creating session..."
+                  : isKycIdle
+                    ? "Start Verification"
+                    : "Retry Verification"}
               </Button>
             )}
 
