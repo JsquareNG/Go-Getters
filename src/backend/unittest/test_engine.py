@@ -13,12 +13,13 @@ def create_test_company(country="Singapore"):
         name="Test Co",
         country=country,
         entity_type="Private",
-        years_incorporated=0,
+        years_incorporated=6,
         industry="Tech",
         annual_revenue=100000,
         expected_tx_volume=50000,
         ownership_layers=1,
         transaction_country_count=1,
+        director_count= 1,
         individuals=[
             Individual(
                 name="John",
