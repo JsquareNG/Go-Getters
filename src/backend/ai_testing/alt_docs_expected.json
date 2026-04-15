@@ -1,0 +1,18 @@
+{
+  "doc-001": {
+    "document_name": "ACRA Business Profile",
+    "acceptable_values": [
+      "bizfile_extract",
+      "cert_confirmation_registration",
+      "notice_of_registration"
+    ]
+  },
+  "doc-002": {
+    "document_name": "NRIC",
+    "acceptable_values": [
+      "singapore_passport",
+      "singpass_myinfo_export",
+      "singapore_driving_license"
+    ]
+  }
+}

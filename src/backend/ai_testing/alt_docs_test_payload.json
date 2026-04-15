@@ -1,0 +1,84 @@
+{
+  "requested_documents": [
+    {
+      "item_id": "doc-001",
+      "document_name": "ACRA Business Profile",
+      "document_desc": "Official document showing company registration details issued by ACRA"
+    },
+    {
+      "item_id": "doc-002",
+      "document_name": "NRIC",
+      "document_desc": "Government-issued identity document for verification of individual identity"
+    }
+  ],
+  "application_data": {
+    "businessName": "ABC ENTERPRISE",
+    "businessType": "sole_proprietorship",
+    "businessCountry": "Singapore",
+    "businessIndustry": "Retail & Consumer Goods",
+    "registrationDate": "2016-08-18",
+    "annualRevenue": "120000",
+    "registeredAddress": "123 ABC ROAD #01-123 ABC BUILDING SINGAPORE (123456)",
+    "individuals": [
+      {
+        "role": "Owner",
+        "fullName": "Lim Ah Huat",
+        "idNumber": "S8888888H",
+        "dateOfBirth": "1985-06-12",
+        "nationality": "Singapore",
+        "pepDeclaration": "No",
+        "fatcaDeclaration": "No",
+        "sanctionsDeclaration": "No",
+        "residentialAddress": "123 ABC ROAD #01-123 ABC BUILDING SINGAPORE (123456)"
+      }
+    ]
+  },
+  "risk_assessment": {
+    "risk_grade": "Standard Due Diligence (CDD)",
+    "risk_score": 24,
+    "triggered_rules": [
+      {
+        "code": "R200",
+        "description": "Transaction volume below threshold"
+      },
+      {
+        "code": "R300",
+        "description": "Simple ownership structure"
+      }
+    ]
+  },
+  "documents": [
+    {
+      "document_type": "bankStatement",
+      "original_filename": "bank_statement_jan.pdf"
+    },
+    {
+      "document_type": "proofOfBusinessAddress",
+      "original_filename": "office_lease.pdf"
+    }
+  ],
+  "action_requests": [
+    {
+      "action_request_id": "ar-001",
+      "status": "OPEN",
+      "reason": "Required documents not provided or insufficient for verification",
+      "documents": [
+        {
+          "item_id": "doc-001",
+          "document_name": "ACRA Business Profile",
+          "document_desc": "Official company registration document"
+        },
+        {
+          "item_id": "doc-002",
+          "document_name": "NRIC",
+          "document_desc": "Identity verification document"
+        }
+      ],
+      "questions": [
+        {
+          "question": "Please confirm the registered business owner details"
+        }
+      ]
+    }
+  ]
+}

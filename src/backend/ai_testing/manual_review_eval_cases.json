@@ -36,7 +36,7 @@
       "registeredAddress": "10 Tampines Ave 3, Singapore 529705",
       "providerSessionId": null,
       "provider_session_id": null,
-      "expectedMonthlyTransactionVolume": "500000",
+      "expectedMonthlyTransactionVolume": "1000",
       "expectedCountriesOfTransactionActivity": ["Malaysia"],
       "businessProfile": {
         "verificationStatus": "verified",
@@ -156,7 +156,7 @@
       "registeredAddress": "1 Fusionopolis Way, Singapore 138632",
       "providerSessionId": null,
       "provider_session_id": null,
-      "expectedMonthlyTransactionVolume": "700000",
+      "expectedMonthlyTransactionVolume": "66000",
       "expectedCountriesOfTransactionActivity": ["Singapore", "Malaysia"],
       "boardResolution": {
         "verificationStatus": "verified",
@@ -290,97 +290,6 @@
       },
       {
         "document_id": "sgpep002",
-        "document_type": "bankStatement",
-        "status": "uploaded",
-        "original_filename": "bank_statement.pdf"
-      }
-    ],
-    "action_requests": []
-  },
-  {
-    "name": "sg_private_limited_fatca_escalate",
-    "expected_action": "escalate",
-    "application_data": {
-      "uen": "202245678N",
-      "email": "contact@seaspantrading.sg",
-      "phone": "67654321",
-      "country": "Singapore",
-      "swiftBic": "HSBCSGSG",
-      "individuals": [
-        {
-          "role": "Director",
-          "fullName": "Benjamin Lee",
-          "idNumber": "S5566778E",
-          "dateOfBirth": "1985-01-15",
-          "nationality": "Singapore",
-          "pepDeclaration": "No",
-          "fatcaDeclaration": "Yes",
-          "residentialAddress": "32 Serangoon North Ave 2, Singapore 555672",
-          "sanctionsDeclaration": "No"
-        },
-        {
-          "role": "Shareholder",
-          "shareholderType": "Individual",
-          "sharePercentage": 100,
-          "name": "Benjamin Lee",
-          "idNumber": "S5566778E",
-          "nationality": "Singapore",
-          "residentialAddress": "32 Serangoon North Ave 2, Singapore 555672",
-          "pepDeclaration": "No",
-          "fatcaDeclaration": "Yes",
-          "sanctionsDeclaration": "No"
-        },
-        {
-          "role": "Ultimate Beneficial Owner",
-          "name": "Benjamin Lee",
-          "sharePercentage": 100,
-          "nationality": "Singapore",
-          "dateOfBirth": "1985-01-15",
-          "residentialAddress": "32 Serangoon North Ave 2, Singapore 555672",
-          "basisOfControl": "Direct ownership (≥25%)",
-          "pepDeclaration": "No",
-          "fatcaDeclaration": "Yes",
-          "sanctionsDeclaration": "No"
-        }
-      ],
-      "businessName": "SEASPAN TRADING PTE. LTD.",
-      "businessType": "private_limited",
-      "annualRevenue": "600000",
-      "sourceOfFunds": "Regional trading of marine supplies",
-      "companyStatus": "Active",
-      "current_status": "Draft",
-      "accountCurrency": "SGD",
-      "businessCountry": "Singapore",
-      "businessIndustry": "Trading",
-      "incorporationDate": "2022-01-10",
-      "bankAccountNumber": "2233445566",
-      "registeredAddress": "15 Tai Seng Drive, Singapore 535220",
-      "providerSessionId": null,
-      "provider_session_id": null,
-      "expectedMonthlyTransactionVolume": "800000",
-      "expectedCountriesOfTransactionActivity": ["Singapore", "Malaysia"]
-    },
-    "risk_assessment": {
-      "risk_grade": "Standard Due Diligence (CDD)",
-      "risk_score": 63,
-      "triggered_rules": [
-        { "code": "R100", "description": "Company age risk (1 to less than 3 years)" },
-        { "code": "R200", "description": "Transaction volume below 1,000,000" },
-        { "code": "R300", "description": "Ownership complexity up to 2 layers" },
-        { "code": "R301", "description": "Director count below 3" },
-        { "code": "R400", "description": "Transaction exposure across up to 2 countries" },
-        { "code": "KYC003", "description": "FATCA US person (Benjamin Lee)" }
-      ]
-    },
-    "documents": [
-      {
-        "document_id": "sgfatca001",
-        "document_type": "boardResolution",
-        "status": "uploaded",
-        "original_filename": "board_resolution.pdf"
-      },
-      {
-        "document_id": "sgfatca002",
         "document_type": "bankStatement",
         "status": "uploaded",
         "original_filename": "bank_statement.pdf"
@@ -532,7 +441,7 @@
       "businessStatus": "Active",
       "current_status": "Draft",
       "accountCurrency": "SGD",
-      "businessCountry": "Singapore",
+      "businessCountry": "North Korea",
       "businessIndustry": "Trading",
       "registrationDate": "2024-06-01",
       "bankAccountNumber": "1112223334",
@@ -544,9 +453,10 @@
     },
     "risk_assessment": {
       "risk_grade": "Enhanced Due Diligence (EDD)",
-      "risk_score": 58,
+      "risk_score": 110,
       "triggered_rules": [
         { "code": "SG001", "description": "Unsupported Singapore entity type" },
+        { "code": "R001", "description": "FATF blacklist country" },
         { "code": "R003", "description": "High risk industry" },
         { "code": "R100", "description": "Company age risk (1 to less than 3 years)" },
         { "code": "R200", "description": "Transaction volume below 1,000,000" },
@@ -653,228 +563,8 @@
     "action_requests": []
   },
   {
-    "name": "id_ud_pep_escalate",
-    "expected_action": "escalate",
-    "application_data": {
-      "npwp": "123456789012346",
-      "email": "director@pasirian.id",
-      "phone": "03345761044",
-      "country": "Indonesia",
-      "swiftBic": "BMRIIDJA",
-      "individuals": [
-        {
-          "role": "Owner",
-          "fullName": "Rizky Hadi",
-          "idNumber": "3501010101900002",
-          "dateOfBirth": "1990-01-01",
-          "nationality": "Indonesia",
-          "pepDeclaration": "Yes",
-          "country": "Indonesia",
-          "position": "Regional Government Official",
-          "relationship": "Self",
-          "period": "2020 - Present",
-          "sharePercentage": 100,
-          "fatcaDeclaration": "No",
-          "residentialAddress": "Jl. Merdeka No. 5, Lumajang",
-          "sanctionsDeclaration": "No"
-        }
-      ],
-      "businessName": "RSUD PASIRIAN MEDICAL SUPPLY UD",
-      "businessType": "usaha_dagang",
-      "annualRevenue": "1000000000",
-      "bankAccountNumber": "123123123123",
-      "sourceOfFunds": "Healthcare supply distribution",
-      "businessStatus": "High Risk",
-      "current_status": "Draft",
-      "accountCurrency": "IDR",
-      "businessCountry": "Indonesia",
-      "registrationDate": "2017-06-15",
-      "registeredAddress": "Jalan Raya Pasirian No. 225A, Lumajang",
-      "registrationNumber": "1901220009282",
-      "providerSessionId": null,
-      "provider_session_id": null,
-      "expectedMonthlyTransactionVolume": "100000000",
-      "expectedCountriesOfTransactionActivity": ["Indonesia", "Hong Kong"],
-      "businessActivities": [
-        {
-          "activityType": "Primary",
-          "businessActivity": "Wholesale food & beverages (46339)",
-          "activityDescription": "Distribution of medical and consumable supplies"
-        }
-      ]
-    },
-    "risk_assessment": {
-      "risk_grade": "Enhanced Due Diligence (EDD)",
-      "risk_score": 117,
-      "triggered_rules": [
-        { "code": "ID001", "description": "Foreign SME onboarding (Indonesia entity)" },
-        { "code": "KYC002", "description": "Politically exposed person (Rizky Hadi)" },
-        { "code": "R100", "description": "Company age risk (3 to less than 10 years)" },
-        { "code": "R200", "description": "Transaction volume 10,000,000 or above" },
-        { "code": "R300", "description": "Ownership complexity up to 2 layers" },
-        { "code": "R301", "description": "Director count below 3" },
-        { "code": "R400", "description": "Transaction exposure across up to 2 countries" }
-      ]
-    },
-    "documents": [
-      {
-        "document_id": "idpep001",
-        "document_type": "businessRegistrationUpload",
-        "status": "uploaded",
-        "original_filename": "nib.pdf"
-      },
-      {
-        "document_id": "idpep002",
-        "document_type": "npwpCertificate",
-        "status": "uploaded",
-        "original_filename": "npwp.jpg"
-      },
-      {
-        "document_id": "idpep003",
-        "document_type": "bankStatement",
-        "status": "uploaded",
-        "original_filename": "bank_statement.pdf"
-      }
-    ],
-    "action_requests": []
-  },
-  {
-    "name": "id_pt_high_risk_industry_escalate",
-    "expected_action": "escalate",
-    "application_data": {
-      "npwp": "123456789012347",
-      "email": "ops@nusapay.id",
-      "phone": "0215556677",
-      "country": "Indonesia",
-      "swiftBic": "BMRIIDJA",
-      "individuals": [
-        {
-          "role": "Director",
-          "fullName": "Andi Wijaya",
-          "idNumber": "3173010101850003",
-          "dateOfBirth": "1985-01-01",
-          "nationality": "Indonesia",
-          "pepDeclaration": "No",
-          "sharePercentage": 40,
-          "fatcaDeclaration": "No",
-          "residentialAddress": "Jl. Gatot Subroto No. 12, Jakarta",
-          "sanctionsDeclaration": "No",
-          "authorizedSignatory": "Yes"
-        },
-        {
-          "role": "Shareholder",
-          "shareholderType": "Individual Shareholder",
-          "fullName": "Andi Wijaya",
-          "idNumber": "3173010101850003",
-          "dateOfBirth": "1985-01-01",
-          "nationality": "Indonesia",
-          "pepDeclaration": "No",
-          "sharePercentage": 40,
-          "fatcaDeclaration": "No",
-          "residentialAddress": "Jl. Gatot Subroto No. 12, Jakarta",
-          "sanctionsDeclaration": "No"
-        },
-        {
-          "role": "Shareholder",
-          "shareholderType": "Individual Shareholder",
-          "fullName": "Cindy Halim",
-          "idNumber": "3173010202880004",
-          "dateOfBirth": "1988-02-02",
-          "nationality": "Indonesia",
-          "pepDeclaration": "No",
-          "sharePercentage": 60,
-          "fatcaDeclaration": "No",
-          "residentialAddress": "Jl. HR Rasuna Said No. 8, Jakarta",
-          "sanctionsDeclaration": "No"
-        },
-        {
-          "role": "Ultimate Beneficial Owner",
-          "fullName": "Cindy Halim",
-          "idNumber": "3173010202880004",
-          "dateOfBirth": "1988-02-02",
-          "nationality": "Indonesia",
-          "pepDeclaration": "No",
-          "sharePercentage": 60,
-          "fatcaDeclaration": "No",
-          "residentialAddress": "Jl. HR Rasuna Said No. 8, Jakarta",
-          "sanctionsDeclaration": "No",
-          "basisOfControl": "Direct ownership (≥25%)"
-        }
-      ],
-      "businessName": "NUSAPAY PT",
-      "businessType": "perseroan_terbatas",
-      "annualRevenue": "3500000000",
-      "bankAccountNumber": "5566778899",
-      "sourceOfFunds": "Licensed remittance services",
-      "businessStatus": "High Risk",
-      "current_status": "Draft",
-      "accountCurrency": "IDR",
-      "businessCountry": "Indonesia",
-      "registrationDate": "2024-01-05",
-      "registeredAddress": "Jl. Sudirman Kav. 52-53, Jakarta",
-      "registrationNumber": "2301220008888",
-      "providerSessionId": null,
-      "provider_session_id": null,
-      "expectedMonthlyTransactionVolume": "12000000",
-      "expectedCountriesOfTransactionActivity": ["Indonesia", "Singapore", "Hong Kong"],
-      "businessActivities": [
-        {
-          "activityType": "Primary",
-          "businessActivity": "Business management consulting (70209)",
-          "activityDescription": "Ancillary corporate support services"
-        }
-      ]
-    },
-    "risk_assessment": {
-      "risk_grade": "Enhanced Due Diligence (EDD)",
-      "risk_score": 140,
-      "triggered_rules": [
-        { "code": "ID001", "description": "Foreign SME onboarding (Indonesia entity)" },
-        { "code": "R003", "description": "High risk industry" },
-        { "code": "R100", "description": "Company age risk (1 to less than 3 years)" },
-        { "code": "R200", "description": "Transaction volume 10,000,000 or above" },
-        { "code": "R300", "description": "Ownership complexity up to 2 layers" },
-        { "code": "R301", "description": "Director count below 3" },
-        { "code": "R400", "description": "Transaction exposure across up to 5 countries" }
-      ]
-    },
-    "documents": [
-      {
-        "document_id": "idpt001",
-        "document_type": "businessRegistrationUpload",
-        "status": "uploaded",
-        "original_filename": "nib.pdf"
-      },
-      {
-        "document_id": "idpt002",
-        "document_type": "npwpCertificate",
-        "status": "uploaded",
-        "original_filename": "npwp.jpg"
-      },
-      {
-        "document_id": "idpt003",
-        "document_type": "deedOfEstablishment",
-        "status": "uploaded",
-        "original_filename": "deed.pdf"
-      },
-      {
-        "document_id": "idpt004",
-        "document_type": "uboDeclaration",
-        "status": "uploaded",
-        "original_filename": "ubo.pdf"
-      },
-      {
-        "document_id": "idpt005",
-        "document_type": "bankStatement",
-        "status": "uploaded",
-        "original_filename": "bank_statement.pdf"
-      }
-    ],
-    "action_requests": []
-  },
-  {
     "name": "id_cv_sanctions_reject",
-    "expected_action": "reject",
+    "expected_action": "escalate",
     "application_data": {
       "npwp": "123456789012348",
       "email": "admin@globalbridge.id",
@@ -963,6 +653,42 @@
         "document_type": "bankStatement",
         "status": "uploaded",
         "original_filename": "bank_statement.pdf"
+      }
+    ],
+    "action_requests": []
+  },
+  {
+    "name": "fatf_blacklist_country_reject",
+    "expected_action": "reject",
+    "application_data": {
+      "businessName": "Blacklisted Trading Co",
+      "businessType": "private_limited",
+      "businessCountry": "North Korea",
+      "businessIndustry": "Trading",
+      "individuals": [
+        {
+          "role": "Director",
+          "fullName": "Kim Yong",
+          "nationality": "North Korea",
+          "pepDeclaration": "No",
+          "fatcaDeclaration": "No",
+          "sanctionsDeclaration": "No"
+        }
+      ]
+    },
+    "risk_assessment": {
+      "risk_score": 100,
+      "risk_grade": "Enhanced Due Diligence (EDD)",
+      "triggered_rules": [
+        {
+          "code": "R001",
+          "description": "FATF blacklist country"
+        }
+      ]
+    },
+    "documents": [
+      {
+        "document_type": "businessProfile"
       }
     ],
     "action_requests": []

@@ -1,5 +1,6 @@
 import json
 from pathlib import Path
+import time
 
 import requests
 
@@ -56,6 +57,8 @@ def main():
             errors += 1
 
         results.append(row)
+
+        time.sleep(5)  # wait 5 seconds before next request
 
     total = len(cases)
     summary = {

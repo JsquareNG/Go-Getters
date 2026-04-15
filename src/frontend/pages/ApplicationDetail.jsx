@@ -519,9 +519,6 @@ export default function ApplicationDetail() {
         year: "numeric",
       })
     : "-";
-
-  console.log("application", formData);
-
   // const individualsRaw = formData?.individuals;
   // const directors = useMemo(() => {
   //   if (Array.isArray(individualsRaw)) return individualsRaw;
@@ -635,6 +632,8 @@ export default function ApplicationDetail() {
       try {
         setAlternativeDocsLoading(true);
         setAlternativeDocsError(null);
+
+        console.log(alternativeDocumentsAIPayload)
 
         const response = await generateAlternativeDocumentOptions(
           alternativeDocumentsAIPayload,
