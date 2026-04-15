@@ -105,6 +105,7 @@ def make_action_request(
     reason="Need more docs",
     status="OPEN",
     created_at=None,
+    ocr_warnings=False,
 ):
     return SimpleNamespace(
         action_request_id=action_request_id,
@@ -113,6 +114,7 @@ def make_action_request(
         reason=reason,
         status=status,
         created_at=created_at,
+        ocr_warnings=ocr_warnings
     )
 
 

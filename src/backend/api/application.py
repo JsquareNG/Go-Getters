@@ -1352,14 +1352,14 @@ def get_required_requirements(
                 }
             )
 
-#     return {
-#         "application_id": application_id,
-#         "action_request_id": action_request.action_request_id,
-#         "status": action_request.status,
-#         "reason": action_request.reason,
-#         "required_documents": required_documents,
-#         "required_questions": required_questions,
-#     }
+    return {
+        "application_id": application_id,
+        "action_request_id": action_request.action_request_id,
+        "status": action_request.status,
+        "reason": action_request.reason,
+        "required_documents": required_documents,
+        "required_questions": required_questions,
+    }
 
 
 @router.get("/getActionRequests/{application_id}")
