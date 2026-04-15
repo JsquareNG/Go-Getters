@@ -230,7 +230,8 @@ export const uploadSingleDocument = async ({
   existingDocumentMap = {},
   extractedData = {},
 }) => {
-  const existingDoc = existingDocumentMap[documentType];
+  // const existingDoc = existingDocumentMap[documentType];
+  const existingDoc = existingDocumentMap[normalizeDocumentType(documentType)];
 
   if (existingDoc?.document_id) {
     return await replaceDocumentById({
@@ -301,7 +302,11 @@ export const uploadAllDocumentsFromFormData = async (
     });
 
     if (uploaded?.document_id) {
-      existingDocumentMap[entry.document_type] = {
+      // existingDocumentMap[entry.document_type] = {
+      //   document_id: uploaded.document_id,
+      //   document_type: entry.document_type,
+      // };
+      existingDocumentMap[normalizeDocumentType(entry.document_type)] = {
         document_id: uploaded.document_id,
         document_type: entry.document_type,
       };

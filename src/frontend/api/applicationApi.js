@@ -53,7 +53,7 @@ export const saveApplicationDraftApi = async (payload) => {
   //   ...(application_id && { application_id }),
   // };
 
-  // console.log("draft payload", draftPayload)
+  console.log("draft payload", payload)
 
   const { application_id } = payload;
 
