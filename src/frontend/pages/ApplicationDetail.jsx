@@ -12,6 +12,7 @@ import {
   Undo2,
   Trash2,
   Loader2,
+  CheckCircle2,
 } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -47,8 +48,10 @@ import {
   withdrawApplication,
   deleteApplication,
   getReviewJob,
+  submitSmeApplicationApi,
 } from "./../api/applicationApi";
-import { allDocuments, downloadDocuments } from "./../api/documentApi";
+import { allDocuments, downloadDocuments, replaceDocument } from "./../api/documentApi";
+import { classifyAndExtractApi } from "./../api/ocrApi";
 import { userInfo } from "./../api/usersApi";
 import { getAuditTrail } from "./../api/auditTrailApi";
 import { generateAlternativeDocumentOptions } from "./../api/smartAI";
@@ -58,6 +61,7 @@ import {
   SINGAPORE_CONFIG,
   INDONESIA_CONFIG,
 } from "../components/ui/SMEApplicationForm/config";
+import ResubmitDocumentUploadField from "../components/ui/features/ResubmitDocumentUploadField";
 
 const normKey = (v) => {
   if (v == null) return null;
@@ -116,6 +120,36 @@ export default function ApplicationDetail() {
   const [alternativeDocsError, setAlternativeDocsError] = useState(null);
   const [hasLoadedAlternativeDocs, setHasLoadedAlternativeDocs] =
     useState(false);
+
+  const crossValidationReason =
+    application?.cross_validation_result?.reason || null;
+  const mismatchDocumentDetails = Array.isArray(
+    application?.cross_validation_result?.summary?.mismatch_document_details
+  )
+    ? application?.cross_validation_result?.summary.mismatch_document_details
+    : [];
+  const crossValidationResult = application?.cross_validation_result || null;
+  const mismatchByDocumentId = useMemo(() => {
+    return mismatchDocumentDetails.reduce((acc, item) => {
+      if (item?.document_id) {
+        acc[item.document_id] = item;
+      }
+      return acc;
+    }, {});
+  }, [mismatchDocumentDetails]);
+  const shouldShowDocumentWarning =
+    application?.document_warning === true
+
+  const [reuploadFiles, setReuploadFiles] = useState({});
+  const [reuploadErrors, setReuploadErrors] = useState({});
+  const [isSubmittingReupload, setIsSubmittingReupload] = useState(false);
+  
+  const [checkingReuploadByDocId, setCheckingReuploadByDocId] = useState({});
+  const [reuploadValidationByDocId, setReuploadValidationByDocId] = useState({});
+
+  const uploadedCount = mismatchDocumentDetails.filter(
+    (doc) => reuploadFiles[doc.document_id]
+  ).length;
 
   // -----------------------------
   // Fetch application
@@ -519,13 +553,15 @@ export default function ApplicationDetail() {
         year: "numeric",
       })
     : "-";
-  // const individualsRaw = formData?.individuals;
-  // const directors = useMemo(() => {
-  //   if (Array.isArray(individualsRaw)) return individualsRaw;
-  //   if (individualsRaw && typeof individualsRaw === "object")
-  //     return [individualsRaw];
-  //   return [];
-  // }, [individualsRaw]);
+  
+  const allDocsUploaded = mismatchDocumentDetails.every(
+    (doc) => !!reuploadFiles[doc.document_id]
+  );
+
+  const isChecking = Object.values(checkingReuploadByDocId).some(Boolean);
+
+  const canSubmitReupload =
+    allDocsUploaded && !isChecking && !isSubmittingReupload;
 
   const firstActionRequestTime = useMemo(() => {
     if (sortedActionRequestsAsc.length === 0) return null;
@@ -534,13 +570,23 @@ export default function ApplicationDetail() {
 
   const initialDocuments = useMemo(() => {
     if (!Array.isArray(documents)) return [];
-    if (!firstActionRequestTime) return documents;
+    if (!firstActionRequestTime) {
+      return documents.map((doc) => ({
+        ...doc,
+        mismatch_detail: mismatchByDocumentId[doc.document_id] || null,
+      }));
+    }
 
-    return documents.filter((doc) => {
-      const t = new Date(doc?.created_at || 0).getTime();
-      return t && t < firstActionRequestTime;
-    });
-  }, [documents, firstActionRequestTime]);
+    return documents
+      .filter((doc) => {
+        const t = new Date(doc?.created_at || 0).getTime();
+        return t && t < firstActionRequestTime;
+      })
+      .map((doc) => ({
+        ...doc,
+        mismatch_detail: mismatchByDocumentId[doc.document_id] || null,
+      }));
+  }, [documents, firstActionRequestTime, mismatchByDocumentId]);
 
   const resubmissionGroups = useMemo(() => {
     if (!Array.isArray(documents) || sortedActionRequestsAsc.length === 0)
@@ -786,6 +832,178 @@ export default function ApplicationDetail() {
     }
   };
 
+  const getReadableDocumentLabel = (docType) => {
+    if (!docType) return "Document";
+    return String(docType)
+      .replace(/_/g, " ")
+      .toLowerCase()
+      .replace(/\b\w/g, (c) => c.toUpperCase());
+  };
+
+  const handleReuploadFileChange = async (doc, file) => {
+    const documentId = doc.document_id;
+
+    if (!file) {
+      setReuploadFiles((prev) => ({
+        ...prev,
+        [documentId]: null,
+      }));
+      setReuploadErrors((prev) => ({
+        ...prev,
+        [documentId]: "",
+      }));
+      setReuploadValidationByDocId((prev) => ({
+        ...prev,
+        [documentId]: null,
+      }));
+      return;
+    }
+
+    setReuploadFiles((prev) => ({
+      ...prev,
+      [documentId]: file,
+    }));
+    setReuploadErrors((prev) => ({
+      ...prev,
+      [documentId]: "",
+    }));
+    setReuploadValidationByDocId((prev) => ({
+      ...prev,
+      [documentId]: null,
+    }));
+
+    try {
+      setCheckingReuploadByDocId((prev) => ({
+        ...prev,
+        [documentId]: true,
+      }));
+
+      const expectedDocType = doc.mismatch_detail?.document_type;
+
+      const result = await classifyAndExtractApi(file, expectedDocType);
+
+      const uploadValidation = result?.upload_validation || {};
+      const status = uploadValidation?.status || "FAIL";
+      const reasons = Array.isArray(uploadValidation?.reasons)
+        ? uploadValidation.reasons
+        : [];
+
+      setReuploadValidationByDocId((prev) => ({
+        ...prev,
+        [documentId]: result,
+      }));
+
+      if (status === "FAIL") {
+        setReuploadFiles((prev) => ({
+          ...prev,
+          [documentId]: null,
+        }));
+
+        setReuploadErrors((prev) => ({
+          ...prev,
+          [documentId]:
+            reasons[0] || "Uploaded file failed document checking.",
+        }));
+
+        toast.error("Document check failed", {
+          description: reasons[0] || "Please upload the correct document.",
+        });
+
+        return;
+      }
+
+      setReuploadErrors((prev) => ({
+        ...prev,
+        [documentId]: "",
+      }));
+
+      toast.success("Document checked successfully");
+    } catch (err) {
+      console.error("Reupload OCR check failed:", err);
+
+      setReuploadFiles((prev) => ({
+        ...prev,
+        [documentId]: null,
+      }));
+
+      setReuploadErrors((prev) => ({
+        ...prev,
+        [documentId]:
+          err?.response?.data?.detail ||
+          err?.message ||
+          "Could not check uploaded document.",
+      }));
+
+      toast.error("Could not check uploaded document", {
+        description:
+          err?.response?.data?.detail || err?.message || "Unknown error",
+      });
+    } finally {
+      setCheckingReuploadByDocId((prev) => ({
+        ...prev,
+        [documentId]: false,
+      }));
+    }
+  };
+
+  const handleSubmitReuploadedDocuments = async () => {
+    try {
+      setIsSubmittingReupload(true);
+
+      // 1️⃣ validate all required docs uploaded
+      const missingUploads = mismatchDocumentDetails.filter(
+        (doc) => !reuploadFiles[doc.document_id]
+      );
+
+      if (missingUploads.length > 0) {
+        const nextErrors = {};
+        missingUploads.forEach((doc) => {
+          nextErrors[doc.document_id] = "Please upload this document.";
+        });
+        setReuploadErrors(nextErrors);
+        return;
+      }
+
+      // 2️⃣ replace each problematic document
+      for (const doc of mismatchDocumentDetails) {
+        await replaceDocument({
+          documentId: doc.document_id,
+          file: reuploadFiles[doc.document_id],
+          extracted_data:
+            reuploadValidationByDocId[doc.document_id] || {},
+        });
+      }
+
+      // 3️⃣ trigger backend workflow
+      await submitSmeApplicationApi({
+        application_id: id,
+      });
+
+      // 4️⃣ success UI
+      navigate("/landingpage", {
+        state: {
+          banner: {
+            type: "success",
+            message:
+              "You have successfully reuploaded the required documents and submitted your application.",
+          },
+        },
+      });
+
+    } catch (err) {
+      console.error("Reupload submit error:", err);
+
+      toast.error("Failed to submit documents", {
+        description:
+          err?.response?.data?.detail ||
+          err?.message ||
+          "Unknown error",
+      });
+    } finally {
+      setIsSubmittingReupload(false);
+    }
+  };
+
   const handleResubmitSuccess = async () => {
     const refreshedApp = await fetchApplication(false);
     const appIdToUse = refreshedApp?.application_id || refreshedApp?.id || id;
@@ -913,6 +1131,24 @@ export default function ApplicationDetail() {
         </div>
 
         <div className="space-y-6 pb-20">
+          {shouldShowDocumentWarning && (
+            <Card className="border-red-500 bg-red-50">
+              <CardContent className="py-4">
+                <div className="flex items-start gap-3">
+                  <AlertCircle className="mt-0.5 h-5 w-5 text-red-600" />
+                  <div>
+                    <p className="text-sm font-semibold text-red-700">
+                      Document Mismatch Detected
+                    </p>
+                    <p className="mt-1 text-sm text-foreground">
+                      {crossValidationReason}
+                    </p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
           <Card>
             <Tabs
               value={activeTab}
@@ -1319,7 +1555,7 @@ export default function ApplicationDetail() {
                                   doc.id ||
                                   `${doc.document_type}-${doc.created_at}`
                                 }
-                                className="flex items-center justify-between rounded-lg border border-border p-3"
+                                className="flex items-start justify-between rounded-lg border border-border p-3 gap-3"
                               >
                                 <div className="min-w-0 flex-1">
                                   <p className="truncate text-sm font-medium text-foreground">
@@ -1330,12 +1566,85 @@ export default function ApplicationDetail() {
                                       ? `Uploaded: ${new Date(doc.created_at).toLocaleString()}`
                                       : ""}
                                   </p>
+                                  {doc.mismatch_detail && (
+                                    <div className="mt-3 rounded-md border border-red-200 bg-red-50 p-3">
+                                      <div className="flex items-start gap-2">
+                                        <AlertCircle className="mt-0.5 h-4 w-4 text-red-600" />
+                                        <div className="min-w-0 flex-1">
+                                          <p className="text-xs font-semibold text-red-700">
+                                            Reupload Required
+                                          </p>
+                                          <p className="mt-1 text-xs text-foreground">
+                                            {doc.mismatch_detail.reason ||
+                                              "This document contains a critical mismatch and must be reuploaded."}
+                                          </p>
+
+                                          {Array.isArray(doc.mismatch_detail.mismatch_fields) &&
+                                            doc.mismatch_detail.mismatch_fields.length > 0 && (
+                                              <div className="mt-2 space-y-1">
+                                                {doc.mismatch_detail.mismatch_fields.map((field, idx) => (
+                                                  <p key={idx} className="text-xs text-foreground">
+                                                    <span className="font-medium">
+                                                      {field.form_field || field.doc_field || "Field"}:
+                                                    </span>{" "}
+                                                    Form value:{" "}
+                                                    <span className="font-mono">{field.form_value || "-"}</span>{" "}
+                                                    | Document value:{" "}
+                                                    <span className="font-mono">{field.doc_value || "-"}</span>
+                                                  </p>
+                                                ))}
+                                              </div>
+                                            )}
+
+                                          <div className="mt-3">
+                                            <ResubmitDocumentUploadField
+                                              fieldName={`reupload-${doc.document_id}`}
+                                              label={doc.document_type || "Document"}
+                                              description=""
+                                              file={reuploadFiles[doc.document_id] || null}
+                                              onChange={(file) => handleReuploadFileChange(doc, file)}
+                                              required={true}
+                                              disabled={isSubmittingReupload}
+                                              error={reuploadErrors[doc.document_id] || ""}
+                                              helpText="Accepted formats: PDF, JPG, PNG. Max size: 5MB"
+                                            />
+                                            {checkingReuploadByDocId[doc.document_id] && (
+                                              <Button
+                                                type="button"
+                                                variant="outline"
+                                                disabled
+                                                className="mt-2 w-fit gap-2"
+                                              >
+                                                <Loader2 className="h-4 w-4 animate-spin" />
+                                                Checking uploaded document...
+                                              </Button>
+                                            )}
+                                            {!reuploadErrors[doc.document_id] &&
+                                              ["PASS", "WARNING"].includes(
+                                                reuploadValidationByDocId[doc.document_id]?.upload_validation?.status
+                                              ) && (
+                                                <div className="mt-2 flex items-center gap-2 text-sm text-emerald-600">
+                                                  <CheckCircle2 className="h-4 w-4 shrink-0" />
+                                                  <span>Document checked successfully.</span>
+                                                </div>
+                                              )}
+                                          </div>
+
+                                          {reuploadErrors[doc.document_id] && (
+                                            <p className="mt-2 text-xs text-red-600">
+                                              {reuploadErrors[doc.document_id]}
+                                            </p>
+                                          )}
+                                        </div>
+                                      </div>
+                                    </div>
+                                  )}
                                 </div>
 
                                 <Button
                                   variant="ghost"
                                   size="icon"
-                                  className="ml-2 h-8 w-8"
+                                  className="ml-2 h-8 w-8 shrink-0 self-start"
                                   type="button"
                                   title="Open"
                                   onClick={(e) => {
@@ -1352,7 +1661,25 @@ export default function ApplicationDetail() {
                           </div>
                         )}
                       </div>
+                      
+                      {initialDocuments.some((doc) => doc.mismatch_detail) && (
+                        <div className="mt-4 flex flex-col items-end">
+                          <Button
+                            onClick={handleSubmitReuploadedDocuments}
+                            disabled={!canSubmitReupload}
+                            className="gap-2"
+                          >
+                            <Upload className="h-4 w-4" />
+                            Submit Reuploaded Documents
+                          </Button>
 
+                          {!allDocsUploaded && (
+                            <p className="mt-2 text-xs text-red-600">
+                              Please upload all required documents ({uploadedCount}/{mismatchDocumentDetails.length} uploaded).
+                            </p>
+                          )}
+                        </div>
+                      )}
                       <Separator />
 
                       <div>

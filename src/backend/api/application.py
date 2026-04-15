@@ -666,23 +666,51 @@ def second_submit(
 
     username = get_users_by_id(db, app.user_id)
 
-    if curr == "Draft" and prev_blank:
-        apply_full_application_update(app, data)
+    is_initial_submit = curr == "Draft" and prev_blank
+    is_cross_validation_resubmit = (
+        curr == "Requires Action"
+        and prev == "Under Review"
+    )
+
+    if is_initial_submit or is_cross_validation_resubmit:
+        old_status = app.current_status
+
+        if is_initial_submit:
+            apply_full_application_update(app, data)
 
         app.previous_status = app.current_status
         app.current_status = "Under Review"
 
-        review_job = ReviewJobs(
-            application_id=app.application_id,
-            status="QUEUED",
+        if is_cross_validation_resubmit:
+            app.document_warning = False
+            app.cross_validation_result = None
+
+        review_job = (
+            db.query(ReviewJobs)
+            .filter(ReviewJobs.application_id == app.application_id)
+            .first()
         )
-        db.add(review_job)
+
+        if review_job:
+            review_job.status = "QUEUED"
+            review_job.last_error = None
+            review_job.risk_score = None
+            review_job.risk_grade = None
+            review_job.completed_at = None
+        else:
+            review_job = ReviewJobs(
+                application_id=app.application_id,
+                status="QUEUED",
+            )
+            db.add(review_job)
 
         add_bell(
             db=db,
             appId=app.application_id,
             recipient_id=app.user_id,
-            message="Your application has been submitted successfully and is currently under review.",
+            message="Your application has been submitted successfully and is currently under review."
+            if is_initial_submit
+            else "We received your corrected document(s). Your application is back under review.",
             from_status=app.previous_status,
             to_status=app.current_status,
         )
@@ -692,11 +720,13 @@ def second_submit(
             application_id=app.application_id,
             actor_id=app.user_id,
             actor_type=username,
-            event_type="APPLICATION_SUBMITTED",
+            event_type="APPLICATION_SUBMITTED" if is_initial_submit else "APPLICATION_RESUBMITTED",
             entity_type="APPLICATION",
-            from_status="Draft",
-            to_status="Submitted",
-            description="Application submitted for bank review.",
+            from_status=old_status,
+            to_status="Under Review",
+            description="Application submitted for bank review."
+            if is_initial_submit
+            else "Applicant reuploaded corrected document(s) after cross-validation mismatch.",
         )
 
         create_audit_log(
@@ -706,7 +736,7 @@ def second_submit(
             actor_type="SYSTEM",
             event_type="REVIEW_JOB_QUEUED",
             entity_type="REVIEW_JOB",
-            from_status="Submitted",
+            from_status=old_status,
             to_status="Under Review",
             description="Application is queued for automated compliance screening.",
         )

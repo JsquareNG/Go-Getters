@@ -65,6 +65,8 @@ class ApplicationForm(Base):
     is_open_staff = Column(Boolean,nullable=False, server_default=text("false"))
     has_sent = Column(Boolean, nullable=False, default=False, server_default="false")
     provider_session_id = Column(String(255), nullable=True)
+    document_warning = Column(Boolean, nullable=False, default=False, server_default="false")
+    cross_validation_result = Column(JSONB, nullable=True)
 
     # Store as SGT-naive timestamp (TIMESTAMP WITHOUT TIME ZONE)
     last_edited = Column(

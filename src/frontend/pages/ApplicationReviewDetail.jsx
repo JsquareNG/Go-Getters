@@ -112,6 +112,8 @@ export default function ApplicationReviewDetail() {
   const [decisionType, setDecisionType] = useState(null); // "approve" | "reject"
   const [decisionReason, setDecisionReason] = useState("");
 
+  
+
   // -----------------------------
   // Fetch application
   // -----------------------------
@@ -371,6 +373,30 @@ export default function ApplicationReviewDetail() {
   const latestActionRequest = sortedActionRequests[0] || null;
   const latestHasOcrWarnings = latestActionRequest?.ocr_warnings === true;
 
+  const crossValidationResult = application?.cross_validation_result || null;
+
+  const hasCrossValidationIssue =
+    !!crossValidationResult && !!crossValidationResult.reason;
+
+    const warningDocumentDetails = Array.isArray(
+    crossValidationResult?.summary?.warning_document_details
+  )
+    ? crossValidationResult.summary.warning_document_details
+    : [];
+
+  const warningByDocumentId = useMemo(() => {
+    return warningDocumentDetails.reduce((acc, item) => {
+      if (item?.document_id) {
+        acc[item.document_id] = item;
+      }
+      return acc;
+    }, {});
+  }, [warningDocumentDetails]);
+
+  const hasOcrWarning = latestHasOcrWarnings;
+
+  const shouldShowBanner = hasCrossValidationIssue || hasOcrWarning;
+
   const latestOpenRequest = useMemo(() => {
     return sortedActionRequests.find((r) => r?.status === "OPEN") || null;
   }, [sortedActionRequests]);
@@ -482,6 +508,43 @@ export default function ApplicationReviewDetail() {
     };
   };
 
+  const getCombinedDocumentWarning = (doc) => {
+    const ocrWarning = getDocumentOcrWarning(doc);
+    const crossValidationWarning = warningByDocumentId[doc?.document_id] || null;
+
+    if (!ocrWarning && !crossValidationWarning) {
+      return null;
+    }
+
+    let messages = [];
+
+    // 🔥 BOTH present → single merged message
+    if (ocrWarning && crossValidationWarning) {
+      messages = [
+        "Document quality is moderate. Hence, extracted data may be inaccurate. Please review and cross-check it against the form data carefully.",
+      ];
+    }
+    // 🔸 Only cross-validation
+    else if (crossValidationWarning) {
+      messages = [
+        "This document has moderate quality issues. Please review and cross-check it against the form data.",
+      ];
+    }
+    // 🔸 Only OCR
+    else if (ocrWarning) {
+      messages = [
+        ocrWarning.message ||
+          "Document quality is moderate. Extracted data may be inaccurate — please verify against the original document.",
+      ];
+    }
+
+    return {
+      hasCrossValidationWarning: !!crossValidationWarning,
+      hasOcrWarning: !!ocrWarning,
+      messages,
+    };
+  };
+
   // const initialDocuments = useMemo(() => {
   //   if (!Array.isArray(documents)) return [];
   //   if (!firstActionRequestTime) return documents;
@@ -503,7 +566,7 @@ export default function ApplicationReviewDetail() {
 
     return filteredDocs.map((doc) => ({
       ...doc,
-      ocr_warning: getDocumentOcrWarning(doc),
+      combined_warning: getCombinedDocumentWarning(doc),
     }));
   }, [documents, firstActionRequestTime]);
 
@@ -784,17 +847,23 @@ export default function ApplicationReviewDetail() {
         </div>
 
         <div className="space-y-6 pb-20">
-          {latestHasOcrWarnings && (
+          {shouldShowBanner && (
             <Card className="border-amber-500 bg-amber-50">
               <CardContent className="py-4">
                 <div className="flex items-start gap-3">
                   <AlertCircle className="mt-0.5 h-5 w-5 text-amber-600" />
+
                   <div>
                     <p className="text-sm font-semibold text-amber-700">
-                      Document OCR Warning
+                      {hasCrossValidationIssue
+                        ? "Document Verification Issue"
+                        : "Document OCR Warning"}
                     </p>
+
                     <p className="mt-1 text-sm text-foreground">
-                      Document Quality is flagged as moderate. Please review and verify the document's information in the Documents tab.
+                      {hasCrossValidationIssue
+                        ? crossValidationResult.reason
+                        : "Document quality is flagged as moderate. Please review and verify the document's information in the Documents tab."}
                     </p>
                   </div>
                 </div>
@@ -1211,19 +1280,28 @@ export default function ApplicationReviewDetail() {
                                       : ""}
                                   </p>
 
-                                  {doc.ocr_warning && (
+                                  {doc.combined_warning && (
                                     <div className="mt-2 rounded-md border border-orange-300 bg-orange-50 p-2">
                                       <div className="flex items-start gap-2">
                                         <AlertCircle className="mt-0.5 h-4 w-4 text-orange-600" />
 
                                         <div>
                                           <p className="text-xs font-medium text-orange-700">
-                                            OCR Warning
+                                            {doc.combined_warning.hasCrossValidationWarning &&
+                                            doc.combined_warning.hasOcrWarning
+                                              ? "Document Quality Warnings"
+                                              : doc.combined_warning.hasCrossValidationWarning
+                                              ? "Cross-Validation Warning"
+                                              : "OCR Warning"}
                                           </p>
 
-                                          <p className="mt-1 text-xs text-foreground">
-                                            Document quality is moderate. Extracted data may be inaccurate — please verify against the original document. If already reviewed, you may ignore this warning.
-                                          </p>
+                                          <div className="mt-1 space-y-1">
+                                            {doc.combined_warning.messages.map((message, idx) => (
+                                              <p key={idx} className="text-xs text-foreground">
+                                                {message}
+                                              </p>
+                                            ))}
+                                          </div>
                                         </div>
                                       </div>
                                     </div>

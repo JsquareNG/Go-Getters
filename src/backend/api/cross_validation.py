@@ -36,22 +36,22 @@ def run_cross_validation(
     if apply_result:
         routing_decision = result.get("routing_decision")
 
-        if routing_decision == "SEND_BACK_TO_USER":
-            application.current_status = "Requires Action"
+        # if routing_decision == "SEND_BACK_TO_USER":
+        #     application.current_status = "Requires Action"
 
-        elif routing_decision == "SEND_TO_RULES_ENGINE":
-            application.current_status = "Under Review"
+        # elif routing_decision == "SEND_TO_RULES_ENGINE":
+        #     application.current_status = "Under Review"
 
-        elif routing_decision == "SEND_TO_RULES_ENGINE_AND_MANUAL_REVIEW_AFTER":
-            application.current_status = "Under Review"
+        # elif routing_decision == "SEND_TO_RULES_ENGINE_AND_MANUAL_REVIEW_AFTER":
+        #     application.current_status = "Under Review"
 
-        db.commit()
-        db.refresh(application)
+        # db.commit()
+        # db.refresh(application)
 
     return {
         "message": "Cross-validation completed using real application form data and submitted documents.",
         "application_id": application_id,
         "apply_result": apply_result,
         "cross_validation": result,
-        "current_status": application.current_status,
+        "routing_decison": routing_decision
     }
