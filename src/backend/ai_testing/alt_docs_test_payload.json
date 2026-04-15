@@ -1,16 +1,31 @@
 {
   "requested_documents": [
     {
-      "item_id": "doc-001",
-      "document_name": "ACRA Business Profile",
-      "document_desc": "Official document showing company registration details issued by ACRA"
+        "item_id": "doc-001",
+        "document_name": "ACRA Business Profile",
+        "document_desc": "Official document showing company registration details issued by ACRA"
     },
     {
-      "item_id": "doc-002",
-      "document_name": "NRIC",
-      "document_desc": "Government-issued identity document for verification of individual identity"
+        "item_id": "doc-002",
+        "document_name": "NRIC",
+        "document_desc": "Government-issued identity document for verification of individual identity"
+    },
+    {
+        "item_id": "doc-003",
+        "document_name": "Proof of Business Address",
+        "document_desc": "Document verifying the registered business address"
+    },
+    {
+        "item_id": "doc-004",
+        "document_name": "Bank Statement",
+        "document_desc": "Recent bank statement showing business financial activity"
+    },
+    {
+        "item_id": "doc-005",
+        "document_name": "Board Resolution",
+        "document_desc": "Document authorizing account opening and signatories"
     }
-  ],
+    ],
   "application_data": {
     "businessName": "ABC ENTERPRISE",
     "businessType": "sole_proprietorship",
@@ -48,15 +63,32 @@
     ]
   },
   "documents": [
-    {
-      "document_type": "bankStatement",
-      "original_filename": "bank_statement_jan.pdf"
-    },
-    {
-      "document_type": "proofOfBusinessAddress",
-      "original_filename": "office_lease.pdf"
-    }
-  ],
+  {
+    "item_id": "doc-001",
+    "document_name": "ACRA Business Profile",
+    "document_desc": "Official company registration document"
+  },
+  {
+    "item_id": "doc-002",
+    "document_name": "NRIC",
+    "document_desc": "Identity verification document"
+  },
+  {
+    "item_id": "doc-003",
+    "document_name": "Proof of Business Address",
+    "document_desc": "Business address verification document"
+  },
+  {
+    "item_id": "doc-004",
+    "document_name": "Bank Statement",
+    "document_desc": "Business financial activity document"
+  },
+  {
+    "item_id": "doc-005",
+    "document_name": "Board Resolution",
+    "document_desc": "Corporate authorization document"
+  }
+],
   "action_requests": [
     {
       "action_request_id": "ar-001",

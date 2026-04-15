@@ -1,0 +1,97 @@
+{
+  "success": true,
+  "data": {
+    "results": [
+      {
+        "item_id": "doc-001",
+        "document_name": "ACRA Business Profile",
+        "alternative_document_options": [
+          {
+            "label": "Certificate of Registration",
+            "value": "certificate_of_registration",
+            "description": "Official certificate issued by ACRA confirming the registration of the business entity."
+          },
+          {
+            "label": "Notice of Registration",
+            "value": "notice_of_registration",
+            "description": "The formal notification from ACRA sent upon successful business registration."
+          }
+        ]
+      },
+      {
+        "item_id": "doc-002",
+        "document_name": "NRIC",
+        "alternative_document_options": [
+          {
+            "label": "Passport",
+            "value": "passport",
+            "description": "Valid international passport for identity verification of the business owner."
+          },
+          {
+            "label": "Singapore Driving License",
+            "value": "singapore_driving_license",
+            "description": "Government-issued driving license showing the individual's full name and identity number."
+          }
+        ]
+      },
+      {
+        "item_id": "doc-003",
+        "document_name": "Proof of Business Address",
+        "alternative_document_options": [
+          {
+            "label": "Utility Bill (SP Services)",
+            "value": "utility_bill_sp_services",
+            "description": "Recent utility bill from SP Group issued within the last 3 months for the business premises."
+          },
+          {
+            "label": "Tenancy Agreement",
+            "value": "tenancy_agreement",
+            "description": "A valid and signed rental agreement for the registered business address."
+          },
+          {
+            "label": "IRAS Tax Assessment Notice",
+            "value": "iras_tax_assessment",
+            "description": "Recent correspondence from the Inland Revenue Authority of Singapore showing the business address."
+          }
+        ]
+      },
+      {
+        "item_id": "doc-004",
+        "document_name": "Bank Statement",
+        "alternative_document_options": [
+          {
+            "label": "Income Tax Notice of Assessment (NOA)",
+            "value": "income_tax_noa",
+            "description": "The most recent personal tax assessment notice from IRAS for the sole proprietor."
+          },
+          {
+            "label": "Management Accounts",
+            "value": "management_accounts",
+            "description": "Internal financial statements including Profit & Loss and Balance Sheet for the current period."
+          },
+          {
+            "label": "GST Return (IRAS)",
+            "value": "gst_return",
+            "description": "Recent Goods and Services Tax filing submitted to IRAS for the business entity."
+          }
+        ]
+      },
+      {
+        "item_id": "doc-005",
+        "document_name": "Board Resolution",
+        "alternative_document_options": [
+          {
+            "label": "Letter of Authorization",
+            "value": "letter_of_authorization",
+            "description": "A signed letter from the sole proprietor authorizing the account opening and designated signatories."
+          },
+          {
+            "label": "Power of Attorney",
+            "value": "power_of_attorney",
+            "description": "Legal document granting authority to an individual to act on behalf of the business owner."
+          }
+        ]
+      }
+    ]
+  }
+}
