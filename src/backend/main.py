@@ -26,6 +26,7 @@ from backend.api.simulationTesting import router as sim_testing_router
 
 from backend.api.didit_session import router as didit_session_router
 from backend.api.smart_ai import router as smart_ai_router
+from backend.api.cross_validation import router as cross_validation_router
 
 import os
 from pathlib import Path
@@ -92,3 +93,4 @@ app.include_router(sim_testing_router)
 app.include_router(didit_session_router)
 app.include_router(smart_ai_router)
 
+app.include_router(cross_validation_router)
