@@ -50,6 +50,15 @@ def make_app(application_id="APP-1", user_id="USER-1"):
     )
 
 
+def make_user(user_id="00000001", first_name="Test", last_name="User", user_role="STAFF"):
+    return SimpleNamespace(
+        user_id=user_id,
+        first_name=first_name,
+        last_name=last_name,
+        user_role=user_role,
+    )
+
+
 def make_log(
     application_id="APP-1",
     audit_id=1,
@@ -265,11 +274,8 @@ def test_get_audit_metrics_overview_basic_processing_and_manual_review():
     )
 
     assert result["totalApplications"] == 2
-    # processing times: APP-1 = 3 days, APP-2 = 2 days => avg 2.5
     assert result["avgProcessingTimeDays"] == 2.5
-    # only APP-1 escalated/manual-review => 1/2 = 50%
     assert result["escalationRate"] == 50.0
-    # manual review time: APP-1 from day 1 to day 3 => 2 days
     assert result["avgManualReviewTimeDays"] == 2.0
     assert result["totalEscalations"] == 1
 
@@ -322,6 +328,7 @@ def test_get_audit_metrics_overview_detects_manual_review_from_status_transition
 def test_get_staff_leaderboard_empty_logs():
     db = FakeDB()
     db.set_logs([])
+    db.set_query(audit_module.User, all=[])
 
     result = audit_module.get_staff_leaderboard(
         db=db,
@@ -334,6 +341,13 @@ def test_get_staff_leaderboard_empty_logs():
 def test_get_staff_leaderboard_only_reviewers_appear():
     db = FakeDB()
     base = datetime(2026, 1, 1, 9, 0, 0)
+
+    db.set_query(
+        audit_module.User,
+        all=[
+            make_user(user_id="R1", first_name="Alice", last_name="Reviewer", user_role="STAFF"),
+        ],
+    )
 
     logs = [
         make_log(
@@ -364,12 +378,23 @@ def test_get_staff_leaderboard_only_reviewers_appear():
 
     assert len(result) == 1
     assert result[0]["staffId"] == "R1"
-    assert result[0]["staffName"] == "Alice (Reviewer)"
+    assert result[0]["staffName"] == "Alice Reviewer"
+    assert result[0]["processed"] == 1
+    assert result[0]["approvalRate"] == 100.0
+    assert result[0]["rank"] == 1
 
 
 def test_get_staff_leaderboard_calculates_processed_approval_rate_and_rank():
     db = FakeDB()
     base = datetime(2026, 1, 1, 9, 0, 0)
+
+    db.set_query(
+        audit_module.User,
+        all=[
+            make_user(user_id="R1", first_name="Alice", last_name="Reviewer", user_role="STAFF"),
+            make_user(user_id="R2", first_name="Bob", last_name="Reviewer", user_role="STAFF"),
+        ],
+    )
 
     logs = [
         # APP-1 handled by R1, approved after manual review
@@ -448,17 +473,16 @@ def test_get_staff_leaderboard_calculates_processed_approval_rate_and_rank():
 
     assert len(result) == 2
 
-    # R1 should be first because processed 2 apps
     assert result[0]["staffId"] == "R1"
+    assert result[0]["staffName"] == "Alice Reviewer"
     assert result[0]["processed"] == 2
     assert result[0]["approvalRate"] == 50.0
     assert result[0]["escalationsHandled"] == 1
-    # review durations for R1: APP-1 = 3 days, APP-2 = 2 days => avg 2.5
     assert result[0]["avgReviewTimeDays"] == 2.5
     assert result[0]["rank"] == 1
 
-    # R2 processed 1 app, approved 1/1 => 100%
     assert result[1]["staffId"] == "R2"
+    assert result[1]["staffName"] == "Bob Reviewer"
     assert result[1]["processed"] == 1
     assert result[1]["approvalRate"] == 100.0
     assert result[1]["escalationsHandled"] == 0
@@ -469,6 +493,13 @@ def test_get_staff_leaderboard_calculates_processed_approval_rate_and_rank():
 def test_get_staff_leaderboard_ignores_non_reviewer_final_decisions():
     db = FakeDB()
     base = datetime(2026, 1, 1, 9, 0, 0)
+
+    db.set_query(
+        audit_module.User,
+        all=[
+            make_user(user_id="R1", first_name="Alice", last_name="Reviewer", user_role="STAFF"),
+        ],
+    )
 
     logs = [
         make_log(
@@ -497,4 +528,11 @@ def test_get_staff_leaderboard_ignores_non_reviewer_final_decisions():
         current_user=STAFF_USER,
     )
 
-    assert result == []
+    assert len(result) == 1
+    assert result[0]["staffId"] == "R1"
+    assert result[0]["staffName"] == "Alice Reviewer"
+    assert result[0]["processed"] == 0
+    assert result[0]["approvalRate"] == 0.0
+    assert result[0]["escalationsHandled"] == 0
+    assert result[0]["avgReviewTimeDays"] == 0.0
+    assert result[0]["rank"] == 1
