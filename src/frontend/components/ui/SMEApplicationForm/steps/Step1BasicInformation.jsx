@@ -360,7 +360,7 @@ const Step1BasicInformation = ({
       getNestedValue(data?.formData || {}, fieldPath) ??
       getNestedValue(data, fieldPath) ??
       null;
-      console.log("step 1 get display", localValue)
+      // console.log("step 1 get display", localValue)
 
     // if (
     //   localValue &&
@@ -1168,9 +1168,9 @@ const Step1BasicInformation = ({
       return;
     }
 
-    // if (initializedMinRowsRef.current[initKey]) {
-    //   return;
-    // }
+    if (initializedMinRowsRef.current[initKey]) {
+      return;
+    }
 
     const formRoot = getFormDataRoot();
 
@@ -1218,7 +1218,7 @@ const Step1BasicInformation = ({
           sectionConfig,
           minRows - existingRows.length,
         );
-        console.log("[MIN INIT] writing nextFormRoot", nextFormRoot);
+        // console.log("[MIN INIT] writing nextFormRoot", nextFormRoot);
         nextFormRoot = {
           ...nextFormRoot,
           [storageKey]: [...existingRows, ...rowsToAdd],
