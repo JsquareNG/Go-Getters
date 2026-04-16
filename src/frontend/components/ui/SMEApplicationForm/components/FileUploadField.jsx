@@ -136,19 +136,31 @@ const existingUploadedFile =
         verificationMessage: "Verifying document...",
       });
 
-      if (beforeAcceptFile) {
-        const processedValue = await beforeAcceptFile(selectedFile);
+      // if (beforeAcceptFile) {
+      //   const processedValue = await beforeAcceptFile(selectedFile);
+      //   // console.log("processedValue", processedValue)
 
-        onChange(
-          processedValue ?? {
-            file: selectedFile,
-            progress: 0,
-            verified: false,
-            verificationStatus: "failed",
-            verificationMessage: "Document verification failed.",
-          },
-        );
-      } else {
+      //   onChange(
+      //     processedValue ?? {
+      //       file: selectedFile,
+      //       progress: 0,
+      //       verified: false,
+      //       verificationStatus: "failed",
+      //       verificationMessage: "Document verification failed.",
+      //     },
+      //   );
+      // } 
+      if (beforeAcceptFile) {
+  const processedValue = await beforeAcceptFile(selectedFile);
+
+  if (processedValue == null) {
+    onChange(null);
+    return;
+  }
+
+  onChange(processedValue);
+}
+      else {
         onChange({
           file: selectedFile,
           progress: 0,

@@ -194,15 +194,15 @@ const Step3ComplianceDocumentation = ({
     }
 
     // 2. Then fallback to transient UI state
-    // if (verificationState[fieldPath]) {
-    //   return verificationState[fieldPath];
-    // }
-    if (
-      verificationState[fieldPath] &&
-      verificationState[fieldPath].status === "verifying"
-    ) {
+    if (verificationState[fieldPath]) {
       return verificationState[fieldPath];
     }
+    // if (
+    //   verificationState[fieldPath] &&
+    //   verificationState[fieldPath].status === "verifying"
+    // ) {
+    //   return verificationState[fieldPath];
+    // }
 
     // if (existingDocumentMap[fieldPath]) {
     //   return {
@@ -283,6 +283,7 @@ const Step3ComplianceDocumentation = ({
         const validation = result?.upload_validation;
         const validationStatus = validation?.status;
         const validationReasons = validation?.reasons || [];
+        console.log("validation", validation, validationReasons)
 
         if (validationStatus === "FAIL") {
           const errorMessage =
