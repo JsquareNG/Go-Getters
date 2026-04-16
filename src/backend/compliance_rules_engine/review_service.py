@@ -9,6 +9,7 @@ from backend.compliance_rules_engine.models import Company, Individual
 from datetime import datetime
 from backend.services.audit_service import create_audit_log
 from backend.models.application import ApplicationForm
+from backend.services.cross_validation.orchestrator import cross_validate_application
 import traceback 
 
 def run_review_job(application_id: str):
@@ -50,6 +51,46 @@ def run_review_job(application_id: str):
         )
 
         db.commit()
+
+        cross_validation_result = cross_validate_application(
+            db=db,
+            application_id=application_id,
+        )
+
+        routing_decision = cross_validation_result.get("routing_decision")
+
+        if routing_decision == "SEND_BACK_TO_USER":
+            app.cross_validation_result = cross_validation_result
+            app.document_warning = True
+            
+            old_previous_status = app.previous_status
+            old_current_status = app.current_status
+
+            job.status = "COMPLETED"
+            job.completed_at = text("(now() AT TIME ZONE 'Asia/Singapore')")
+            job.last_error = None
+
+            app.previous_status = "Under Review"
+            app.current_status = "Requires Action"
+
+            create_audit_log(
+                db=db,
+                application_id=application_id,
+                actor_id=None,
+                actor_type="System",
+                event_type="CROSS_VALIDATION_COMPLETED",
+                entity_type="APPLICATION",
+                entity_id=application_id,
+                from_status=old_current_status,
+                to_status="Requires Action",
+                description="Cross-validation found critical mismatch(es). Application sent back to user for action.",
+            )
+
+            db.commit()
+            return
+
+        if routing_decision == "SEND_TO_RULES_ENGINE_AND_MANUAL_REVIEW_AFTER":
+            app.cross_validation_result = cross_validation_result
 
         form = app.form_data or {}
         kyc_data = form.get("kycData", {}) or {}
@@ -143,7 +184,27 @@ def run_review_job(application_id: str):
                 description="Automated review process completed."
             )
 
-            if kyc_overall_status == "Declined":
+            if routing_decision == "SEND_TO_RULES_ENGINE_AND_MANUAL_REVIEW_AFTER":
+                create_audit_log(
+                    db=db,
+                    application_id=application_id,
+                    actor_id=None,
+                    actor_type="SYSTEM",
+                    event_type="REVIEW_JOB_COMPLETED",
+                    entity_type="REVIEW_JOB",
+                    entity_id=job.job_id,
+                    from_status=app.current_status,
+                    to_status="COMPLETED",
+                    description="SDD but requires manual review due to OCR mismatch in documents"
+                )
+
+                need_manual_review_service(
+                    db=db,
+                    background_tasks=None,
+                    application_id=application_id,
+                    send_email_now=True,
+                )
+            elif kyc_overall_status == "Declined":
                 create_audit_log(
                     db=db,
                     application_id=application_id,

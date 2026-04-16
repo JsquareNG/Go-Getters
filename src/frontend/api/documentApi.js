@@ -116,6 +116,49 @@ export async function uploadDocument({ applicationId, documentType, file, onProg
   }
 }
 
+export const replaceDocumentApi = async (documentId, file, extracted_data, onProgress) => {
+  const formData = new FormData();
+  formData.append("file", file);
+
+  if (extracted_data !== undefined && extracted_data !== null) {
+    formData.append("extracted_data", JSON.stringify(extracted_data));
+  }
+
+  const res = await axiosClient.post(
+    `/documents/replace-upload/${documentId}`,
+    formData,
+    {
+      headers: {
+        "Content-Type": "multipart/form-data",
+      },
+      onUploadProgress: (progressEvent) => {
+        if (!progressEvent.total) return;
+        const pct = Math.round((progressEvent.loaded * 100) / progressEvent.total);
+        if (onProgress) onProgress(pct);
+      },
+    },
+  );
+
+  return res.data;
+};
+
+/**
+ * Convenience wrapper for replacing an existing document.
+ */
+export async function replaceDocument({
+  documentId,
+  file,
+  extracted_data,
+  onProgress,
+}) {
+  try {
+    return await replaceDocumentApi(documentId, file, extracted_data, onProgress);
+  } catch (err) {
+    console.error("replaceDocument failed:", err?.response || err);
+    throw err;
+  }
+}
+
 export const allDocuments = async (applicationId) => {
   const res = await axiosClient.get(`/documents/by-application/${applicationId}`);
   return res.data;
@@ -125,3 +168,4 @@ export const downloadDocuments = async (documentId) => {
   const res = await axiosClient.get(`/documents/download-url/${documentId}`);
   return res.data;
 };
+

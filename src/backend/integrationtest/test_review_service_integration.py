@@ -99,6 +99,14 @@ def test_run_review_job_cdd_flow(db_session, monkeypatch):
         lambda **kwargs: None
     )
 
+    # ✅ FIX
+    monkeypatch.setattr(
+        "backend.compliance_rules_engine.review_service.cross_validate_application",
+        lambda db, application_id: {
+            "routing_decision": "PASS"
+        }
+    )
+
     run_review_job(app_id)
 
     updated_job = db_session.query(ReviewJobs).filter_by(application_id=app_id).first()
@@ -152,6 +160,14 @@ def test_run_review_job_sdd_approve(db_session, monkeypatch):
         lambda **kwargs: None
     )
 
+    # ✅ FIX
+    monkeypatch.setattr(
+        "backend.compliance_rules_engine.review_service.cross_validate_application",
+        lambda db, application_id: {
+            "routing_decision": "PASS"
+        }
+    )
+
     run_review_job(app_id)
 
     updated_job = db_session.query(ReviewJobs).filter_by(application_id=app_id).first()
@@ -199,6 +215,14 @@ def test_run_review_job_auto_reject(db_session, monkeypatch):
         lambda **kwargs: None
     )
 
+    # ✅ FIX
+    monkeypatch.setattr(
+        "backend.compliance_rules_engine.review_service.cross_validate_application",
+        lambda db, application_id: {
+            "routing_decision": "PASS"
+        }
+    )
+
     run_review_job(app_id)
 
     updated_job = db_session.query(ReviewJobs).filter_by(application_id=app_id).first()
@@ -225,6 +249,14 @@ def test_run_review_job_exception(db_session, monkeypatch):
     monkeypatch.setattr(
         "backend.compliance_rules_engine.review_service.submit_application",
         lambda *args, **kwargs: (_ for _ in ()).throw(Exception("Engine crash"))
+    )
+
+    # ✅ FIX
+    monkeypatch.setattr(
+        "backend.compliance_rules_engine.review_service.cross_validate_application",
+        lambda db, application_id: {
+            "routing_decision": "PASS"
+        }
     )
 
     run_review_job(app_id)
