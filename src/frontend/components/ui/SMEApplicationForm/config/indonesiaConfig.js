@@ -479,7 +479,6 @@ const INDONESIA_CONFIG = {
           },
           repeatableSections: {
             ...getRepeatableBusinessActivityFields(),
-
             generalPartners: {
               label: "General Partner",
               storage: "individuals",

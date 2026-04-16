@@ -25,6 +25,7 @@ const Step1BasicInformation = ({
   applicationId,
   onPersistKycResult,
   onBeforeStartKyc,
+  onPersistDraft,
 }) => {
   const [existingDocuments, setExistingDocuments] = useState([]);
   const [ocrState, setOcrState] = useState({});
@@ -84,6 +85,18 @@ const Step1BasicInformation = ({
       return data.formData;
     }
     return data || {};
+  };
+
+  const handleRepeatableSectionChange = async (nextFormData) => {
+    onFieldChange("formData", nextFormData);
+
+    // try {
+    //   if (applicationId && applicationId !== "new" && onPersistDraft) {
+    //     await onPersistDraft(nextFormData);
+    //   }
+    // } catch (err) {
+    //   console.error("Failed to persist repeatable section changes:", err);
+    // }
   };
 
   const buildRepeatableDocumentType = (fieldPath) => {
@@ -168,13 +181,16 @@ const Step1BasicInformation = ({
         return isIndex ? acc[Number(key)] : acc[key];
       }, obj);
 
-      if (
-        value !== null &&
-        value !== undefined &&
-        String(value).trim() !== ""
-      ) {
-        return value;
-      }
+      // if (
+      //   value !== null &&
+      //   value !== undefined &&
+      //   String(value).trim() !== ""
+      // ) {
+      //   return value;
+      // }
+      if (value !== null && value !== undefined) {
+  return value;
+}
     }
 
     return undefined;
@@ -360,7 +376,7 @@ const Step1BasicInformation = ({
       getNestedValue(data?.formData || {}, fieldPath) ??
       getNestedValue(data, fieldPath) ??
       null;
-      // console.log("step 1 get display", localValue)
+    // console.log("step 1 get display", localValue)
 
     // if (
     //   localValue &&
@@ -1122,12 +1138,12 @@ const Step1BasicInformation = ({
       }),
   );
 
-  useEffect(() => {
-    console.log("[Step1 mounted/current data]", {
-      data,
-      formData: data?.formData,
-    });
-  }, [data]);
+  // useEffect(() => {
+  //   console.log("[Step1 mounted/current data]", {
+  //     data,
+  //     formData: data?.formData,
+  //   });
+  // }, [data]);
 
   useEffect(() => {
     Object.entries(basicFieldsConfig).forEach(([fieldKey, fieldConfig]) => {
@@ -1230,6 +1246,7 @@ const Step1BasicInformation = ({
     initializedMinRowsRef.current[initKey] = true;
 
     if (hasChanges) {
+      console.log("[MIN INIT nextFormRoot]", nextFormRoot);
       onFieldChange("formData", nextFormRoot);
     }
   }, [
@@ -1316,7 +1333,8 @@ const Step1BasicInformation = ({
             sectionKey={sectionKey}
             sectionConfig={sectionConfig}
             formData={getFormDataRoot()}
-            onFormDataChange={(next) => onFieldChange("formData", next)}
+            // onFormDataChange={(next) => onFieldChange("formData", next)}
+            onFormDataChange={(next) => handleRepeatableSectionChange(next)}
             disabled={disabled}
             context={{
               data,

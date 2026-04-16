@@ -360,7 +360,7 @@ const SINGAPORE_CONFIG = {
               },
             },
             limitedPartners: {
-              label: "Limited Partner",
+              label: "Limited Partner (Of Ownership < 25%)",
               storage: "individuals",
               rowTypeField: "role",
               rowTypeValue: "Limited Partner",
@@ -369,7 +369,7 @@ const SINGAPORE_CONFIG = {
                 role: {
                   type: "text",
                   label: "Role",
-                  value: "Limited Partner (Of Ownership < 25%)",
+                  value: "Limited Partner",
                   readonly: true,
                 },
                 sharePercentage: {
@@ -479,7 +479,7 @@ const SINGAPORE_CONFIG = {
               type: "checkbox",
               label: "Business Industry",
               required: true,
-              option: INDUSTRY_OPTIONS,
+              options: INDUSTRY_OPTIONS,
               placeholder: "Select your industry",
             },
             uen: {
@@ -550,6 +550,11 @@ const SINGAPORE_CONFIG = {
               rowTypeValue: "Manager",
               min: 1,
               fields: {
+                kyc: {
+                  type: "kyc",
+                  label: "Liveness Detection Test",
+                  required: true,
+                },
                 role: {
                   type: "text",
                   label: "Role",
@@ -564,11 +569,11 @@ const SINGAPORE_CONFIG = {
                   required: true,
                   placeholder: "Enter your share percentage",
                 },
-                idDocument: {
-                  type: "file",
-                  label: "National ID / Passport Document",
-                  required: true,
-                },
+                // idDocument: {
+                //   type: "file",
+                //   label: "National ID / Passport Document",
+                //   required: true,
+                // },
                 ...getIndividualFields(),
                 // nationality: {
                 //   type: "text",
@@ -827,6 +832,12 @@ const SINGAPORE_CONFIG = {
               rowTypeValue: "Ultimate Beneficial Owner",
               min: 0,
               fields: {
+                role: {
+                  type: "text",
+                  label: "Role",
+                  value: "Ultimate Beneficial Owner",
+                  readonly: true,
+                },
                 kyc: {
                   type: "kyc",
                   label: "Liveness Detection Test",
