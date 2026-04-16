@@ -86,23 +86,26 @@ const FieldRenderer = ({
   }
 
   if (fieldConfig.type === "file") {
+    // // const hasLocalFile =
+    // //   value instanceof File ||
+    // //   value?.file instanceof File ||
+    // //   value?.uploaded ||
+    // //   value?.document_id;
     // const hasLocalFile =
     //   value instanceof File ||
     //   value?.file instanceof File ||
-    //   value?.uploaded ||
-    //   value?.document_id;
-    const hasLocalFile =
-      value instanceof File ||
-      value?.file instanceof File ||
-      value?.verificationStatus ||
-      value?.verified !== undefined ||
-      value?.original_filename;
+    //   value?.verificationStatus ||
+    //   value?.verified !== undefined ||
+    //   value?.original_filename;
 
-    const displayedFile = hasLocalFile
-      ? value
-      : context?.getDisplayedFileValue
-        ? context.getDisplayedFileValue(fullFieldPath, fieldConfig)
-        : value;
+    // const displayedFile = hasLocalFile
+    //   ? value
+    //   : context?.getDisplayedFileValue
+    //     ? context.getDisplayedFileValue(fullFieldPath, fieldConfig)
+    //     : value;
+    const displayedFile = context?.getDisplayedFileValue
+  ? context.getDisplayedFileValue(fullFieldPath, fieldConfig)
+  : value;
 
     const verificationMeta = context?.getFieldVerificationMeta
       ? context.getFieldVerificationMeta(fullFieldPath, fieldConfig)

@@ -39,9 +39,22 @@ const FileUploadField = ({
   const [localError, setLocalError] = useState("");
   const [isValidating, setIsValidating] = useState(false);
 
-  const actualFile = file instanceof File ? file : file?.file || null;
-  const existingUploadedFile =
-    !actualFile && file?.original_filename ? file : null;
+  // const actualFile = file instanceof File ? file : file?.file || null;
+  // const existingUploadedFile =
+  //   !actualFile && file?.original_filename  ? file : null;
+    // console.log("FILEUPLOAD", file)
+const actualFile =
+  file instanceof File
+    ? file
+    : file?.file instanceof File
+      ? file.file
+      : null;
+
+const existingUploadedFile =
+  !actualFile &&
+  (file?.original_filename || file?.originalFilename)
+    ? file
+    : null;
 
   const allowedTypes = useMemo(
     () =>
@@ -271,6 +284,7 @@ const FileUploadField = ({
             <p className="text-sm font-medium text-gray-900">
               {actualFile?.name ||
                 existingUploadedFile?.original_filename ||
+                existingUploadedFile?.originalFilename ||
                 "Uploaded file"}
             </p>
 

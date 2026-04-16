@@ -237,7 +237,8 @@ const Step1BasicInformation = ({
 
     const [day, monthText, year] = parts;
 
-    const month = monthMap[monthText];
+    // const month = monthMap[monthText];
+    const month = monthMap[monthText.toLowerCase()];
 
     if (!month) return "";
 
@@ -304,11 +305,62 @@ const Step1BasicInformation = ({
   };
 
   //show on ui
+  // const getDisplayedFileValue = (fieldPath, fieldConfig = {}) => {
+  // //   const formRoot = getFormDataRoot();
+
+  // // const localFromFormData = getNestedValue(data?.formData || {}, fieldPath);
+  // // const localFromData = getNestedValue(data, fieldPath);
+
+  // // const localValue = localFromFormData ?? localFromData ?? null;
+  // // const existingDoc = findExistingDocumentForField(fieldPath, fieldConfig);
+  //   const localValue =
+  //     getNestedValue(data?.formData || {}, fieldPath) ??
+  //     getNestedValue(data, fieldPath) ??
+  //     null;
+
+  //   console.log("LOCAL", localValue);
+  //   // if (
+  //   //   localValue &&
+  //   //   (localValue instanceof File || localValue?.file instanceof File)
+  //   // ) {
+  //   //   return localValue;
+  //   // }
+  //   if (
+  //     localValue &&
+  //     (localValue instanceof File ||
+  //       localValue?.file instanceof File ||
+  //       localValue?.verificationStatus ||
+  //       localValue?.verified !== undefined ||
+  //       localValue?.original_filename)
+  //   ) {
+  //     return localValue;
+  //   }
+
+  //   const existingDoc = findExistingDocumentForField(fieldPath, fieldConfig);
+  //   // if (!existingDoc) return null;
+
+  //   return {
+  //     uploaded: true,
+  //     verified: true,
+  //     verificationStatus: "verified",
+  //     verificationMessage: "Previously uploaded document found.",
+  //     document_id: existingDoc.document_id,
+  //     document_type: existingDoc.document_type,
+  //     original_filename: existingDoc.original_filename,
+  //     storage_path: existingDoc.storage_path,
+  //     mime_type: existingDoc.mime_type,
+  //     status: existingDoc.status,
+  //     created_at: existingDoc.created_at,
+  //   };
+  // };
+
+  //show on ui
   const getDisplayedFileValue = (fieldPath, fieldConfig = {}) => {
     const localValue =
       getNestedValue(data?.formData || {}, fieldPath) ??
       getNestedValue(data, fieldPath) ??
       null;
+      console.log("step 1 get display", localValue)
 
     // if (
     //   localValue &&
@@ -318,13 +370,26 @@ const Step1BasicInformation = ({
     // }
     if (
       localValue &&
-      (localValue instanceof File ||
-        localValue?.file instanceof File ||
-        localValue?.verificationStatus ||
+      (localValue?.verificationStatus ||
         localValue?.verified !== undefined ||
-        localValue?.original_filename)
+        localValue?.original_filename ||
+        localValue?.originalFilename ||
+        localValue?.uploaded === true)
     ) {
-      return localValue;
+      return {
+        ...localValue,
+        original_filename:
+          localValue.original_filename ||
+          localValue.originalFilename ||
+          localValue.file?.name ||
+          "",
+        mime_type:
+          localValue.mime_type ||
+          localValue.mimeType ||
+          "application/octet-stream",
+        upload_status:
+          localValue.upload_status || localValue.uploadStatus || "pending",
+      };
     }
 
     const existingDoc = findExistingDocumentForField(fieldPath, fieldConfig);
@@ -344,7 +409,6 @@ const Step1BasicInformation = ({
       created_at: existingDoc.created_at,
     };
   };
-
   const getFieldVerificationMeta = (fieldPath) => {
     const localValue =
       getNestedValue(getFormDataRoot(), fieldPath) ??
@@ -584,6 +648,13 @@ const Step1BasicInformation = ({
   };
 
   const handleFieldChange = (name, value) => {
+    //    console.log("[Step1 handleFieldChange]", {
+    //   name,
+    //   value,
+    //   original_filename: value?.original_filename,
+    //   fileName: value?.file?.name,
+    //   verificationStatus: value?.verificationStatus,
+    // });
     if (!name) return;
 
     delete processedOcrFilesRef.current[name];
@@ -653,6 +724,7 @@ const Step1BasicInformation = ({
         payload.nib_number,
         // payload.businessName
         payload.registrationNumber,
+        payload.incorporationDate,
       );
       const address = pickFirstNonEmpty(
         payload.registered_address,
@@ -763,7 +835,25 @@ const Step1BasicInformation = ({
       }
 
       if (registrationDate) {
-        updates.registrationDate = ddMmmYyyyToISO(registrationDate);
+        let normalizedDate = "";
+
+        // Case 1: already ISO
+        if (/^\d{4}-\d{2}-\d{2}$/.test(registrationDate)) {
+          normalizedDate = registrationDate;
+        }
+
+        // Case 2: DD-MM-YYYY
+        else if (registrationDate.includes("-")) {
+          normalizedDate = ddMmYyyyToISO(registrationDate);
+        }
+
+        // Case 3: "08 AUG 2016"
+        else {
+          normalizedDate = ddMmmYyyyToISO(registrationDate);
+        }
+
+        updates.registrationDate = normalizedDate;
+        // updates.registrationDate = ddMmmYyyyToISO(registrationDate);
       }
 
       if (phone) {
@@ -1031,6 +1121,13 @@ const Step1BasicInformation = ({
           : null;
       }),
   );
+
+  useEffect(() => {
+    console.log("[Step1 mounted/current data]", {
+      data,
+      formData: data?.formData,
+    });
+  }, [data]);
 
   useEffect(() => {
     Object.entries(basicFieldsConfig).forEach(([fieldKey, fieldConfig]) => {

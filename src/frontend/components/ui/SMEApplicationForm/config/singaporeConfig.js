@@ -641,7 +641,7 @@ const SINGAPORE_CONFIG = {
               required: true,
               placeholder: "Enter your UEN / Registration Number",
             },
-            incorporationDate: {
+            registrationDate: {
               type: "date",
               label: "Incorporation Date",
               required: true,
