@@ -126,36 +126,9 @@ const Step3ComplianceDocumentation = ({
     return key;
   };
 
-  const hasUsableLocalFile = (value) =>
-    !!value && (value instanceof File || value?.file instanceof File);
+  // const hasUsableLocalFile = (value) =>
+  //   !!value && (value instanceof File || value?.file instanceof File);
 
-  // show on ui
-  // const getDisplayedFileValue = (fieldPath, fieldConfig = {}) => {
-  //   const localValue =
-  //     getNestedValue(data?.formData || {}, fieldPath) ??
-  //     getNestedValue(data, fieldPath) ??
-  //     null;
-
-  //   if (hasUsableLocalFile(localValue)) return localValue;
-
-  //   // const existingDoc = existingDocumentMap[fieldPath];
-  //   const existingDoc = findExistingDocumentForField(fieldPath, fieldConfig);
-  //   if (!existingDoc) return null;
-
-  //   return {
-  //     uploaded: true,
-  //     verified: true,
-  //     verificationStatus: "verified",
-  //     verificationMessage: "Previously uploaded document found.",
-  //     document_id: existingDoc.document_id,
-  //     document_type: existingDoc.document_type,
-  //     original_filename: existingDoc.original_filename,
-  //     storage_path: existingDoc.storage_path,
-  //     mime_type: existingDoc.mime_type,
-  //     status: existingDoc.status,
-  //     created_at: existingDoc.created_at,
-  //   };
-  // };
   const getDisplayedFileValue = (fieldPath, fieldConfig = {}) => {
     const localValue =
       getNestedValue(data?.formData || {}, fieldPath) ??

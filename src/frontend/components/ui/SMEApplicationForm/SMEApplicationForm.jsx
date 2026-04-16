@@ -829,7 +829,7 @@ const SMEApplicationForm = () => {
     [formData, handleFieldChange, isViewOnly],
   );
 
-  useEffect(() => console.log("[FORM]: ", formData), [formData]);
+  // useEffect(() => console.log("[FORM]: ", formData), [formData]);
 
   const isStep0Locked = Boolean(appId && appId !== "new");
 

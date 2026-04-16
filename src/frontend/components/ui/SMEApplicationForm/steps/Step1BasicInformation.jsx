@@ -120,6 +120,7 @@ const Step1BasicInformation = ({
     return `${roleValue}_${rolePosition}_${fieldKey}`;
   };
 
+  // helps to find rooted documents - matches uploaded documents to the correct form field using document type normalization
   const findExistingDocumentForField = (fieldPath, fieldConfig = {}) => {
     if (!Array.isArray(existingDocuments) || !existingDocuments.length) {
       return null;
@@ -131,6 +132,7 @@ const Step1BasicInformation = ({
         inferExpectedDocumentType(fieldPath, fieldConfig),
     );
 
+    // necessary for nested file fields within repeatable sections - e.g. individuals
     const repeatableDocType = buildRepeatableDocumentType(fieldPath);
     const normalizedRepeatableDocType =
       normalizeDocumentType(repeatableDocType);
@@ -308,9 +310,19 @@ const Step1BasicInformation = ({
       getNestedValue(data, fieldPath) ??
       null;
 
+    // if (
+    //   localValue &&
+    //   (localValue instanceof File || localValue?.file instanceof File)
+    // ) {
+    //   return localValue;
+    // }
     if (
       localValue &&
-      (localValue instanceof File || localValue?.file instanceof File)
+      (localValue instanceof File ||
+        localValue?.file instanceof File ||
+        localValue?.verificationStatus ||
+        localValue?.verified !== undefined ||
+        localValue?.original_filename)
     ) {
       return localValue;
     }
@@ -427,7 +439,7 @@ const Step1BasicInformation = ({
       if (sectionConfig?.rowTypeField && sectionConfig?.rowTypeValue) {
         baseRow[sectionConfig.rowTypeField] = sectionConfig.rowTypeValue;
       }
-      console.log("base", baseRow);
+      // console.log("base", baseRow);
       return baseRow;
     });
   };
@@ -435,7 +447,6 @@ const Step1BasicInformation = ({
   const buildFileValidator = useCallback(
     (fieldPath, fieldConfig) => async (file) => {
       const expectedType = inferExpectedDocumentType(fieldPath, fieldConfig);
-      console.log("expectedtype", expectedType);
 
       setFieldVerificationState(fieldPath, {
         status: "verifying",
@@ -1048,6 +1059,11 @@ const Step1BasicInformation = ({
     [applicationId, data?.country, data?.businessType],
   );
   useEffect(() => {
+    console.log("[MIN INIT] effect run", {
+      initKey,
+      formRoot: getFormDataRoot(),
+      repeatableSectionsConfig,
+    });
     if (
       !repeatableSectionsConfig ||
       Object.keys(repeatableSectionsConfig).length === 0
@@ -1055,9 +1071,9 @@ const Step1BasicInformation = ({
       return;
     }
 
-    if (initializedMinRowsRef.current[initKey]) {
-      return;
-    }
+    // if (initializedMinRowsRef.current[initKey]) {
+    //   return;
+    // }
 
     const formRoot = getFormDataRoot();
 
@@ -1105,7 +1121,7 @@ const Step1BasicInformation = ({
           sectionConfig,
           minRows - existingRows.length,
         );
-
+        console.log("[MIN INIT] writing nextFormRoot", nextFormRoot);
         nextFormRoot = {
           ...nextFormRoot,
           [storageKey]: [...existingRows, ...rowsToAdd],
@@ -1126,7 +1142,7 @@ const Step1BasicInformation = ({
     // data?.businessType,
     repeatableSectionsConfig,
     // repeatableRowCountsSignature
-    // data?.formData,
+    data?.formData,
   ]);
 
   return (

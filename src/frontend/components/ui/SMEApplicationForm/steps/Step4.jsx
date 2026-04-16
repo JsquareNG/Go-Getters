@@ -6,9 +6,7 @@ import { SINGAPORE_CONFIG, INDONESIA_CONFIG } from "../config";
 
 import { allDocuments } from "@/api/documentApi";
 
-import {
-  selectFormData,
-} from "@/store/applicationFormSlice";
+import { selectFormData } from "@/store/applicationFormSlice";
 
 /**
  * Step4ReviewSubmit
@@ -58,7 +56,7 @@ const Step4 = ({ onEdit, disabled = false, applicationId }) => {
     );
   };
 
-  console.log(entityConfig);
+  // console.log(entityConfig);
 
   //TODO: currently id only able to retrieve normal fields, misses repeatableSections object
   const step2Config = getStepConfigById("step2"); // match your config
@@ -136,19 +134,6 @@ const Step4 = ({ onEdit, disabled = false, applicationId }) => {
     );
   };
 
-  // const formatDisplayedDocument = (value) => {
-  //   const localFile = unwrapLocalFile(value);
-
-  //   if (localFile) {
-  //     return `${localFile.name} (${(localFile.size / 1024).toFixed(2)} KB)`;
-  //   }
-
-  //   if (isBackendDocument(value)) {
-  //     return value.original_filename || value.document_type || "Uploaded";
-  //   }
-
-  //   return "Not uploaded";
-  // };
   // TODO: fix the file now the file name etc type not stored properly, cannot read actual filename person uploaded.
   const formatDisplayedDocument = (value) => {
     const localFile = unwrapLocalFile(value);
@@ -158,7 +143,6 @@ const Step4 = ({ onEdit, disabled = false, applicationId }) => {
     }
 
     if (isBackendDocument(value)) {
-      console.log("BACKEND DOC", value)
       return value.original_filename || value.document_type || "Uploaded";
     }
 
@@ -167,11 +151,12 @@ const Step4 = ({ onEdit, disabled = false, applicationId }) => {
       typeof value === "object" &&
       (value.verificationStatus ||
         value.verified ||
+        value.original_filename ||
         value.detectedType ||
         value.expectedType)
     ) {
       return (
-        value.original_filename ||
+        value.originalFilename ||
         value.detectedType ||
         value.expectedType ||
         "Uploaded"
@@ -181,6 +166,9 @@ const Step4 = ({ onEdit, disabled = false, applicationId }) => {
     return "Not uploaded";
   };
 
+  // ------------------------------------------
+  // core function to determine what file shown
+  // ------------------------------------------
   const getDisplayedDocument = ({
     cfg,
     fieldKey,
@@ -265,16 +253,6 @@ const Step4 = ({ onEdit, disabled = false, applicationId }) => {
     return Array.isArray(merged?.[storageKey]) ? merged[storageKey] : [];
   };
 
-  const buildIndividualDocumentType = (
-    sectionKey,
-    sectionConfig,
-    rowIndex,
-    fieldKey,
-  ) => {
-    const roleValue = getSectionRoleValue(sectionKey, sectionConfig);
-    return `${roleValue}_${rowIndex + 1}_${fieldKey}`;
-  };
-
   const getFieldsFromStep = (stepConfig, stepData = {}) => {
     const fields = [];
 
@@ -308,6 +286,7 @@ const Step4 = ({ onEdit, disabled = false, applicationId }) => {
                 fieldKey: subKey,
                 stepData: data,
               });
+              console.log("displayedDoc", displayedDoc);
               formattedSubValue = formatDisplayedDocument(displayedDoc);
             } else {
               formattedSubValue = formatReviewValue(subValue, subCfg);
@@ -377,7 +356,6 @@ const Step4 = ({ onEdit, disabled = false, applicationId }) => {
           Object.entries(sectionCfg.fields || {}).forEach(([key, cfg]) => {
             let value = item?.[key] ?? "";
 
-            console.log("repeatable", cfg.conditionalFields);
             if (cfg.conditionalFields && value in cfg.conditionalFields) {
               fields.push({
                 label: `${sectionCfg.label} ${idx + 1} - ${cfg.label}`,

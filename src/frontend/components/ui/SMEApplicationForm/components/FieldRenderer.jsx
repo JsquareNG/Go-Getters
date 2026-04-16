@@ -86,11 +86,17 @@ const FieldRenderer = ({
   }
 
   if (fieldConfig.type === "file") {
+    // const hasLocalFile =
+    //   value instanceof File ||
+    //   value?.file instanceof File ||
+    //   value?.uploaded ||
+    //   value?.document_id;
     const hasLocalFile =
       value instanceof File ||
       value?.file instanceof File ||
-      value?.uploaded ||
-      value?.document_id;
+      value?.verificationStatus ||
+      value?.verified !== undefined ||
+      value?.original_filename;
 
     const displayedFile = hasLocalFile
       ? value

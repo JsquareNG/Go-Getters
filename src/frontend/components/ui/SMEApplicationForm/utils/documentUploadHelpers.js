@@ -266,8 +266,7 @@ export const uploadAllDocumentsFromFormData = async (
 
   const uploadEntries = collectFileUploadEntries(root, activeConfig);
   console.log("[UPLOAD] root", root);
-console.log("[UPLOAD] collected entries", uploadEntries);
-console.log("[UPLOAD] unique entries", uniqueUploadEntries);
+  console.log("[UPLOAD] collected entries", uploadEntries);
 
   const uniqueUploadEntries = Object.values(
     uploadEntries.reduce((acc, entry) => {
@@ -275,6 +274,7 @@ console.log("[UPLOAD] unique entries", uniqueUploadEntries);
       return acc;
     }, {}),
   );
+  console.log("[UPLOAD] unique entries", uniqueUploadEntries);
 
   const existingDocs = await allDocuments(applicationId);
   const existingDocumentMap = buildExistingDocumentMap(existingDocs);
@@ -291,7 +291,7 @@ console.log("[UPLOAD] unique entries", uniqueUploadEntries);
       existingDocumentMap,
       extractedData,
     });
-    console.log("SUCCESSFULLY uploaded", uploaded)
+    console.log("SUCCESSFULLY uploaded", uploaded);
 
     uploadedResults.push({
       ...entry,
