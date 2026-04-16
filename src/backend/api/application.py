@@ -227,7 +227,10 @@ def get_application_by_employee_id(
     db: Session = Depends(get_db),
     current_user: dict = Depends(get_current_user),
 ):
-    _ensure_reviewer_queue_access(reviewer_id, current_user)
+    role = str(current_user.get("role", "")).upper().strip()
+
+    if role not in {"STAFF", "MANAGEMENT"}:
+        raise HTTPException(status_code=403, detail="Forbidden")
 
     apps = (
         db.query(ApplicationForm)
@@ -235,9 +238,6 @@ def get_application_by_employee_id(
         .order_by(ApplicationForm.application_id.desc())
         .all()
     )
-
-    if not apps:
-        raise HTTPException(status_code=404, detail="User not found")
 
     return [to_dict(a) for a in apps]
 
