@@ -456,7 +456,6 @@ const SMEApplicationForm = () => {
       cleanedFormPayload.current_status = resolvedCurrentStatus;
       cleanedFormPayload.email =
         effectiveFormData?.email ?? cleanedFormPayload.email ?? "";
-      // console.log("[4] cleanedFormPayload", cleanedFormPayload);
 
       const payload = {
         ...(savedAppId && savedAppId !== "new"
@@ -469,15 +468,23 @@ const SMEApplicationForm = () => {
         current_status: resolvedCurrentStatus,
         form_data: cleanedFormPayload,
       };
-      // console.log("[5] final payload", payload);
 
+      // --------
+      // LOGS
+      // --------
       console.log("[SAVE before buildDynamicPayload]", effectiveFormData);
-console.log("[SAVE individuals before]", effectiveFormData?.individuals);
-console.log("[SAVE businessActivities before]", effectiveFormData?.businessActivities);
+      console.log("[SAVE individuals before]", effectiveFormData?.individuals);
+      console.log(
+        "[SAVE businessActivities before]",
+        effectiveFormData?.businessActivities,
+      );
 
-console.log("[SAVE cleanedFormPayload]", cleanedFormPayload);
-console.log("[SAVE individuals after]", cleanedFormPayload?.individuals);
-console.log("[SAVE businessActivities after]", cleanedFormPayload?.businessActivities);
+      console.log("[SAVE cleanedFormPayload]", cleanedFormPayload);
+      console.log("[SAVE individuals after]", cleanedFormPayload?.individuals);
+      console.log(
+        "[SAVE businessActivities after]",
+        cleanedFormPayload?.businessActivities,
+      );
 
       const res = await saveApplicationDraftApi(payload);
       savedAppId = res.application_id || savedAppId;
@@ -495,7 +502,7 @@ console.log("[SAVE businessActivities after]", cleanedFormPayload?.businessActiv
 
       const updatedFormData = {
         ...effectiveFormData,
-        ...cleanedFormPayload,
+        // ...cleanedFormPayload,
         last_saved_step: resolvedLastSavedStep,
         current_status: resolvedCurrentStatus,
       };
@@ -677,6 +684,7 @@ console.log("[SAVE businessActivities after]", cleanedFormPayload?.businessActiv
   // allow form fields to be saved before navigating to external site
   const handleBeforeStartKyc = useCallback(async () => {
     const savedAppId = await persistApplication({ isInitial: false });
+    console.log("handling before start kyc save");
     return savedAppId;
   }, [persistApplication]);
 
@@ -759,10 +767,10 @@ console.log("[SAVE businessActivities after]", cleanedFormPayload?.businessActiv
       reasons.push("You must be on the Review & Submit step.");
     if (!isStep0Valid) reasons.push("Country and business type are required.");
     if (!hasConfigSteps) reasons.push("Form configuration is unavailable.");
-    // if (isIncomplete)
-    //   reasons.push("There are still missing required fields or documents.");
-    // if (!isKycComplete)
-    //   reasons.push("All individuals requiring KYC must complete and pass KYC.");
+    if (isIncomplete)
+      reasons.push("There are still missing required fields or documents.");
+    if (!isKycComplete)
+      reasons.push("All individuals requiring KYC must complete and pass KYC.");
 
     return {
       canSubmit: reasons.length === 0,

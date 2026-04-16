@@ -189,8 +189,8 @@ const Step1BasicInformation = ({
       //   return value;
       // }
       if (value !== null && value !== undefined) {
-  return value;
-}
+        return value;
+      }
     }
 
     return undefined;
@@ -306,6 +306,8 @@ const Step1BasicInformation = ({
         ?.toLowerCase() || "";
 
     if (key.includes("businessprofile")) return "acra";
+    if (key.includes("uen")) return "acra";
+
     if (key.includes("acra")) return "acra";
     if (key.includes("npwp")) return "npwp_certificate";
     if (key.includes("proofofaddress")) return "proof_of_address";

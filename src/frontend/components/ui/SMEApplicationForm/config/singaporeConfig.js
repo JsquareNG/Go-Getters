@@ -538,6 +538,7 @@ const SINGAPORE_CONFIG = {
                 //   min: 0,
                 //   max: 100,
                 //   required: true,
+                //   placeholder: "Enter your share percentage",
                 // },
                 ...getIndividualFields(),
                 ...getComplianceDeclarations(),
@@ -759,11 +760,11 @@ const SINGAPORE_CONFIG = {
                         placeholder:
                           "For Singapore citizens, use the NRIC / Passport Number",
                       },
-                      idDocument: {
-                        type: "file",
-                        label: "National ID / Passport Document",
-                        required: true,
-                      },
+                      // idDocument: {
+                      //   type: "file",
+                      //   label: "National ID / Passport Document",
+                      //   required: true,
+                      // },
                       nationality: {
                         type: "select",
                         label: "Nationality",
@@ -799,11 +800,11 @@ const SINGAPORE_CONFIG = {
                         required: true,
                         placeholder: "Enter your UEN / Registration Number",
                       },
-                      uen: {
-                        type: "file",
-                        label: "UEN / Registration Number Document",
-                        required: true,
-                      },
+                      // uen: {
+                      //   type: "file",
+                      //   label: "UEN / Registration Number Document",
+                      //   required: true,
+                      // },
                       country: {
                         type: "select",
                         label: "Country of Incorporation",
@@ -821,7 +822,7 @@ const SINGAPORE_CONFIG = {
                   },
                 },
               },
-              ...getComplianceDeclarations(),
+              // ...getComplianceDeclarations(),
             },
             // --- UBO conditional field ---
             ubo: {

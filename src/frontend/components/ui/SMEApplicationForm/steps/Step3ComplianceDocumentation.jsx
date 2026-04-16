@@ -289,19 +289,19 @@ const Step3ComplianceDocumentation = ({
             validationReasons[0] ||
             "Uploaded document does not match expected type or its quality is too low. Please try again.";
 
-          const failedValue = {
-            file,
-            // progress: 0,
-            original_filename: file?.name || "",
-            mime_type: file?.type || "application/octet-stream",
-            upload_status: "failed",
-            verified: false,
-            verificationStatus: "failed",
-            verificationMessage: errorMessage,
-            detectedType,
-            expectedType,
-            extractedData: result,
-          };
+          // const failedValue = {
+          //   file,
+          //   // progress: 0,
+          //   original_filename: file?.name || "",
+          //   mime_type: file?.type || "application/octet-stream",
+          //   upload_status: "failed",
+          //   verified: false,
+          //   verificationStatus: "failed",
+          //   verificationMessage: errorMessage,
+          //   detectedType,
+          //   expectedType,
+          //   extractedData: result,
+          // };
 
           setFieldVerificationState(fieldPath, {
             status: "failed",
@@ -310,7 +310,8 @@ const Step3ComplianceDocumentation = ({
             detectedType,
           });
 
-          return failedValue;
+          // return failedValue;
+          return null
         }
 
         const nextValue = {
@@ -360,7 +361,8 @@ const Step3ComplianceDocumentation = ({
           detectedType: null,
         });
 
-        return failedValue;
+        // return failedValue;
+        return null;
       }
     },
     [],
