@@ -106,52 +106,6 @@ export const mapIndividualsDynamic = (rawData, config) => {
   return individuals;
 };
 
-// export const mapNonIndividualRepeatableData = (rawData, config) => {
-//   const data = getMergedFormState(rawData);
-//   const entityConfig = getEntityConfig(data, config);
-//   if (!entityConfig?.steps) return {};
-
-//   const mapped = {};
-
-//   entityConfig.steps.forEach((step) => {
-//     const repeatableSections = step.repeatableSections || {};
-
-//     Object.entries(repeatableSections).forEach(([sectionKey, sectionConfig]) => {
-//       if (isIndividualLikeSection(sectionConfig)) return;
-
-//       const sectionData = Array.isArray(data[sectionKey]) ? data[sectionKey] : [];
-
-//       mapped[sectionKey] = sectionData.map((item) => {
-//         const obj = {};
-
-//         Object.entries(sectionConfig.fields || {}).forEach(([fieldKey, fieldConfig]) => {
-//           if (fieldKey === "conditionalFields") return;
-
-//           obj[fieldKey] =
-//             getNestedValue(item, fieldKey) ?? fieldConfig?.value ?? null;
-
-//           const triggerValue = getNestedValue(item, fieldKey);
-
-//           if (fieldConfig?.conditionalFields && triggerValue) {
-//             Object.entries(fieldConfig.conditionalFields[triggerValue] || {}).forEach(
-//               ([conditionalKey, conditionalConfig]) => {
-//                 obj[conditionalKey] =
-//                   getNestedValue(item, conditionalKey) ??
-//                   conditionalConfig?.value ??
-//                   null;
-//               },
-//             );
-//           }
-//         });
-
-//         return obj;
-//       });
-//     });
-//   });
-
-//   return mapped;
-// };
-
 export const mapNonIndividualRepeatableData = (rawData, config) => {
   const data = getMergedFormState(rawData);
   const entityConfig = getEntityConfig(data, config);

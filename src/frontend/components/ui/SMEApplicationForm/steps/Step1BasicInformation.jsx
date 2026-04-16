@@ -24,6 +24,8 @@ const Step1BasicInformation = ({
   disabled = false,
   applicationId,
   onPersistKycResult,
+  onBeforeStartKyc,
+  onPersistDraft,
 }) => {
   const [existingDocuments, setExistingDocuments] = useState([]);
   const [ocrState, setOcrState] = useState({});
@@ -85,28 +87,18 @@ const Step1BasicInformation = ({
     return data || {};
   };
 
-  // helps to find rooted documents - matches uploaded documents to the correct form field using document type normalization
-  // const findExistingDocumentForField = (fieldPath, fieldConfig = {}) => {
-  //   if (!Array.isArray(existingDocuments) || !existingDocuments.length)
-  //     return null;
+  const handleRepeatableSectionChange = async (nextFormData) => {
+    onFieldChange("formData", nextFormData);
 
-  //   const normalizedFieldPath = normalizeDocumentType(fieldPath);
-  //   const expectedType = normalizeDocumentType(
-  //     fieldConfig?.ocrTarget ||
-  //       inferExpectedDocumentType(fieldPath, fieldConfig),
-  //   );
+    // try {
+    //   if (applicationId && applicationId !== "new" && onPersistDraft) {
+    //     await onPersistDraft(nextFormData);
+    //   }
+    // } catch (err) {
+    //   console.error("Failed to persist repeatable section changes:", err);
+    // }
+  };
 
-  //   return (
-  //     existingDocuments.find(
-  //       (doc) =>
-  //         normalizeDocumentType(doc.document_type) === normalizedFieldPath,
-  //     ) ||
-  //     existingDocuments.find(
-  //       (doc) => normalizeDocumentType(doc.document_type) === expectedType,
-  //     ) ||
-  //     null
-  //   );
-  // };
   const buildRepeatableDocumentType = (fieldPath) => {
     const parts = String(fieldPath || "").split(".");
     if (parts.length < 3) return null;
@@ -141,6 +133,7 @@ const Step1BasicInformation = ({
     return `${roleValue}_${rolePosition}_${fieldKey}`;
   };
 
+  // helps to find rooted documents - matches uploaded documents to the correct form field using document type normalization
   const findExistingDocumentForField = (fieldPath, fieldConfig = {}) => {
     if (!Array.isArray(existingDocuments) || !existingDocuments.length) {
       return null;
@@ -152,6 +145,7 @@ const Step1BasicInformation = ({
         inferExpectedDocumentType(fieldPath, fieldConfig),
     );
 
+    // necessary for nested file fields within repeatable sections - e.g. individuals
     const repeatableDocType = buildRepeatableDocumentType(fieldPath);
     const normalizedRepeatableDocType =
       normalizeDocumentType(repeatableDocType);
@@ -187,11 +181,14 @@ const Step1BasicInformation = ({
         return isIndex ? acc[Number(key)] : acc[key];
       }, obj);
 
-      if (
-        value !== null &&
-        value !== undefined &&
-        String(value).trim() !== ""
-      ) {
+      // if (
+      //   value !== null &&
+      //   value !== undefined &&
+      //   String(value).trim() !== ""
+      // ) {
+      //   return value;
+      // }
+      if (value !== null && value !== undefined) {
         return value;
       }
     }
@@ -256,7 +253,8 @@ const Step1BasicInformation = ({
 
     const [day, monthText, year] = parts;
 
-    const month = monthMap[monthText];
+    // const month = monthMap[monthText];
+    const month = monthMap[monthText.toLowerCase()];
 
     if (!month) return "";
 
@@ -306,9 +304,10 @@ const Step1BasicInformation = ({
         .split(".")
         .pop()
         ?.toLowerCase() || "";
-    console.log("key", key);
 
     if (key.includes("businessprofile")) return "acra";
+    if (key.includes("uen")) return "acra";
+
     if (key.includes("acra")) return "acra";
     if (key.includes("npwp")) return "npwp_certificate";
     if (key.includes("proofofaddress")) return "proof_of_address";
@@ -324,17 +323,91 @@ const Step1BasicInformation = ({
   };
 
   //show on ui
+  // const getDisplayedFileValue = (fieldPath, fieldConfig = {}) => {
+  // //   const formRoot = getFormDataRoot();
+
+  // // const localFromFormData = getNestedValue(data?.formData || {}, fieldPath);
+  // // const localFromData = getNestedValue(data, fieldPath);
+
+  // // const localValue = localFromFormData ?? localFromData ?? null;
+  // // const existingDoc = findExistingDocumentForField(fieldPath, fieldConfig);
+  //   const localValue =
+  //     getNestedValue(data?.formData || {}, fieldPath) ??
+  //     getNestedValue(data, fieldPath) ??
+  //     null;
+
+  //   console.log("LOCAL", localValue);
+  //   // if (
+  //   //   localValue &&
+  //   //   (localValue instanceof File || localValue?.file instanceof File)
+  //   // ) {
+  //   //   return localValue;
+  //   // }
+  //   if (
+  //     localValue &&
+  //     (localValue instanceof File ||
+  //       localValue?.file instanceof File ||
+  //       localValue?.verificationStatus ||
+  //       localValue?.verified !== undefined ||
+  //       localValue?.original_filename)
+  //   ) {
+  //     return localValue;
+  //   }
+
+  //   const existingDoc = findExistingDocumentForField(fieldPath, fieldConfig);
+  //   // if (!existingDoc) return null;
+
+  //   return {
+  //     uploaded: true,
+  //     verified: true,
+  //     verificationStatus: "verified",
+  //     verificationMessage: "Previously uploaded document found.",
+  //     document_id: existingDoc.document_id,
+  //     document_type: existingDoc.document_type,
+  //     original_filename: existingDoc.original_filename,
+  //     storage_path: existingDoc.storage_path,
+  //     mime_type: existingDoc.mime_type,
+  //     status: existingDoc.status,
+  //     created_at: existingDoc.created_at,
+  //   };
+  // };
+
+  //show on ui
   const getDisplayedFileValue = (fieldPath, fieldConfig = {}) => {
     const localValue =
       getNestedValue(data?.formData || {}, fieldPath) ??
       getNestedValue(data, fieldPath) ??
       null;
+    // console.log("step 1 get display", localValue)
 
+    // if (
+    //   localValue &&
+    //   (localValue instanceof File || localValue?.file instanceof File)
+    // ) {
+    //   return localValue;
+    // }
     if (
       localValue &&
-      (localValue instanceof File || localValue?.file instanceof File)
+      (localValue?.verificationStatus ||
+        localValue?.verified !== undefined ||
+        localValue?.original_filename ||
+        localValue?.originalFilename ||
+        localValue?.uploaded === true)
     ) {
-      return localValue;
+      return {
+        ...localValue,
+        original_filename:
+          localValue.original_filename ||
+          localValue.originalFilename ||
+          localValue.file?.name ||
+          "",
+        mime_type:
+          localValue.mime_type ||
+          localValue.mimeType ||
+          "application/octet-stream",
+        upload_status:
+          localValue.upload_status || localValue.uploadStatus || "pending",
+      };
     }
 
     const existingDoc = findExistingDocumentForField(fieldPath, fieldConfig);
@@ -354,7 +427,6 @@ const Step1BasicInformation = ({
       created_at: existingDoc.created_at,
     };
   };
-
   const getFieldVerificationMeta = (fieldPath) => {
     const localValue =
       getNestedValue(getFormDataRoot(), fieldPath) ??
@@ -449,7 +521,7 @@ const Step1BasicInformation = ({
       if (sectionConfig?.rowTypeField && sectionConfig?.rowTypeValue) {
         baseRow[sectionConfig.rowTypeField] = sectionConfig.rowTypeValue;
       }
-      console.log("base", baseRow);
+      // console.log("base", baseRow);
       return baseRow;
     });
   };
@@ -457,7 +529,6 @@ const Step1BasicInformation = ({
   const buildFileValidator = useCallback(
     (fieldPath, fieldConfig) => async (file) => {
       const expectedType = inferExpectedDocumentType(fieldPath, fieldConfig);
-      console.log("expectedtype", expectedType);
 
       setFieldVerificationState(fieldPath, {
         status: "verifying",
@@ -483,10 +554,25 @@ const Step1BasicInformation = ({
         const validation = result?.upload_validation;
         const validationStatus = validation?.status;
         const validationReasons = validation?.reasons || [];
+
         if (validationStatus === "FAIL") {
           const errorMessage =
             validationReasons[0] ||
             "Uploaded document does not match expected type OR its quality is too low. Please try again.";
+
+          const failedValue = {
+            file,
+            original_filename: file?.name || "",
+            mime_type: file?.type || "application/octet-stream",
+            upload_status: "failed",
+            // progress: 0,
+            verified: false,
+            verificationStatus: "failed",
+            verificationMessage: errorMessage,
+            detectedType,
+            expectedType,
+            extractedData: result,
+          };
 
           setFieldVerificationState(fieldPath, {
             status: "failed",
@@ -495,12 +581,16 @@ const Step1BasicInformation = ({
             detectedType,
           });
 
-          throw new Error(errorMessage);
+          // throw new Error(errorMessage);
+          return failedValue;
         }
 
         const nextValue = {
           file,
-          progress: 0,
+          original_filename: file?.name || "",
+          mime_type: file?.type || "application/octet-stream",
+          upload_status: "pending",
+          // progress: 0,
           verified: true,
           verificationStatus: "verified",
           verificationMessage: "Document verified successfully.",
@@ -518,24 +608,39 @@ const Step1BasicInformation = ({
 
         return nextValue;
       } catch (err) {
-        if (
-          !verificationState[fieldPath]?.status ||
-          verificationState[fieldPath]?.status === "verifying"
-        ) {
-          setFieldVerificationState(fieldPath, {
-            status: "failed",
-            message:
-              err?.message ||
-              "Verification failed. Please upload the file again.",
-            expectedType,
-            detectedType: null,
-          });
-        }
+        // if (
+        //   !verificationState[fieldPath]?.status ||
+        //   verificationState[fieldPath]?.status === "verifying"
+        // ) {
 
-        throw err;
+        const failedValue = {
+          file,
+          // progress: 0,
+          original_filename: file?.name || "",
+          mime_type: file?.type || "application/octet-stream",
+          upload_status: "pending",
+          verified: false,
+          verificationStatus: "failed",
+          verificationMessage: errorMessage,
+          detectedType: null,
+          expectedType,
+          extractedData: null,
+        };
+        setFieldVerificationState(fieldPath, {
+          status: "failed",
+          message:
+            err?.message ||
+            "Verification failed. Please upload the file again.",
+          expectedType,
+          detectedType: null,
+        });
+        // }
+
+        // throw err;
+        return failedValue;
       }
     },
-    [setVerificationState],
+    [],
     // [verificationState],
   );
 
@@ -561,6 +666,13 @@ const Step1BasicInformation = ({
   };
 
   const handleFieldChange = (name, value) => {
+    //    console.log("[Step1 handleFieldChange]", {
+    //   name,
+    //   value,
+    //   original_filename: value?.original_filename,
+    //   fileName: value?.file?.name,
+    //   verificationStatus: value?.verificationStatus,
+    // });
     if (!name) return;
 
     delete processedOcrFilesRef.current[name];
@@ -593,6 +705,9 @@ const Step1BasicInformation = ({
     return "";
   };
 
+  // -----------------------
+  // OCR Mapping
+  // -----------------------
   const mapBusinessProfilePayloadToForm = (payload, country) => {
     if (!payload || Object.keys(payload).length === 0) {
       throw new Error("No structured OCR data returned.");
@@ -627,6 +742,7 @@ const Step1BasicInformation = ({
         payload.nib_number,
         // payload.businessName
         payload.registrationNumber,
+        payload.incorporationDate,
       );
       const address = pickFirstNonEmpty(
         payload.registered_address,
@@ -737,7 +853,25 @@ const Step1BasicInformation = ({
       }
 
       if (registrationDate) {
-        updates.registrationDate = ddMmmYyyyToISO(registrationDate);
+        let normalizedDate = "";
+
+        // Case 1: already ISO
+        if (/^\d{4}-\d{2}-\d{2}$/.test(registrationDate)) {
+          normalizedDate = registrationDate;
+        }
+
+        // Case 2: DD-MM-YYYY
+        else if (registrationDate.includes("-")) {
+          normalizedDate = ddMmYyyyToISO(registrationDate);
+        }
+
+        // Case 3: "08 AUG 2016"
+        else {
+          normalizedDate = ddMmmYyyyToISO(registrationDate);
+        }
+
+        updates.registrationDate = normalizedDate;
+        // updates.registrationDate = ddMmmYyyyToISO(registrationDate);
       }
 
       if (phone) {
@@ -798,7 +932,6 @@ const Step1BasicInformation = ({
 
       if (!payload) {
         const result = await classifyAndExtractApi(selectedFile);
-        // console.log("step1", result)
         payload = result?.data || {};
       }
 
@@ -1007,6 +1140,13 @@ const Step1BasicInformation = ({
       }),
   );
 
+  // useEffect(() => {
+  //   console.log("[Step1 mounted/current data]", {
+  //     data,
+  //     formData: data?.formData,
+  //   });
+  // }, [data]);
+
   useEffect(() => {
     Object.entries(basicFieldsConfig).forEach(([fieldKey, fieldConfig]) => {
       if (fieldConfig?.type !== "file" || fieldConfig?.ocr !== true) return;
@@ -1028,12 +1168,29 @@ const Step1BasicInformation = ({
 
   // ensure minimum rows for repeatable sections with minRows defined on initial load
   const initializedMinRowsRef = useRef({});
-
+  const initKey = useMemo(
+    () =>
+      `${applicationId || "new"}::${data?.country || ""}::${data?.businessType || ""}`,
+    [applicationId, data?.country, data?.businessType],
+  );
   useEffect(() => {
-    const formRoot = getFormDataRoot();
-    // const initKey = `${applicationId || "new"}::${data?.country || ""}::${data?.businessType || ""}`;
+    console.log("[MIN INIT] effect run", {
+      initKey,
+      formRoot: getFormDataRoot(),
+      repeatableSectionsConfig,
+    });
+    if (
+      !repeatableSectionsConfig ||
+      Object.keys(repeatableSectionsConfig).length === 0
+    ) {
+      return;
+    }
 
-    // if (initializedMinRowsRef.current[initKey]) return;
+    if (initializedMinRowsRef.current[initKey]) {
+      return;
+    }
+
+    const formRoot = getFormDataRoot();
 
     let nextFormRoot = formRoot; //should overwrite
     let hasChanges = false;
@@ -1057,15 +1214,6 @@ const Step1BasicInformation = ({
             (row) => row?.[roleField] === roleValue,
           );
 
-          console.log("INIT SECTION CHECK", {
-            sectionKey,
-            storageKey,
-            roleField: sectionConfig?.rowTypeField,
-            roleValue: sectionConfig?.rowTypeValue,
-            minRows,
-            existingRows,
-            matchingRows,
-          });
           if (matchingRows.length >= minRows) return;
 
           const rowsToAdd = buildMinRowsForSection(
@@ -1081,13 +1229,14 @@ const Step1BasicInformation = ({
           return;
         }
 
+        // normal repeatablesections - businessActivities
         if (existingRows.length >= minRows) return;
 
         const rowsToAdd = buildMinRowsForSection(
           sectionConfig,
           minRows - existingRows.length,
         );
-
+        // console.log("[MIN INIT] writing nextFormRoot", nextFormRoot);
         nextFormRoot = {
           ...nextFormRoot,
           [storageKey]: [...existingRows, ...rowsToAdd],
@@ -1096,16 +1245,19 @@ const Step1BasicInformation = ({
       },
     );
 
-    // initializedMinRowsRef.current[initKey] = true;
+    initializedMinRowsRef.current[initKey] = true;
 
     if (hasChanges) {
+      console.log("[MIN INIT nextFormRoot]", nextFormRoot);
       onFieldChange("formData", nextFormRoot);
     }
   }, [
-    applicationId,
-    data?.country,
-    data?.businessType,
+    initKey,
+    // applicationId,
+    // data?.country,
+    // data?.businessType,
     repeatableSectionsConfig,
+    // repeatableRowCountsSignature
     data?.formData,
   ]);
 
@@ -1143,8 +1295,8 @@ const Step1BasicInformation = ({
                 verificationState,
                 existingDocumentMap,
                 beforeAcceptFile: buildFileValidator,
-                // onPersistKycResult: handlePersistKycResultLocal,
                 onPersistKycResult,
+                onBeforeStartKyc,
                 getDisplayedFileValue,
                 getFieldVerificationMeta,
               }}
@@ -1167,8 +1319,8 @@ const Step1BasicInformation = ({
               verificationState,
               existingDocumentMap,
               beforeAcceptFile: buildFileValidator,
-              // onPersistKycResult: handlePersistKycResultLocal,
               onPersistKycResult,
+              onBeforeStartKyc,
               getDisplayedFileValue,
               getFieldVerificationMeta,
             }}
@@ -1183,7 +1335,8 @@ const Step1BasicInformation = ({
             sectionKey={sectionKey}
             sectionConfig={sectionConfig}
             formData={getFormDataRoot()}
-            onFormDataChange={(next) => onFieldChange("formData", next)}
+            // onFormDataChange={(next) => onFieldChange("formData", next)}
+            onFormDataChange={(next) => handleRepeatableSectionChange(next)}
             disabled={disabled}
             context={{
               data,
@@ -1192,8 +1345,8 @@ const Step1BasicInformation = ({
               verificationState,
               existingDocumentMap,
               beforeAcceptFile: buildFileValidator,
-              // onPersistKycResult: handlePersistKycResultLocal,
               onPersistKycResult,
+              onBeforeStartKyc,
               getDisplayedFileValue,
               getFieldVerificationMeta,
             }}

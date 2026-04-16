@@ -21,7 +21,6 @@ const RepeatableSectionRenderer = ({
   context = {},
 }) => {
   const storageKey = sectionConfig.storage || sectionKey;
-  //   const rows = getRowsFromStorage(formData, storageKey);
   const allRows = getRowsFromStorage(formData, storageKey);
   const rowTypeField = sectionConfig.rowTypeField;
   const rowTypeValue = sectionConfig.rowTypeValue;
@@ -36,31 +35,41 @@ const RepeatableSectionRenderer = ({
     return acc;
   }, []);
 
-  //   const sectionRows = sectionRowIndexes.map((i) => allRows[i]);
   const sectionRows = sectionRowIndexes.map((i) => allRows[i]).filter(Boolean);
 
   const min = sectionConfig.min ?? 0;
   const max = sectionConfig.max ?? Infinity;
 
-  useEffect(() => {
-    if (sectionRows.length >= min) return;
+  // build rows based on min amount 
+  // useEffect(() => {
+  //   if (sectionRows.length >= min) return;
 
-    const missingCount = min - sectionRows.length;
-    const additionalRows = Array.from({ length: missingCount }, () => {
-      const row = buildEmptyRow(sectionConfig.fields);
+  //   const missingCount = min - sectionRows.length;
 
-      if (rowTypeField && rowTypeValue) {
-        row[rowTypeField] = rowTypeValue;
-      }
+  //   const additionalRows = Array.from({ length: missingCount }, () => {
+  //     const row = buildEmptyRow(sectionConfig.fields);
 
-      return row;
-    });
+  //     if (rowTypeField && rowTypeValue) {
+  //       row[rowTypeField] = rowTypeValue;
+  //     }
 
-    onFormDataChange({
-      ...formData,
-      [storageKey]: [...allRows, ...additionalRows],
-    });
-  }, [sectionRows.length, min]);
+  //     return row;
+  //   });
+
+  //   console.log("all rows", allRows)
+  //   console.log("additional rows", additionalRows)
+  //   onFormDataChange({
+  //     ...formData,
+  //     [storageKey]: [...allRows, ...additionalRows],
+  //   });
+  // }, [
+  //   sectionRows.length,
+  //   min,
+  //   storageKey,
+  //   rowTypeField,
+  //   rowTypeValue,
+  //   sectionConfig.fields,
+  // ]);
 
   const handleAddRow = () => {
     const newRow = buildEmptyRow(sectionConfig.fields);
@@ -86,7 +95,6 @@ const RepeatableSectionRenderer = ({
 
   const handleRowFieldChange = (sectionRowIndex, fieldName, value) => {
     const actualIndex = sectionRowIndexes[sectionRowIndex];
-    // const updatedRows = updateRowField(allRows, actualIndex, fieldName, value);
     const rowPrefix = `${storageKey}.${actualIndex}.`;
     const relativeFieldName = fieldName.startsWith(rowPrefix)
       ? fieldName.slice(rowPrefix.length)
@@ -197,77 +205,6 @@ const RepeatableSectionRenderer = ({
           </div>
         );
       })}
-
-      {/* {rows.map((row, rowIndex) => (
-        <div
-          key={`${sectionKey}-${rowIndex}`}
-          className="rounded-xl border p-4 space-y-4"
-        >
-          <div className="flex items-center justify-between">
-            <p className="font-medium">
-              {sectionConfig.label} #{rowIndex + 1}
-            </p>
-
-            {rows.length > min && (
-              <Button
-                type="button"
-                variant="ghost"
-                onClick={() => handleRemoveRow(rowIndex)}
-                disabled={disabled}
-              >
-                Remove
-              </Button>
-            )}
-          </div>
-
-          {Object.entries(sectionConfig.fields).map(
-            ([fieldKey, fieldConfig]) => {
-              const value = row?.[fieldKey] ?? fieldConfig?.value ?? "";
-
-              if (fieldConfig?.conditionalFields) {
-                return (
-                  <ConditionalFieldsRenderer
-                    key={fieldKey}
-                    fieldKey={fieldKey}
-                    fieldConfig={fieldConfig}
-                    value={value}
-                    rowData={row}
-                    onChange={(name, nextValue) =>
-                      handleRowFieldChange(rowIndex, name, nextValue)
-                    }
-                    disabled={disabled}
-                    // context={rowContext}
-                    context={{
-                      ...context,
-                      rowData: row,
-                      rowPrefix: `${storageKey}.${rowIndex}`,
-                    }}
-                  />
-                );
-              }
-
-              return (
-                <FieldRenderer
-                  key={fieldKey}
-                  fieldKey={fieldKey}
-                  fieldConfig={fieldConfig}
-                  value={value}
-                  onChange={(name, nextValue) =>
-                    handleRowFieldChange(rowIndex, name, nextValue)
-                  }
-                  disabled={disabled}
-                //   context={rowContext}
-                    context={{
-                      ...context,
-                      rowData: row,
-                      rowPrefix: `${storageKey}.${rowIndex}`,
-                    }}
-                />
-              );
-            },
-          )}
-        </div>
-      ))} */}
     </div>
   );
 };

@@ -107,17 +107,6 @@ function getBasicBusinessFields() {
       label: "Date of Registration",
       required: true,
     },
-    // businessStatus: {
-    //   type: "select",
-    //   label: "Business Status",
-    //   required: true,
-    //   options: [
-    //     { label: "Low Risk", value: "Low Risk" },
-    //     { label: "Medium-Low Risk", value: "Medium-Low Risk" },
-    //     { label: "Medium-High Risk", value: "Medium-High Risk" },
-    //     { label: "High Risk", value: "High Risk" },
-    //   ],
-    // },
     registeredAddress: {
       type: "textarea",
       label: "Registered Address",
@@ -382,7 +371,6 @@ const INDONESIA_CONFIG = {
           },
           repeatableSections: {
             ...getRepeatableBusinessActivityFields(),
-
             owners: {
               label: "Owner",
               storage: "individuals",
@@ -480,7 +468,6 @@ const INDONESIA_CONFIG = {
           },
           repeatableSections: {
             ...getRepeatableBusinessActivityFields(),
-
             generalPartners: {
               label: "General Partner",
               storage: "individuals",
@@ -499,20 +486,20 @@ const INDONESIA_CONFIG = {
                   value: "General Partner",
                   readonly: true,
                 },
-                sharePercentage: {
-                  type: "number",
-                  label: "Share Percentage (%)",
-                  min: 0,
-                  max: 100,
-                  required: true,
-                  placeholder: "Enter the percentage of shares owned",
-                },
+                // sharePercentage: {
+                //   type: "number",
+                //   label: "Share Percentage (%)",
+                //   min: 0,
+                //   max: 100,
+                //   required: true,
+                //   placeholder: "Enter the percentage of shares owned",
+                // },
                 ...getIndividualFields(),
                 ...getComplianceDeclarations(),
               },
             },
             limitedPartners: {
-              label: "Limited Partner",
+              label: "Limited Partner (Of Ownership < 25%)",
               storage: "individuals",
               rowTypeField: "role",
               rowTypeValue: "Limited Partner",
@@ -527,6 +514,36 @@ const INDONESIA_CONFIG = {
                   type: "text",
                   label: "Role",
                   value: "Limited Partner",
+                  readonly: true,
+                },
+                sharePercentage: {
+                  type: "number",
+                  label: "Share Percentage (%)",
+                  min: 0,
+                  max: 100,
+                  required: true,
+                  placeholder: "Enter the percentage of shares owned",
+                },
+                ...getIndividualFields(),
+                ...getComplianceDeclarations(),
+              },
+            },
+            ubo: {
+              label: "Ultimate Beneficial Owner (Of Ownership >= 25%)",
+              storage: "individuals",
+              rowTypeField: "role",
+              rowTypeValue: "Ultimate Beneficial Owner",
+              min: 1,
+              fields: {
+                kyc: {
+                  type: "kyc",
+                  label: "Liveness Detection Test",
+                  required: true,
+                },
+                role: {
+                  type: "text",
+                  label: "Role",
+                  value: "Ultimate Beneficial Owner",
                   readonly: true,
                 },
                 sharePercentage: {
@@ -628,15 +645,15 @@ const INDONESIA_CONFIG = {
                   value: "Director",
                   readonly: true,
                 },
-                sharePercentage: {
-                  type: "number",
-                  label: "Share Percentage (%)",
-                  min: 0,
-                  max: 100,
-                  required: true,
-                  placeholder:
-                    "Enter the percentage of shares owned, if applicable",
-                },
+                // sharePercentage: {
+                //   type: "number",
+                //   label: "Share Percentage (%)",
+                //   min: 0,
+                //   max: 100,
+                //   required: true,
+                //   placeholder:
+                //     "Enter the percentage of shares owned, if applicable",
+                // },
                 ...getIndividualFields(),
                 ...getComplianceDeclarations(),
                 // position: { type: "text", label: "Position", required: true },
@@ -666,34 +683,106 @@ const INDONESIA_CONFIG = {
                   label: "Shareholder Type",
                   // value: "Shareholder",
                   options: [
-                    {
-                      label: "Individual Shareholder",
-                      value: "Individual Shareholder",
-                    },
-                    {
-                      label: "Corporate Shareholder",
-                      value: "Corporate Shareholder",
-                    },
+                    { label: "Individual", value: "Individual" },
+                    { label: "Corporate", value: "Corporate" },
                   ],
                   placeholder: "Select your shareholder type",
                   required: true,
+                  conditionalFields: {
+                    Individual: {
+                      sharePercentage: {
+                        type: "number",
+                        label: "Share Percentage (%)",
+                        min: 0,
+                        max: 100,
+                        required: true,
+                        placeholder: "Enter your share percentage",
+                      },
+                      name: {
+                        type: "text",
+                        label: "Name",
+                        required: true,
+                        placeholder: "Enter your full legal name",
+                      },
+                      idNumber: {
+                        type: "text",
+                        label: "NRIC / Passport Number",
+                        required: true,
+                        placeholder:
+                          "For Singapore citizens, use the NRIC / Passport Number",
+                      },
+                      // idDocument: {
+                      //   type: "file",
+                      //   label: "National ID / Passport Document",
+                      //   required: true,
+                      // },
+                      nationality: {
+                        type: "select",
+                        label: "Nationality",
+                        required: true,
+                        options: COUNTRIES(),
+                        placeholder: "Select your nationality",
+                      },
+                      residentialAddress: {
+                        type: "textarea",
+                        label: "Residential Address",
+                        required: true,
+                        placeholder: "Enter your residential address",
+                      },
+                    },
+                    Corporate: {
+                      sharePercentage: {
+                        type: "number",
+                        label: "Share Percentage (%)",
+                        min: 0,
+                        max: 100,
+                        required: true,
+                        placeholder: "Enter your share percentage",
+                      },
+                      name: {
+                        type: "text",
+                        label: "Name",
+                        required: true,
+                        placeholder: "Enter your entity name",
+                      },
+                      registrationNumber: {
+                        type: "text",
+                        label: "UEN / Registration Number",
+                        required: true,
+                        placeholder: "Enter your UEN / Registration Number",
+                      },
+                      country: {
+                        type: "select",
+                        label: "Country of Incorporation",
+                        options: COUNTRIES(),
+                        required: true,
+                        placeholder: "Select your country of incorporation",
+                      },
+                      registeredAddress: {
+                        type: "textarea",
+                        label: "Registered Address",
+                        required: true,
+                        placeholder: "Enter your registered address",
+                      },
+                    },
+                  },
                   // readonly: true,
                 },
-                sharePercentage: {
-                  type: "number",
-                  label: "Share Percentage (%)",
-                  min: 0,
-                  max: 100,
-                  required: true,
-                  placeholder: "Enter the percentage of shares owned",
-                },
-                idDocument: {
-                  type: "file",
-                  label: "KTP / Passport Document",
-                  required: true,
-                },
-                ...getIndividualFields(),
-                ...getComplianceDeclarations(),
+                // sharePercentage: {
+                //   type: "number",
+                //   label: "Share Percentage (%)",
+                //   min: 0,
+                //   max: 100,
+                //   required: true,
+                //   placeholder: "Enter the percentage of shares owned",
+                // },
+                // idDocument: {
+                //   type: "file",
+                //   label: "KTP / Passport Document",
+                //   required: true,
+                // },
+                // ...getIndividualFields(),
+                // ...getComplianceDeclarations(),
               },
             },
             ubo: {
