@@ -386,9 +386,9 @@ const SMEApplicationForm = () => {
       rawFormDataOverride || formData,
     );
 
-    console.log("[1] rawFormDataOverride", rawFormDataOverride);
-    console.log("[2] redux formData", formData);
-    console.log("[3] effectiveFormData", effectiveFormData);
+    // console.log("[1] rawFormDataOverride", rawFormDataOverride);
+    // console.log("[2] redux formData", formData);
+    // console.log("[3] effectiveFormData", effectiveFormData);
 
     try {
       let savedAppId = currentApp?.applicationId || appId;
@@ -467,7 +467,7 @@ const SMEApplicationForm = () => {
       cleanedFormPayload.email =
         effectiveFormData?.email ?? cleanedFormPayload.email ?? "";
 
-      console.log("[4] cleanedFormPayload", cleanedFormPayload);
+      // console.log("[4] cleanedFormPayload", cleanedFormPayload);
 
       const payload = {
         ...(savedAppId && savedAppId !== "new"
@@ -481,7 +481,7 @@ const SMEApplicationForm = () => {
         form_data: cleanedFormPayload,
       };
 
-      console.log("[5] final payload", payload);
+      // console.log("[5] final payload", payload);
 
       const res = await saveApplicationDraftApi(payload);
       savedAppId = res.application_id || savedAppId;
@@ -768,8 +768,8 @@ const SMEApplicationForm = () => {
     if (!hasConfigSteps) reasons.push("Form configuration is unavailable.");
     if (isIncomplete)
       reasons.push("There are still missing required fields or documents.");
-    if (!isKycComplete)
-      reasons.push("All individuals requiring KYC must complete and pass KYC.");
+    // if (!isKycComplete)
+    //   reasons.push("All individuals requiring KYC must complete and pass KYC.");
 
     return {
       canSubmit: reasons.length === 0,

@@ -167,9 +167,9 @@ const Step1BasicInformation = ({
           normalizeDocumentType(doc.document_type) ===
             normalizedRepeatableDocType,
       ) ||
-      existingDocuments.find(
-        (doc) => normalizeDocumentType(doc.document_type) === expectedType,
-      ) ||
+      // existingDocuments.find(
+      //   (doc) => normalizeDocumentType(doc.document_type) === expectedType,
+      // ) ||
       null
     );
   };
@@ -483,10 +483,25 @@ const Step1BasicInformation = ({
         const validation = result?.upload_validation;
         const validationStatus = validation?.status;
         const validationReasons = validation?.reasons || [];
+
         if (validationStatus === "FAIL") {
           const errorMessage =
             validationReasons[0] ||
             "Uploaded document does not match expected type OR its quality is too low. Please try again.";
+
+          const failedValue = {
+            file,
+            original_filename: file?.name || "",
+            mime_type: file?.type || "application/octet-stream",
+            upload_status: "failed",
+            // progress: 0,
+            verified: false,
+            verificationStatus: "failed",
+            verificationMessage: errorMessage,
+            detectedType,
+            expectedType,
+            extractedData: result,
+          };
 
           setFieldVerificationState(fieldPath, {
             status: "failed",
@@ -495,12 +510,16 @@ const Step1BasicInformation = ({
             detectedType,
           });
 
-          throw new Error(errorMessage);
+          // throw new Error(errorMessage);
+          return failedValue;
         }
 
         const nextValue = {
           file,
-          progress: 0,
+          original_filename: file?.name || "",
+          mime_type: file?.type || "application/octet-stream",
+          upload_status: "pending",
+          // progress: 0,
           verified: true,
           verificationStatus: "verified",
           verificationMessage: "Document verified successfully.",
@@ -518,24 +537,39 @@ const Step1BasicInformation = ({
 
         return nextValue;
       } catch (err) {
-        if (
-          !verificationState[fieldPath]?.status ||
-          verificationState[fieldPath]?.status === "verifying"
-        ) {
-          setFieldVerificationState(fieldPath, {
-            status: "failed",
-            message:
-              err?.message ||
-              "Verification failed. Please upload the file again.",
-            expectedType,
-            detectedType: null,
-          });
-        }
+        // if (
+        //   !verificationState[fieldPath]?.status ||
+        //   verificationState[fieldPath]?.status === "verifying"
+        // ) {
 
-        throw err;
+        const failedValue = {
+          file,
+          // progress: 0,
+          original_filename: file?.name || "",
+          mime_type: file?.type || "application/octet-stream",
+          upload_status: "pending",
+          verified: false,
+          verificationStatus: "failed",
+          verificationMessage: errorMessage,
+          detectedType: null,
+          expectedType,
+          extractedData: null,
+        };
+        setFieldVerificationState(fieldPath, {
+          status: "failed",
+          message:
+            err?.message ||
+            "Verification failed. Please upload the file again.",
+          expectedType,
+          detectedType: null,
+        });
+        // }
+
+        // throw err;
+        return failedValue;
       }
     },
-    [setVerificationState],
+    [],
     // [verificationState],
   );
 

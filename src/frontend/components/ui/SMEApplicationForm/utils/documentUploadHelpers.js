@@ -295,6 +295,7 @@ export const uploadAllDocumentsFromFormData = async (
       existingDocumentMap,
       extractedData,
     });
+    console.log("SUCCESSFULLY uploaded", uploaded)
 
     uploadedResults.push({
       ...entry,

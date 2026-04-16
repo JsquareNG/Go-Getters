@@ -8,7 +8,6 @@ import { allDocuments } from "@/api/documentApi";
 
 import {
   selectFormData,
-  selectStepCompletion,
 } from "@/store/applicationFormSlice";
 
 /**
@@ -17,7 +16,6 @@ import {
  */
 const Step4 = ({ onEdit, disabled = false, applicationId }) => {
   const data = useSelector(selectFormData);
-  const stepCompletion = useSelector(selectStepCompletion);
   const [existingDocuments, setExistingDocuments] = useState([]);
 
   useEffect(() => {
@@ -89,6 +87,7 @@ const Step4 = ({ onEdit, disabled = false, applicationId }) => {
 
     // top-level file
     if (!sectionKey) {
+      // console.log("fieldkey", fieldKey)
       return fieldKey;
     }
 
@@ -150,27 +149,37 @@ const Step4 = ({ onEdit, disabled = false, applicationId }) => {
 
   //   return "Not uploaded";
   // };
+  // TODO: fix the file now the file name etc type not stored properly, cannot read actual filename person uploaded.
   const formatDisplayedDocument = (value) => {
-  const localFile = unwrapLocalFile(value);
+    const localFile = unwrapLocalFile(value);
 
-  if (localFile) {
-    return `${localFile.name} (${(localFile.size / 1024).toFixed(2)} KB)`;
-  }
+    if (localFile) {
+      return `${localFile.name} (${(localFile.size / 1024).toFixed(2)} KB)`;
+    }
 
-  if (isBackendDocument(value)) {
-    return value.original_filename || value.document_type || "Uploaded";
-  }
+    if (isBackendDocument(value)) {
+      console.log("BACKEND DOC", value)
+      return value.original_filename || value.document_type || "Uploaded";
+    }
 
-  if (
-    value &&
-    typeof value === "object" &&
-    (value.verificationStatus || value.verified || value.detectedType || value.expectedType)
-  ) {
-    return value.original_filename || value.detectedType || value.expectedType || "Uploaded";
-  }
+    if (
+      value &&
+      typeof value === "object" &&
+      (value.verificationStatus ||
+        value.verified ||
+        value.detectedType ||
+        value.expectedType)
+    ) {
+      return (
+        value.original_filename ||
+        value.detectedType ||
+        value.expectedType ||
+        "Uploaded"
+      );
+    }
 
-  return "Not uploaded";
-};
+    return "Not uploaded";
+  };
 
   const getDisplayedDocument = ({
     cfg,
@@ -198,7 +207,6 @@ const Step4 = ({ onEdit, disabled = false, applicationId }) => {
 
     // return null;
     const localFile = unwrapLocalFile(localValue);
-
 
     // PRIORITY 1: any local row value that already represents the current file
     if (
@@ -288,7 +296,7 @@ const Step4 = ({ onEdit, disabled = false, applicationId }) => {
           });
 
           const subFields = cfg.conditionalFields[value];
-          console.log("subfields", subFields)
+          console.log("subfields", subFields);
           Object.entries(subFields).forEach(([subKey, subCfg]) => {
             const subValue = data?.[subKey];
             // const subValue = item?.[subKey];
@@ -382,7 +390,7 @@ const Step4 = ({ onEdit, disabled = false, applicationId }) => {
 
               const subFields = cfg.conditionalFields[value];
               Object.entries(subFields).forEach(([subKey, subCfg]) => {
-                const subValue = item?.[subKey]
+                const subValue = item?.[subKey];
 
                 let formattedSubValue;
                 if (subCfg.type === "file") {

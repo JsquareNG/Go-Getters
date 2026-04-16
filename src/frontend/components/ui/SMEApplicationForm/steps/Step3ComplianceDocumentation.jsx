@@ -165,11 +165,9 @@ const Step3ComplianceDocumentation = ({
     // Prefer any locally controlled value, including failed/verifying replacements
     if (
       localValue &&
-      (localValue instanceof File ||
-        localValue?.file instanceof File 
-        // ||
-        // localValue?.verificationStatus
-        )
+      (localValue instanceof File || localValue?.file instanceof File)
+      // ||
+      // localValue?.verificationStatus
     ) // if (
     //   localValue &&
     //   (localValue instanceof File || localValue?.file instanceof File)
@@ -293,11 +291,10 @@ const Step3ComplianceDocumentation = ({
       try {
         const result = await classifyAndExtractApi(file, expectedType);
         console.log("classify results:", result);
-         console.log("[VERIFY DONE]", {
-        fieldPath,
-        result,
-      });
-
+        console.log("[VERIFY DONE]", {
+          fieldPath,
+          result,
+        });
 
         const detectedType = normalizeDocumentType(
           result?.detected_type ||
@@ -321,7 +318,10 @@ const Step3ComplianceDocumentation = ({
 
           const failedValue = {
             file,
-            progress: 0,
+            // progress: 0,
+            original_filename: file?.name || "",
+            mime_type: file?.type || "application/octet-stream",
+            upload_status: "failed",
             verified: false,
             verificationStatus: "failed",
             verificationMessage: errorMessage,
@@ -342,7 +342,10 @@ const Step3ComplianceDocumentation = ({
 
         const nextValue = {
           file,
-          progress: 0,
+          // progress: 0,
+          original_filename: file?.name || "",
+          mime_type: file?.type || "application/octet-stream",
+          upload_status: "pending",
           verified: true,
           verificationStatus: "verified",
           verificationMessage: "Document verified successfully.",
@@ -365,7 +368,10 @@ const Step3ComplianceDocumentation = ({
 
         const failedValue = {
           file,
-          progress: 0,
+          // progress: 0,
+          original_filename: file?.name || "",
+          mime_type: file?.type || "application/octet-stream",
+          upload_status: "failed",
           verified: false,
           verificationStatus: "failed",
           verificationMessage: errorMessage,
