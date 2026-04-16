@@ -99,18 +99,62 @@ export const uploadDocumentApi = async (payload, file, onProgress) => {
  * Convenience wrapper you can call from submit.
  * IMPORTANT: you MUST pass applicationId now.
  */
-export async function uploadDocument({ applicationId, documentType, file, onProgress }) {
+export async function uploadDocument({ applicationId, documentType, file, onProgress, extracted_data }) {
   const payload = {
     application_id: applicationId,
     document_type: documentType,
     filename: file.name,
     mime_type: file.type || "application/octet-stream",
+    extracted_data: extracted_data
   };
 
   try {
     return await uploadDocumentApi(payload, file, onProgress);
   } catch (err) {
     console.error("uploadDocument failed:", err?.response || err);
+    throw err;
+  }
+}
+
+export const replaceDocumentApi = async (documentId, file, extracted_data, onProgress) => {
+  const formData = new FormData();
+  formData.append("file", file);
+
+  if (extracted_data !== undefined && extracted_data !== null) {
+    formData.append("extracted_data", JSON.stringify(extracted_data));
+  }
+
+  const res = await axiosClient.post(
+    `/documents/replace-upload/${documentId}`,
+    formData,
+    {
+      headers: {
+        "Content-Type": "multipart/form-data",
+      },
+      onUploadProgress: (progressEvent) => {
+        if (!progressEvent.total) return;
+        const pct = Math.round((progressEvent.loaded * 100) / progressEvent.total);
+        if (onProgress) onProgress(pct);
+      },
+    },
+  );
+
+  return res.data;
+};
+
+/**
+ * Convenience wrapper for replacing an existing document.
+ */
+export async function replaceDocument({
+  documentId,
+  file,
+  extracted_data,
+  onProgress,
+}) {
+  try {
+    return await replaceDocumentApi(documentId, file, extracted_data, onProgress);
+  } catch (err) {
+    console.error("replaceDocument failed:", err?.response || err);
     throw err;
   }
 }
@@ -124,3 +168,4 @@ export const downloadDocuments = async (documentId) => {
   const res = await axiosClient.get(`/documents/download-url/${documentId}`);
   return res.data;
 };
+

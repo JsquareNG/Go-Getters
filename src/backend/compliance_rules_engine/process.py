@@ -27,12 +27,11 @@ def evaluate_company(company, db, config):
         total_score += score
         all_triggers.extend(triggers)
 
-    for person in company.individuals:
-        result = evaluate_kyc_rules(person, db, config)
-        score = result["risk_score"]
-        triggers = result["triggered_rules"]
-        total_score += score
-        all_triggers.extend(triggers)
+    result = evaluate_kyc_rules(company, db, config)
+    score = result["risk_score"]
+    triggers = result["triggered_rules"]
+    total_score += score
+    all_triggers.extend(triggers)
 
     simplified_threshold = config.get("thresholds", {}).get("Simplified Due Diligence")
     standard_threshold = config.get("thresholds", {}).get("Standard Due Diligence")

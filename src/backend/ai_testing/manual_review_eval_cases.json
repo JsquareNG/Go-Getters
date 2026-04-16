@@ -1,0 +1,696 @@
+[
+  {
+    "name": "sg_sole_prop_clean_low_risk_approve",
+    "expected_action": "approve",
+    "application_data": {
+      "uen": "201812345A",
+      "email": "owner1@example.com",
+      "phone": "81234567",
+      "country": "Singapore",
+      "swiftBic": "DBSSSGSG",
+      "individuals": [
+        {
+          "role": "Owner",
+          "fullName": "Tan Wei Ming",
+          "idNumber": "S1234567A",
+          "dateOfBirth": "1988-05-12",
+          "nationality": "Singapore",
+          "pepDeclaration": "No",
+          "sharePercentage": 100,
+          "fatcaDeclaration": "No",
+          "residentialAddress": "10 Tampines Ave 3, Singapore 529705",
+          "sanctionsDeclaration": "No"
+        }
+      ],
+      "businessName": "TWM RETAIL",
+      "businessType": "sole_proprietorship",
+      "annualRevenue": "120000",
+      "sourceOfFunds": "Retail sales of household goods",
+      "businessStatus": "Active",
+      "current_status": "Draft",
+      "accountCurrency": "SGD",
+      "businessCountry": "Singapore",
+      "businessIndustry": "Retail & Consumer Goods",
+      "registrationDate": "2016-03-15",
+      "bankAccountNumber": "1234567890",
+      "registeredAddress": "10 Tampines Ave 3, Singapore 529705",
+      "providerSessionId": null,
+      "provider_session_id": null,
+      "expectedMonthlyTransactionVolume": "1000",
+      "expectedCountriesOfTransactionActivity": ["Malaysia"],
+      "businessProfile": {
+        "verificationStatus": "verified",
+        "verificationMessage": "Document verified successfully."
+      },
+      "bankStatement": {
+        "verificationStatus": "verified",
+        "verificationMessage": "Document verified successfully."
+      },
+      "proofOfBusinessAddress": {
+        "verificationStatus": "verified",
+        "verificationMessage": "Document verified successfully."
+      }
+    },
+    "risk_assessment": {
+      "risk_grade": "Standard Due Diligence (CDD)",
+      "risk_score": 28,
+      "triggered_rules": [
+        { "code": "R100", "description": "Company age risk (3 to less than 10 years)" },
+        { "code": "R200", "description": "Transaction volume below 1,000,000" },
+        { "code": "R300", "description": "Ownership complexity up to 2 layers" },
+        { "code": "R301", "description": "Director count below 3" },
+        { "code": "R400", "description": "Transaction exposure across up to 2 countries" }
+      ]
+    },
+    "documents": [
+      {
+        "document_id": "sgdoc001",
+        "document_type": "businessProfile",
+        "status": "uploaded",
+        "original_filename": "business_profile.pdf"
+      },
+      {
+        "document_id": "sgdoc002",
+        "document_type": "bankStatement",
+        "status": "uploaded",
+        "original_filename": "bank_statement.pdf"
+      },
+      {
+        "document_id": "sgdoc003",
+        "document_type": "proofOfBusinessAddress",
+        "status": "uploaded",
+        "original_filename": "office_lease.pdf"
+      }
+    ],
+    "action_requests": []
+  },
+  {
+    "name": "sg_private_limited_clean_low_risk_approve",
+    "expected_action": "approve",
+    "application_data": {
+      "uen": "201945678Z",
+      "email": "ops@alphatech.sg",
+      "phone": "69887766",
+      "country": "Singapore",
+      "swiftBic": "OCBCSGSG",
+      "individuals": [
+        {
+          "role": "Director",
+          "fullName": "Melissa Goh",
+          "idNumber": "S7654321B",
+          "dateOfBirth": "1986-09-01",
+          "nationality": "Singapore",
+          "pepDeclaration": "No",
+          "fatcaDeclaration": "No",
+          "residentialAddress": "20 Bedok North St 1, Singapore 469662",
+          "sanctionsDeclaration": "No"
+        },
+        {
+          "role": "Shareholder",
+          "shareholderType": "Individual",
+          "sharePercentage": 60,
+          "name": "Melissa Goh",
+          "idNumber": "S7654321B",
+          "nationality": "Singapore",
+          "residentialAddress": "20 Bedok North St 1, Singapore 469662",
+          "pepDeclaration": "No",
+          "fatcaDeclaration": "No",
+          "sanctionsDeclaration": "No"
+        },
+        {
+          "role": "Shareholder",
+          "shareholderType": "Individual",
+          "sharePercentage": 40,
+          "name": "Jason Lim",
+          "idNumber": "S8123456C",
+          "nationality": "Singapore",
+          "residentialAddress": "12 Pasir Ris Dr 3, Singapore 519459",
+          "pepDeclaration": "No",
+          "fatcaDeclaration": "No",
+          "sanctionsDeclaration": "No"
+        },
+        {
+          "role": "Ultimate Beneficial Owner",
+          "name": "Melissa Goh",
+          "sharePercentage": 60,
+          "nationality": "Singapore",
+          "dateOfBirth": "1986-09-01",
+          "residentialAddress": "20 Bedok North St 1, Singapore 469662",
+          "basisOfControl": "Indirect ownership through another entity",
+          "pepDeclaration": "No",
+          "fatcaDeclaration": "No",
+          "sanctionsDeclaration": "No"
+        }
+      ],
+      "businessName": "ALPHA TECH PTE. LTD.",
+      "businessType": "private_limited",
+      "annualRevenue": "800000",
+      "sourceOfFunds": "Software implementation services",
+      "companyStatus": "Active",
+      "current_status": "Draft",
+      "accountCurrency": "SGD",
+      "businessCountry": "Singapore",
+      "businessIndustry": "Technology Services",
+      "incorporationDate": "2019-07-12",
+      "bankAccountNumber": "9988776655",
+      "registeredAddress": "1 Fusionopolis Way, Singapore 138632",
+      "providerSessionId": null,
+      "provider_session_id": null,
+      "expectedMonthlyTransactionVolume": "66000",
+      "expectedCountriesOfTransactionActivity": ["Singapore", "Malaysia"],
+      "boardResolution": {
+        "verificationStatus": "verified",
+        "verificationMessage": "Document verified successfully."
+      },
+      "bankStatement": {
+        "verificationStatus": "verified",
+        "verificationMessage": "Document verified successfully."
+      }
+    },
+    "risk_assessment": {
+      "risk_grade": "Standard Due Diligence (CDD)",
+      "risk_score": 23,
+      "triggered_rules": [
+        { "code": "R100", "description": "Company age risk (3 to less than 10 years)" },
+        { "code": "R200", "description": "Transaction volume below 1,000,000" },
+        { "code": "R300", "description": "Ownership complexity up to 2 layers" },
+        { "code": "R301", "description": "Director count below 3" },
+        { "code": "R400", "description": "Transaction exposure across up to 2 countries" }
+      ]
+    },
+    "documents": [
+      {
+        "document_id": "sgpl001",
+        "document_type": "boardResolution",
+        "status": "uploaded",
+        "original_filename": "board_resolution.pdf"
+      },
+      {
+        "document_id": "sgpl002",
+        "document_type": "bankStatement",
+        "status": "uploaded",
+        "original_filename": "bank_statement.pdf"
+      }
+    ],
+    "action_requests": []
+  },
+  {
+    "name": "sg_private_limited_pep_escalate",
+    "expected_action": "escalate",
+    "application_data": {
+      "uen": "202112345K",
+      "email": "finance@northbridge.sg",
+      "phone": "63334455",
+      "country": "Singapore",
+      "swiftBic": "UOVBSGSG",
+      "individuals": [
+        {
+          "role": "Director",
+          "fullName": "Aaron Koh",
+          "idNumber": "S4455667D",
+          "dateOfBirth": "1981-04-11",
+          "nationality": "Singapore",
+          "pepDeclaration": "Yes",
+          "country": "Singapore",
+          "position": "Member of Parliament",
+          "relationship": "Self",
+          "period": "2022 - Present",
+          "fatcaDeclaration": "No",
+          "residentialAddress": "8 Bukit Timah Road, Singapore 229836",
+          "sanctionsDeclaration": "No"
+        },
+        {
+          "role": "Shareholder",
+          "shareholderType": "Individual",
+          "sharePercentage": 100,
+          "name": "Aaron Koh",
+          "idNumber": "S4455667D",
+          "nationality": "Singapore",
+          "residentialAddress": "8 Bukit Timah Road, Singapore 229836",
+          "pepDeclaration": "Yes",
+          "country": "Singapore",
+          "position": "Member of Parliament",
+          "relationship": "Self",
+          "period": "2022 - Present",
+          "fatcaDeclaration": "No",
+          "sanctionsDeclaration": "No"
+        },
+        {
+          "role": "Ultimate Beneficial Owner",
+          "name": "Aaron Koh",
+          "sharePercentage": 100,
+          "nationality": "Singapore",
+          "dateOfBirth": "1981-04-11",
+          "residentialAddress": "8 Bukit Timah Road, Singapore 229836",
+          "basisOfControl": "Direct ownership (≥25%)",
+          "pepDeclaration": "Yes",
+          "country": "Singapore",
+          "position": "Member of Parliament",
+          "relationship": "Self",
+          "period": "2022 - Present",
+          "fatcaDeclaration": "No",
+          "sanctionsDeclaration": "No"
+        }
+      ],
+      "businessName": "NORTHBRIDGE ADVISORY PTE. LTD.",
+      "businessType": "private_limited",
+      "annualRevenue": "450000",
+      "sourceOfFunds": "Business consultancy services",
+      "companyStatus": "Active",
+      "current_status": "Draft",
+      "accountCurrency": "SGD",
+      "businessCountry": "Singapore",
+      "businessIndustry": "Business Management Consulting",
+      "incorporationDate": "2021-09-20",
+      "bankAccountNumber": "1231231234",
+      "registeredAddress": "3 Shenton Way, Singapore 068805",
+      "providerSessionId": null,
+      "provider_session_id": null,
+      "expectedMonthlyTransactionVolume": "300000",
+      "expectedCountriesOfTransactionActivity": ["Singapore"]
+    },
+    "risk_assessment": {
+      "risk_grade": "Standard Due Diligence (CDD)",
+      "risk_score": 45,
+      "triggered_rules": [
+        { "code": "R100", "description": "Company age risk (3 to less than 10 years)" },
+        { "code": "R200", "description": "Transaction volume below 1,000,000" },
+        { "code": "R300", "description": "Ownership complexity up to 2 layers" },
+        { "code": "R301", "description": "Director count below 3" },
+        { "code": "R400", "description": "Transaction exposure across up to 2 countries" },
+        { "code": "KYC002", "description": "Politically exposed person (Aaron Koh)" }
+      ]
+    },
+    "documents": [
+      {
+        "document_id": "sgpep001",
+        "document_type": "boardResolution",
+        "status": "uploaded",
+        "original_filename": "board_resolution.pdf"
+      },
+      {
+        "document_id": "sgpep002",
+        "document_type": "bankStatement",
+        "status": "uploaded",
+        "original_filename": "bank_statement.pdf"
+      }
+    ],
+    "action_requests": []
+  },
+  {
+    "name": "sg_private_limited_high_risk_industry_escalate",
+    "expected_action": "escalate",
+    "application_data": {
+      "uen": "202356789Q",
+      "email": "ops@coinflow.sg",
+      "phone": "65558822",
+      "country": "Singapore",
+      "swiftBic": "CITISGSG",
+      "individuals": [
+        {
+          "role": "Director",
+          "fullName": "Ethan Tan",
+          "idNumber": "S6677889F",
+          "dateOfBirth": "1990-12-03",
+          "nationality": "Singapore",
+          "pepDeclaration": "No",
+          "fatcaDeclaration": "No",
+          "residentialAddress": "77 Changi South Ave 2, Singapore 486047",
+          "sanctionsDeclaration": "No"
+        },
+        {
+          "role": "Shareholder",
+          "shareholderType": "Individual",
+          "sharePercentage": 100,
+          "name": "Ethan Tan",
+          "idNumber": "S6677889F",
+          "nationality": "Singapore",
+          "residentialAddress": "77 Changi South Ave 2, Singapore 486047",
+          "pepDeclaration": "No",
+          "fatcaDeclaration": "No",
+          "sanctionsDeclaration": "No"
+        },
+        {
+          "role": "Ultimate Beneficial Owner",
+          "name": "Ethan Tan",
+          "sharePercentage": 100,
+          "nationality": "Singapore",
+          "dateOfBirth": "1990-12-03",
+          "residentialAddress": "77 Changi South Ave 2, Singapore 486047",
+          "basisOfControl": "Direct ownership (≥25%)",
+          "pepDeclaration": "No",
+          "fatcaDeclaration": "No",
+          "sanctionsDeclaration": "No"
+        }
+      ],
+      "businessName": "COINFLOW PTE. LTD.",
+      "businessType": "private_limited",
+      "annualRevenue": "900000",
+      "sourceOfFunds": "Digital asset technology services",
+      "companyStatus": "Active",
+      "current_status": "Draft",
+      "accountCurrency": "SGD",
+      "businessCountry": "Singapore",
+      "businessIndustry": "Cryptocurrency",
+      "incorporationDate": "2023-08-01",
+      "bankAccountNumber": "7788990011",
+      "registeredAddress": "5 Shenton Way, Singapore 068808",
+      "providerSessionId": null,
+      "provider_session_id": null,
+      "expectedMonthlyTransactionVolume": "900000",
+      "expectedCountriesOfTransactionActivity": ["Singapore", "Hong Kong"]
+    },
+    "risk_assessment": {
+      "risk_grade": "Enhanced Due Diligence (EDD)",
+      "risk_score": 73,
+      "triggered_rules": [
+        { "code": "R003", "description": "High risk industry" },
+        { "code": "R100", "description": "Company age risk (1 to less than 3 years)" },
+        { "code": "R200", "description": "Transaction volume below 1,000,000" },
+        { "code": "R300", "description": "Ownership complexity up to 2 layers" },
+        { "code": "R301", "description": "Director count below 3" },
+        { "code": "R400", "description": "Transaction exposure across up to 2 countries" }
+      ]
+    },
+    "documents": [
+      {
+        "document_id": "sgcrypto001",
+        "document_type": "boardResolution",
+        "status": "uploaded",
+        "original_filename": "board_resolution.pdf"
+      },
+      {
+        "document_id": "sgcrypto002",
+        "document_type": "bankStatement",
+        "status": "uploaded",
+        "original_filename": "bank_statement.pdf"
+      }
+    ],
+    "action_requests": []
+  },
+  {
+    "name": "sg_limited_partnership_unsupported_reject",
+    "expected_action": "reject",
+    "application_data": {
+      "uen": "202412345R",
+      "email": "admin@abclp.sg",
+      "phone": "64445566",
+      "country": "Singapore",
+      "swiftBic": "SCBLSGSG",
+      "individuals": [
+        {
+          "role": "General Partner",
+          "fullName": "Lim Ah Huat",
+          "idNumber": "S2345678G",
+          "dateOfBirth": "1984-11-02",
+          "nationality": "Singapore",
+          "pepDeclaration": "No",
+          "fatcaDeclaration": "No",
+          "residentialAddress": "11 Paya Lebar Rd, Singapore 409006",
+          "sanctionsDeclaration": "No"
+        },
+        {
+          "role": "Limited Partner",
+          "fullName": "Lim Ah See",
+          "idNumber": "S3456789H",
+          "dateOfBirth": "1988-02-14",
+          "nationality": "Singapore",
+          "pepDeclaration": "No",
+          "sharePercentage": 20,
+          "fatcaDeclaration": "No",
+          "residentialAddress": "22 Kallang Ave, Singapore 339413",
+          "sanctionsDeclaration": "No"
+        },
+        {
+          "role": "Ultimate Beneficial Owner",
+          "fullName": "Lim Ah Huat",
+          "idNumber": "S2345678G",
+          "dateOfBirth": "1984-11-02",
+          "nationality": "Singapore",
+          "pepDeclaration": "No",
+          "sharePercentage": 80,
+          "fatcaDeclaration": "No",
+          "residentialAddress": "11 Paya Lebar Rd, Singapore 409006",
+          "sanctionsDeclaration": "No"
+        }
+      ],
+      "businessName": "ABC LP",
+      "businessType": "limited_partnership",
+      "annualRevenue": "250000",
+      "sourceOfFunds": "Wholesale distribution",
+      "businessStatus": "Active",
+      "current_status": "Draft",
+      "accountCurrency": "SGD",
+      "businessCountry": "North Korea",
+      "businessIndustry": "Trading",
+      "registrationDate": "2024-06-01",
+      "bankAccountNumber": "1112223334",
+      "registeredAddress": "11 Paya Lebar Rd, Singapore 409006",
+      "providerSessionId": null,
+      "provider_session_id": null,
+      "expectedMonthlyTransactionVolume": "400000",
+      "expectedCountriesOfTransactionActivity": ["Singapore"]
+    },
+    "risk_assessment": {
+      "risk_grade": "Enhanced Due Diligence (EDD)",
+      "risk_score": 110,
+      "triggered_rules": [
+        { "code": "SG001", "description": "Unsupported Singapore entity type" },
+        { "code": "R001", "description": "FATF blacklist country" },
+        { "code": "R003", "description": "High risk industry" },
+        { "code": "R100", "description": "Company age risk (1 to less than 3 years)" },
+        { "code": "R200", "description": "Transaction volume below 1,000,000" },
+        { "code": "R300", "description": "Ownership complexity up to 2 layers" },
+        { "code": "R301", "description": "Director count below 3" },
+        { "code": "R400", "description": "Transaction exposure across up to 2 countries" }
+      ]
+    },
+    "documents": [
+      {
+        "document_id": "sglp001",
+        "document_type": "LPAgreement",
+        "status": "uploaded",
+        "original_filename": "lp_agreement.pdf"
+      },
+      {
+        "document_id": "sglp002",
+        "document_type": "bankStatement",
+        "status": "uploaded",
+        "original_filename": "bank_statement.pdf"
+      }
+    ],
+    "action_requests": []
+  },
+  {
+    "name": "id_ud_clean_baseline_escalate",
+    "expected_action": "escalate",
+    "application_data": {
+      "npwp": "123456789012345",
+      "email": "owner@majujaya.id",
+      "phone": "081234567890",
+      "country": "Indonesia",
+      "swiftBic": "BMRIIDJA",
+      "individuals": [
+        {
+          "role": "Owner",
+          "fullName": "Budi Santoso",
+          "idNumber": "3175090101900001",
+          "dateOfBirth": "1990-01-01",
+          "nationality": "Indonesia",
+          "pepDeclaration": "No",
+          "sharePercentage": 100,
+          "fatcaDeclaration": "No",
+          "residentialAddress": "Jl. Sudirman No. 10, Jakarta",
+          "sanctionsDeclaration": "No"
+        }
+      ],
+      "businessName": "MAJU JAYA UD",
+      "businessType": "usaha_dagang",
+      "annualRevenue": "600000000",
+      "bankAccountNumber": "9876543210",
+      "sourceOfFunds": "Retail distribution business",
+      "businessStatus": "Medium-Low Risk",
+      "current_status": "Draft",
+      "accountCurrency": "IDR",
+      "businessCountry": "Indonesia",
+      "registrationDate": "2018-06-15",
+      "registeredAddress": "Jl. Sudirman No. 10, Jakarta",
+      "registrationNumber": "1901220009282",
+      "providerSessionId": null,
+      "provider_session_id": null,
+      "expectedMonthlyTransactionVolume": "900000",
+      "expectedCountriesOfTransactionActivity": ["Indonesia"],
+      "businessActivities": [
+        {
+          "activityType": "Primary",
+          "businessActivity": "Retail store / minimarket (47111)",
+          "activityDescription": "Retail sale of groceries and household items"
+        }
+      ]
+    },
+    "risk_assessment": {
+      "risk_grade": "Standard Due Diligence (CDD)",
+      "risk_score": 48,
+      "triggered_rules": [
+        { "code": "ID001", "description": "Foreign SME onboarding (Indonesia entity)" },
+        { "code": "R100", "description": "Company age risk (3 to less than 10 years)" },
+        { "code": "R200", "description": "Transaction volume below 1,000,000" },
+        { "code": "R300", "description": "Ownership complexity up to 2 layers" },
+        { "code": "R301", "description": "Director count below 3" },
+        { "code": "R400", "description": "Transaction exposure across up to 2 countries" }
+      ]
+    },
+    "documents": [
+      {
+        "document_id": "idud001",
+        "document_type": "businessRegistrationUpload",
+        "status": "uploaded",
+        "original_filename": "nib.pdf"
+      },
+      {
+        "document_id": "idud002",
+        "document_type": "npwpCertificate",
+        "status": "uploaded",
+        "original_filename": "npwp.jpg"
+      },
+      {
+        "document_id": "idud003",
+        "document_type": "bankStatement",
+        "status": "uploaded",
+        "original_filename": "bank_statement.pdf"
+      }
+    ],
+    "action_requests": []
+  },
+  {
+    "name": "id_cv_sanctions_reject",
+    "expected_action": "escalate",
+    "application_data": {
+      "npwp": "123456789012348",
+      "email": "admin@globalbridge.id",
+      "phone": "081355566677",
+      "country": "Indonesia",
+      "swiftBic": "BNINIDJA",
+      "individuals": [
+        {
+          "role": "General Partner",
+          "fullName": "Fajar Pratama",
+          "idNumber": "3174010101800005",
+          "dateOfBirth": "1980-01-01",
+          "nationality": "Indonesia",
+          "pepDeclaration": "No",
+          "sharePercentage": 55,
+          "fatcaDeclaration": "No",
+          "residentialAddress": "Jl. Ahmad Yani No. 20, Surabaya",
+          "sanctionsDeclaration": "Yes",
+          "details": "Self-declared sanctions exposure"
+        },
+        {
+          "role": "Limited Partner",
+          "fullName": "Dewi Lestari",
+          "idNumber": "3174010202850006",
+          "dateOfBirth": "1985-02-02",
+          "nationality": "Indonesia",
+          "pepDeclaration": "No",
+          "sharePercentage": 45,
+          "fatcaDeclaration": "No",
+          "residentialAddress": "Jl. Diponegoro No. 5, Surabaya",
+          "sanctionsDeclaration": "No"
+        }
+      ],
+      "businessName": "GLOBAL BRIDGE CV",
+      "businessType": "commanditaire_vennootschap",
+      "annualRevenue": "900000000",
+      "bankAccountNumber": "3344556677",
+      "sourceOfFunds": "General trading services",
+      "businessStatus": "Medium-High Risk",
+      "current_status": "Draft",
+      "accountCurrency": "IDR",
+      "businessCountry": "Indonesia",
+      "registrationDate": "2022-04-18",
+      "registeredAddress": "Jl. Ahmad Yani No. 20, Surabaya",
+      "registrationNumber": "2204220007777",
+      "providerSessionId": null,
+      "provider_session_id": null,
+      "expectedMonthlyTransactionVolume": "3000000",
+      "expectedCountriesOfTransactionActivity": ["Indonesia", "Singapore"],
+      "businessActivities": [
+        {
+          "activityType": "Primary",
+          "businessActivity": "Wholesale computers & electronics (46491)",
+          "activityDescription": "Wholesale import and export of electronics"
+        }
+      ]
+    },
+    "risk_assessment": {
+      "risk_grade": "Enhanced Due Diligence (EDD)",
+      "risk_score": 165,
+      "triggered_rules": [
+        { "code": "ID001", "description": "Foreign SME onboarding (Indonesia entity)" },
+        { "code": "KYC001", "description": "Individual sanctions exposure (Fajar Pratama)" },
+        { "code": "R100", "description": "Company age risk (1 to less than 3 years)" },
+        { "code": "R200", "description": "Transaction volume below 5,000,000" },
+        { "code": "R300", "description": "Ownership complexity up to 2 layers" },
+        { "code": "R301", "description": "Director count below 3" },
+        { "code": "R400", "description": "Transaction exposure across up to 2 countries" }
+      ]
+    },
+    "documents": [
+      {
+        "document_id": "idcv001",
+        "document_type": "businessRegistrationUpload",
+        "status": "uploaded",
+        "original_filename": "deed_or_registration.pdf"
+      },
+      {
+        "document_id": "idcv002",
+        "document_type": "npwpCertificate",
+        "status": "uploaded",
+        "original_filename": "npwp.jpg"
+      },
+      {
+        "document_id": "idcv003",
+        "document_type": "bankStatement",
+        "status": "uploaded",
+        "original_filename": "bank_statement.pdf"
+      }
+    ],
+    "action_requests": []
+  },
+  {
+    "name": "fatf_blacklist_country_reject",
+    "expected_action": "reject",
+    "application_data": {
+      "businessName": "Blacklisted Trading Co",
+      "businessType": "private_limited",
+      "businessCountry": "North Korea",
+      "businessIndustry": "Trading",
+      "individuals": [
+        {
+          "role": "Director",
+          "fullName": "Kim Yong",
+          "nationality": "North Korea",
+          "pepDeclaration": "No",
+          "fatcaDeclaration": "No",
+          "sanctionsDeclaration": "No"
+        }
+      ]
+    },
+    "risk_assessment": {
+      "risk_score": 100,
+      "risk_grade": "Enhanced Due Diligence (EDD)",
+      "triggered_rules": [
+        {
+          "code": "R001",
+          "description": "FATF blacklist country"
+        }
+      ]
+    },
+    "documents": [
+      {
+        "document_type": "businessProfile"
+      }
+    ],
+    "action_requests": []
+  }
+]

@@ -1,7 +1,8 @@
 from collections import defaultdict
 
-def get_company_field_value(company, field_name: str):
-    return getattr(company, field_name, None)
+def get_field_value(obj, field_name: str):
+    return getattr(obj, field_name, None)
+
 
 def evaluate_condition(field_value, condition, config):
     operator = (condition.operator or "").upper()
@@ -105,64 +106,110 @@ def explain_condition(field_value, condition, config):
     }
 
 
+def is_kyc_rule(rule) -> bool:
+    return str(rule.rule_code).upper().startswith("KYC")
+
+
+def evaluate_rule_against_target(target, rule, config, target_name=None):
+    rule_trace = {
+        "rule_code": rule.rule_code,
+        "rule_name": rule.rule_name,
+        "matched": False,
+        "matched_group": None,
+        "individual_name": target_name,
+        "groups": [],
+    }
+
+    grouped_conditions = defaultdict(list)
+    for condition in rule.conditions:
+        grouped_conditions[condition.condition_group].append(condition)
+
+    matched_group_conditions = None
+
+    for group_no in sorted(grouped_conditions.keys(), key=lambda x: int(x)):
+        conditions = sorted(
+            grouped_conditions[group_no],
+            key=lambda c: (c.order_no if c.order_no is not None else 999999)
+        )
+
+        group_trace = {
+            "condition_group": group_no,
+            "matched": True,
+            "conditions": [],
+        }
+
+        for condition in conditions:
+            field_value = get_field_value(target, condition.field_name)
+            passed = evaluate_condition(field_value, condition, config)
+
+            cond_trace = explain_condition(field_value, condition, config)
+            cond_trace["passed"] = passed
+            group_trace["conditions"].append(cond_trace)
+
+            if not passed:
+                group_trace["matched"] = False
+                break
+
+        rule_trace["groups"].append(group_trace)
+
+        if group_trace["matched"]:
+            matched_group_conditions = conditions
+            rule_trace["matched"] = True
+            rule_trace["matched_group"] = group_no
+            break
+
+    return matched_group_conditions, rule_trace
+
+
 def evaluate_db_rules_with_trace(company, rules, config):
     total_score = 0
     triggers = []
     trace = []
 
     for rule in rules:
-        rule_trace = {
-            "rule_code": rule.rule_code,
-            "rule_name": rule.rule_name,
-            "matched": False,
-            "matched_group": None,
-            "groups": []
-        }
+        print(f"\nEvaluating rule: {rule.rule_code} - {rule.rule_name}")
 
-        grouped_conditions = defaultdict(list)
-        for condition in rule.conditions:
-            grouped_conditions[condition.condition_group].append(condition)
+        if is_kyc_rule(rule):
+            for individual in company.individuals:
+                matched_group_conditions, rule_trace = evaluate_rule_against_target(
+                    target=individual,
+                    rule=rule,
+                    config=config,
+                    target_name=getattr(individual, "name", None),
+                )
 
-        matched_group_conditions = None
+                trace.append(rule_trace)
 
-        for group_no, conditions in grouped_conditions.items():
-            group_trace = {
-                "condition_group": group_no,
-                "matched": True,
-                "conditions": []
-            }
+                if matched_group_conditions:
+                    first = matched_group_conditions[0]
+                    total_score += first.score
 
-            for condition in conditions:
-                field_value = get_company_field_value(company, condition.field_name)
-                passed = evaluate_condition(field_value, condition, config)
+                    base_desc = first.trigger_description or rule.description or rule.rule_name
+                    name = getattr(individual, "name", "Unknown Individual")
 
-                cond_trace = explain_condition(field_value, condition, config)
-                cond_trace["passed"] = passed
-                group_trace["conditions"].append(cond_trace)
+                    triggers.append({
+                        "code": rule.rule_code,
+                        "description": f"{base_desc} ({name})"
+                    })
 
-                if not passed:
-                    group_trace["matched"] = False
-                    break
+        else:
+            matched_group_conditions, rule_trace = evaluate_rule_against_target(
+                target=company,
+                rule=rule,
+                config=config,
+                target_name=None,
+            )
 
-            rule_trace["groups"].append(group_trace)
+            trace.append(rule_trace)
 
-            if group_trace["matched"]:
-                matched_group_conditions = conditions
-                rule_trace["matched"] = True
-                rule_trace["matched_group"] = group_no
-                break
+            if matched_group_conditions:
+                first = matched_group_conditions[0]
+                total_score += first.score
 
-        if matched_group_conditions:
-            first = matched_group_conditions[0]
-            total_score += first.score
-
-            triggers.append({
-                "code": rule.rule_code,
-                "description": first.trigger_description or rule.description or rule.rule_name,
-                # "score": first.score,
-            })
-
-        trace.append(rule_trace)
+                triggers.append({
+                    "code": rule.rule_code,
+                    "description": first.trigger_description or rule.description or rule.rule_name,
+                })
 
     return {
         "risk_score": total_score,

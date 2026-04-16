@@ -17,6 +17,14 @@ export const getKYCdetails = async (appId) => {
   return res.data;
 };
 
+export const getAllKYCdetails = async (appId) => {
+  // Using the specific endpoint you provided
+  const res = await axiosClient.get(
+    `/liveness-detection/getAllByApplicationID/${appId}`,
+  );
+  return res.data;
+};
+
 export const getAllLivenessDetections = async (params = {}) => {
   const res = await axiosClient.get(`/liveness-detection/`, {
     params,
@@ -26,8 +34,8 @@ export const getAllLivenessDetections = async (params = {}) => {
 
 export const getLivenessDetectionBySessionId = async (sessionId) => {
   try {
-    const res = await axios.get(
-      `http://127.0.0.1:8000/liveness-detection/bySessionID/${sessionId}`,
+    const res = await axiosClient.get(
+      `/liveness-detection/bySessionID/${sessionId}`,
     );
 
     console.log("[LIVENESS API] success:", res.data);

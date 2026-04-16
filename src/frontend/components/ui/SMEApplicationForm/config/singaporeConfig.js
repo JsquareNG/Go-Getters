@@ -360,7 +360,7 @@ const SINGAPORE_CONFIG = {
               },
             },
             limitedPartners: {
-              label: "Limited Partner",
+              label: "Limited Partner (Of Ownership < 25%)",
               storage: "individuals",
               rowTypeField: "role",
               rowTypeValue: "Limited Partner",
@@ -369,7 +369,7 @@ const SINGAPORE_CONFIG = {
                 role: {
                   type: "text",
                   label: "Role",
-                  value: "Limited Partner (Of Ownership < 25%)",
+                  value: "Limited Partner",
                   readonly: true,
                 },
                 sharePercentage: {
@@ -479,7 +479,7 @@ const SINGAPORE_CONFIG = {
               type: "checkbox",
               label: "Business Industry",
               required: true,
-              option: INDUSTRY_OPTIONS,
+              options: INDUSTRY_OPTIONS,
               placeholder: "Select your industry",
             },
             uen: {
@@ -538,6 +538,7 @@ const SINGAPORE_CONFIG = {
                 //   min: 0,
                 //   max: 100,
                 //   required: true,
+                //   placeholder: "Enter your share percentage",
                 // },
                 ...getIndividualFields(),
                 ...getComplianceDeclarations(),
@@ -550,6 +551,11 @@ const SINGAPORE_CONFIG = {
               rowTypeValue: "Manager",
               min: 1,
               fields: {
+                kyc: {
+                  type: "kyc",
+                  label: "Liveness Detection Test",
+                  required: true,
+                },
                 role: {
                   type: "text",
                   label: "Role",
@@ -564,11 +570,11 @@ const SINGAPORE_CONFIG = {
                   required: true,
                   placeholder: "Enter your share percentage",
                 },
-                idDocument: {
-                  type: "file",
-                  label: "National ID / Passport Document",
-                  required: true,
-                },
+                // idDocument: {
+                //   type: "file",
+                //   label: "National ID / Passport Document",
+                //   required: true,
+                // },
                 ...getIndividualFields(),
                 // nationality: {
                 //   type: "text",
@@ -616,7 +622,6 @@ const SINGAPORE_CONFIG = {
     // 4th business type
     private_limited: {
       label: "Private Limited Company (Pte Ltd)",
-      // ubo: { threshold: 25, autoDetect: true, requireFullKYC: true },
       steps: [
         {
           id: "step2",
@@ -642,7 +647,7 @@ const SINGAPORE_CONFIG = {
               required: true,
               placeholder: "Enter your UEN / Registration Number",
             },
-            incorporationDate: {
+            registrationDate: {
               type: "date",
               label: "Incorporation Date",
               required: true,
@@ -733,248 +738,173 @@ const SINGAPORE_CONFIG = {
                   required: true,
                   placeholder: "Select your shareholder type",
                   conditionalFields: {
-                  Individual: {
-                    sharePercentage: {
-                      type: "number",
-                      label: "Share Percentage (%)",
-                      min: 0,
-                      max: 100,
-                      required: true,
-                      placeholder: "Enter your share percentage",
+                    Individual: {
+                      sharePercentage: {
+                        type: "number",
+                        label: "Share Percentage (%)",
+                        min: 0,
+                        max: 100,
+                        required: true,
+                        placeholder: "Enter your share percentage",
+                      },
+                      name: {
+                        type: "text",
+                        label: "Name",
+                        required: true,
+                        placeholder: "Enter your full legal name",
+                      },
+                      idNumber: {
+                        type: "text",
+                        label: "NRIC / Passport Number",
+                        required: true,
+                        placeholder:
+                          "For Singapore citizens, use the NRIC / Passport Number",
+                      },
+                      // idDocument: {
+                      //   type: "file",
+                      //   label: "National ID / Passport Document",
+                      //   required: true,
+                      // },
+                      nationality: {
+                        type: "select",
+                        label: "Nationality",
+                        required: true,
+                        options: COUNTRIES(),
+                        placeholder: "Select your nationality",
+                      },
+                      residentialAddress: {
+                        type: "textarea",
+                        label: "Residential Address",
+                        required: true,
+                        placeholder: "Enter your residential address",
+                      },
                     },
-                    name: {
-                      type: "text",
-                      label: "Name",
-                      required: true,
-                      placeholder: "Enter your full legal name",
-                    },
-                    idNumber: {
-                      type: "text",
-                      label: "NRIC / Passport Number",
-                      required: true,
-                      placeholder:
-                        "For Singapore citizens, use the NRIC / Passport Number",
-                    },
-                    idDocument: {
-                      type: "file",
-                      label: "National ID / Passport Document",
-                      required: true,
-                    },
-                    nationality: {
-                      type: "select",
-                      label: "Nationality",
-                      required: true,
-                      options: COUNTRIES(),
-                      placeholder: "Select your nationality",
-                    },
-                    residentialAddress: {
-                      type: "textarea",
-                      label: "Residential Address",
-                      required: true,
-                      placeholder: "Enter your residential address",
+                    Corporate: {
+                      sharePercentage: {
+                        type: "number",
+                        label: "Share Percentage (%)",
+                        min: 0,
+                        max: 100,
+                        required: true,
+                        placeholder: "Enter your share percentage",
+                      },
+                      name: {
+                        type: "text",
+                        label: "Name",
+                        required: true,
+                        placeholder: "Enter your entity name",
+                      },
+                      registrationNumber: {
+                        type: "text",
+                        label: "UEN / Registration Number",
+                        required: true,
+                        placeholder: "Enter your UEN / Registration Number",
+                      },
+                      // uen: {
+                      //   type: "file",
+                      //   label: "UEN / Registration Number Document",
+                      //   required: true,
+                      // },
+                      country: {
+                        type: "select",
+                        label: "Country of Incorporation",
+                        options: COUNTRIES(),
+                        required: true,
+                        placeholder: "Select your country of incorporation",
+                      },
+                      registeredAddress: {
+                        type: "textarea",
+                        label: "Registered Address",
+                        required: true,
+                        placeholder: "Enter your registered address",
+                      },
                     },
                   },
-                  Corporate: {
-                    sharePercentage: {
-                      type: "number",
-                      label: "Share Percentage (%)",
-                      min: 0,
-                      max: 100,
-                      required: true,
-                      placeholder: "Enter your share percentage",
-                    },
-                    name: {
-                      type: "text",
-                      label: "Name",
-                      required: true,
-                      placeholder: "Enter your entity name",
-                    },
-                    registrationNumber: {
-                      type: "text",
-                      label: "UEN / Registration Number",
-                      required: true,
-                      placeholder: "Enter your UEN / Registration Number",
-                    },
-                    uen: {
-                      type: "file",
-                      label: "UEN / Registration Number Document",
-                      required: true,
-                    },
-                    country: {
-                      type: "select",
-                      label: "Country of Incorporation",
-                      options: COUNTRIES(),
-                      required: true,
-                      placeholder: "Select your country of incorporation",
-                    },
-                    registeredAddress: {
-                      type: "textarea",
-                      label: "Registered Address",
-                      required: true,
-                      placeholder: "Enter your registered address",
-                    },
-                  },
-                },
                 },
               },
-              ...getComplianceDeclarations(),
+              // ...getComplianceDeclarations(),
             },
             // --- UBO conditional field ---
-          ubo: {
-            // type: "conditional",
-            label: "Ultimate Beneficial Owner (Of Ownership >= 25%)",
-            storage: "individuals",
-            rowTypeField: "role",
-            rowTypeValue: "Ultimate Beneficial Owner",
-            // description:
-            //   "Auto-detected if shareholding ≥25%. Requires full KYC. Manual add allowed for control through other means.",
-            // condition: (shareholder) => shareholder.sharePercentage >= 25,
-            fields: {
-              kyc: {
-                type: "kyc",
-                label: "Liveness Detection Test",
-                required: true,
+            ubo: {
+              // type: "conditional",
+              label: "Ultimate Beneficial Owner (Of Ownership >= 25%)",
+              storage: "individuals",
+              rowTypeField: "role",
+              rowTypeValue: "Ultimate Beneficial Owner",
+              min: 0,
+              fields: {
+                role: {
+                  type: "text",
+                  label: "Role",
+                  value: "Ultimate Beneficial Owner",
+                  readonly: true,
+                },
+                kyc: {
+                  type: "kyc",
+                  label: "Liveness Detection Test",
+                  required: true,
+                },
+                name: {
+                  type: "text",
+                  label: "Full Name",
+                  placeholder: "Enter your full legal name",
+                  required: true,
+                },
+                idDocument: {
+                  type: "file",
+                  label: "ID Document / Passport",
+                  required: true,
+                },
+                residentialAddress: {
+                  type: "textarea",
+                  label: "Residential Address",
+                  placeholder: "Enter your residential address",
+                  required: true,
+                },
+                nationality: {
+                  type: "select",
+                  options: COUNTRIES(),
+                  label: "Nationality",
+                  placeholder: "Select your nationality",
+                  required: true,
+                },
+                dateOfBirth: {
+                  type: "date",
+                  label: "Date of Birth",
+                  required: true,
+                },
+                basisOfControl: {
+                  type: "select",
+                  label: "Basis of Control",
+                  options: [
+                    {
+                      label: "Indirect ownership through another entity",
+                      value: "Indirect ownership through another entity",
+                    },
+                    {
+                      label: "Control through voting rights",
+                      value: "Control through voting rights",
+                    },
+                    {
+                      label: "Control through agreements or other arrangements",
+                      value: "Control through agreements or other arrangements",
+                    },
+                    {
+                      label: "Control through voting rights",
+                      value: "Control through voting rights",
+                    },
+                  ],
+                },
+                ...getComplianceDeclarations(),
               },
-              name: {
-                type: "text",
-                label: "Full Name",
-                placeholder: "Enter your full legal name",
-                required: true,
-              },
-              idDocument: {
-                type: "file",
-                label: "ID Document / Passport",
-                required: true,
-              },
-              residentialAddress: {
-                type: "textarea",
-                label: "Residential Address",
-                placeholder: "Enter your residential address",
-                required: true,
-              },
-              nationality: {
-                type: "select",
-                options: COUNTRIES(),
-                label: "Nationality",
-                placeholder: "Select your nationality",
-                required: true,
-              },
-              dateOfBirth: {
-                type: "date",
-                label: "Date of Birth",
-                required: true,
-              },
-              basisOfControl: {
-                type: "select",
-                label: "Basis of Control",
-                options: [
-                  {
-                    label: "Indirect ownership through another entity",
-                    value: "Indirect ownership through another entity",
-                  },
-                  {
-                    label: "Control through voting rights",
-                    value: "Control through voting rights",
-                  },
-                  {
-                    label: "Control through agreements or other arrangements",
-                    value: "Control through agreements or other arrangements",
-                  },
-                  {
-                    label: "Control through voting rights",
-                    value: "Control through voting rights",
-                  },
-                ],
-              },
-              ...getComplianceDeclarations(),
             },
           },
-          },
-          // // --- UBO conditional field ---
-          // ubo: {
-          //   // type: "conditional",
-          //   label: "Ultimate Beneficial Owner (Of Ownership >= 25%)",
-          //   storage: "individuals",
-          //   rowTypeField: "role",
-          //   rowTypeValue: "Ultimate Beneficial Owner",
-          //   // description:
-          //   //   "Auto-detected if shareholding ≥25%. Requires full KYC. Manual add allowed for control through other means.",
-          //   // condition: (shareholder) => shareholder.sharePercentage >= 25,
-          //   fields: {
-          //     kyc: {
-          //       type: "kyc",
-          //       label: "Liveness Detection Test",
-          //       required: true,
-          //     },
-          //     name: {
-          //       type: "text",
-          //       label: "Full Name",
-          //       placeholder: "Enter your full legal name",
-          //       required: true,
-          //     },
-          //     idDocument: {
-          //       type: "file",
-          //       label: "ID Document / Passport",
-          //       required: true,
-          //     },
-          //     residentialAddress: {
-          //       type: "textarea",
-          //       label: "Residential Address",
-          //       placeholder: "Enter your residential address",
-          //       required: true,
-          //     },
-          //     nationality: {
-          //       type: "select",
-          //       options: COUNTRIES(),
-          //       label: "Nationality",
-          //       placeholder: "Select your nationality",
-          //       required: true,
-          //     },
-          //     dateOfBirth: {
-          //       type: "date",
-          //       label: "Date of Birth",
-          //       required: true,
-          //     },
-          //     basisOfControl: {
-          //       type: "select",
-          //       label: "Basis of Control",
-          //       options: [
-          //         {
-          //           label: "Indirect ownership through another entity",
-          //           value: "Indirect ownership through another entity",
-          //         },
-          //         {
-          //           label: "Control through voting rights",
-          //           value: "Control through voting rights",
-          //         },
-          //         {
-          //           label: "Control through agreements or other arrangements",
-          //           value: "Control through agreements or other arrangements",
-          //         },
-          //         {
-          //           label: "Control through voting rights",
-          //           value: "Control through voting rights",
-          //         },
-          //       ],
-          //     },
-          //     ...getComplianceDeclarations(),
-          //   },
-          // },
         },
         {
           id: "step3",
           label: "Financial Details",
           fields: {
             ...getCoreFinancialFields(),
-            // expectedTransactionSize: {
-            //   type: "number",
-            //   label: "Expected Transaction Size",
-            // },
-            // countriesTransactingWith: {
-            //   type: "checkbox",
-            //   label: "Countries Transacting With",
-            //   option: COUNTRIES(),
-            // },
           },
         },
         {

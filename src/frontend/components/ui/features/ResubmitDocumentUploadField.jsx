@@ -122,9 +122,6 @@ const ResubmitDocumentUploadField = ({
   return (
     <div className="rounded-xl border border-border bg-background p-4">
       <div className="mb-3">
-        <p className="text-sm font-semibold text-foreground">
-          {label} {required && <span className="text-red-500">*</span>}
-        </p>
         {description ? (
           <p className="text-sm text-muted-foreground">{description}</p>
         ) : null}

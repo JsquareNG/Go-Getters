@@ -359,33 +359,28 @@ def get_download_url_by_id(
     return {"url": url}
 
 
-@router.delete("/{document_id}")
-def delete_document(
-    document_id: str,
-    db: Session = Depends(get_db),
-    current_user: dict = Depends(get_current_user),
-):
-    doc = _get_document_or_404(db, document_id)
-    app = _ensure_document_access(doc, db, current_user)
+# @router.delete("/{document_id}")
+# def delete_document(document_id: str, db: Session = Depends(get_db)):
+#     doc = db.query(Document).filter(Document.document_id == document_id).first()
+#     if not doc:
+#         raise HTTPException(404, "Document not found")
 
-    if doc.document_type != "supporting":
-        raise HTTPException(status_code=400, detail="Only supporting documents can be deleted")
+#     # ✅ Only allow deleting supporting docs
+#     if doc.document_type != "supporting":
+#         raise HTTPException(400, "Only supporting documents can be deleted")
 
-    # optional stricter rule: only SME owner can delete supporting docs
-    _ensure_application_owner(app, current_user)
+#     path = doc.storage_path
 
-    path = doc.storage_path
+#     # ✅ Delete from storage first (service role bypasses policies)
+#     # storage3 remove expects a list of paths in most versions
+#     try:
+#         supabase_admin.storage.from_(BUCKET).remove([path])
+#     except TypeError:
+#         # some versions accept a single string
+#         supabase_admin.storage.from_(BUCKET).remove(path)
 
-    try:
-        supabase_admin.storage.from_(BUCKET).remove([path])
-    except TypeError:
-        supabase_admin.storage.from_(BUCKET).remove(path)
+#     # ✅ Then delete from DB
+#     db.delete(doc)
+#     db.commit()
 
-    db.delete(doc)
-    db.commit()
-
-    return {
-        "ok": True,
-        "deleted_document_id": document_id,
-        "deleted_path": path,
-    }
+#     return {"ok": True, "deleted_document_id": document_id, "deleted_path": path}

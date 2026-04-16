@@ -37,12 +37,6 @@ export const buildExistingDocumentMap = (documents = []) => {
     return acc;
   }, {});
 };
-// export const buildExistingDocumentMap = (documents = []) => {
-//   return documents.reduce((acc, doc) => {
-//     acc[doc.document_type] = doc;
-//     return acc;
-//   }, {});
-// };
 
 export const sanitizeDocumentFieldKey = (fieldKey) =>
   String(fieldKey || "").replace(/\./g, "_");
@@ -230,7 +224,6 @@ export const uploadSingleDocument = async ({
   existingDocumentMap = {},
   extractedData = {},
 }) => {
-  // const existingDoc = existingDocumentMap[documentType];
   const existingDoc = existingDocumentMap[normalizeDocumentType(documentType)];
 
   if (existingDoc?.document_id) {
@@ -272,6 +265,8 @@ export const uploadAllDocumentsFromFormData = async (
   };
 
   const uploadEntries = collectFileUploadEntries(root, activeConfig);
+  console.log("[UPLOAD] root", root);
+  console.log("[UPLOAD] collected entries", uploadEntries);
 
   const uniqueUploadEntries = Object.values(
     uploadEntries.reduce((acc, entry) => {
@@ -279,6 +274,7 @@ export const uploadAllDocumentsFromFormData = async (
       return acc;
     }, {}),
   );
+  console.log("[UPLOAD] unique entries", uniqueUploadEntries);
 
   const existingDocs = await allDocuments(applicationId);
   const existingDocumentMap = buildExistingDocumentMap(existingDocs);
@@ -295,6 +291,7 @@ export const uploadAllDocumentsFromFormData = async (
       existingDocumentMap,
       extractedData,
     });
+    console.log("SUCCESSFULLY uploaded", uploaded);
 
     uploadedResults.push({
       ...entry,
@@ -302,10 +299,6 @@ export const uploadAllDocumentsFromFormData = async (
     });
 
     if (uploaded?.document_id) {
-      // existingDocumentMap[entry.document_type] = {
-      //   document_id: uploaded.document_id,
-      //   document_type: entry.document_type,
-      // };
       existingDocumentMap[normalizeDocumentType(entry.document_type)] = {
         document_id: uploaded.document_id,
         document_type: entry.document_type,

@@ -4,7 +4,6 @@ from unittest.mock import patch, MagicMock
 from backend.compliance_rules_engine.review_all_service import (
     _safe_bool_yes,
     _safe_float,
-    _safe_list,
     _calculate_years_incorporated,
     build_company_from_form,
     run_simulation_review,
@@ -28,13 +27,6 @@ def test_safe_float():
     assert _safe_float(50) == 50.0
     assert _safe_float("invalid", 10) == 10
     assert _safe_float(None, 5) == 5
-
-
-def test_safe_list():
-    assert _safe_list(None) == []
-    assert _safe_list([1, 2]) == [1, 2]
-    assert _safe_list("A") == ["A"]
-    assert _safe_list(123) == [123]
 
 
 # ==============================
@@ -70,7 +62,7 @@ def test_build_company_basic():
         "individuals": [
             {"fullName": "John Doe", "nationality": "SG"}
         ],
-        "transaction_countries": ["SG", "US"],
+        "expectedCountriesOfTransactionActivity": ["SG", "US"],
     }
 
     company = build_company_from_form(form)
@@ -80,9 +72,9 @@ def test_build_company_basic():
     assert company.industry == "Tech"
     assert company.entity_type == "Private"
     assert company.expected_tx_volume == 1000.0
-    assert isinstance(company.registration_year, int)
+    assert isinstance(company.years_incorporated, int)
     assert len(company.individuals) == 1
-    assert company.transaction_countries == ["SG", "US"]
+    assert company.transaction_country_count  == 2
 
 
 def test_build_company_individuals_dict():
@@ -123,7 +115,7 @@ def test_build_company_defaults():
     company = build_company_from_form(form)
 
     assert company.name is None
-    assert company.transaction_countries == []
+    assert company.transaction_country_count == 0
     assert company.ownership_layers == 1
     assert company.expected_tx_volume == 0
 

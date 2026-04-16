@@ -94,7 +94,8 @@ def approve_application_service(
         message="Your application has been approved."
     ))
 
-    username = get_users_by_id(db, app.reviewer_id)
+    if app.reviewer_id:
+        username = get_users_by_id(db, app.reviewer_id)
 
     create_audit_log(
         db=db,

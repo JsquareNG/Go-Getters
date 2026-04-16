@@ -357,6 +357,26 @@ def get_liveness_detection_by_application_id(
 
     return model_to_dict(row)
 
+@router.get("/getAllByApplicationID/{application_id}")
+def get_approved_liveness_detections_by_application_id(
+    application_id: str,
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(get_current_user),
+):
+    app = _get_application_or_404(db, application_id)
+    _ensure_application_access(app, current_user)
+
+    rows = (
+        db.query(LivenessDetection)
+        .filter(LivenessDetection.application_id == application_id)
+        .filter(LivenessDetection.overall_status == "Approved")
+        .order_by(LivenessDetection.created_at.desc(), LivenessDetection.id.desc())
+        .all()
+    )
+
+    return {
+        "records": [model_to_dict(row) for row in rows],
+    }
 
 @router.get("/")
 def get_all_liveness_detections(

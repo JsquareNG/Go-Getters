@@ -39,9 +39,22 @@ const FileUploadField = ({
   const [localError, setLocalError] = useState("");
   const [isValidating, setIsValidating] = useState(false);
 
-  const actualFile = file instanceof File ? file : file?.file || null;
-  const existingUploadedFile =
-    !actualFile && file?.original_filename ? file : null;
+  // const actualFile = file instanceof File ? file : file?.file || null;
+  // const existingUploadedFile =
+  //   !actualFile && file?.original_filename  ? file : null;
+    // console.log("FILEUPLOAD", file)
+const actualFile =
+  file instanceof File
+    ? file
+    : file?.file instanceof File
+      ? file.file
+      : null;
+
+const existingUploadedFile =
+  !actualFile &&
+  (file?.original_filename || file?.originalFilename)
+    ? file
+    : null;
 
   const allowedTypes = useMemo(
     () =>
@@ -123,19 +136,31 @@ const FileUploadField = ({
         verificationMessage: "Verifying document...",
       });
 
-      if (beforeAcceptFile) {
-        const processedValue = await beforeAcceptFile(selectedFile);
+      // if (beforeAcceptFile) {
+      //   const processedValue = await beforeAcceptFile(selectedFile);
+      //   // console.log("processedValue", processedValue)
 
-        onChange(
-          processedValue ?? {
-            file: selectedFile,
-            progress: 0,
-            verified: false,
-            verificationStatus: "failed",
-            verificationMessage: "Document verification failed.",
-          },
-        );
-      } else {
+      //   onChange(
+      //     processedValue ?? {
+      //       file: selectedFile,
+      //       progress: 0,
+      //       verified: false,
+      //       verificationStatus: "failed",
+      //       verificationMessage: "Document verification failed.",
+      //     },
+      //   );
+      // } 
+      if (beforeAcceptFile) {
+  const processedValue = await beforeAcceptFile(selectedFile);
+
+  if (processedValue == null) {
+    onChange(null);
+    return;
+  }
+
+  onChange(processedValue);
+}
+      else {
         onChange({
           file: selectedFile,
           progress: 0,
@@ -271,6 +296,7 @@ const FileUploadField = ({
             <p className="text-sm font-medium text-gray-900">
               {actualFile?.name ||
                 existingUploadedFile?.original_filename ||
+                existingUploadedFile?.originalFilename ||
                 "Uploaded file"}
             </p>
 
