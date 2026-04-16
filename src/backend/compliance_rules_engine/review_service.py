@@ -179,8 +179,8 @@ def run_review_job(application_id: str):
                 event_type="REVIEW_JOB_COMPLETED",
                 entity_type="REVIEW_JOB",
                 entity_id=job.job_id,
-                from_status=app.current_status,
-                to_status="Completed",
+                from_status=None,
+                to_status=None,
                 description="Automated review process completed."
             )
 
@@ -193,8 +193,8 @@ def run_review_job(application_id: str):
                     event_type="REVIEW_JOB_COMPLETED",
                     entity_type="REVIEW_JOB",
                     entity_id=job.job_id,
-                    from_status=app.current_status,
-                    to_status="COMPLETED",
+                    from_status=None,
+                    to_status=None,
                     description="SDD but requires manual review due to OCR mismatch in documents"
                 )
 
@@ -213,8 +213,8 @@ def run_review_job(application_id: str):
                     event_type="REVIEW_JOB_COMPLETED",
                     entity_type="REVIEW_JOB",
                     entity_id=job.job_id,
-                    from_status=app.current_status,
-                    to_status="COMPLETED",
+                    from_status=None,
+                    to_status=None,
                     description="SDD but KYC Declined → routed to manual review",
                 )
 
@@ -241,8 +241,8 @@ def run_review_job(application_id: str):
                 event_type="REVIEW_JOB_COMPLETED",
                 entity_type="REVIEW_JOB",
                 entity_id=job.job_id,
-                from_status=app.current_status,
-                to_status="COMPLETED",
+                from_status=None,
+                to_status=None,
                 description="Automated review process completed."
             )
 
@@ -261,8 +261,8 @@ def run_review_job(application_id: str):
                 event_type="REVIEW_JOB_COMPLETED",
                 entity_type="REVIEW_JOB",
                 entity_id=job.job_id,
-                from_status=app.current_status,
-                to_status="COMPLETED",
+                from_status=None,
+                to_status=None,
                 description="Automated review process completed."
             )
             auto_reject_application_service(
