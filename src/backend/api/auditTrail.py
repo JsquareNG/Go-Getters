@@ -7,6 +7,7 @@ from backend.auth.dependencies import get_current_user
 from backend.database import get_db
 from backend.models.auditTrail import AuditTrail
 from backend.models.application import ApplicationForm
+from backend.models.user import User
 
 router = APIRouter(prefix="/audit-trail", tags=["audit-trail"])
 
@@ -249,24 +250,138 @@ def get_audit_metrics_overview(
 # Staff leaderboard metrics
 # Only reviewers should appear
 # -----------------------------
+# @router.get("/metrics/staff-leaderboard")
+# def get_staff_leaderboard(
+#     db: Session = Depends(get_db),
+#     current_user: dict = Depends(get_current_user),
+# ):
+#     _ensure_staff_or_management(current_user)
+
+#     grouped_logs = get_all_logs_grouped(db)
+
+#     staff_stats = defaultdict(lambda: {
+#         "staffId": None,
+#         "staffName": None,
+#         "processedApplications": set(),
+#         "reviewDurationsDays": [],
+#         "escalationsHandled": 0,
+#         "approvedCount": 0,
+#         "decisionCount": 0,
+#     })
+
+#     for application_id, logs in grouped_logs.items():
+#         app_has_manual_review = False
+#         app_submission_time = None
+
+#         # App-level markers
+#         for log in logs:
+#             event_type = normalize(log.event_type)
+#             from_status = normalize(log.from_status)
+#             to_status = normalize(log.to_status)
+
+#             if app_submission_time is None:
+#                 if event_type in SUBMISSION_EVENTS or to_status == "submitted":
+#                     app_submission_time = log.created_at
+
+#             entered_manual_review = (
+#                 event_type in MANUAL_REVIEW_START_EVENTS
+#                 or (
+#                     to_status in MANUAL_REVIEW_STATUSES
+#                     and from_status not in MANUAL_REVIEW_STATUSES
+#                 )
+#             )
+#             if entered_manual_review:
+#                 app_has_manual_review = True
+
+#         # Reviewer-only actions
+#         for log in logs:
+#             if not is_reviewer_actor(log):
+#                 continue
+
+#             actor_id = str(log.actor_id)
+#             actor_name = log.actor_type or actor_id
+#             event_type = normalize(log.event_type)
+#             to_status = normalize(log.to_status)
+
+#             stats = staff_stats[actor_id]
+#             stats["staffId"] = actor_id
+#             stats["staffName"] = actor_name
+#             stats["processedApplications"].add(application_id)
+
+#             made_final_decision = (
+#                 event_type in FINAL_DECISION_EVENTS
+#                 or to_status in FINAL_DECISION_STATUSES
+#             )
+
+#             if made_final_decision:
+#                 stats["decisionCount"] += 1
+
+#                 is_approved = (
+#                     event_type in FINAL_APPROVAL_EVENTS
+#                     or to_status == "approved"
+#                 )
+#                 if is_approved:
+#                     stats["approvedCount"] += 1
+
+#                 if app_has_manual_review:
+#                     stats["escalationsHandled"] += 1
+
+#                 # Approximation with current data:
+#                 # submission -> final reviewer decision
+#                 if app_submission_time and log.created_at >= app_submission_time:
+#                     duration = to_days(app_submission_time, log.created_at)
+#                     if duration is not None:
+#                         stats["reviewDurationsDays"].append(duration)
+
+#     leaderboard = []
+#     for staff_id, stats in staff_stats.items():
+#         processed_count = len(stats["processedApplications"])
+#         decision_count = stats["decisionCount"]
+#         approved_count = stats["approvedCount"]
+
+#         approval_rate = round(
+#             (approved_count / decision_count) * 100, 2
+#         ) if decision_count > 0 else 0.0
+
+#         leaderboard.append({
+#             "staffId": stats["staffId"],
+#             "staffName": stats["staffName"],
+#             "processed": processed_count,
+#             "avgReviewTimeDays": average(stats["reviewDurationsDays"]),
+#             "approvalRate": approval_rate,
+#             "escalationsHandled": stats["escalationsHandled"],
+#         })
+
+#     leaderboard.sort(key=lambda x: (-x["processed"], x["staffId"] or ""))
+
+#     for index, item in enumerate(leaderboard, start=1):
+#         item["rank"] = index
+
+#     return leaderboard
 @router.get("/metrics/staff-leaderboard")
 def get_staff_leaderboard(
     db: Session = Depends(get_db),
-    current_user: dict = Depends(get_current_user),
 ):
-    _ensure_staff_or_management(current_user)
 
     grouped_logs = get_all_logs_grouped(db)
 
-    staff_stats = defaultdict(lambda: {
-        "staffId": None,
-        "staffName": None,
-        "processedApplications": set(),
-        "reviewDurationsDays": [],
-        "escalationsHandled": 0,
-        "approvedCount": 0,
-        "decisionCount": 0,
-    })
+    # Preload all STAFF users so they always appear in the leaderboard
+    staff_users = db.query(User).filter(User.user_role == "STAFF").all()
+
+    staff_stats = {}
+    for user in staff_users:
+        staff_id = str(user.user_id)
+        full_name = f"{user.first_name} {user.last_name}".strip()
+
+        staff_stats[staff_id] = {
+            "staffId": staff_id,
+            "staffName": full_name or staff_id,
+            "processedApplications": set(),
+            "reviewDurationsDays": [],
+            "escalationsHandled": 0,
+            "approvedCount": 0,
+            "decisionCount": 0,
+        }
 
     for application_id, logs in grouped_logs.items():
         app_has_manual_review = False
@@ -298,13 +413,15 @@ def get_staff_leaderboard(
                 continue
 
             actor_id = str(log.actor_id)
-            actor_name = log.actor_type or actor_id
+
+            # Only count actors that are actual STAFF users
+            if actor_id not in staff_stats:
+                continue
+
             event_type = normalize(log.event_type)
             to_status = normalize(log.to_status)
 
             stats = staff_stats[actor_id]
-            stats["staffId"] = actor_id
-            stats["staffName"] = actor_name
             stats["processedApplications"].add(application_id)
 
             made_final_decision = (
@@ -325,8 +442,6 @@ def get_staff_leaderboard(
                 if app_has_manual_review:
                     stats["escalationsHandled"] += 1
 
-                # Approximation with current data:
-                # submission -> final reviewer decision
                 if app_submission_time and log.created_at >= app_submission_time:
                     duration = to_days(app_submission_time, log.created_at)
                     if duration is not None:

@@ -307,7 +307,12 @@ export function OperationsTab({ dateRange, preset }) {
         );
 
         const latestCompletedJobMap = buildLatestCompletedJobMap(allReviewJobs);
-        const leaderboard = Array.isArray(leaderboardRes) ? leaderboardRes : [];
+        // const leaderboard = Array.isArray(leaderboardRes) ? leaderboardRes : [];
+        const leaderboard = Array.isArray(leaderboardRes)
+          ? leaderboardRes
+          : Array.isArray(leaderboardRes?.data)
+            ? leaderboardRes.data
+            : [];
 
         const enrichedLeaderboard = await Promise.all(
           leaderboard.map(async (member) => {
