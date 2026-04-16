@@ -382,7 +382,6 @@ const INDONESIA_CONFIG = {
           },
           repeatableSections: {
             ...getRepeatableBusinessActivityFields(),
-
             owners: {
               label: "Owner",
               storage: "individuals",

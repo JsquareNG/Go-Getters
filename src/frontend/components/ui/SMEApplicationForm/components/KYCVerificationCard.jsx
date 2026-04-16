@@ -3,7 +3,6 @@ import { ArrowRight, ShieldCheck } from "lucide-react";
 import { Button, Badge, Card, CardContent } from "@/components/ui";
 import { livenessDetectionApi } from "@/api/livenessDetectionApi";
 import { getThreshold } from "@/api/riskConfigListApi";
-import { mapIsoToNationalityOption } from "../utils/countries";
 
 const DEFAULT_KYC_DATA = {
   status: "idle",
@@ -23,6 +22,7 @@ const KycVerificationCard = ({
   disabled = false,
   onFieldChange,
   onPersistKycResult,
+  onBeforeStartKyc,
 }) => {
   // --------------
   //  MOCK
@@ -290,6 +290,14 @@ const KycVerificationCard = ({
 
     //   return;
     // }
+    if (onBeforeStartKyc) {
+      const savedAppId = await onBeforeStartKyc();
+
+      if (!savedAppId) {
+        console.error("[KYC] Cannot start session because draft save failed");
+        return;
+      }
+    }
 
     retryingSessionRef.current = true;
 
@@ -644,22 +652,6 @@ const KycVerificationCard = ({
     processDiditReturn();
   }, [onFieldChange, onPersistKycResult]);
 
-  // -----------------
-  // DEBUG
-  // -----------------
-  // console.log("[KYC UI STATE]", {
-  //   rawKycData: kycData,
-  //   kycStatus,
-  //   kycOverallStatus,
-  //   normalizedStatus,
-  //   normalizedOverall,
-
-  //   isKycIdle,
-  //   isKycPending,
-  //   isKycDeclined,
-  //   isKycApproved,
-  // });
-
   return (
     <Card
       className={`mb-6 border-1 transition-colors ${
@@ -782,81 +774,6 @@ const KycVerificationCard = ({
               )}
             </div>
           </div>
-
-          {/* <div className="shrink-0">
-            {isKycIdle && (
-              <Button
-                type="button"
-                onClick={handleStartKyc}
-                className="gap-2 bg-red-600"
-                disabled={disabled || kycLoading}
-              >
-                <ShieldCheck className="h-4 w-4" />
-                {kycLoading ? "Creating session..." : "Start Verification"}
-                {!kycLoading && (
-                  <Button
-                    type="button"
-                    onClick={handleStartKyc}
-                    className="gap-2 bg-red-600"
-                    disabled={disabled || kycLoading}
-                  >
-                    <ShieldCheck className="h-4 w-4" />
-                    {kycLoading ? "Creating session..." : "Retry Verification"}
-                  </Button>
-                )}
-              </Button>
-            )}
-
-            {isKycPending && (
-              <Button
-                type="button"
-                onClick={handleStartKyc}
-                className="gap-2 bg-red-600"
-                disabled={disabled || kycLoading}
-              >
-                <ShieldCheck className="h-4 w-4" />
-                {kycLoading ? "Creating session..." : "Retry Verification"}
-              </Button>
-            )}
-
-            {isKycApproved && (
-              <Button
-                type="button"
-                variant="outline"
-                className="gap-2"
-                disabled
-              >
-                Verified
-                <ArrowRight className="h-4 w-4" />
-              </Button>
-            )}
-
-            {isKycDeclined && (
-              <Button
-                type="button"
-                onClick={handleStartKyc}
-                className="gap-2 bg-red-600"
-                disabled={disabled || kycLoading}
-              >
-                <ShieldCheck className="h-4 w-4" />
-                {kycLoading ? "Creating session..." : "Retry Verification"}
-              </Button>
-            )}
-
-            {MOCK_KYC && (
-              <div className="mt-3 flex gap-2">
-                <Button type="button" onClick={() => finishMockKyc("approved")}>
-                  Mock Approve
-                </Button>
-                <Button type="button" onClick={() => finishMockKyc("declined")}>
-                  Mock Decline
-                </Button>
-                <Button type="button" onClick={() => finishMockKyc("pending")}>
-                  Mock Pending
-                </Button>
-              </div>
-            )}
-          </div> */}
           <div className="shrink-0">
             {isKycApproved ? (
               <Button

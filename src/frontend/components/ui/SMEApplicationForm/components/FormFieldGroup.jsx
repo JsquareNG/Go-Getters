@@ -30,15 +30,6 @@ const FormFieldGroup = ({
     onChange?.(fieldName, val);
   };
 
-  // For multiple checkboxes
-  // const handleCheckboxChange = (optionValue) => {
-  //   const currentValue = Array.isArray(value) ? value : [];
-  //   const newValue = currentValue.includes(optionValue)
-  //     ? currentValue.filter((v) => v !== optionValue) // remove
-  //     : [...currentValue, optionValue]; // add
-  //   onChange?.(fieldName, newValue);
-  // }
-
   return (
     <div className="mb-6">
       <Label htmlFor={fieldName} className="block text-sm font-medium mb-2">

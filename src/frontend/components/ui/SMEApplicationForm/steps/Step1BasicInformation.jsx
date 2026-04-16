@@ -24,6 +24,7 @@ const Step1BasicInformation = ({
   disabled = false,
   applicationId,
   onPersistKycResult,
+  onBeforeStartKyc,
 }) => {
   const [existingDocuments, setExistingDocuments] = useState([]);
   const [ocrState, setOcrState] = useState({});
@@ -85,28 +86,6 @@ const Step1BasicInformation = ({
     return data || {};
   };
 
-  // helps to find rooted documents - matches uploaded documents to the correct form field using document type normalization
-  // const findExistingDocumentForField = (fieldPath, fieldConfig = {}) => {
-  //   if (!Array.isArray(existingDocuments) || !existingDocuments.length)
-  //     return null;
-
-  //   const normalizedFieldPath = normalizeDocumentType(fieldPath);
-  //   const expectedType = normalizeDocumentType(
-  //     fieldConfig?.ocrTarget ||
-  //       inferExpectedDocumentType(fieldPath, fieldConfig),
-  //   );
-
-  //   return (
-  //     existingDocuments.find(
-  //       (doc) =>
-  //         normalizeDocumentType(doc.document_type) === normalizedFieldPath,
-  //     ) ||
-  //     existingDocuments.find(
-  //       (doc) => normalizeDocumentType(doc.document_type) === expectedType,
-  //     ) ||
-  //     null
-  //   );
-  // };
   const buildRepeatableDocumentType = (fieldPath) => {
     const parts = String(fieldPath || "").split(".");
     if (parts.length < 3) return null;
@@ -167,9 +146,9 @@ const Step1BasicInformation = ({
           normalizeDocumentType(doc.document_type) ===
             normalizedRepeatableDocType,
       ) ||
-      // existingDocuments.find(
-      //   (doc) => normalizeDocumentType(doc.document_type) === expectedType,
-      // ) ||
+      existingDocuments.find(
+        (doc) => normalizeDocumentType(doc.document_type) === expectedType,
+      ) ||
       null
     );
   };
@@ -306,7 +285,6 @@ const Step1BasicInformation = ({
         .split(".")
         .pop()
         ?.toLowerCase() || "";
-    console.log("key", key);
 
     if (key.includes("businessprofile")) return "acra";
     if (key.includes("acra")) return "acra";
@@ -627,6 +605,9 @@ const Step1BasicInformation = ({
     return "";
   };
 
+  // -----------------------
+  // OCR Mapping
+  // -----------------------
   const mapBusinessProfilePayloadToForm = (payload, country) => {
     if (!payload || Object.keys(payload).length === 0) {
       throw new Error("No structured OCR data returned.");
@@ -832,7 +813,6 @@ const Step1BasicInformation = ({
 
       if (!payload) {
         const result = await classifyAndExtractApi(selectedFile);
-        // console.log("step1", result)
         payload = result?.data || {};
       }
 
@@ -1062,12 +1042,24 @@ const Step1BasicInformation = ({
 
   // ensure minimum rows for repeatable sections with minRows defined on initial load
   const initializedMinRowsRef = useRef({});
-
+  const initKey = useMemo(
+    () =>
+      `${applicationId || "new"}::${data?.country || ""}::${data?.businessType || ""}`,
+    [applicationId, data?.country, data?.businessType],
+  );
   useEffect(() => {
-    const formRoot = getFormDataRoot();
-    // const initKey = `${applicationId || "new"}::${data?.country || ""}::${data?.businessType || ""}`;
+    if (
+      !repeatableSectionsConfig ||
+      Object.keys(repeatableSectionsConfig).length === 0
+    ) {
+      return;
+    }
 
-    // if (initializedMinRowsRef.current[initKey]) return;
+    if (initializedMinRowsRef.current[initKey]) {
+      return;
+    }
+
+    const formRoot = getFormDataRoot();
 
     let nextFormRoot = formRoot; //should overwrite
     let hasChanges = false;
@@ -1091,15 +1083,6 @@ const Step1BasicInformation = ({
             (row) => row?.[roleField] === roleValue,
           );
 
-          console.log("INIT SECTION CHECK", {
-            sectionKey,
-            storageKey,
-            roleField: sectionConfig?.rowTypeField,
-            roleValue: sectionConfig?.rowTypeValue,
-            minRows,
-            existingRows,
-            matchingRows,
-          });
           if (matchingRows.length >= minRows) return;
 
           const rowsToAdd = buildMinRowsForSection(
@@ -1115,6 +1098,7 @@ const Step1BasicInformation = ({
           return;
         }
 
+        // normal repeatablesections - businessActivities
         if (existingRows.length >= minRows) return;
 
         const rowsToAdd = buildMinRowsForSection(
@@ -1130,17 +1114,19 @@ const Step1BasicInformation = ({
       },
     );
 
-    // initializedMinRowsRef.current[initKey] = true;
+    initializedMinRowsRef.current[initKey] = true;
 
     if (hasChanges) {
       onFieldChange("formData", nextFormRoot);
     }
   }, [
-    applicationId,
-    data?.country,
-    data?.businessType,
+    initKey,
+    // applicationId,
+    // data?.country,
+    // data?.businessType,
     repeatableSectionsConfig,
-    data?.formData,
+    // repeatableRowCountsSignature
+    // data?.formData,
   ]);
 
   return (
@@ -1177,8 +1163,8 @@ const Step1BasicInformation = ({
                 verificationState,
                 existingDocumentMap,
                 beforeAcceptFile: buildFileValidator,
-                // onPersistKycResult: handlePersistKycResultLocal,
                 onPersistKycResult,
+                onBeforeStartKyc,
                 getDisplayedFileValue,
                 getFieldVerificationMeta,
               }}
@@ -1201,8 +1187,8 @@ const Step1BasicInformation = ({
               verificationState,
               existingDocumentMap,
               beforeAcceptFile: buildFileValidator,
-              // onPersistKycResult: handlePersistKycResultLocal,
               onPersistKycResult,
+              onBeforeStartKyc,
               getDisplayedFileValue,
               getFieldVerificationMeta,
             }}
@@ -1226,8 +1212,8 @@ const Step1BasicInformation = ({
               verificationState,
               existingDocumentMap,
               beforeAcceptFile: buildFileValidator,
-              // onPersistKycResult: handlePersistKycResultLocal,
               onPersistKycResult,
+              onBeforeStartKyc,
               getDisplayedFileValue,
               getFieldVerificationMeta,
             }}

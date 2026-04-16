@@ -80,24 +80,12 @@ const FieldRenderer = ({
                 })
             : undefined
         }
+        onBeforeStartKyc={context?.onBeforeStartKyc}
       />
     );
   }
 
   if (fieldConfig.type === "file") {
-    // const displayedFile = context?.getDisplayedFileValue
-    //   ? context.getDisplayedFileValue(fullFieldPath, fieldConfig)
-    //   : value;
-
-    //     console.log("file in value", context)
-    // const hasLocalFile =
-    //   value instanceof File || value?.file instanceof File || value?.uploaded;
-
-    // const displayedFile = hasLocalFile
-    //   ? value
-    //   : context?.getDisplayedFileValue
-    //     ? context.getDisplayedFileValue(fullFieldPath, fieldConfig)
-    //     : value;
     const hasLocalFile =
       value instanceof File ||
       value?.file instanceof File ||
