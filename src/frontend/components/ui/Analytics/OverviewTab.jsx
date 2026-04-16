@@ -228,14 +228,40 @@ function isWithinDateRange(app, dateRange) {
   return true;
 }
 
-function buildIndustryBreakdown(applications = []) {
+function buildIndustryBreakdown(
+  applications = [],
+  selectedCountry = "Singapore",
+) {
   const counts = {};
   let total = 0;
 
   applications.forEach((app) => {
     const payload = getPayload(app);
-    const industry =
-      String(payload.businessIndustry || "Unknown").trim() || "Unknown";
+    const appCountry = normalizeCountry(
+      payload.businessCountry || payload.country,
+    ).label;
+
+    if (appCountry !== selectedCountry) return;
+
+    let industry = "";
+
+    if (selectedCountry === "Singapore") {
+      industry = String(payload.businessIndustry || "").trim();
+    } else if (selectedCountry === "Indonesia") {
+      const activities = Array.isArray(payload.businessActivities)
+        ? payload.businessActivities
+        : [];
+
+      const primaryActivity = activities.find(
+        (activity) =>
+          String(activity?.activityType || "").trim().toLowerCase() ===
+          "primary",
+      );
+
+      industry = String(primaryActivity?.businessActivity || "").trim();
+    }
+
+    if (!industry) return;
 
     counts[industry] = (counts[industry] || 0) + 1;
     total += 1;
@@ -558,6 +584,8 @@ function buildStatusSummary(statusBreakdown = []) {
 
 export function OverviewTab({ dateRange, preset }) {
   const [selectedCountry, setSelectedCountry] = useState("All");
+  const [selectedIndustryCountry, setSelectedIndustryCountry] =
+    useState("Singapore");
   const [applications, setApplications] = useState([]);
 
   useEffect(() => {
@@ -620,8 +648,9 @@ export function OverviewTab({ dateRange, preset }) {
   );
 
   const industryBreakdown = useMemo(
-    () => buildIndustryBreakdown(filteredApplications),
-    [filteredApplications],
+    () =>
+      buildIndustryBreakdown(filteredApplications, selectedIndustryCountry),
+    [filteredApplications, selectedIndustryCountry],
   );
 
   const businessTypeBreakdown = useMemo(
@@ -912,51 +941,83 @@ export function OverviewTab({ dateRange, preset }) {
 
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-base font-medium">
-              Industry Breakdown
-            </CardTitle>
-            <CardDescription>
-              Applications segmented by business industry
-            </CardDescription>
+            <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+              <div>
+                <CardTitle className="text-base font-medium">
+                  Industry Breakdown
+                </CardTitle>
+                <CardDescription>
+                  Applications segmented by primary business activity
+                </CardDescription>
+              </div>
+
+              <div className="flex flex-wrap gap-1.5 lg:max-w-[55%] lg:justify-end">
+                {["Singapore", "Indonesia"].map((filter) => (
+                  <button
+                    key={filter}
+                    onClick={() => setSelectedIndustryCountry(filter)}
+                    className={cn(
+                      "rounded-full border px-3 py-1 text-xs font-medium transition-colors",
+                      selectedIndustryCountry === filter
+                        ? "border-transparent bg-neutral-950 text-white"
+                        : "border-border bg-background text-muted-foreground hover:bg-secondary",
+                    )}
+                  >
+                    {filter}
+                  </button>
+                ))}
+              </div>
+            </div>
           </CardHeader>
+
           <CardContent>
-            <ChartContainer
-              config={industryChartConfig}
-              className="h-[380px] w-full"
-            >
-              <BarChart
-                data={industryBreakdown}
-                layout="vertical"
-                margin={{ left: 10 }}
+            {industryBreakdown.length === 0 ? (
+              <div className="rounded-lg border border-dashed p-6 text-center text-sm text-muted-foreground">
+                No industry records found for {selectedIndustryCountry}.
+              </div>
+            ) : (
+              <ChartContainer
+                config={industryChartConfig}
+                className="h-[380px] w-full"
               >
-                <CartesianGrid
-                  strokeDasharray="3 3"
-                  className="stroke-border"
-                  horizontal={false}
-                />
-                <XAxis
-                  type="number"
-                  tick={{ fontSize: 11 }}
-                  className="fill-muted-foreground"
-                />
-                <YAxis
-                  dataKey="industry"
-                  type="category"
-                  width={140}
-                  tick={{ fontSize: 11 }}
-                  className="fill-muted-foreground"
-                />
-                <ChartTooltip content={<ChartTooltipContent />} />
-                <Bar dataKey="count" radius={[0, 4, 4, 0]} name="Applications">
-                  {industryBreakdown.map((_, i) => (
-                    <Cell
-                      key={i}
-                      fill={`hsl(210, ${90 - i * 8}%, ${45 + i * 4}%)`}
-                    />
-                  ))}
-                </Bar>
-              </BarChart>
-            </ChartContainer>
+                <BarChart
+                  data={industryBreakdown}
+                  layout="vertical"
+                  margin={{ left: 10 }}
+                >
+                  <CartesianGrid
+                    strokeDasharray="3 3"
+                    className="stroke-border"
+                    horizontal={false}
+                  />
+                  <XAxis
+                    type="number"
+                    tick={{ fontSize: 11 }}
+                    className="fill-muted-foreground"
+                  />
+                  <YAxis
+                    dataKey="industry"
+                    type="category"
+                    width={220}
+                    tick={{ fontSize: 11 }}
+                    className="fill-muted-foreground"
+                  />
+                  <ChartTooltip content={<ChartTooltipContent />} />
+                  <Bar
+                    dataKey="count"
+                    radius={[0, 4, 4, 0]}
+                    name="Applications"
+                  >
+                    {industryBreakdown.map((_, i) => (
+                      <Cell
+                        key={i}
+                        fill={`hsl(210, ${90 - i * 8}%, ${45 + i * 4}%)`}
+                      />
+                    ))}
+                  </Bar>
+                </BarChart>
+              </ChartContainer>
+            )}
           </CardContent>
         </Card>
       </div>
