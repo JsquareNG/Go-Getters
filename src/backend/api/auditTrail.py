@@ -361,7 +361,9 @@ def get_audit_metrics_overview(
 @router.get("/metrics/staff-leaderboard")
 def get_staff_leaderboard(
     db: Session = Depends(get_db),
+    current_user: dict = Depends(get_current_user),
 ):
+    _ensure_staff_or_management(current_user)
 
     grouped_logs = get_all_logs_grouped(db)
 
