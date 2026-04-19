@@ -40,9 +40,6 @@ class BulkAlternativeDocumentAIResponse(BaseModel):
     results: List[RequestedDocumentAlternativeResult]
 
 
-# =========================
-# SYSTEM PROMPT
-# =========================
 
 SYSTEM_PROMPT = """
 You are a bank compliance officer assisting with SME onboarding review.
@@ -232,10 +229,6 @@ Instructions:
 """
 
 
-# =========================
-# MAIN SERVICE FUNCTION
-# =========================
-
 def generate_bulk_alternative_document_options(
     requested_documents: List[Dict[str, Any]],
     application_data: Dict[str, Any],
@@ -252,7 +245,6 @@ def generate_bulk_alternative_document_options(
         action_requests=action_requests,
     )
 
-    # delete this line
     client = get_gemini_client()
 
     response = client.models.generate_content(
@@ -267,24 +259,5 @@ def generate_bulk_alternative_document_options(
 
     parsed = BulkAlternativeDocumentAIResponse.model_validate_json(response.text)
 
-    # =========================
-    # POST-PROCESSING (IMPORTANT)
-    # =========================
-
-    # Remove duplicates & clean values
-    # for doc in parsed.results:
-    #     seen = set()
-    #     filtered_options = []
-
-    #     for opt in doc.alternative_document_options:
-    #         key = opt.value.strip().lower()
-
-    #         if key in seen:
-    #             continue
-
-    #         seen.add(key)
-    #         filtered_options.append(opt)
-
-    #     doc.alternative_document_options = filtered_options
 
     return parsed.model_dump()

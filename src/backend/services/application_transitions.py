@@ -11,7 +11,7 @@ from backend.api.resend import send_email
 from backend.api.notification import *
 from backend.services.audit_service import create_audit_log
 
-EXCLUDED_STATUSES = ("Withdrawn", "Approved", "Rejected")  # not "active"
+EXCLUDED_STATUSES = ("Withdrawn", "Approved", "Rejected") 
 
 
 def pick_least_loaded_staff_id(db: Session) -> str:
@@ -71,7 +71,6 @@ def approve_application_service(
     old_status = app.current_status
     approval_mode = "MANUAL" if old_status == "Under Manual Review" else "AUTO"
 
-    # Only require reason if approving from Under Manual Review
     if old_status == "Under Manual Review":
         if reason is None or str(reason).strip() == "":
             raise HTTPException(
@@ -112,7 +111,6 @@ def approve_application_service(
     db.commit()
     db.refresh(app)
 
-    # Prefer DB user contact details
     user_email = None
     user_firstName = None
 
@@ -140,12 +138,11 @@ def approve_application_service(
         subject, body = build_approved_email(app, user_firstName)
 
         if send_email_now:
-            # ✅ worker path: send immediately
             safe_send_email(user_email, subject, body)
             emails_queued = False
             email_notes.append("Approval email sent immediately (worker path).")
         else:
-            # ✅ API path: queue via BackgroundTasks
+
             if background_tasks is not None:
                 background_tasks.add_task(safe_send_email, user_email, subject, body)
                 emails_queued = True
@@ -367,7 +364,6 @@ def auto_reject_application_service(
     email_notes = []
 
     if user and getattr(user, "email", None):
-        # use your own email builder if you already have one
         subject, body = build_auto_rejected_email(app, getattr(user, "first_name", None))
 
         if send_email_now:

@@ -84,7 +84,6 @@ def test_singapore_sme_low():
     )
     submit_application(company)
 
-# <-- This is the key part
 if __name__ == "__main__":
     print("=== Testing Indonesia SME ===")
     test_indonesia_sme()

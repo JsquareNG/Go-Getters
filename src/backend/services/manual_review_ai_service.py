@@ -20,9 +20,9 @@ class DocumentSuggestion(BaseModel):
 
 class AISuggestionResponse(BaseModel):
     case_summary: str
-    short_reason: str   # 🔥 NEW (replace reasons + draft note usage)
+    short_reason: str   
     recommended_action: Literal["approve", "reject", "escalate"]
-    suggested_documents: List[DocumentSuggestion]   # 🔥 CHANGED
+    suggested_documents: List[DocumentSuggestion]  
     suggested_questions: List[str]
 
 

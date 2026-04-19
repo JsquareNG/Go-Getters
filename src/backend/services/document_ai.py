@@ -172,7 +172,6 @@ def _collect_page_confidences(page) -> Dict[str, Any]:
 
     page_mean_confidence = _mean(page_conf_candidates)
 
-    # Min/max should also only use actual values
     all_available_confidences = (
         token_confidences
         or line_confidences
