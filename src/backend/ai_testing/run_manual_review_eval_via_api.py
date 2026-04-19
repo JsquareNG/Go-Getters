@@ -58,7 +58,7 @@ def main():
 
         results.append(row)
 
-        time.sleep(5) 
+        time.sleep(5)
 
     total = len(cases)
     summary = {

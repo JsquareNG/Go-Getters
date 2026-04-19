@@ -18,7 +18,7 @@ class ApplicationForm(Base):
         "ReviewJobs",
         back_populates="application",
         cascade="all, delete-orphan",
-        passive_deletes=True,   
+        passive_deletes=True,  
     )
 
     bell_notifications = relationship(

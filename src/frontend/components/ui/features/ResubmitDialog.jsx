@@ -593,125 +593,6 @@ export function ResubmitDialog({
     return true;
   };
 
-  // const handleSubmit = async () => {
-  //   console.log("[ResubmitDialog] Submit clicked", {
-  //     applicationId,
-  //     email,
-  //     firstName,
-  //     filesByDocId,
-  //     useAlternativeByDocId,
-  //     alternativeTypeByDocId,
-  //   });
-
-  //   if (!validate()) return;
-
-  //   setIsSubmitting(true);
-
-  //   try {
-  //     for (const doc of requiredDocuments) {
-  //       const docId = doc.item_id;
-  //       const isAlternative = !!useAlternativeByDocId[docId];
-
-  //       const originalFile = filesByDocId[docId];
-  //       const alternativeFile = alternativeFilesByDocId[docId];
-  //       const fileToUpload = isAlternative ? alternativeFile : originalFile;
-
-  //       if (!fileToUpload) continue;
-
-  //       const selectedValue = (alternativeTypeByDocId[docId] || "").trim();
-  //       const alternativeOptions = getAlternativeOptionsForDocument(doc);
-
-  //       const matchedOption = alternativeOptions.find(
-  //         (option) => option.value === selectedValue,
-  //       );
-
-  //       const documentType = isAlternative
-  //         ? matchedOption?.label || selectedValue
-  //         : doc.document_name;
-
-  //       const validationResult = isAlternative
-  //         ? alternativeValidationById[docId]
-  //         : documentValidationById[docId];
-
-  //       const extractedData = validationResult?.data || {};
-
-  //       await uploadDocument({
-  //         applicationId,
-  //         documentType,
-  //         file: fileToUpload,
-  //         extracted_data: extractedData,
-  //         onProgress: (pct) => {
-  //           if (isAlternative) {
-  //             setAlternativeProgressByDocId((prev) => ({
-  //               ...prev,
-  //               [docId]: pct,
-  //             }));
-  //           } else {
-  //             setProgressByDocId((prev) => ({
-  //               ...prev,
-  //               [docId]: pct,
-  //             }));
-  //           }
-  //         },
-  //       });
-  //     }
-
-  //     const payload = {
-  //       email,
-  //       firstName,
-  //       question_answers: requiredQuestions.map((q) => ({
-  //         item_id: q.item_id,
-  //         answer_text: (answersByQId[q.item_id] || "").trim(),
-  //       })),
-  //       alternative_documents: requiredDocuments
-  //         .filter((doc) => useAlternativeByDocId[doc.item_id])
-  //         .map((doc) => {
-  //           const selectedValue = (
-  //             alternativeTypeByDocId[doc.item_id] || ""
-  //           ).trim();
-
-  //           const options = getAlternativeOptionsForDocument(doc);
-
-  //           const matchedOption = options.find(
-  //             (opt) => opt.value === selectedValue,
-  //           );
-
-  //           return {
-  //             item_id: doc.item_id,
-  //             substitute_document_type: matchedOption?.label || selectedValue,
-  //             substitute_reason: (
-  //               alternativeReasonByDocId[doc.item_id] || ""
-  //             ).trim(),
-  //           };
-  //         }),
-  //     };
-
-  //     console.log("=== FINAL PAYLOAD ===");
-  //     console.dir({ applicationId, payload }, { depth: null });
-
-  //     await secondSubmit(applicationId, payload);
-
-  //     if (onSuccess) {
-  //       await onSuccess();
-  //     }
-
-  //     toast.success("Resubmission sent successfully.");
-  //     resetAndClose();
-  //   } catch (err) {
-  //     console.error(
-  //       "[ResubmitDialog] Resubmit failed:",
-  //       err?.response?.data || err,
-  //     );
-
-  //     toast.error("Failed to submit resubmission.", {
-  //       description:
-  //         err?.response?.data?.detail || err?.message || "Unknown error",
-  //     });
-
-  //     setIsSubmitting(false);
-  //   }
-  // };
-
   const handleSubmit = async () => {
     console.log("[ResubmitDialog] Submit clicked", {
       applicationId,
@@ -727,7 +608,6 @@ export function ResubmitDialog({
     setIsSubmitting(true);
 
     try {
-      // Optional debug snapshot
       console.log("FULL STATE SNAPSHOT:");
       console.dir(
         {
@@ -738,7 +618,6 @@ export function ResubmitDialog({
         { depth: null },
       );
 
-      // Upload documents
       for (const doc of requiredDocuments) {
         const docId = doc.item_id;
         const isAlternative = !!useAlternativeByDocId[docId];
@@ -808,7 +687,6 @@ export function ResubmitDialog({
         
       }
 
-      // Collect unique OCR warnings across all checked documents
       const hasOcrWarnings = requiredDocuments.some((doc) => {
         const docId = doc.item_id;
         const isAlternative = !!useAlternativeByDocId[docId];
@@ -864,12 +742,10 @@ export function ResubmitDialog({
         { depth: null },
       );
 
-      // Uncomment when ready
       await secondSubmit(applicationId, payload);
 
       toast.success("DEBUG MODE: Check console logs");
 
-      // Uncomment when ready
       if (onSuccess) {
         await onSuccess();
       }

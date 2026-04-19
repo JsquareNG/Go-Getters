@@ -34,7 +34,6 @@ from dotenv import load_dotenv
 
 ENV_PATH = Path(__file__).resolve().parent / ".env"
 load_dotenv(dotenv_path=ENV_PATH)
-
 cred = os.getenv("GOOGLE_APPLICATION_CREDENTIALS", "")
 if cred.startswith("./"):
     abs_cred = (Path(__file__).resolve().parent / cred.replace("./", "")).resolve()

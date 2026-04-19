@@ -26,8 +26,7 @@ def generate_ai_suggestions(payload: ManualReviewAIRequest):
             "data": result,
         }
     except Exception as e:
-        # raise HTTPException(status_code=500, detail=str(e))
-            print("🔥 AI GENERATION ERROR:", str(e))
+            print("AI GENERATION ERROR:", str(e))
             traceback.print_exc()
             raise HTTPException(status_code=500, detail=str(e))
     
@@ -49,6 +48,6 @@ def generate_bulk_alternative_documents(payload: BulkAlternativeDocumentAIReques
         }
 
     except Exception as e:
-        print("🔥 BULK ALTERNATIVE DOCUMENT AI ERROR:", str(e))
+        print("BULK ALTERNATIVE DOCUMENT AI ERROR:", str(e))
         traceback.print_exc()
         raise HTTPException(status_code=500, detail=str(e))

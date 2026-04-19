@@ -8,10 +8,6 @@ import {
   updateRowField,
 } from "./formEngineUtils";
 
-/**
- * Handles repeatable fields
- * includes button for users to add more entries accordingly
- */
 const RepeatableSectionRenderer = ({
   sectionKey,
   sectionConfig,
@@ -39,37 +35,6 @@ const RepeatableSectionRenderer = ({
 
   const min = sectionConfig.min ?? 0;
   const max = sectionConfig.max ?? Infinity;
-
-  // build rows based on min amount 
-  // useEffect(() => {
-  //   if (sectionRows.length >= min) return;
-
-  //   const missingCount = min - sectionRows.length;
-
-  //   const additionalRows = Array.from({ length: missingCount }, () => {
-  //     const row = buildEmptyRow(sectionConfig.fields);
-
-  //     if (rowTypeField && rowTypeValue) {
-  //       row[rowTypeField] = rowTypeValue;
-  //     }
-
-  //     return row;
-  //   });
-
-  //   console.log("all rows", allRows)
-  //   console.log("additional rows", additionalRows)
-  //   onFormDataChange({
-  //     ...formData,
-  //     [storageKey]: [...allRows, ...additionalRows],
-  //   });
-  // }, [
-  //   sectionRows.length,
-  //   min,
-  //   storageKey,
-  //   rowTypeField,
-  //   rowTypeValue,
-  //   sectionConfig.fields,
-  // ]);
 
   const handleAddRow = () => {
     const newRow = buildEmptyRow(sectionConfig.fields);
@@ -137,7 +102,6 @@ const RepeatableSectionRenderer = ({
       </div>
 
       {sectionRows.map((row, rowIndex) => {
-        // give each repeatable row its own unique prefix for field keys and context
         const rowContext = {
           ...context,
           rowData: row,

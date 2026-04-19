@@ -1,13 +1,11 @@
 import axiosClient from "./axiosClient";
 
 export const getAllNotifications = async (recipientId) => {
-  // Using the specific endpoint you provided
   const res = await axiosClient.get(`/bell/all/${recipientId}`);
   return res.data;
 };
 
 export const getUnreadNotifications = async (recipientId) => {
-  // Using the specific endpoint you provided
   const res = await axiosClient.get(`/bell/unread/${recipientId}`);
   return res.data;
 };

@@ -120,7 +120,7 @@ export default function SimulationTestingSection() {
       const matchesSearch =
         !term ||
         row.application_id?.toLowerCase().includes(term) ||
-        row.business_name?.toLowerCase().includes(term);
+        row.form_data?.businessName ?.toLowerCase().includes(term);
 
       const matchesStatus =
         statusFilter === "All" || row.current_status === statusFilter;
@@ -519,7 +519,7 @@ export default function SimulationTestingSection() {
                         className="cursor-pointer border-b border-gray-100 px-4 py-3 text-sm text-gray-700"
                         onClick={() => setSelectedApp(row)}
                       >
-                        {row.business_name || "-"}
+                        {row.form_data?.businessName || "-"}
                       </td>
 
                       <td
@@ -1280,69 +1280,6 @@ function MiniStat({ label, value, isCustom = false, highlighted = false }) {
     </div>
   );
 }
-
-// function buildSimulationComparison(originalRow, simulationResult) {
-//   const originalRules = Array.isArray(originalRow?.rules_triggered)
-//     ? originalRow.rules_triggered
-//     : [];
-
-//   const simulatedRules = Array.isArray(simulationResult?.triggered_rules)
-//     ? simulationResult.triggered_rules
-//     : [];
-
-//   const originalScore = originalRow?.risk_score ?? null;
-//   const newScore = simulationResult?.risk_score ?? null;
-
-//   const originalGrade = normalizeDecisionLabel(originalRow?.risk_grade);
-//   const newGrade = normalizeDecisionLabel(simulationResult?.risk_decision);
-
-//   const scoreChanged = String(originalScore ?? "") !== String(newScore ?? "");
-//   const gradeChanged = String(originalGrade ?? "") !== String(newGrade ?? "");
-//   const ruleCountChanged = originalRules.length !== simulatedRules.length;
-
-//   return {
-//     application_id: simulationResult?.application_id || originalRow?.application_id,
-//     business_name:
-//       simulationResult?.business_name || originalRow?.business_name || "-",
-//     business_country:
-//       simulationResult?.country ||
-//       originalRow?.business_country ||
-//       originalRow?.country ||
-//       "-",
-//     business_type:
-//       simulationResult?.business_type || originalRow?.business_type || "-",
-//     success: simulationResult?.success !== false,
-//     error: simulationResult?.error,
-
-//     original: {
-//       risk_score: originalScore,
-//       risk_grade: originalGrade,
-//       rules_triggered: originalRules,
-//       check_completed_at: originalRow?.check_completed_at,
-//     },
-
-//     simulated: {
-//       risk_score: newScore,
-//       risk_grade: newGrade,
-//       rules_triggered: simulatedRules,
-//     },
-
-//     comparison: {
-//       changed: scoreChanged || gradeChanged || ruleCountChanged,
-//       scoreChanged,
-//       gradeChanged,
-//       ruleCountChanged,
-//       originalScore,
-//       newScore,
-//       originalGrade,
-//       newGrade,
-//       originalRuleCount: originalRules.length,
-//       newRuleCount: simulatedRules.length,
-//     },
-
-//     changed: scoreChanged || gradeChanged || ruleCountChanged,
-//   };
-// }
 
 function buildSimulationComparison(originalRow, simulationResult) {
   const originalRules = Array.isArray(originalRow?.rules_triggered)

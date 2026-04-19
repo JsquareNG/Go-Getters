@@ -10,7 +10,6 @@ const Header = () => {
     <header className="fixed top-0 left-0 right-0 z-50 bg-background/95 backdrop-blur-sm border-b border-border">
       <div className="section-container">
         <div className="flex items-center justify-between h-16">
-          {/* Logo */}
           <div className="flex items-center gap-2">
             <div className="flex items-center">
               <div className="w-auto h-8 bg-primary rounded flex items-center justify-center">
@@ -19,7 +18,6 @@ const Header = () => {
             </div>
           </div>
 
-          {/* Mobile Menu Button */}
           <button
             className="md:hidden p-2"
             onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
@@ -32,7 +30,6 @@ const Header = () => {
           </button>
         </div>
 
-        {/* Mobile Menu */}
         {isMobileMenuOpen && (
           <div className="md:hidden py-4 border-t border-border animate-fade-in">
             <nav className="flex flex-col gap-4">

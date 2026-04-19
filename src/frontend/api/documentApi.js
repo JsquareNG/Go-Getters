@@ -1,9 +1,5 @@
 import axiosClient from "./axiosClient";
 
-/**
- * Normalize Supabase signed upload response into a URL string.
- * Supabase SDK responses can vary by version.
- */
 const extractSignedUploadUrl = (signedUpload) => {
   if (!signedUpload) return null;
   if (typeof signedUpload === "string") return signedUpload;
@@ -17,19 +13,15 @@ const extractSignedUploadUrl = (signedUpload) => {
   );
 };
 
-/**
- * Upload to a signed URL with XHR so we get progress events and avoid axios interceptors.
- */
 const uploadWithXhr = (url, file, onProgressCb) => {
   return new Promise((resolve, reject) => {
     const xhr = new XMLHttpRequest();
     xhr.open("PUT", url);
 
-    // Some signed URLs expect matching Content-Type
     try {
       if (file?.type) xhr.setRequestHeader("Content-Type", file.type);
     } catch (e) {
-      // ignore
+      
     }
 
     xhr.upload.onprogress = function (e) {
@@ -54,20 +46,13 @@ const uploadWithXhr = (url, file, onProgressCb) => {
   });
 };
 
-/**
- * Main upload: init -> PUT to signed URL -> confirm
- *
- * payload MUST include: application_id, document_type, filename, mime_type
- */
 export const uploadDocumentApi = async (payload, file, onProgress) => {
-  // 1) init
   const initResp = await axiosClient.post(
     "/documents/init-persist-upload",
     payload,
     { headers: { "Content-Type": "application/json" } },
   );
 
-  // Backend returns: { document_id, storage_path, signed_upload }
   const { document_id, storage_path, signed_upload } = initResp.data || {};
 
   const uploadUrl = extractSignedUploadUrl(signed_upload);
@@ -75,17 +60,14 @@ export const uploadDocumentApi = async (payload, file, onProgress) => {
   if (!document_id) throw new Error("init-persist-upload did not return document_id");
   if (!uploadUrl) throw new Error("init-persist-upload did not return signed upload URL");
 
-  // 2) upload file bytes to signed url
   await uploadWithXhr(uploadUrl, file, onProgress);
 
-  // 3) confirm
   await axiosClient.post(
     "/documents/confirm-persist-upload",
     { document_id },
     { headers: { "Content-Type": "application/json" } },
   );
 
-  // return meta
   return {
     document_id,
     storage_path,
@@ -95,10 +77,6 @@ export const uploadDocumentApi = async (payload, file, onProgress) => {
   };
 };
 
-/**
- * Convenience wrapper you can call from submit.
- * IMPORTANT: you MUST pass applicationId now.
- */
 export async function uploadDocument({ applicationId, documentType, file, onProgress, extracted_data }) {
   const payload = {
     application_id: applicationId,
@@ -142,9 +120,6 @@ export const replaceDocumentApi = async (documentId, file, extracted_data, onPro
   return res.data;
 };
 
-/**
- * Convenience wrapper for replacing an existing document.
- */
 export async function replaceDocument({
   documentId,
   file,

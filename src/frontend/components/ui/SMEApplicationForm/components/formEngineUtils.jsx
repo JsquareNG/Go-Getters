@@ -1,4 +1,3 @@
-//Util functions for form
 export const buildEmptyRow = (fieldsConfig = {}) => {
   const row = {};
 

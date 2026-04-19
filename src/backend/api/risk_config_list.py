@@ -21,10 +21,8 @@ def normalize_item_label(value: str) -> str:
     normalized_words = []
 
     for word in words:
-        # remove brackets for checking
         clean_word = word.strip("()")
 
-        # if already uppercase acronym (e.g. IP, LLP, SG)
         if clean_word.isupper() and len(clean_word) <= 5:
             normalized_words.append(word.upper())
         else:
@@ -112,20 +110,6 @@ def get_list_names(db: Session = Depends(get_db)):
         if row[0] not in excluded_list_names
     ]
 
-
-# @router.get("/byListName/{list_name}")
-# def get_risk_config_by_list_name(list_name: str, db: Session = Depends(get_db)):
-#     rows = (
-#         db.query(RiskConfigList)
-#         .filter(RiskConfigList.list_name == list_name)
-#         .order_by(RiskConfigList.item_label.asc())
-#         .all()
-#     )
-
-#     if not rows:
-#         raise HTTPException(status_code=404, detail="No config items found for this list_name")
-
-#     return [to_dict(r) for r in rows]
 @router.get("/byListName/{list_name}")
 def get_risk_config_by_list_name(list_name: str, db: Session = Depends(get_db)):
     rows = (
@@ -227,9 +211,6 @@ def save_risk_config_list_changes(data: dict = Body(...), db: Session = Depends(
                 detail="This config list was updated by another user. Please refresh and try again."
             )
 
-        # -------------------------
-        # Handle updates
-        # -------------------------
         for upd in updates:
             row_id = upd.get("id")
             if not row_id:
@@ -297,9 +278,6 @@ def save_risk_config_list_changes(data: dict = Body(...), db: Session = Depends(
 
             updated_items.append(row)
 
-        # -------------------------
-        # Handle creates
-        # -------------------------
         for item in creates:
             item_list_name = (item.get("list_name") or "").strip()
             item_label = normalize_item_label(item.get("item_label") or "")
@@ -352,9 +330,6 @@ def save_risk_config_list_changes(data: dict = Body(...), db: Session = Depends(
             db.add(new_item)
             created_items.append(new_item)
 
-        # -------------------------
-        # Handle deletes
-        # -------------------------
         for row_id in deletes:
             row = db.query(RiskConfigList).filter(RiskConfigList.id == row_id).first()
 

@@ -18,7 +18,7 @@ def main():
     with open(EXPECTED_PATH, "r", encoding="utf-8") as f:
         expected = json.load(f)
 
-    print("🚀 Sending request...")
+    print("Sending request...")
 
     response = requests.post(API_URL, json=payload, timeout=120)
 
@@ -30,10 +30,10 @@ def main():
         with open(OUTPUT_PATH, "w", encoding="utf-8") as f:
             json.dump(data, f, indent=2, ensure_ascii=False)
 
-        print(f"\n✅ Response saved to: {OUTPUT_PATH}")
+        print(f"\n Response saved to: {OUTPUT_PATH}")
 
         if response.status_code != 200 or not data.get("success"):
-            print("\n❌ API did not return success")
+            print("\n API did not return success")
             print(json.dumps(data, indent=2, ensure_ascii=False))
             return
 
@@ -77,7 +77,7 @@ def main():
 
             print(f"Expected Acceptable Values: {acceptable_values}")
             print(f"Matched Values: {match_values}")
-            print(f"Result: {'PASS ✅' if is_pass else 'FAIL ❌'}")
+            print(f"Result: {'PASS' if is_pass else 'FAIL'}")
             print("-" * 80)
 
         accuracy = round((passed / total) * 100, 2) if total else 0.0
@@ -93,7 +93,7 @@ def main():
         print(json.dumps(summary, indent=2, ensure_ascii=False))
 
     except Exception as e:
-        print("❌ Failed to parse JSON")
+        print("Failed to parse JSON")
         print("Error:", str(e))
         print(response.text)
 

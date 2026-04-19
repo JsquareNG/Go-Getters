@@ -36,7 +36,6 @@ const Step1BasicInformation = ({
   const hydratedSessionsRef = useRef({});
   const hasHydratedRef = useRef(false);
 
-  //FETCH EXISTING DOCUMENTS FOR THIS APPLICATION
   useEffect(() => {
     if (!applicationId || applicationId === "new") return;
 
@@ -89,14 +88,6 @@ const Step1BasicInformation = ({
 
   const handleRepeatableSectionChange = async (nextFormData) => {
     onFieldChange("formData", nextFormData);
-
-    // try {
-    //   if (applicationId && applicationId !== "new" && onPersistDraft) {
-    //     await onPersistDraft(nextFormData);
-    //   }
-    // } catch (err) {
-    //   console.error("Failed to persist repeatable section changes:", err);
-    // }
   };
 
   const buildRepeatableDocumentType = (fieldPath) => {
@@ -133,7 +124,6 @@ const Step1BasicInformation = ({
     return `${roleValue}_${rolePosition}_${fieldKey}`;
   };
 
-  // helps to find rooted documents - matches uploaded documents to the correct form field using document type normalization
   const findExistingDocumentForField = (fieldPath, fieldConfig = {}) => {
     if (!Array.isArray(existingDocuments) || !existingDocuments.length) {
       return null;
@@ -145,7 +135,6 @@ const Step1BasicInformation = ({
         inferExpectedDocumentType(fieldPath, fieldConfig),
     );
 
-    // necessary for nested file fields within repeatable sections - e.g. individuals
     const repeatableDocType = buildRepeatableDocumentType(fieldPath);
     const normalizedRepeatableDocType =
       normalizeDocumentType(repeatableDocType);
@@ -168,7 +157,6 @@ const Step1BasicInformation = ({
     );
   };
 
-  // finds the value from form_data to map it
   const getNestedValue = (objs, path) => {
     if (!path) return undefined;
 
@@ -180,14 +168,6 @@ const Step1BasicInformation = ({
         const isIndex = !Number.isNaN(Number(key));
         return isIndex ? acc[Number(key)] : acc[key];
       }, obj);
-
-      // if (
-      //   value !== null &&
-      //   value !== undefined &&
-      //   String(value).trim() !== ""
-      // ) {
-      //   return value;
-      // }
       if (value !== null && value !== undefined) {
         return value;
       }
@@ -253,7 +233,6 @@ const Step1BasicInformation = ({
 
     const [day, monthText, year] = parts;
 
-    // const month = monthMap[monthText];
     const month = monthMap[monthText.toLowerCase()];
 
     if (!month) return "";
@@ -282,8 +261,6 @@ const Step1BasicInformation = ({
       .toLowerCase()
       .replace(/\s+/g, "_");
 
-  // const hasUsableLocalFile = (value) =>
-  //   !!value && (value instanceof File || value?.file instanceof File);
   const hasUsableLocalFile = (value) =>
     !!value &&
     (value instanceof File ||
@@ -293,12 +270,7 @@ const Step1BasicInformation = ({
       value?.original_filename ||
       value?.storage_path);
 
-  // helper file function
   const inferExpectedDocumentType = (fieldKey, fieldConfig) => {
-    // if (fieldConfig?.ocrTarget === "business_profile") {
-    //   return "businessProfile";
-    // }
-
     const key =
       String(fieldKey || "")
         .split(".")
@@ -322,70 +294,12 @@ const Step1BasicInformation = ({
     return key;
   };
 
-  //show on ui
-  // const getDisplayedFileValue = (fieldPath, fieldConfig = {}) => {
-  // //   const formRoot = getFormDataRoot();
-
-  // // const localFromFormData = getNestedValue(data?.formData || {}, fieldPath);
-  // // const localFromData = getNestedValue(data, fieldPath);
-
-  // // const localValue = localFromFormData ?? localFromData ?? null;
-  // // const existingDoc = findExistingDocumentForField(fieldPath, fieldConfig);
-  //   const localValue =
-  //     getNestedValue(data?.formData || {}, fieldPath) ??
-  //     getNestedValue(data, fieldPath) ??
-  //     null;
-
-  //   console.log("LOCAL", localValue);
-  //   // if (
-  //   //   localValue &&
-  //   //   (localValue instanceof File || localValue?.file instanceof File)
-  //   // ) {
-  //   //   return localValue;
-  //   // }
-  //   if (
-  //     localValue &&
-  //     (localValue instanceof File ||
-  //       localValue?.file instanceof File ||
-  //       localValue?.verificationStatus ||
-  //       localValue?.verified !== undefined ||
-  //       localValue?.original_filename)
-  //   ) {
-  //     return localValue;
-  //   }
-
-  //   const existingDoc = findExistingDocumentForField(fieldPath, fieldConfig);
-  //   // if (!existingDoc) return null;
-
-  //   return {
-  //     uploaded: true,
-  //     verified: true,
-  //     verificationStatus: "verified",
-  //     verificationMessage: "Previously uploaded document found.",
-  //     document_id: existingDoc.document_id,
-  //     document_type: existingDoc.document_type,
-  //     original_filename: existingDoc.original_filename,
-  //     storage_path: existingDoc.storage_path,
-  //     mime_type: existingDoc.mime_type,
-  //     status: existingDoc.status,
-  //     created_at: existingDoc.created_at,
-  //   };
-  // };
-
-  //show on ui
   const getDisplayedFileValue = (fieldPath, fieldConfig = {}) => {
     const localValue =
       getNestedValue(data?.formData || {}, fieldPath) ??
       getNestedValue(data, fieldPath) ??
       null;
-    // console.log("step 1 get display", localValue)
-
-    // if (
-    //   localValue &&
-    //   (localValue instanceof File || localValue?.file instanceof File)
-    // ) {
-    //   return localValue;
-    // }
+   
     if (
       localValue &&
       (localValue?.verificationStatus ||
@@ -472,10 +386,6 @@ const Step1BasicInformation = ({
     }));
   };
 
-  // --------------
-  // ---HELPER ----
-  // --------------
-  //initialise min individuals row
   const buildDefaultRowFromFields = (fields = {}) => {
     const row = {};
 
@@ -513,7 +423,6 @@ const Step1BasicInformation = ({
     return row;
   };
 
-  // create required number of rows for repeatable sections with minRows defined
   const buildMinRowsForSection = (sectionConfig, count) => {
     return Array.from({ length: count }, () => {
       const baseRow = buildDefaultRowFromFields(sectionConfig?.fields || {});
@@ -521,7 +430,6 @@ const Step1BasicInformation = ({
       if (sectionConfig?.rowTypeField && sectionConfig?.rowTypeValue) {
         baseRow[sectionConfig.rowTypeField] = sectionConfig.rowTypeValue;
       }
-      // console.log("base", baseRow);
       return baseRow;
     });
   };
@@ -548,9 +456,6 @@ const Step1BasicInformation = ({
             result?.label,
         );
 
-        // ----------------------
-        // FILE VALIDATION
-        // ----------------------
         const validation = result?.upload_validation;
         const validationStatus = validation?.status;
         const validationReasons = validation?.reasons || [];
@@ -565,7 +470,6 @@ const Step1BasicInformation = ({
             original_filename: file?.name || "",
             mime_type: file?.type || "application/octet-stream",
             upload_status: "failed",
-            // progress: 0,
             verified: false,
             verificationStatus: "failed",
             verificationMessage: errorMessage,
@@ -581,7 +485,6 @@ const Step1BasicInformation = ({
             detectedType,
           });
 
-          // throw new Error(errorMessage);
           return failedValue;
         }
 
@@ -590,7 +493,6 @@ const Step1BasicInformation = ({
           original_filename: file?.name || "",
           mime_type: file?.type || "application/octet-stream",
           upload_status: "pending",
-          // progress: 0,
           verified: true,
           verificationStatus: "verified",
           verificationMessage: "Document verified successfully.",
@@ -608,14 +510,9 @@ const Step1BasicInformation = ({
 
         return nextValue;
       } catch (err) {
-        // if (
-        //   !verificationState[fieldPath]?.status ||
-        //   verificationState[fieldPath]?.status === "verifying"
-        // ) {
 
         const failedValue = {
           file,
-          // progress: 0,
           original_filename: file?.name || "",
           mime_type: file?.type || "application/octet-stream",
           upload_status: "pending",
@@ -634,14 +531,11 @@ const Step1BasicInformation = ({
           expectedType,
           detectedType: null,
         });
-        // }
 
-        // throw err;
         return failedValue;
       }
     },
     [],
-    // [verificationState],
   );
 
   const getSelectedVerifiedFileForField = (fieldKey) => {
@@ -666,13 +560,6 @@ const Step1BasicInformation = ({
   };
 
   const handleFieldChange = (name, value) => {
-    //    console.log("[Step1 handleFieldChange]", {
-    //   name,
-    //   value,
-    //   original_filename: value?.original_filename,
-    //   fileName: value?.file?.name,
-    //   verificationStatus: value?.verificationStatus,
-    // });
     if (!name) return;
 
     delete processedOcrFilesRef.current[name];
@@ -691,7 +578,6 @@ const Step1BasicInformation = ({
     onFieldChange(name, value);
   };
 
-  // helper to map from ocr to actual fields
   const pickFirstNonEmpty = (...values) => {
     for (const value of values) {
       if (
@@ -705,9 +591,6 @@ const Step1BasicInformation = ({
     return "";
   };
 
-  // -----------------------
-  // OCR Mapping
-  // -----------------------
   const mapBusinessProfilePayloadToForm = (payload, country) => {
     if (!payload || Object.keys(payload).length === 0) {
       throw new Error("No structured OCR data returned.");
@@ -716,7 +599,6 @@ const Step1BasicInformation = ({
     const updates = {};
 
     if (country === "Indonesia") {
-      // support both old and new payload shapes
       const issuedDate = pickFirstNonEmpty(
         payload.date_of_registration,
         payload.issued_date,
@@ -740,7 +622,6 @@ const Step1BasicInformation = ({
       const registrationNumber = pickFirstNonEmpty(
         payload.business_registration_number,
         payload.nib_number,
-        // payload.businessName
         payload.registrationNumber,
         payload.incorporationDate,
       );
@@ -771,10 +652,8 @@ const Step1BasicInformation = ({
         let normalizedDate = "";
 
         if (issuedDate.includes("-")) {
-          // handles 19-01-2022
           normalizedDate = ddMmYyyyToISO(issuedDate);
         } else {
-          // handles "19 Januari 2022"
           normalizedDate = indoDateToISO(issuedDate);
         }
 
@@ -808,7 +687,6 @@ const Step1BasicInformation = ({
     }
 
     if (country === "Singapore") {
-      // console.log("payload singapore", payload);
       const businessName = pickFirstNonEmpty(
         payload.business_name,
         payload.company_name,
@@ -855,23 +733,19 @@ const Step1BasicInformation = ({
       if (registrationDate) {
         let normalizedDate = "";
 
-        // Case 1: already ISO
         if (/^\d{4}-\d{2}-\d{2}$/.test(registrationDate)) {
           normalizedDate = registrationDate;
         }
 
-        // Case 2: DD-MM-YYYY
         else if (registrationDate.includes("-")) {
           normalizedDate = ddMmYyyyToISO(registrationDate);
         }
 
-        // Case 3: "08 AUG 2016"
         else {
           normalizedDate = ddMmmYyyyToISO(registrationDate);
         }
 
         updates.registrationDate = normalizedDate;
-        // updates.registrationDate = ddMmmYyyyToISO(registrationDate);
       }
 
       if (phone) {
@@ -888,13 +762,10 @@ const Step1BasicInformation = ({
     return updates;
   };
 
-  // to map the extracted OCR data to the form fields, but only apply values to fields that are currently empty to avoid overwriting any existing data that user may have already filled in or edited after OCR autofill
   const applyMappedFieldsToFormData = (updates) => {
     Object.entries(updates).forEach(([fieldKey, nextValue]) => {
-      // console.log(`Applying OCR update for ${fieldKey}:`, nextValue);
 
       if (
-        // isEmpty &&
         nextValue !== undefined &&
         nextValue !== null &&
         nextValue !== ""
@@ -969,7 +840,6 @@ const Step1BasicInformation = ({
     }
   };
 
-  //helper to determine if KYC result is successful
   const isSuccessfulKycResult = (kyc) => {
     if (!kyc || typeof kyc !== "object") return false;
 
@@ -1013,7 +883,6 @@ const Step1BasicInformation = ({
     fullName: detection?.full_name || "",
     idNumber: detection?.document_number || "",
     dateOfBirth: detection?.date_of_birth || "",
-    // nationality: detection?.issuing_state_code || "",
     nationality: mapIsoToNationalityOption(detection?.issuing_state_code),
     residentialAddress: detection?.formatted_address || "",
   });
@@ -1043,14 +912,13 @@ const Step1BasicInformation = ({
         console.log("detection for hydration", detection);
         if (!detection) {
           hydratedSessionsRef.current[hydrationKey] = true;
-          continue; // STOP HERE
+          continue; 
         }
 
         const nextKyc = mapDetectionToKyc(detection);
         const mappedFields = mapDetectionToIndividualFields(detection);
         console.log("[MAP fields]", mappedFields);
 
-        //stops old declined hydration results from overwriting the new retry session
         const currentPerson = nextFormRoot.individuals[index];
         const currentSessionId =
           currentPerson?.provider_session_id ||
@@ -1058,7 +926,6 @@ const Step1BasicInformation = ({
           "";
 
         if (currentSessionId !== sessionId) {
-          // user already retried or switched session; ignore stale result
           continue;
         }
 
@@ -1086,8 +953,6 @@ const Step1BasicInformation = ({
             : currentPerson?.residentialAddress,
         };
 
-        // const changed =
-        //   JSON.stringify(currentPerson) !== JSON.stringify(nextPerson);
         const changed =
           currentPerson.kyc?.overallStatus !== nextPerson.kyc?.overallStatus ||
           currentPerson.provider_session_id !== nextPerson.provider_session_id;
@@ -1111,13 +976,10 @@ const Step1BasicInformation = ({
     }
 
     if (hasChanges) {
-      // onFieldChange("formData", nextFormRoot);
       onFieldChange("individuals", nextFormRoot.individuals);
     }
   };
 
-  //clear only when the session signature changes significantly.
-  //This helps prevent old hydration bookkeeping from interfering after retry
   useEffect(() => {
     if (!applicationId || applicationId === "new") return;
     if (hasHydratedRef.current) return;
@@ -1140,13 +1002,6 @@ const Step1BasicInformation = ({
       }),
   );
 
-  // useEffect(() => {
-  //   console.log("[Step1 mounted/current data]", {
-  //     data,
-  //     formData: data?.formData,
-  //   });
-  // }, [data]);
-
   useEffect(() => {
     Object.entries(basicFieldsConfig).forEach(([fieldKey, fieldConfig]) => {
       if (fieldConfig?.type !== "file" || fieldConfig?.ocr !== true) return;
@@ -1166,7 +1021,6 @@ const Step1BasicInformation = ({
     });
   }, [basicFieldsConfig, ocrEligibleSignature]);
 
-  // ensure minimum rows for repeatable sections with minRows defined on initial load
   const initializedMinRowsRef = useRef({});
   const initKey = useMemo(
     () =>
@@ -1192,7 +1046,7 @@ const Step1BasicInformation = ({
 
     const formRoot = getFormDataRoot();
 
-    let nextFormRoot = formRoot; //should overwrite
+    let nextFormRoot = formRoot;
     let hasChanges = false;
 
     Object.entries(repeatableSectionsConfig).forEach(
@@ -1209,7 +1063,6 @@ const Step1BasicInformation = ({
           const roleField = sectionConfig?.rowTypeField;
           const roleValue = sectionConfig?.rowTypeValue;
 
-          // find the type of individual
           const matchingRows = existingRows.filter(
             (row) => row?.[roleField] === roleValue,
           );
@@ -1229,14 +1082,12 @@ const Step1BasicInformation = ({
           return;
         }
 
-        // normal repeatablesections - businessActivities
         if (existingRows.length >= minRows) return;
 
         const rowsToAdd = buildMinRowsForSection(
           sectionConfig,
           minRows - existingRows.length,
         );
-        // console.log("[MIN INIT] writing nextFormRoot", nextFormRoot);
         nextFormRoot = {
           ...nextFormRoot,
           [storageKey]: [...existingRows, ...rowsToAdd],
@@ -1253,11 +1104,7 @@ const Step1BasicInformation = ({
     }
   }, [
     initKey,
-    // applicationId,
-    // data?.country,
-    // data?.businessType,
     repeatableSectionsConfig,
-    // repeatableRowCountsSignature
     data?.formData,
   ]);
 
@@ -1335,7 +1182,6 @@ const Step1BasicInformation = ({
             sectionKey={sectionKey}
             sectionConfig={sectionConfig}
             formData={getFormDataRoot()}
-            // onFormDataChange={(next) => onFieldChange("formData", next)}
             onFormDataChange={(next) => handleRepeatableSectionChange(next)}
             disabled={disabled}
             context={{

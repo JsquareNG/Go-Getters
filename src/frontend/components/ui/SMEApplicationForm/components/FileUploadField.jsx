@@ -1,13 +1,6 @@
 import React, { useRef, useState, useEffect, useMemo } from "react";
 import { AlertCircle, CheckCircle, Loader2 } from "lucide-react";
 
-/**
- * FileUploadField
- * Handles file selection + optional async validation before file is accepted.
- * Parent decides what validation to run via beforeAcceptFile().
- * Included built-in validation for file type and size, as well as display of async verification status.
- * Also supports optional OCR status display if the uploaded file will be processed for autofill.
- */
 const FileUploadField = ({
   fieldName,
   label,
@@ -21,13 +14,10 @@ const FileUploadField = ({
   placeholder = "",
   disabled = false,
 
-  // optional async validation hook
   beforeAcceptFile,
 
-  // shared verification state from parent
   verificationMeta = null,
 
-  // optional OCR state display
   ocr = false,
   ocrLoading = false,
   ocrStatus = "",
@@ -39,10 +29,7 @@ const FileUploadField = ({
   const [localError, setLocalError] = useState("");
   const [isValidating, setIsValidating] = useState(false);
 
-  // const actualFile = file instanceof File ? file : file?.file || null;
-  // const existingUploadedFile =
-  //   !actualFile && file?.original_filename  ? file : null;
-    // console.log("FILEUPLOAD", file)
+ 
 const actualFile =
   file instanceof File
     ? file
@@ -127,7 +114,6 @@ const existingUploadedFile =
     try {
       setIsValidating(true);
 
-      // Immediately replace currently shown file with the newly selected file
       onChange({
         file: selectedFile,
         progress: 0,
@@ -136,20 +122,6 @@ const existingUploadedFile =
         verificationMessage: "Verifying document...",
       });
 
-      // if (beforeAcceptFile) {
-      //   const processedValue = await beforeAcceptFile(selectedFile);
-      //   // console.log("processedValue", processedValue)
-
-      //   onChange(
-      //     processedValue ?? {
-      //       file: selectedFile,
-      //       progress: 0,
-      //       verified: false,
-      //       verificationStatus: "failed",
-      //       verificationMessage: "Document verification failed.",
-      //     },
-      //   );
-      // } 
       if (beforeAcceptFile) {
   const processedValue = await beforeAcceptFile(selectedFile);
 
@@ -170,8 +142,6 @@ const existingUploadedFile =
         });
       }
     } catch (err) {
-      // Keep the newly selected file instead of clearing it,
-      // so it replaces the old file even when validation fails
       onChange({
         file: selectedFile,
         progress: 0,

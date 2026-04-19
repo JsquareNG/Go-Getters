@@ -19,7 +19,6 @@ from backend.services.audit_service import create_audit_log
 from backend.compliance_rules_engine.review_service import run_review_job
 from backend.services.application_transitions import (
     approve_application_service,
-    need_manual_review_service,
 )
 from backend.api.notification import *
 from backend.api.resend import send_email
@@ -38,10 +37,6 @@ SIMULATION_ELIGIBLE_STATUSES = [
     "Withdrawn",
     "Auto Rejected",
 ]
-
-# =====================================================
-# Helpers
-# =====================================================
 
 def to_dict(self):
     return {c.name: getattr(self, c.name) for c in self.__table__.columns}
@@ -137,24 +132,6 @@ def _ensure_application_owner(app: ApplicationForm, current_user: dict):
 def _ensure_staff_or_management(current_user: dict):
     _require_roles(current_user, "STAFF", "MANAGEMENT")
 
-
-def _ensure_management_only(current_user: dict):
-    _require_roles(current_user, "MANAGEMENT")
-
-
-def _ensure_reviewer_queue_access(reviewer_id: str, current_user: dict):
-    role = _current_user_role(current_user)
-    user_id = _current_user_id(current_user)
-
-    if role == "MANAGEMENT":
-        return
-
-    if role == "STAFF" and reviewer_id == user_id:
-        return
-
-    raise HTTPException(status_code=403, detail="Forbidden")
-
-
 def _safe_send_email(to_email: str, subject: str, body: str):
     try:
         send_email(to_email, subject, body)
@@ -176,11 +153,6 @@ def _resolve_reviewer_contact_from_db(db: Session, reviewer_id: str | None):
     if not reviewer:
         return None, None
     return reviewer.email, reviewer.first_name
-
-
-# =====================================================
-# Read endpoints
-# =====================================================
 
 @router.get("/")
 def get_all_applications(
@@ -289,11 +261,6 @@ def get_simulation_applications(
 
     return results
 
-
-# =====================================================
-# Save / submit endpoints
-# =====================================================
-
 @router.post("/firstSave")
 def save_application(
     data: dict = Body(...),
@@ -303,13 +270,13 @@ def save_application(
     _require_roles(current_user, "SME")
 
     form_data = data.get("form_data", {})
-    # provider_session_id = data.get("provider_session_id")
+    provider_session_id = data.get("provider_session_id")
 
     new_app = ApplicationForm(
         business_country=form_data["country"],
         business_name=form_data['businessName'],
         business_type=form_data['businessType'],
-        # provider_session_id=provider_session_id,
+        provider_session_id=provider_session_id,
         user_id=data["user_id"],
         form_data=form_data,
         previous_status=None,
@@ -344,13 +311,15 @@ def save_application(
     )
 
 
-    # liveness_row = (
-    #     db.query(LivenessDetection)
-    #     .filter(LivenessDetection.provider_session_id == provider_session_id)
-    #     .first()
-    # )
+    if provider_session_id:
+        liveness_row = (
+            db.query(LivenessDetection)
+            .filter(LivenessDetection.provider_session_id == provider_session_id)
+            .first()
+        )
 
-    # liveness_row.application_id = new_app.application_id
+        if liveness_row:
+            liveness_row.application_id = new_app.application_id
 
     db.commit()
     db.refresh(new_app)
@@ -510,8 +479,6 @@ def first_submit_application(
         description="Application is queued for automated compliance screening.",
     )
 
-    print("[firstSubmit] created app", new_app.application_id)
-
     if provider_session_id not in (None, ""):
         liveness_row = (
             db.query(LivenessDetection)
@@ -572,7 +539,6 @@ def close_open_action_request_and_update_answers(db: Session, application_id: st
 
     now = datetime.now(ZoneInfo("Asia/Singapore")).replace(tzinfo=None)
 
-    # NEW: save onto the action request
     ar.ocr_warnings = data.get("ocr_warnings") or False
 
     doc_items = [i for i in items if i.item_type == "DOCUMENT"]
@@ -641,7 +607,6 @@ def apply_full_application_update(app: ApplicationForm, data: dict):
         existing_form_data[key] = value
 
     app.form_data = existing_form_data
-
 
 @router.put("/secondSubmit/{application_id}")
 def second_submit(
@@ -823,29 +788,6 @@ def second_submit(
         "email_notes": email_notes,
     }
 
-# @router.put("/needManualReview/{application_id}")
-# def need_manual_review(
-#     application_id: str,
-#     background_tasks: BackgroundTasks,
-#     data: dict = Body(default={}),
-#     db: Session = Depends(get_db),
-# ):
-#     app, emails_queued, email_notes = need_manual_review_service(
-#         db=db,
-#         background_tasks=background_tasks,
-#         application_id=application_id,
-#         send_email_now=False,
-#     )
-    
-#     return {
-#         "application_id": app.application_id,
-#         "status": app.current_status,
-#         "reviewer_id": app.reviewer_id,
-#         "emails_queued": emails_queued,
-#         "email_notes": email_notes,
-#     }
-
-
 @router.delete("/delete/{application_id}")
 def delete_application(
     application_id: str,
@@ -920,7 +862,6 @@ def approve_application(
         "emails_queued": emails_queued,
         "email_notes": email_notes,
     }
-
 
 @router.put("/reject/{application_id}")
 def reject_application(
@@ -1134,7 +1075,6 @@ def withdraw_application(
     db.commit()
     db.refresh(app)
 
-    # Fetch applicant details (prefer DB)
     applicant_email = None
     applicant_first_name = None
 
@@ -1223,11 +1163,6 @@ def withdraw_application(
         "emails_queued": emails_queued,
         "email_notes": email_notes,
     }
-
-
-# =====================================================
-# Scheduled / job endpoints
-# =====================================================
 
 @router.post("/send-draft-reminders")
 def send_draft_reminders(
@@ -1326,11 +1261,6 @@ def send_draft_reminders(
         "updated_has_sent": len(sent_app_ids),
         "failures": failures[:20],
     }
-
-
-# =====================================================
-# Action request endpoints
-# =====================================================
 
 @router.get("/getRequired/{application_id}")
 def get_required_requirements(

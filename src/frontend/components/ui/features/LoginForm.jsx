@@ -8,17 +8,6 @@ import { useDispatch } from "react-redux";
 import { loginSuccess } from "@/store/authSlice";
 import { loginApi } from "@/api/authApi";
 
-/*
-TO TEST WITH DATA:
-- email: sme@gmail.com
-- password: Sme1234!
-- role: SME
-
-- email:  staff@gmail.com
-- password: Staff1234!
-- role: STAFF
-*/
-
 const LoginForm = ({ onSwitchToRegister }) => {
   const navigate = useNavigate();
   const dispatch = useDispatch();
@@ -74,7 +63,6 @@ const LoginForm = ({ onSwitchToRegister }) => {
         role: data.role,
       };
 
-      // store in redux (persist will save it)
       dispatch(
         loginSuccess({
           token,
@@ -87,14 +75,12 @@ const LoginForm = ({ onSwitchToRegister }) => {
         description: `Welcome back, ${data.first_name}!`,
       });
 
-      // Navigate based on role
-      // console.log("User role:", data.role);
       if (data.role === "SME") {
         navigate("/landingpage");
       } else if (data.role === "STAFF") {
         navigate("/staff-landingpage");
       } else {
-        navigate("/management-landing-page"); // fallback
+        navigate("/management-landing-page");
       }
     } catch (err) {
       console.error("Login failed:", err);
@@ -187,7 +173,6 @@ const LoginForm = ({ onSwitchToRegister }) => {
         className="w-full"
         size="lg"
         disabled={isLoading}
-        // onClick={handleSubmit}
       >
         {isLoading ? "Logging In..." : "Log In"}
       </Button>

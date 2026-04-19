@@ -3,11 +3,6 @@ import Select from "react-select";
 import { Input } from "../../primitives/Input";
 import { Label } from "../../primitives/Label";
 
-/**
- * FormFieldGroup component
- * Renders a form field with label and input/select/textarea
- * Works purely with value/onChange (no errors or touched)
- */
 const FormFieldGroup = ({
   fieldName,
   label,
@@ -20,7 +15,6 @@ const FormFieldGroup = ({
   helpText = "",
   options = [],
 }) => {
-  // for single inputs: text, textarea, select
 
   const normalizedValue =
     type === "checkbox" ? (Array.isArray(value) ? value : []) : (value ?? "");
@@ -36,11 +30,9 @@ const FormFieldGroup = ({
         {label} {required && <span className="text-red-500">*</span>}
       </Label>
 
-      {/* TEXTAREA */}
       {type === "textarea" ? (
         <textarea
           id={fieldName}
-          // value={value}
           value={normalizedValue}
           onChange={handleChange}
           placeholder={placeholder}
@@ -50,11 +42,10 @@ const FormFieldGroup = ({
           }`}
           rows={4}
         />
-      ) : // SELECT
+      ) : 
       type === "select" ? (
         <select
           id={fieldName}
-          // value={value}
           value={normalizedValue}
           onChange={handleChange}
           disabled={disabled}
@@ -69,13 +60,12 @@ const FormFieldGroup = ({
             </option>
           ))}
         </select>
-      ) : /* CHECKBOX -> MULTI SELECT DROPDOWN */
+      ) : 
       type === "checkbox" ? (
         <Select
           inputId={fieldName}
           isMulti
           options={options}
-          // value={options.filter((opt) => (value || []).includes(opt.value))}
           value={options.filter((opt) => normalizedValue.includes(opt.value))}
           onChange={(selected) =>
             onChange?.(fieldName, selected ? selected.map((s) => s.value) : [])

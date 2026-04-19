@@ -10,7 +10,6 @@ export const livenessDetectionApi = async (payload) => {
 };
 
 export const getKYCdetails = async (appId) => {
-  // Using the specific endpoint you provided
   const res = await axiosClient.get(
     `/liveness-detection/byApplicationID/${appId}`,
   );
@@ -18,7 +17,6 @@ export const getKYCdetails = async (appId) => {
 };
 
 export const getAllKYCdetails = async (appId) => {
-  // Using the specific endpoint you provided
   const res = await axiosClient.get(
     `/liveness-detection/getAllByApplicationID/${appId}`,
   );

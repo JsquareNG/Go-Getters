@@ -3,13 +3,6 @@ import FormFieldGroup from "./FormFieldGroup";
 import FileUploadField from "./FileUploadField";
 import KYCVerificationCard from "./KYCVerificationCard";
 
-/**
- * FieldRenderer
- * Handles:
- * - normal fields
- * - file fields (with optional OCR)
- * - KYC fields
- */
 const FieldRenderer = ({
   fieldKey,
   fieldConfig,
@@ -86,23 +79,6 @@ const FieldRenderer = ({
   }
 
   if (fieldConfig.type === "file") {
-    // // const hasLocalFile =
-    // //   value instanceof File ||
-    // //   value?.file instanceof File ||
-    // //   value?.uploaded ||
-    // //   value?.document_id;
-    // const hasLocalFile =
-    //   value instanceof File ||
-    //   value?.file instanceof File ||
-    //   value?.verificationStatus ||
-    //   value?.verified !== undefined ||
-    //   value?.original_filename;
-
-    // const displayedFile = hasLocalFile
-    //   ? value
-    //   : context?.getDisplayedFileValue
-    //     ? context.getDisplayedFileValue(fullFieldPath, fieldConfig)
-    //     : value;
     const displayedFile = context?.getDisplayedFileValue
   ? context.getDisplayedFileValue(fullFieldPath, fieldConfig)
   : value;

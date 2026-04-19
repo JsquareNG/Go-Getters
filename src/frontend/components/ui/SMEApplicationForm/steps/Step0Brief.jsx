@@ -3,11 +3,6 @@ import FormFieldGroup from "../components/FormFieldGroup";
 import { Info } from "lucide-react";
 import { SINGAPORE_CONFIG, INDONESIA_CONFIG } from "../config";
 
-/**
- * Step0Brief component
- * Collects SME country of operation and business type
- * Once "start application", these fields will not change
- */
 const Step0Brief = ({
   data,
   onFieldChange,
@@ -23,7 +18,6 @@ const Step0Brief = ({
     Indonesia: INDONESIA_CONFIG,
   };
 
-  // Country options
   const countryOptions = [
     {
       label: SINGAPORE_CONFIG.country?.name || "Singapore",
@@ -59,7 +53,6 @@ const Step0Brief = ({
         Before we get started, tell us about your business.
       </h2>
 
-      {/* Info panel */}
       <div className=" flex items-start gap-2 rounded-md border border-blue-200 bg-blue-50 px-3 py-2 mb-5">
         <Info className="h-4 w-4 text-blue-500 mt-0.5" />
 
@@ -68,7 +61,6 @@ const Step0Brief = ({
         </p>
       </div>
 
-      {/* Country Selection */}
       <FormFieldGroup
         fieldName="country"
         label="Country of Operation"
@@ -80,7 +72,6 @@ const Step0Brief = ({
         disabled={disabled || locked}
       />
 
-      {/* Business Type */}
       <FormFieldGroup
         fieldName="businessType"
         label="Business Type"

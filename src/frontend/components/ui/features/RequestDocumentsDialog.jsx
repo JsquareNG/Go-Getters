@@ -813,7 +813,7 @@ const RequestDocumentsDialog = ({
                 className="mb-0 gap-2"
                 onClick={handleSubmit}
                 type="button"
-                disabled={isSubmitting || isGeneratingAI || isFinalDecision || !canSubmit}
+                disabled={isSubmitting || isGeneratingAI || !canSubmit}
               >
                 <Send className="h-4 w-4" />
                 {isSubmitting ? "Sending..." : "Send Request"}

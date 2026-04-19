@@ -702,10 +702,10 @@ const SMEApplicationForm = () => {
       reasons.push("You must be on the Review & Submit step.");
     if (!isStep0Valid) reasons.push("Country and business type are required.");
     if (!hasConfigSteps) reasons.push("Form configuration is unavailable.");
-    if (isIncomplete)
-      reasons.push("There are still missing required fields or documents.");
-    if (!isKycComplete)
-      reasons.push("All individuals requiring KYC must complete and pass KYC.");
+    // if (isIncomplete)
+    //   reasons.push("There are still missing required fields or documents.");
+    // if (!isKycComplete)
+    //   reasons.push("All individuals requiring KYC must complete and pass KYC.");
 
     return {
       canSubmit: reasons.length === 0,

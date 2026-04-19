@@ -1,12 +1,6 @@
 import React from "react";
 import { CheckCircle2 } from "lucide-react";
 
-/**
- * FormStepper component
- * Displays progress indicator showing current step and completed steps
- * stepCompletion: object like { 0: true, 1: false, 2: true, ... } indicating if each step is complete
- * isStepLocked: function(stepIndex) => boolean
- */
 const FormStepper = ({
   currentStep,
   totalSteps,
@@ -32,7 +26,6 @@ const FormStepper = ({
 
           return (
             <React.Fragment key={index}>
-              {/* Step Circle */}
               <div
                 className="flex flex-col items-center cursor-pointer"
                 onClick={() => !locked && onStepClick(index)}
@@ -59,7 +52,6 @@ const FormStepper = ({
                 </p>
               </div>
 
-              {/* Connector Line */}
               {stepNumber < totalSteps && (
                 <div
                   className="flex-1 h-1 mx-2 mb-8 rounded-full"
@@ -73,7 +65,6 @@ const FormStepper = ({
         })}
       </div>
 
-      {/* Progress Bar */}
       <div className="mt-6 w-full bg-gray-200 rounded-full h-1">
         <div
           className="bg-red-500 h-1 rounded-full transition-all duration-300"
