@@ -276,11 +276,9 @@ def generate_manual_review_suggestions(
         action_requests=action_requests,
     )
 
-    # delete this line
     client = get_gemini_client()
 
     response = client.models.generate_content(
-        # model="gemini-2.5-pro",
         model="gemini-3-flash-preview",
         contents=f"{SYSTEM_PROMPT}\n\n{prompt}",
         config={

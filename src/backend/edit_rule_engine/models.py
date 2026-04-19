@@ -28,11 +28,9 @@ class Company:
 
     individuals: List[Individual]
 
-    # documents
     acra_profile: bool
     address_proof: bool
     bank_statements: bool
 
-    # indonesia
     nib_present: bool
     npwp_present: bool

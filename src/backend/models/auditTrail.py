@@ -18,16 +18,13 @@ class AuditTrail(Base):
     actor_id = Column(String(100), nullable=True)    
     actor_type = Column(String(100), nullable=True)  
 
-    # what happened
     event_type = Column(String(100), nullable=False)  
     entity_type = Column(String(50), nullable=False) 
     entity_id = Column(String(36), nullable=True)    
 
-    # optional status tracking
     from_status = Column(String(50), nullable=True)
     to_status = Column(String(50), nullable=True)
 
-    # free-text summary for UI
     description = Column(String(500), nullable=True)
 
     created_at = Column(

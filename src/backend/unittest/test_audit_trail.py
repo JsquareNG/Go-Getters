@@ -4,10 +4,6 @@ from types import SimpleNamespace
 import backend.api.auditTrail as audit_module
 
 
-# ----------------------------
-# Fakes
-# ----------------------------
-
 class FakeQuery:
     def __init__(self, first_result=None, all_result=None):
         self._first_result = first_result
@@ -92,9 +88,6 @@ STAFF_USER = {"user_id": "STAFF-1", "role": "STAFF"}
 MGMT_USER = {"user_id": "MGMT-1", "role": "MANAGEMENT"}
 
 
-# ----------------------------
-# Helper function tests
-# ----------------------------
 
 def test_normalize_handles_none_and_whitespace():
     assert audit_module.normalize(None) == ""
@@ -141,10 +134,6 @@ def test_average_returns_zero_for_empty_list():
 def test_average_rounds_to_two_decimal_places():
     assert audit_module.average([1.0, 2.0, 2.0]) == 1.67
 
-
-# ----------------------------
-# Grouping and serialization
-# ----------------------------
 
 def test_get_all_logs_grouped_groups_by_application_id():
     db = FakeDB()
@@ -200,9 +189,6 @@ def test_get_audit_trail_by_application_serializes_logs():
     assert result[0]["created_at"] == created_at
 
 
-# ----------------------------
-# Overview metrics
-# ----------------------------
 
 def test_get_audit_metrics_overview_empty_logs():
     db = FakeDB()
@@ -227,7 +213,6 @@ def test_get_audit_metrics_overview_basic_processing_and_manual_review():
     base = datetime(2026, 1, 1, 9, 0, 0)
 
     logs = [
-        # APP-1: submitted -> manual review -> approved
         make_log(
             application_id="APP-1",
             audit_id=1,
@@ -250,7 +235,6 @@ def test_get_audit_metrics_overview_basic_processing_and_manual_review():
             to_status="Approved",
             created_at=base + timedelta(days=3),
         ),
-        # APP-2: submitted -> rejected (no manual review)
         make_log(
             application_id="APP-2",
             audit_id=1,
@@ -320,10 +304,6 @@ def test_get_audit_metrics_overview_detects_manual_review_from_status_transition
     assert result["avgProcessingTimeDays"] == 5.0
     assert result["avgManualReviewTimeDays"] == 3.0
 
-
-# ----------------------------
-# Staff leaderboard
-# ----------------------------
 
 def test_get_staff_leaderboard_empty_logs():
     db = FakeDB()
@@ -444,7 +424,6 @@ def test_get_staff_leaderboard_calculates_processed_approval_rate_and_rank():
             to_status="Rejected",
             created_at=base + timedelta(days=2),
         ),
-        # APP-3 handled by R2, approved
         make_log(
             application_id="APP-3",
             audit_id=1,

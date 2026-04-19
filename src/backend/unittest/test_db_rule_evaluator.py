@@ -8,10 +8,6 @@ from backend.compliance_rules_engine.db_rule_evaluator import (
 )
 
 
-# ==============================
-# Helper Factory Functions
-# ==============================
-
 def make_condition(**kwargs):
     return SimpleNamespace(
         field_name=kwargs.get("field_name", "field"),
@@ -37,10 +33,6 @@ def make_rule(rule_code, conditions):
     )
 
 
-# ==============================
-# Test get_field_value
-# ==============================
-
 def test_get_field_value():
     company = SimpleNamespace(name="ABC Corp", revenue=1000)
 
@@ -49,9 +41,6 @@ def test_get_field_value():
     assert get_field_value(company, "missing") is None
 
 
-# ==============================
-# STRING Tests
-# ==============================
 
 def test_string_eq():
     cond = make_condition(operator="EQ", value_type="STRING", string_value="ABC")
@@ -70,9 +59,6 @@ def test_string_none():
     assert evaluate_condition(None, cond, {}) is False
 
 
-# ==============================
-# NUMBER Tests
-# ==============================
 
 @pytest.mark.parametrize("operator,field,compare,expected", [
     ("EQ", 100, 100, True),
@@ -101,9 +87,6 @@ def test_number_none_compare():
     assert evaluate_condition(100, cond, {}) is False
 
 
-# ==============================
-# BOOLEAN Tests
-# ==============================
 
 def test_boolean_true():
     cond = make_condition(operator="IS_TRUE", value_type="BOOLEAN")
@@ -116,10 +99,6 @@ def test_boolean_false():
     assert evaluate_condition(False, cond, {}) is True
     assert evaluate_condition(True, cond, {}) is False
 
-
-# ==============================
-# LIST Tests
-# ==============================
 
 def test_list_in_single():
     cond = make_condition(operator="IN", value_type="LIST", list_name="countries")
@@ -144,9 +123,6 @@ def test_list_multiple_values():
     assert evaluate_condition(["CN", "SG"], cond, config) is True
 
 
-# ==============================
-# ELSE Operator Test
-# ==============================
 
 def test_else_operator():
     cond = make_condition(operator="ELSE", value_type="STRING")
@@ -154,9 +130,6 @@ def test_else_operator():
     assert evaluate_condition("anything", cond, {}) is True
 
 
-# ==============================
-# FULL RULE ENGINE Tests
-# ==============================
 
 def test_single_rule_match():
     company = SimpleNamespace(country="SG", revenue=500)
@@ -210,7 +183,6 @@ def test_rule_no_match():
 def test_group_logic():
     company = SimpleNamespace(country="SG")
 
-    # Group 1 fails
     cond1 = make_condition(
         field_name="country",
         operator="EQ",
@@ -220,7 +192,7 @@ def test_group_logic():
         score=5
     )
 
-    # Group 2 passes
+
     cond2 = make_condition(
         field_name="country",
         operator="EQ",

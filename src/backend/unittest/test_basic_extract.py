@@ -10,9 +10,6 @@ from backend.models.extract import (
 )
 
 
-# -----------------------------
-# Test NIB Validation
-# -----------------------------
 def test_valid_nib():
     data = NIBExtractionData(
         businessName="Test Co",
@@ -27,7 +24,7 @@ def test_invalid_nib_raises():
     with pytest.raises(ValidationError):
         NIBExtractionData(
             businessName="Test Co",
-            registrationNumber="12345",  # invalid (not 13 digits)
+            registrationNumber="12345",  
             businessStatus="PMA",
             registeredAddress="Test Address",
         )
@@ -43,9 +40,6 @@ def test_nib_cleans_non_digits():
     assert data.registrationNumber == "1234567890123"
 
 
-# -----------------------------
-# Test KBLI Codes
-# -----------------------------
 def test_valid_kbli_codes():
     data = NIBExtractionData(
         businessName="Test",
@@ -65,7 +59,7 @@ def test_kbli_invalid_code_raises():
             registrationNumber="1234567890123",
             businessStatus="PMA",
             registeredAddress="Addr",
-            kbliCodes=["1234"],  # invalid (not 5 digits)
+            kbliCodes=["1234"], 
         )
 
 
@@ -81,9 +75,6 @@ def test_kbli_filters_empty_values():
     assert data.kbliCodes == ["12345", "67890"]
 
 
-# -----------------------------
-# Test KBLI Detail Validator
-# -----------------------------
 def test_valid_kbli_detail():
     detail = KBLIDetail(
         kbliCode="12345",
@@ -97,15 +88,12 @@ def test_valid_kbli_detail():
 def test_kbli_detail_invalid_code():
     with pytest.raises(ValidationError):
         KBLIDetail(
-            kbliCode="1234",  # invalid
+            kbliCode="1234",  
             kbliTitle="Test",
             businessLocation="SG",
         )
 
 
-# -----------------------------
-# Test UEN Validation
-# -----------------------------
 def test_valid_uen():
     data = ACRAExtractionData(
         entityType="PRIVATE LIMITED",
@@ -124,7 +112,7 @@ def test_invalid_uen():
         ACRAExtractionData(
             entityType="PRIVATE LIMITED",
             businessName="Test Co",
-            uen="123",  # invalid
+            uen="123", 
             registrationDate="01-01-2020",
             registeredAddress="SG",
             businessIndustry="Software",
@@ -144,9 +132,6 @@ def test_uen_cleans_format():
     assert data.uen == "123456789A"
 
 
-# -----------------------------
-# Test BasicPerson
-# -----------------------------
 def test_basic_person_defaults():
     person = BasicPerson()
 
@@ -157,9 +142,7 @@ def test_basic_person_defaults():
     assert person.dateOfBirth == ""
 
 
-# -----------------------------
-# Test Schema Registry
-# -----------------------------
+
 def test_schema_registry():
     assert "NIB" in DOCUMENT_SCHEMA_REGISTRY
     assert "ACRA" in DOCUMENT_SCHEMA_REGISTRY

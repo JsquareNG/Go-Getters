@@ -4,9 +4,6 @@ from datetime import datetime
 from backend.rules_engine.general_rules import evaluate_general_rules
 
 
-# -----------------------------
-# Mock Company Object
-# -----------------------------
 class MockCompany:
     def __init__(
         self,
@@ -27,13 +24,9 @@ class MockCompany:
         self.transaction_countries = transaction_countries or []
 
 
-# -----------------------------
-# Mock Config + Utils
-# -----------------------------
 @pytest.fixture(autouse=True)
 def mock_all(monkeypatch):
 
-    # Config
     monkeypatch.setattr("backend.rules_engine.general_rules.FATF_BLACKLIST", ["IR"])
     monkeypatch.setattr("backend.rules_engine.general_rules.HIGH_RISK_COUNTRIES", ["PK"])
     monkeypatch.setattr("backend.rules_engine.general_rules.HIGH_RISK_INDUSTRIES", ["crypto"])
@@ -63,7 +56,6 @@ def mock_all(monkeypatch):
         (3, 10, 25),
     ])
 
-    # Deterministic scoring function
     def fake_range_score(value, table):
         for min_v, max_v, score in table:
             if min_v <= value <= max_v:

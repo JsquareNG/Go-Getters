@@ -31,9 +31,6 @@ supabase: Client = create_client(
 
 
 def _build_requests_session() -> requests.Session:
-    """
-    Reusable requests session with retry for downloading Didit assets.
-    """
     session = requests.Session()
 
     retry = Retry(
@@ -119,7 +116,6 @@ def upload_bytes_to_kyc_bucket(
             print(f"[KYC UPLOAD] failed attempt={attempt} path={storage_path} error={repr(e)}")
 
             if attempt < retries:
-                # small backoff before retry
                 time.sleep(attempt * 1.5)
             else:
                 break

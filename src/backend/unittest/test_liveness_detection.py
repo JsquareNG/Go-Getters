@@ -7,10 +7,6 @@ from fastapi import HTTPException
 import backend.api.liveness_detection as liveness_module
 
 
-# ----------------------------
-# Fakes / helpers
-# ----------------------------
-
 class FakeQuery:
     def __init__(self, first_result=None, all_result=None):
         self._first_result = first_result
@@ -115,10 +111,6 @@ STAFF_USER = {"user_id": "STAFF-1", "role": "STAFF"}
 MGMT_USER = {"user_id": "MGMT-1", "role": "MANAGEMENT"}
 
 
-# ----------------------------
-# model_to_dict
-# ----------------------------
-
 def test_model_to_dict_formats_datetime_and_date():
     aware_dt = datetime(2026, 3, 11, 1, 30, 42, tzinfo=timezone.utc)
     row = make_row(
@@ -140,10 +132,6 @@ def test_model_to_dict_keeps_non_date_values():
     assert result["full_name"] == "Alice Tan"
     assert result["liveness_score"] == 0.88
 
-
-# ----------------------------
-# parse_provider_created_at
-# ----------------------------
 
 def test_parse_provider_created_at_returns_none_when_missing():
     assert liveness_module.parse_provider_created_at(None) is None
@@ -168,10 +156,6 @@ def test_parse_provider_created_at_raises_400_for_invalid_format():
     assert "Invalid created_at format" in exc.value.detail
 
 
-# ----------------------------
-# get by session id
-# ----------------------------
-
 def test_get_liveness_detection_by_session_id_returns_serialized_row():
     db = FakeDB()
     app = make_app(application_id="APP-1", user_id="USER-1")
@@ -182,7 +166,6 @@ def test_get_liveness_detection_by_session_id_returns_serialized_row():
     result = liveness_module.get_liveness_detection_by_session_id(
         "sess-999",
         db=db,
-        # current_user=SME_USER,
     )
 
     assert result["provider_session_id"] == "sess-999"
@@ -197,16 +180,11 @@ def test_get_liveness_detection_by_session_id_raises_404_when_missing():
         liveness_module.get_liveness_detection_by_session_id(
             "missing",
             db=db,
-            # current_user=SME_USER,
         )
 
     assert exc.value.status_code == 404
     assert exc.value.detail == "Liveness detection record not found"
 
-
-# ----------------------------
-# create_liveness_detection
-# ----------------------------
 
 def test_create_liveness_detection_requires_provider_session_id():
     db = FakeDB()
@@ -406,9 +384,6 @@ def test_create_liveness_detection_sets_defaults_and_parsed_created_at(monkeypat
     assert isinstance(stored.created_at, datetime)
 
 
-# ----------------------------
-# update by session id
-# ----------------------------
 
 def test_update_liveness_detection_by_session_id_updates_application_id():
     db = FakeDB()
@@ -446,9 +421,6 @@ def test_update_liveness_detection_by_session_id_raises_404_when_missing():
     assert exc.value.detail == "Liveness detection record not found"
 
 
-# ----------------------------
-# get by application id
-# ----------------------------
 
 def test_get_liveness_detection_by_application_id_returns_latest_serialized_row():
     db = FakeDB()
@@ -484,9 +456,6 @@ def test_get_liveness_detection_by_application_id_raises_404_when_missing():
     assert "application_id" in exc.value.detail
 
 
-# ----------------------------
-# get all
-# ----------------------------
 
 def test_get_all_liveness_detections_returns_serialized_rows():
     db = FakeDB()

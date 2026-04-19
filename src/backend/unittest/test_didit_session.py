@@ -4,9 +4,6 @@ from fastapi import HTTPException
 import backend.api.didit_session as didit_module
 
 
-# ----------------------------
-# Helpers / fakes
-# ----------------------------
 
 class FakeResponse:
     def __init__(self, status_code=200, json_data=None, text="ok"):
@@ -31,9 +28,6 @@ STAFF_USER = {"user_id": "STAFF-1", "role": "STAFF"}
 MGMT_USER = {"user_id": "MGMT-1", "role": "MANAGEMENT"}
 
 
-# ----------------------------
-# create_didit_session
-# ----------------------------
 
 def test_create_didit_session_raises_when_api_key_missing(monkeypatch):
     monkeypatch.setattr(didit_module, "DIDIT_API_KEY", None)
@@ -179,10 +173,6 @@ def test_create_didit_session_wraps_unexpected_exception_as_500(monkeypatch):
     assert exc.value.detail == "network exploded"
 
 
-# ----------------------------
-# get_session_decision
-# ----------------------------
-
 def test_get_session_decision_raises_when_api_key_missing(monkeypatch):
     monkeypatch.setattr(didit_module, "DIDIT_API_KEY", None)
 
@@ -269,9 +259,6 @@ def test_get_session_decision_raises_for_non_200(monkeypatch):
     assert exc.value.detail == "not found"
 
 
-# ----------------------------
-# webhook
-# ----------------------------
 
 @pytest.mark.asyncio
 async def test_didit_webhook_returns_ok():

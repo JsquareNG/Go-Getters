@@ -58,7 +58,7 @@ def main():
 
         results.append(row)
 
-        time.sleep(5)  # wait 5 seconds before next request
+        time.sleep(5) 
 
     total = len(cases)
     summary = {

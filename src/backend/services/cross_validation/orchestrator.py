@@ -234,7 +234,6 @@ def cross_validate_application(
             "total_checked_weight": total_weight,
             "matched_weight": matched_weight,
         },
-        # "document_results": document_results,  # optional for debugging
     }
 
     if routing_decision != SEND_BACK_TO_USER:

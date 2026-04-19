@@ -3,7 +3,6 @@ from sqlalchemy.orm import relationship
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.ext.mutable import MutableDict
 from backend.database import Base
-# from database import Base
 
 class ApplicationForm(Base):
     __tablename__ = "application_form"

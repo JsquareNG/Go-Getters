@@ -8,7 +8,6 @@ TEST_PROVIDER_SESSION_ID = "didit-session-123"
 
 
 def seed_user(db_session, email="user@example.com", role="SME"):
-    # IMPORTANT: match conftest authenticated user
     user = User(
         user_id="00000001",
         first_name="Jane",
@@ -122,7 +121,7 @@ def test_get_all_applications_includes_created_application(staff_client, db_sess
 def test_get_all_applications_staff_can_list_existing_applications(staff_client, db_session):
     user = seed_user(db_session)
     seed_liveness_detection(db_session)
-    
+
     from backend.models.application import ApplicationForm
 
     app = ApplicationForm(

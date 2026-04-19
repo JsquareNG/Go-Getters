@@ -4,11 +4,6 @@ from types import SimpleNamespace
 
 from backend.compliance_rules_engine.review_service import run_review_job
 
-
-# ==============================
-# Helpers
-# ==============================
-
 def make_job(status="PENDING"):
     return SimpleNamespace(
         job_id=1,
@@ -46,10 +41,6 @@ def setup_db(job, app):
 
     return db
 
-
-# ==============================
-# Tests
-# ==============================
 
 @patch("backend.compliance_rules_engine.review_service.SessionLocal")
 def test_job_not_found(mock_session):

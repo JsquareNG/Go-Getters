@@ -4,10 +4,6 @@ from unittest.mock import patch
 from backend.compliance_rules_engine.process import evaluate_company
 from backend.compliance_rules_engine.models import Company, Individual
 
-
-# -----------------------------
-# Helper: Create Test Company
-# -----------------------------
 def create_test_company(country="Singapore"):
     return Company(
         name="Test Co",
@@ -41,10 +37,6 @@ def make_config():
         }
     }
 
-
-# -----------------------------
-# Test 1: Score Aggregation
-# -----------------------------
 @patch("backend.compliance_rules_engine.process.evaluate_kyc_rules")
 @patch("backend.compliance_rules_engine.process.evaluate_singapore_rules")
 @patch("backend.compliance_rules_engine.process.evaluate_general_rules")
@@ -72,9 +64,6 @@ def test_score_aggregation(mock_general, mock_sg, mock_kyc):
     assert result["triggered_rules"] == ["G1", "SG1", "KYC1"]
 
 
-# -----------------------------
-# Test 2: Indonesia Rule Path
-# -----------------------------
 @patch("backend.compliance_rules_engine.process.evaluate_kyc_rules")
 @patch("backend.compliance_rules_engine.process.evaluate_indonesia_rules")
 @patch("backend.compliance_rules_engine.process.evaluate_general_rules")
@@ -93,9 +82,6 @@ def test_indonesia_rules_called(mock_general, mock_indo, mock_kyc):
     mock_indo.assert_called_once()
 
 
-# -----------------------------
-# Test 3: Singapore Rule Path Only
-# -----------------------------
 @patch("backend.compliance_rules_engine.process.evaluate_kyc_rules")
 @patch("backend.compliance_rules_engine.process.evaluate_singapore_rules")
 @patch("backend.compliance_rules_engine.process.evaluate_indonesia_rules")
@@ -114,9 +100,6 @@ def test_singapore_rules_called_only(mock_general, mock_indo, mock_sg, mock_kyc)
     mock_sg.assert_called_once()
     mock_indo.assert_not_called()
 
-# -----------------------------
-# Test 4: Decision Logic - SDD
-# -----------------------------
 @patch("backend.compliance_rules_engine.process.evaluate_kyc_rules")
 @patch("backend.compliance_rules_engine.process.evaluate_singapore_rules")
 @patch("backend.compliance_rules_engine.process.evaluate_general_rules")
@@ -134,9 +117,6 @@ def test_decision_sdd(mock_general, mock_sg, mock_kyc):
     assert result["risk_decision"] == "Simplified Due Diligence (SDD)"
 
 
-# -----------------------------
-# Test 5: Decision Logic - CDD
-# -----------------------------
 @patch("backend.compliance_rules_engine.process.evaluate_kyc_rules")
 @patch("backend.compliance_rules_engine.process.evaluate_singapore_rules")
 @patch("backend.compliance_rules_engine.process.evaluate_general_rules")
@@ -154,9 +134,6 @@ def test_decision_cdd(mock_general, mock_sg, mock_kyc):
     assert result["risk_decision"] == "Standard Due Diligence (CDD)"
 
 
-# -----------------------------
-# Test 6: Decision Logic - EDD
-# -----------------------------
 @patch("backend.compliance_rules_engine.process.evaluate_kyc_rules")
 @patch("backend.compliance_rules_engine.process.evaluate_singapore_rules")
 @patch("backend.compliance_rules_engine.process.evaluate_general_rules")

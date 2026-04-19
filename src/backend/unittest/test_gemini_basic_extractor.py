@@ -4,7 +4,6 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-# Prevent real Vertex AI import/init during tests
 sys.modules["vertexai"] = MagicMock()
 sys.modules["vertexai.generative_models"] = MagicMock()
 
@@ -14,10 +13,6 @@ from backend.services.gemini_extractor import (
 )
 from backend.models.extract import DOCUMENT_SCHEMA_REGISTRY
 
-
-# -----------------------------
-# TEST: classify_document
-# -----------------------------
 
 @patch("backend.services.gemini_extractor.GenerativeModel")
 def test_classify_acra(mock_model_class):
@@ -76,9 +71,6 @@ def test_classify_large_input_truncation(mock_model_class):
     mock_model.generate_content.assert_called_once()
 
 
-# -----------------------------
-# TEST: parse_universal_document
-# -----------------------------
 
 @patch("backend.services.gemini_extractor.GenerativeModel")
 def test_parse_universal_document_acra_valid(mock_model_class):

@@ -5,9 +5,6 @@ from backend.compliance_rules_engine.models import Company, Individual
 from backend.edit_rule_engine.engine import evaluate_company
 
 
-# -----------------------------
-# Helper: Test Company
-# -----------------------------
 def create_test_company(country="Singapore"):
     return Company(
         name="Test Co",
@@ -32,9 +29,6 @@ def create_test_company(country="Singapore"):
     )
 
 
-# -----------------------------
-# Test 1: Score Aggregation
-# -----------------------------
 @patch("backend.edit_rule_engine.engine.load_rules")
 @patch("backend.edit_rule_engine.engine.evaluate_rules")
 def test_score_aggregation(mock_eval_rules, mock_load_rules):
@@ -55,9 +49,6 @@ def test_score_aggregation(mock_eval_rules, mock_load_rules):
     assert result["triggered_rules"] == ["G1", "SG1", "KYC1"]
 
 
-# -----------------------------
-# Test 2: Indonesia Path
-# -----------------------------
 @patch("backend.edit_rule_engine.engine.load_rules")
 @patch("backend.edit_rule_engine.engine.evaluate_rules")
 def test_indonesia_rules_called(mock_eval_rules, mock_load_rules):
@@ -77,9 +68,6 @@ def test_indonesia_rules_called(mock_eval_rules, mock_load_rules):
     assert result["risk_score"] == 35
 
 
-# -----------------------------
-# Test 3: Other Country
-# -----------------------------
 @patch("backend.edit_rule_engine.engine.load_rules")
 @patch("backend.edit_rule_engine.engine.evaluate_rules")
 def test_other_country_no_rules(mock_eval_rules, mock_load_rules):
@@ -98,9 +86,6 @@ def test_other_country_no_rules(mock_eval_rules, mock_load_rules):
     assert result["risk_score"] == 15
 
 
-# -----------------------------
-# Test 4: Decision - Simplified
-# -----------------------------
 @patch("backend.edit_rule_engine.engine.SIMPLIFIED_THRESHOLD", 50)
 @patch("backend.edit_rule_engine.engine.STANDARD_THRESHOLD", 100)
 @patch("backend.edit_rule_engine.engine.load_rules")
@@ -122,9 +107,6 @@ def test_decision_simplified(mock_eval_rules, mock_load_rules, *_):
     assert result["decision"] == "Simplified CDD"
 
 
-# -----------------------------
-# Test 5: Decision - Standard
-# -----------------------------
 @patch("backend.edit_rule_engine.engine.SIMPLIFIED_THRESHOLD", 50)
 @patch("backend.edit_rule_engine.engine.STANDARD_THRESHOLD", 100)
 @patch("backend.edit_rule_engine.engine.load_rules")
@@ -146,9 +128,6 @@ def test_decision_standard(mock_eval_rules, mock_load_rules, *_):
     assert result["decision"] == "Standard CDD"
 
 
-# -----------------------------
-# Test 6: Decision - Enhanced
-# -----------------------------
 @patch("backend.edit_rule_engine.engine.SIMPLIFIED_THRESHOLD", 50)
 @patch("backend.edit_rule_engine.engine.STANDARD_THRESHOLD", 100)
 @patch("backend.edit_rule_engine.engine.load_rules")
