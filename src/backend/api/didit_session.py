@@ -39,6 +39,9 @@ def create_didit_session(
     body = {
         "workflow_id": DIDIT_WORKFLOW_ID,
         "callback": payload.callback_url or "http://localhost:5173/application/edit/new/1",
+        "metadata": {
+            # "user_id": current_user_id
+        }
     }
 
     if payload.application_id:
