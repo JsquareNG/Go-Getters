@@ -13,8 +13,6 @@ import AdminConfigPage from "./pages/AdminConfigPage";
 import RulesEngineConfiguration from "./pages/RulesEngineConfiguration";
 import ManagementLandingPage from "./pages/ManagementLandingPage";
 import ManagementApplicationDetail from "./pages/ApplicationDetailView";
-// import TestDocumentMulti from "./pages/TestDocument";
-// import ViewSubmittedApplication from "./pages/OneDocument";
 import { Toaster } from "./components/ui/primitives/Toaster";
 
 import { useSelector } from "react-redux";
@@ -22,7 +20,6 @@ import { selectUser } from "./store/authSlice";
 import { Navigate } from "react-router-dom";
 import { SMEApplicationForm } from "./components/ui/SMEApplicationForm";
 
-// Simple route guard
 const RequireRole = ({ roles, children }) => {
   const user = useSelector(selectUser);
 
@@ -36,7 +33,6 @@ export default function App() {
   return (
     <>
       <Routes>
-        {/* Home */}
         <Route
           path="/"
           element={
@@ -46,10 +42,8 @@ export default function App() {
           }
         />
 
-        {/* Register */}
         <Route path="/register" element={<Home />} />
 
-        {/* SME routes */}
         <Route
           path="/landingpage"
           element={
@@ -72,7 +66,6 @@ export default function App() {
           }
         />
 
-        {/* SME application form - edit/view mode routing */}
         <Route
           path="/application/edit/:appId/:step"
           element={
@@ -95,7 +88,6 @@ export default function App() {
           }
         />
 
-        {/* Staff routes */}
         <Route
           path="/staff-landingpage"
           element={
@@ -162,7 +154,6 @@ export default function App() {
         />
       </Routes>
 
-      {/* global toaster */}
       <Toaster />
     </>
   );

@@ -3,7 +3,6 @@ import { Plus, Loader2, AlertCircle } from "lucide-react";
 import {
   Button,
   ApplicationCard,
-  // ApplicationStats,
   EmptyState,
 } from "@/components/ui";
 import { useNavigate, useLocation } from "react-router-dom";
@@ -68,10 +67,7 @@ export default function LandingPage() {
     }
   }, [location.state]);
 
-  /**
-   * Restriction logic:
-   * Block new application if user has any existing application in these statuses
-   */
+
   const BLOCKING_STATUSES = useMemo(
     () => ["Draft", "Under Review", "Under Manual Review", "Requires Action", "Approved"],
     []
@@ -104,17 +100,13 @@ export default function LandingPage() {
     return "You already have an SME application in progress. You can only submit one application per user.";
   }, [applications, blocksNewApplication, BLOCKING_STATUSES]);
 
-  /**
-   * Show "New Application" button if:
-   * 1. user has no applications
-   * 2. OR all existing applications are Deleted
-   */
+
   const showNewApplicationButton = useMemo(() => {
     if (applications.length === 0) return true;
     return applications.every((a) => a.current_status === "Deleted");
   }, [applications]);
 
-  // Filter Logic
+
   const filteredApplications = useMemo(() => {
     return applications.filter((app) => {
       const matchesStatus =
@@ -143,7 +135,7 @@ export default function LandingPage() {
   return (
     <div className="min-h-screen bg-background">
       <main className="container mx-auto px-6 py-12 animate-fade-in">
-        {/* HEADER */}
+
         <div className="flex flex-col gap-6 md:flex-row md:items-start md:justify-between mb-4">
           <div>
             <h1 className="text-2xl font-semibold text-foreground mb-1">
@@ -153,7 +145,6 @@ export default function LandingPage() {
               Manage and track your business account application
             </p>
 
-            {/* Restriction banner */}
             {blocksNewApplication && (
               <div className="mt-4 rounded-lg border border-yellow-200 bg-yellow-50 p-3 text-sm text-yellow-800 flex items-start gap-2">
                 <AlertCircle className="h-4 w-4 mt-0.5" />
@@ -182,12 +173,6 @@ export default function LandingPage() {
           </div>
         )}
 
-        {/* STATS OVERVIEW
-        <div className="mb-8">
-          <ApplicationStats {...stats} />
-        </div> */}
-
-        {/* APPLICATIONS LIST */}
         {error ? (
           <div className="p-4 bg-red-50 text-red-600 rounded-lg flex items-center gap-2">
             <AlertCircle className="h-5 w-5" /> {error}
