@@ -48,11 +48,6 @@ def minimal_form_data():
         "businessIndustry": "Technology",
     }
 
-
-# ----------------------------
-# firstSave
-# ----------------------------
-
 def test_first_save_creates_draft_application(client, db_session):
     user = seed_user(db_session)
     seed_liveness_detection(db_session)
@@ -69,11 +64,6 @@ def test_first_save_creates_draft_application(client, db_session):
     data = response.json()
     assert "application_id" in data
 
-
-# ----------------------------
-# firstSubmit
-# ----------------------------
-
 def test_first_submit_creates_under_review_application(client, db_session):
     user = seed_user(db_session)
     seed_liveness_detection(db_session)
@@ -89,11 +79,6 @@ def test_first_submit_creates_under_review_application(client, db_session):
     assert response.status_code == 200, response.text
     data = response.json()
     assert "application_id" in data
-
-
-# ----------------------------
-# withdraw
-# ----------------------------
 
 def test_withdraw_application_changes_status(client, db_session):
     user = seed_user(db_session)
@@ -120,10 +105,6 @@ def test_withdraw_application_changes_status(client, db_session):
         assert app_data["current_status"] == "Withdrawn"
 
 
-# ----------------------------
-# get all
-# ----------------------------
-
 def test_get_all_applications_includes_created_application(staff_client, db_session):
     user = seed_user(db_session)
     seed_liveness_detection(db_session)
@@ -141,9 +122,7 @@ def test_get_all_applications_includes_created_application(staff_client, db_sess
 def test_get_all_applications_staff_can_list_existing_applications(staff_client, db_session):
     user = seed_user(db_session)
     seed_liveness_detection(db_session)
-
-    # create app using SME client flow logic directly through DB-compatible endpoint assumptions
-    # since staff cannot call firstSave
+    
     from backend.models.application import ApplicationForm
 
     app = ApplicationForm(

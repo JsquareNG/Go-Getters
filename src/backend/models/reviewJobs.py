@@ -38,22 +38,20 @@ class ReviewJobs(Base):
     locked_at = Column(DateTime(timezone=True), nullable=True)
     worker_id = Column(String(100), nullable=True)
 
-    # keep your existing field
+
     last_error = Column(String(1000), nullable=True)
 
-    # ✅ NEW: risk results
     risk_score = Column(Integer, nullable=True)
     risk_grade = Column(String(100), nullable=True)
 
-    # ✅ NEW: store triggered rules as JSON array
-    # e.g. [{"rule_id":"R001","name":"High-risk country","severity":"HIGH","points":40,"reason":"..."}]
+
     rules_triggered = Column(
         JSONB,
         nullable=False,
         server_default=text("'[]'::jsonb")
     )
 
-    # ✅ NEW: when the review completed
+
     completed_at = Column(DateTime(timezone=True), nullable=True)
 
     created_at = Column(

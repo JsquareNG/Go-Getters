@@ -13,9 +13,6 @@ class LivenessDetection(Base):
 
     id = Column(Integer, primary_key=True, autoincrement=True)
 
-    # Internal FK to your application_form table
-    # nullable=True because sometimes this record may come in first,
-    # and you link it later
     application_id = Column(
         String(8),
         ForeignKey("application_form.application_id", ondelete="SET NULL"),
@@ -49,14 +46,10 @@ class LivenessDetection(Base):
     has_duplicate_identity_hit = Column(Boolean, nullable=False, server_default=text("false"))
     has_duplicate_face_hit = Column(Boolean, nullable=False, server_default=text("false"))
 
-    # Store list of strings like:
-    # ["LOW_FACE_MATCH_SIMILARITY", "POSSIBLE_DUPLICATED_USER"]
     risk_flags = Column(MutableList.as_mutable(JSONB), nullable=True, default=list)
 
-    # Store the images object as JSONB
     images = Column(MutableDict.as_mutable(JSONB), nullable=True, default=dict)
 
-    # Store provider timestamp in canonical UTC
     created_at = Column(DateTime(timezone=True), nullable=False)
 
     application = relationship("ApplicationForm", back_populates="liveness_detections")

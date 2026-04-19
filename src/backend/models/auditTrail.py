@@ -15,14 +15,13 @@ class AuditTrail(Base):
         index=True,
     )
 
-    # who performed the action
-    actor_id = Column(String(100), nullable=True)     # user or staff id
-    actor_type = Column(String(100), nullable=True)  # USER / STAFF / SYSTEM
+    actor_id = Column(String(100), nullable=True)    
+    actor_type = Column(String(100), nullable=True)  
 
     # what happened
-    event_type = Column(String(100), nullable=False)  # STATUS_CHANGED, REVIEW_STARTED, etc.
-    entity_type = Column(String(50), nullable=False) # APPLICATION, REVIEW_JOB, ACTION_REQUEST
-    entity_id = Column(String(36), nullable=True)    # job_id / action_request_id if relevant
+    event_type = Column(String(100), nullable=False)  
+    entity_type = Column(String(50), nullable=False) 
+    entity_id = Column(String(36), nullable=True)    
 
     # optional status tracking
     from_status = Column(String(50), nullable=True)
