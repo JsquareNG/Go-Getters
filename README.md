@@ -12,6 +12,7 @@ The GoGetters Onboarding Platform is a digital self-service onboarding system de
 ### Database Setup (Supabase + Alembic)
 1. Create a Supabase project  
 2. Obtain your PostgreSQL connection string  
+Afterwards, run alembic upgrade head to create the tables
 
 ### Backend Setup
 cd src
