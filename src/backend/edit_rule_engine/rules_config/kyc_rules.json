@@ -1,0 +1,26 @@
+[
+  {
+    "code": "KYC001",
+    "description": "Individual sanctions exposure",
+    "field": "sanctions_declared",
+    "operator": "boolean",
+    "value": true,
+    "score": 100
+  },
+  {
+    "code": "KYC002",
+    "description": "Politically exposed person",
+    "field": "is_pep",
+    "operator": "boolean",
+    "value": true,
+    "score": 50
+  },
+  {
+    "code": "KYC003",
+    "description": "FATCA US person",
+    "field": "fatca_us_person",
+    "operator": "boolean",
+    "value": true,
+    "score": 20
+  }
+]
