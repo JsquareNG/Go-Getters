@@ -2,16 +2,13 @@ import { allDocuments } from "@/api/documentApi";
 import { getNestedValue, unwrapFile } from "./formDataHelpers";
 import { getSectionRoleValue } from "./repeatableMappingHelpers";
 
-// helper to transform extracted data into backend payoad
 const buildExtractedDataPayload = (rawValue) => {
   if (!rawValue || typeof rawValue !== "object") return {};
 
-  // Step 1 style: full raw OCR/classify response stored under extractedData
   if (rawValue.extractedData && typeof rawValue.extractedData === "object") {
     return rawValue.extractedData;
   }
 
-  // Step 3 / older style: full raw response stored under classificationResult
   if (
     rawValue.classificationResult &&
     typeof rawValue.classificationResult === "object"
@@ -19,7 +16,7 @@ const buildExtractedDataPayload = (rawValue) => {
     return rawValue.classificationResult;
   }
 
-  // fallback: keep other metadata except the actual file blob
+
   const { file, ...rest } = rawValue;
   return rest;
 };

@@ -1,6 +1,3 @@
-// utils/extractFields.js
-
-// flatten nested fields
 function flattenFields(fields, parentKey = null) {
   const extracted = [];
 
@@ -8,10 +5,8 @@ function flattenFields(fields, parentKey = null) {
     const fieldKey = parentKey ? `${parentKey}.${key}` : key;
 
     if (value.type) {
-      // actual field
       extracted.push({ key: fieldKey, ...value });
     } else if (typeof value === "object") {
-      // nested object
       extracted.push(...flattenFields(value, fieldKey));
     }
   });
@@ -19,7 +14,6 @@ function flattenFields(fields, parentKey = null) {
   return extracted;
 }
 
-// extract fields from a step
 export function extractFieldsFromStep(stepConfig) {
   const fields = [];
 
@@ -45,7 +39,6 @@ export function extractFieldsFromStep(stepConfig) {
   return fields;
 }
 
-// handle conditional fields
 export function resolveConditionalFields(field, value) {
   if (!field.conditionalFields) return [];
   const config = field.conditionalFields[value];
@@ -53,7 +46,6 @@ export function resolveConditionalFields(field, value) {
   return flattenFields(config);
 }
 
-// check visibility rules
 export function isFieldVisible(field, formData) {
   if (!field.visibility) return true;
   const { dependsOn, equals } = field.visibility;

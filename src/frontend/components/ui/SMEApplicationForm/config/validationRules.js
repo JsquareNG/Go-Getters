@@ -1,8 +1,3 @@
-/**
- * Validation configuration and helper functions
- * Centralizes all validation logic for form fields
- */
-
 const VALIDATION_RULES = {
   email: {
     validation: (value) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value),
@@ -44,31 +39,23 @@ const VALIDATION_RULES = {
   },
 };
 
-/**
- * Validates a field based on predefined rules
- * @param {string} fieldName - Name of the field to validate
- * @param {string} value - Value to validate
- * @param {boolean} isRequired - Whether the field is required
- * @returns {object} - { isValid: boolean, error: string }
- */
+
 export const validateField = (fieldName, value, isRequired = true) => {
-  // Check if field is empty
+
   if (isRequired && (!value || value.toString().trim() === "")) {
     return { isValid: false, error: "This field is required" };
   }
 
-  // Skip validation for empty optional fields
   if (!isRequired && (!value || value.toString().trim() === "")) {
     return { isValid: true, error: "" };
   }
 
-  // Check if validation rule exists
+
   const rule = VALIDATION_RULES[fieldName];
   if (!rule) {
     return { isValid: true, error: "" };
   }
 
-  // Apply validation rule
   if (!rule.validation(value.toString())) {
     return { isValid: false, error: rule.error };
   }
@@ -76,21 +63,13 @@ export const validateField = (fieldName, value, isRequired = true) => {
   return { isValid: true, error: "" };
 };
 
-/**
- * Validates a file based on type and size
- * @param {File} file - File to validate
- * @param {object} options - { maxSize, allowedTypes }
- * @returns {object} - { isValid: boolean, error: string }
- */
+
 export const validateFile = (file, options = {}) => {
   const {
     maxSize = 5 * 1024 * 1024,
     allowedTypes = ["application/pdf", "image/jpeg", "image/png"],
   } = options;
 
-  // if (!file) {
-  //   return { isValid: false, error: "File is required" };
-  // }
 
   if (file.size > maxSize) {
     return {

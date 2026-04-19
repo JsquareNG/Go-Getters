@@ -1,13 +1,8 @@
-/**
- * Indonesia SME Form Validation Rules
- * Extends VALIDATION_RULES to cover Indonesia-specific fields
- */
 import { VALIDATION_RULES } from "./validationRules";
 
 const INDONESIA_VALIDATION_RULES = {
   ...VALIDATION_RULES,
 
-  // Business / Company
   businessName: {
     validation: (value) => value.trim().length >= 3,
     error: "Business name must be at least 3 characters",
@@ -33,7 +28,6 @@ const INDONESIA_VALIDATION_RULES = {
     error: "Description must be at least 10 characters",
   },
 
-  // Owner / Partner / Shareholder / Director
   fullName: {
     validation: (value) => /^[A-Za-z\s\-]{3,}$/.test(value.trim()),
     error: "Full name must be at least 3 alphabetic characters",
@@ -69,7 +63,6 @@ const INDONESIA_VALIDATION_RULES = {
     error: "Profit Sharing Ratio must be between 0 and 100",
   },
 
-  // Branch-specific
   residencyPermit: {
     validation: (value) => value.trim().length >= 5,
     error: "Residency Permit must be provided",
