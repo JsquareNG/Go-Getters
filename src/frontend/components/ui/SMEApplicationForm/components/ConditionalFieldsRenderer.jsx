@@ -1,10 +1,6 @@
 import React from "react";
 import FieldRenderer from "./FieldRenderer";
 
-/**
- * Handles conditional fields
- * includes additional fields that will appear when a certain field meets specific requirements
- */
 const ConditionalFieldsRenderer = ({
   fieldKey,
   fieldConfig,

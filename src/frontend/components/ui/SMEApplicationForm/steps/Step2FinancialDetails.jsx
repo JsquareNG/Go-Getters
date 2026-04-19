@@ -3,10 +3,6 @@ import FieldRenderer from "../components/FieldRenderer";
 import ConditionalFieldsRenderer from "../components/ConditionalFieldsRenderer";
 import { SINGAPORE_CONFIG, INDONESIA_CONFIG } from "../config";
 
-/**
- * Step2FinancialDetails component
- * Handles financial detail fields using shared field renderer
- */
 const Step2FinancialDetails = ({
   data,
   onFieldChange,
@@ -60,7 +56,6 @@ const Step2FinancialDetails = ({
       getNestedValue(getFormDataRoot(), fullPath) ??
       getNestedValue(data, fullPath);
 
-    // nested object section
     if (
       typeof fieldConfig === "object" &&
       !fieldConfig.type &&

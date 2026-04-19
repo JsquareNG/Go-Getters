@@ -1,11 +1,6 @@
 import React from "react";
 import { AlertCircle } from "lucide-react";
 
-/**
- * ReadOnlyFormWrapper
- * Wraps form content and disables all inputs when in view-only mode.
- * Shows a banner indicating the application is submitted/read-only.
- */
 const ReadOnlyFormWrapper = ({ children, isReadOnly, applicationStatus }) => {
   if (!isReadOnly) {
     return children;
@@ -13,7 +8,6 @@ const ReadOnlyFormWrapper = ({ children, isReadOnly, applicationStatus }) => {
 
   return (
     <div className="relative">
-      {/* Read-Only Banner */}
       <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg flex items-start gap-3">
         <AlertCircle className="h-5 w-5 text-blue-600 flex-shrink-0 mt-0.5" />
         <div>
@@ -30,7 +24,6 @@ const ReadOnlyFormWrapper = ({ children, isReadOnly, applicationStatus }) => {
         </div>
       </div>
 
-      {/* Overlay to disable interactions (CSS + disabled attributes on inputs) */}
       <div className="opacity-75 pointer-events-none">{children}</div>
     </div>
   );

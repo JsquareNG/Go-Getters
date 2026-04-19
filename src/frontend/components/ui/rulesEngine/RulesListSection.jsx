@@ -249,16 +249,12 @@ function areSerializedConditionsSame(a, b) {
 
 function buildSavePayload(serverRows, workingRows, fieldOptions) {
   const payload = {
-    // Existing rules that were edited
     rules: [],
 
-    // Existing conditions that were edited
     conditions: [],
 
-    // Brand new rules, each with their own initial conditions
     creates: [],
 
-    // Brand new conditions added under existing rules
     new_conditions: [],
   };
 
@@ -266,21 +262,11 @@ function buildSavePayload(serverRows, workingRows, fieldOptions) {
   const serverRuleMap = new Map(serverRows.map((rule) => [rule.rule_id, rule]));
 
   for (const workingRule of workingRows) {
-    // Serialize current working conditions into backend-ready format
-    // This computes:
-    // - condition_group
-    // - order_no
-    // - field_name / operator / value_type / values
     const serializedWorkingConditions = serializeConditionsForSave(
       fieldOptions,
       workingRule.conditions || []
     );
 
-    // =========================================================
-    // CASE 1: BRAND NEW RULE
-    // =========================================================
-    // New rule should go into `creates`
-    // together with ALL of its conditions.
     if (workingRule.isNew) {
       payload.creates.push({
         rule_code: (workingRule.rule_code || "").trim(),
@@ -308,18 +294,10 @@ function buildSavePayload(serverRows, workingRows, fieldOptions) {
       continue;
     }
 
-    // =========================================================
-    // CASE 2: EXISTING RULE
-    // =========================================================
     const serverRule = serverRuleMap.get(workingRule.rule_id);
 
-    // safety guard
     if (!serverRule) continue;
 
-    // ---------------------------------------------------------
-    // 2A. Check if existing RULE fields changed
-    // ---------------------------------------------------------
-    // Only push into `rules` if the actual editable rule fields changed.
     const ruleChanged =
       (workingRule.rule_code || "").trim() !==
         (serverRule.rule_code || "").trim() ||
@@ -339,11 +317,6 @@ function buildSavePayload(serverRows, workingRows, fieldOptions) {
       });
     }
 
-    // ---------------------------------------------------------
-    // 2B. Compare existing CONDITIONS
-    // ---------------------------------------------------------
-    // Serialize server conditions into the same shape as working conditions
-    // so comparisons are apples-to-apples.
     const serializedServerConditions = serializeConditionsForSave(
       fieldOptions,
       serverRule.conditions || []
@@ -357,9 +330,6 @@ function buildSavePayload(serverRows, workingRows, fieldOptions) {
     );
 
     for (const workingCondition of serializedWorkingConditions) {
-      // -------------------------------------------------------
-      // NEW CONDITION under EXISTING rule
-      // -------------------------------------------------------
       if (!workingCondition.condition_id) {
         payload.new_conditions.push({
           rule_id: workingRule.rule_id,
@@ -380,9 +350,6 @@ function buildSavePayload(serverRows, workingRows, fieldOptions) {
         continue;
       }
 
-      // -------------------------------------------------------
-      // EXISTING CONDITION that may have been edited
-      // -------------------------------------------------------
       const serverCondition = serverConditionMap.get(
         workingCondition.condition_id
       );
@@ -499,14 +466,6 @@ export default function RulesListSection() {
       setExpandedRuleIds({});
       setDisplayValidationErrors({ rules: {}, conditions: {} });
       setShowValidation(false);
-      // const data = await getRiskRulesByCategory(category);
-      // const normalized = (data || []).map(normalizeRule);
-
-      // setServerRows(normalized);
-      // setWorkingRows(deepCloneRules(normalized));
-      // setExpandedRuleIds({});
-      // setDisplayValidationErrors({ rules: {}, conditions: {} });
-      // setShowValidation(false);
     } catch (err) {
       setServerRows([]);
       setWorkingRows([]);
@@ -593,7 +552,6 @@ export default function RulesListSection() {
           return;
         }
 
-        // 🔥 GET saved mini tab
         const savedFilter = sessionStorage.getItem(
           RULES_BASIC_FILTER_STORAGE_KEY
         );
@@ -822,7 +780,6 @@ export default function RulesListSection() {
         base_version: baseVersion,
         ...builtPayload,
       };
-      // const payload = buildSavePayload(serverRows, workingRows, fieldOptions);
 
       if (
         !builtPayload.rules.length &&
@@ -896,24 +853,6 @@ export default function RulesListSection() {
     }
   };
 
-  // const handleSaveButtonClick = async () => {
-  //   const nextValidationErrors = validateRulesListRows(workingRows);
-  //   setDisplayValidationErrors(nextValidationErrors);
-  //   setShowValidation(true);
-
-  //   if (hasValidationErrors(nextValidationErrors)) {
-  //     setError("Please resolve the validation errors before saving.");
-  //     setSuccess("");
-  //     return;
-  //   }
-
-  //   if (!hasChanges) return;
-
-  //   setConfirmState({
-  //     open: true,
-  //     action: "save",
-  //   });
-  // };
   const handleSaveButtonClick = async () => {
     const nextValidationErrors = validateRulesListRows(workingRows);
     setDisplayValidationErrors(nextValidationErrors);

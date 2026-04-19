@@ -28,7 +28,6 @@ const FilterBar = ({
 
   return (
     <div className="flex flex-col sm:flex-row gap-4 p-4 bg-card border rounded-lg">
-      {/* Search */}
       <div className="relative flex-1 max-w-md">
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
         <Input
@@ -39,14 +38,12 @@ const FilterBar = ({
         />
       </div>
 
-      {/* Filters */}
       <div className="flex flex-wrap items-center gap-3">
         <div className="flex items-center gap-2">
           <Filter className="h-4 w-4 text-muted-foreground" />
           <span className="text-sm text-muted-foreground">Filters:</span>
         </div>
 
-        {/* Risk Filter */}
         <Select value={riskFilter} onValueChange={onRiskFilterChange}>
           <SelectTrigger className="w-[130px]">
             <SelectValue placeholder="Risk Level" />
@@ -60,7 +57,6 @@ const FilterBar = ({
           </SelectContent>
         </Select>
 
-        {/* Status Filter */}
         <Select value={statusFilter} onValueChange={onStatusFilterChange}>
           <SelectTrigger className="w-[160px]">
             <SelectValue placeholder="Status" />
@@ -76,7 +72,6 @@ const FilterBar = ({
           </SelectContent>
         </Select>
 
-        {/* Clear Filters */}
         {hasFilters && (
           <Button
             variant="ghost"

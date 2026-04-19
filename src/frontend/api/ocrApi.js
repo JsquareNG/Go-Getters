@@ -1,6 +1,5 @@
 import axiosClient from "./axiosClient";
 
-// Classify + full extract
 export const classifyAndExtractApi = async (file, expectedDocType = null) => {
   const formData = new FormData();
   formData.append("file", file);

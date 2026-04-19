@@ -6,10 +6,6 @@ import { SINGAPORE_CONFIG, INDONESIA_CONFIG } from "../config";
 import { allDocuments } from "@/api/documentApi";
 import { classifyAndExtractApi } from "@/api/ocrApi";
 
-/**
- * Step3ComplianceDocumentation
- * Document fields with pre-upload classification/verification.
- */
 const Step3ComplianceDocumentation = ({
   data,
   onFieldChange,
@@ -33,7 +29,6 @@ const Step3ComplianceDocumentation = ({
     return step4.fields || {};
   }, [activeConfig, data?.businessType]);
 
-  // FETCH EXISTING DOCUMENTS FOR THIS APPLICATION
   useEffect(() => {
     if (!applicationId || applicationId === "new") return;
 
@@ -60,7 +55,6 @@ const Step3ComplianceDocumentation = ({
     }, {});
   }, [existingDocuments]);
 
-  // helps to find rooted documents - matches uploaded documents to the correct form field using document type normalization
   const findExistingDocumentForField = (fieldPath, fieldConfig = {}) => {
     if (!Array.isArray(existingDocuments) || !existingDocuments.length)
       return null;
@@ -126,25 +120,17 @@ const Step3ComplianceDocumentation = ({
     return key;
   };
 
-  // const hasUsableLocalFile = (value) =>
-  //   !!value && (value instanceof File || value?.file instanceof File);
-
   const getDisplayedFileValue = (fieldPath, fieldConfig = {}) => {
     const localValue =
       getNestedValue(data?.formData || {}, fieldPath) ??
       getNestedValue(data, fieldPath) ??
       null;
 
-    // Prefer any locally controlled value, including failed/verifying replacements
     if (
       localValue &&
       (localValue instanceof File || localValue?.file instanceof File)
-      // ||
-      // localValue?.verificationStatus
-    ) // if (
-    //   localValue &&
-    //   (localValue instanceof File || localValue?.file instanceof File)
-    // )
+    ) 
+    
     {
       return localValue;
     }
@@ -173,17 +159,6 @@ const Step3ComplianceDocumentation = ({
       getNestedValue(data, fieldPath) ??
       null;
 
-    // if (verificationState[fieldPath]) return verificationState[fieldPath];
-
-    // if (localValue?.verificationStatus) {
-    //   return {
-    //     status: localValue.verificationStatus,
-    //     message: localValue.verificationMessage || "",
-    //     detectedType: localValue.detectedType || null,
-    //     expectedType: localValue.expectedType || null,
-    //   };
-    // }
-    // 1. Prefer latest local value (source of truth)
     if (localValue?.verificationStatus) {
       return {
         status: localValue.verificationStatus,
@@ -193,29 +168,10 @@ const Step3ComplianceDocumentation = ({
       };
     }
 
-    // 2. Then fallback to transient UI state
     if (verificationState[fieldPath]) {
       return verificationState[fieldPath];
     }
-    // if (
-    //   verificationState[fieldPath] &&
-    //   verificationState[fieldPath].status === "verifying"
-    // ) {
-    //   return verificationState[fieldPath];
-    // }
-
-    // if (existingDocumentMap[fieldPath]) {
-    //   return {
-    //     status: "verified",
-    //     message: "Previously uploaded document found.",
-    //     detectedType: normalizeDocumentType(
-    //       existingDocumentMap[fieldPath]?.document_type,
-    //     ),
-    //     expectedType: normalizeDocumentType(
-    //       existingDocumentMap[fieldPath]?.document_type,
-    //     ),
-    //   };
-    // }
+   
     const existingDoc = findExistingDocumentForField(fieldPath, fieldConfig);
 
     if (existingDoc) {
@@ -277,9 +233,6 @@ const Step3ComplianceDocumentation = ({
             result?.label,
         );
 
-        // ---------------------
-        // FILE VALIDATION
-        // ---------------------
         const validation = result?.upload_validation;
         const validationStatus = validation?.status;
         const validationReasons = validation?.reasons || [];
@@ -290,20 +243,6 @@ const Step3ComplianceDocumentation = ({
             validationReasons[0] ||
             "Uploaded document does not match expected type or its quality is too low. Please try again.";
 
-          // const failedValue = {
-          //   file,
-          //   // progress: 0,
-          //   original_filename: file?.name || "",
-          //   mime_type: file?.type || "application/octet-stream",
-          //   upload_status: "failed",
-          //   verified: false,
-          //   verificationStatus: "failed",
-          //   verificationMessage: errorMessage,
-          //   detectedType,
-          //   expectedType,
-          //   extractedData: result,
-          // };
-
           setFieldVerificationState(fieldPath, {
             status: "failed",
             message: errorMessage,
@@ -311,13 +250,11 @@ const Step3ComplianceDocumentation = ({
             detectedType,
           });
 
-          // return failedValue;
           return null
         }
 
         const nextValue = {
           file,
-          // progress: 0,
           original_filename: file?.name || "",
           mime_type: file?.type || "application/octet-stream",
           upload_status: "pending",
@@ -343,7 +280,6 @@ const Step3ComplianceDocumentation = ({
 
         const failedValue = {
           file,
-          // progress: 0,
           original_filename: file?.name || "",
           mime_type: file?.type || "application/octet-stream",
           upload_status: "failed",
@@ -362,7 +298,6 @@ const Step3ComplianceDocumentation = ({
           detectedType: null,
         });
 
-        // return failedValue;
         return null;
       }
     },

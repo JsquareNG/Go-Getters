@@ -44,7 +44,7 @@ const normDisplay = (v) => (v == null ? "" : String(v).trim());
 
 const ApplicationCard = ({
   application,
-  variant = "default", // "default" | "management"
+  variant = "default", 
   onClick,
   detailPath,
 }) => {

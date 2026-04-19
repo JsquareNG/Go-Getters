@@ -1,6 +1,8 @@
 from backend.models.application import ApplicationForm
 from backend.models.user import User
 
+
+# Change to your URL 
 WEBSITE_URL = "https://placeholder-bank.com"
 INTERNAL_URL = "https://internal-placeholder-bank.com"
 
@@ -22,48 +24,6 @@ Onboarding Team
 """
 
     return subject, body
-
-# def build_draft_saved_email(application):
-#     subject = "Draft Application Saved – Action Required"
-
-#     body = f"""
-# Hi,
-
-# You have saved a draft application for:
-
-# Business Name: {application.business_name}
-# Application ID: {application.application_id}
-
-# Your application has not been submitted yet.
-# If no action is taken, this draft will be automatically deleted after 7 days.
-
-# Please return to complete and submit your application.
-
-# Regards,
-# SME Onboarding Team
-# """
-#     return subject, body
-
-# def build_draft_reminder_email(app: ApplicationForm, user: User):
-#     subject = "Reminder: Incomplete Application"
-
-#     body = f"""
-# Dear {user.first_name},
-
-# Your application for "{app.business_name}" is still incomplete.
-
-# Application ID: {app.application_id}
-
-# Our system will delete incomplete application after 48 days. Please return to complete and submit your application.
-
-# Resume here:
-# {WEBSITE_URL}/applications/{app.application_id}
-
-# Best regards,
-# Onboarding Team
-# """
-
-#     return subject, body
 
 def build_application_submitted_email(app: ApplicationForm, firstName: str):
     subject = "Application Submitted Successfully"
@@ -192,7 +152,6 @@ def build_action_required_email(
 ):
     subject = "Action Required: Application Update Needed"
 
-    # Format requested documents
     docs_text = ""
     for d in requested_docs:
         name = d.get("document_name", "").strip()
@@ -206,7 +165,6 @@ def build_action_required_email(
     if not docs_text:
         docs_text = "None\n"
 
-    # Format requested questions
     qns_text = ""
     for q in requested_qns:
         qt = q.get("question_text", "").strip()

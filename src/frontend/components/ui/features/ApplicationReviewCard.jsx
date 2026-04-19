@@ -30,9 +30,7 @@ function getActionText(status) {
   }
 }
 
-// Reviewer-focused card (similar format to ApplicationCard)
 const ApplicationReviewCard = ({ application, onReview }) => {
-  // Map fields (supports snake_case + fallback)
   const appId = application.application_id ?? application.id;
   const form = application.form_data || {};
   const companyName = form.businessName
@@ -40,13 +38,12 @@ const ApplicationReviewCard = ({ application, onReview }) => {
   const status = application.current_status ?? application.status ?? "N/A";
   const lastUpdated = application.last_edited ?? application.lastEdited ?? null;
 
-  const risk = application.risk_level ?? application.riskLevel; // e.g. critical/high/medium/low
+  const risk = application.risk_level ?? application.riskLevel;
   const riskGrade = application?.risk_grade ?? application?.riskGrade ?? "";
   const isCritical = risk === "critical";
   const isUrgent = status === "Requires Action";
 
   const handleClick = () => {
-    // If parent supplies onReview, use it (your StaffLandingPage does)
     if (typeof onReview === "function") onReview(appId);
   };
 
@@ -70,7 +67,6 @@ const ApplicationReviewCard = ({ application, onReview }) => {
     >
       <CardContent className="p-5">
         <div className="flex items-start justify-between gap-4">
-          {/* Left Content */}
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-3 mb-3">
               <div className={cn(
@@ -113,7 +109,6 @@ const ApplicationReviewCard = ({ application, onReview }) => {
             <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
               <StatusBadge status={status} />
 
-              {/* Reviewer-only: Risk tag */}
               {risk && (
                 <div
                   className={cn(
@@ -139,7 +134,6 @@ const ApplicationReviewCard = ({ application, onReview }) => {
               </div>
             </div>
 
-            {/* Show reason if exists */}
             {application.reason && (
               <div className="mt-3 flex items-start gap-2 rounded-md bg-amber-50 p-2.5 border border-amber-200">
                 <AlertCircle className="h-4 w-4 shrink-0 text-amber-600 mt-0.5" />
@@ -148,7 +142,6 @@ const ApplicationReviewCard = ({ application, onReview }) => {
             )}
           </div>
 
-          {/* Right Action */}
           <div className="flex flex-col items-end justify-between h-full self-stretch">
             <Button
               variant={isUrgent || isCritical ? "default" : "outline"}

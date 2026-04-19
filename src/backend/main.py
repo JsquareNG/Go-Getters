@@ -32,10 +32,8 @@ import os
 from pathlib import Path
 from dotenv import load_dotenv
 
-# Always load src/backend/.env regardless of where uvicorn is launched from
 ENV_PATH = Path(__file__).resolve().parent / ".env"
 load_dotenv(dotenv_path=ENV_PATH)
-# Ensure GOOGLE_APPLICATION_CREDENTIALS points to the real file
 cred = os.getenv("GOOGLE_APPLICATION_CREDENTIALS", "")
 if cred.startswith("./"):
     # interpret relative path as relative to backend/ (where this file lives)

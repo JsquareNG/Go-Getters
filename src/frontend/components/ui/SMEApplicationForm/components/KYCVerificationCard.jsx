@@ -24,18 +24,14 @@ const KycVerificationCard = ({
   onPersistKycResult,
   onBeforeStartKyc,
 }) => {
-  // --------------
-  //  MOCK
-  // --------------
-  // const MOCK_KYC = "true";
   const MOCK_KYC = import.meta.env.VITE_MOCK_KYC === "true";
 
-  const [minFaceMatchScore, setMinFaceMatchScore] = useState(0); // threshold from backend
+  const [minFaceMatchScore, setMinFaceMatchScore] = useState(0);
 
   const processedDiditSessionRef = useRef("");
-  const latestKycDataRef = useRef(DEFAULT_KYC_DATA); //store latest kyc state
+  const latestKycDataRef = useRef(DEFAULT_KYC_DATA);
   const retryingSessionRef = useRef(false);
-  const callbackHandledSessionRef = useRef(""); //avoid duplicate callback handling
+  const callbackHandledSessionRef = useRef("");
 
   const kycData = data?.kyc || data?.kycData || DEFAULT_KYC_DATA;
   const kycStatus = kycData.status || "idle";
@@ -47,7 +43,6 @@ const KycVerificationCard = ({
   const kycFaceMatchStatus = kycData.faceMatchStatus || "";
   const kycFaceMatchScore = kycData.faceMatchScore ?? null;
 
-  // set threshold for liveness detection
   useEffect(() => {
     const fetchMinFaceMatchScore = async () => {
       try {
@@ -85,7 +80,6 @@ const KycVerificationCard = ({
     normalizedOverall === "notstarted" ||
     normalizedOverall === "inprogress";
   const isKycDeclined =
-    // normalizedStatus === "completed" &&
     normalizedOverall === "declined";
   const isKycApproved =
     normalizedStatus === "completed" && normalizedOverall === "approved";
@@ -122,15 +116,6 @@ const KycVerificationCard = ({
     latestKycDataRef.current = nextValue;
     onFieldChange("kyc", nextValue);
   };
-
-  // const hasFinalDecision =
-  //   !!kycOverallStatus ||
-  //   !!kycIdVerificationStatus ||
-  //   !!kycLivenessStatus ||
-  //   !!kycFaceMatchStatus;
-
-  // const resolvedKycStatus =
-  //   kycStatus === "completed" || hasFinalDecision ? "completed" : kycStatus;
 
   const getKycStorageKey = (sessionId) => `kyc:${sessionId}`;
 
@@ -174,7 +159,6 @@ const KycVerificationCard = ({
       idNumber: idv?.document_number || "",
       dateOfBirth: idv?.date_of_birth || "",
       residentialAddress: idv?.formatted_address || "",
-      // nationality: mapIsoToNationalityOption(idv?.issuing_state || null),
     };
   };
 
@@ -270,26 +254,6 @@ const KycVerificationCard = ({
   };
 
   const handleStartKyc = async () => {
-    // --------------
-    // MOCK
-    // --------------
-    // if (MOCK_KYC) {
-    //   const mockSessionId = `mock-session-${Date.now()}`;
-
-    //   onFieldChange("provider_session_id", mockSessionId);
-
-    //   const nextPendingState = {
-    //     ...DEFAULT_KYC_DATA,
-    //     status: "pending",
-    //     loading: false,
-    //     sessionId: mockSessionId,
-    //   };
-
-    //   writeKycData(nextPendingState);
-    //   saveKycToSessionStorage(mockSessionId, nextPendingState);
-
-    //   return;
-    // }
     if (onBeforeStartKyc) {
       const savedAppId = await onBeforeStartKyc();
 
@@ -327,7 +291,6 @@ const KycVerificationCard = ({
       data?.providerSessionId ||
       kycData?.sessionId;
 
-    // clears the previous session from sessionStorage
     clearKycFromSessionStorage(previousSessionId);
     processedDiditSessionRef.current = "";
     restoredSessionRef.current = "";
@@ -335,7 +298,7 @@ const KycVerificationCard = ({
     writeKycData({
       ...DEFAULT_KYC_DATA,
       status: "idle",
-      loading: true, //reset to loading
+      loading: true, 
       sessionId: "",
       overallStatus: "",
       idVerificationStatus: "",
@@ -345,7 +308,7 @@ const KycVerificationCard = ({
       faceMatchScore: null,
     });
 
-    onFieldChange("provider_session_id", null); //clear
+    onFieldChange("provider_session_id", null);
 
     try {
       const payload = {
@@ -382,7 +345,7 @@ const KycVerificationCard = ({
       }
 
       const nextSessionId = result.session_id || "";
-      onFieldChange("provider_session_id", nextSessionId); //stores new sessionId
+      onFieldChange("provider_session_id", nextSessionId);
 
       const nextPendingState = {
         ...DEFAULT_KYC_DATA,
@@ -397,7 +360,7 @@ const KycVerificationCard = ({
       retryingSessionRef.current = false;
 
       if (result.verification_url) {
-        window.location.href = result.verification_url; //redirect back to main form page
+        window.location.href = result.verification_url;
       } else {
         writeKycData({
           ...DEFAULT_KYC_DATA,
@@ -421,82 +384,6 @@ const KycVerificationCard = ({
     }
   };
 
-  // --------------
-  // MOCK
-  // --------------
-  // const finishMockKyc = async (mode = "approved") => {
-  //   const sessionId =
-  //     data?.provider_session_id ||
-  //     data?.providerSessionId ||
-  //     latestKycDataRef.current?.sessionId ||
-  //     `mock-session-${Date.now()}`;
-
-  //   const nextKycData =
-  //     mode === "approved"
-  //       ? {
-  //           status: "completed",
-  //           loading: false,
-  //           sessionId,
-  //           overallStatus: "Approved",
-  //           idVerificationStatus: "Approved",
-  //           livenessStatus: "Approved",
-  //           livenessScore: 98,
-  //           faceMatchStatus: "Approved",
-  //           faceMatchScore: 97,
-  //         }
-  //       : mode === "declined"
-  //         ? {
-  //             status: "completed",
-  //             loading: false,
-  //             sessionId,
-  //             overallStatus: "Declined",
-  //             idVerificationStatus: "Approved",
-  //             livenessStatus: "Approved",
-  //             livenessScore: 98,
-  //             faceMatchStatus: "Declined",
-  //             faceMatchScore: 42,
-  //           }
-  //         : {
-  //             status: "pending",
-  //             loading: false,
-  //             sessionId,
-  //             overallStatus: "NotStarted",
-  //             idVerificationStatus: "",
-  //             livenessStatus: "",
-  //             livenessScore: null,
-  //             faceMatchStatus: "",
-  //             faceMatchScore: null,
-  //           };
-
-  //   if (!shouldIgnoreSessionWrite(sessionId)) {
-  //     onFieldChange("provider_session_id", sessionId);
-  //     writeKycData(nextKycData);
-  //     saveKycToSessionStorage(sessionId, nextKycData);
-  //   }
-
-  //   const mappedFields = {
-  //     fullName: "Mock User",
-  //     idNumber: "S1234567A",
-  //     dateOfBirth: "1995-01-15",
-  //     nationality: "Singapore",
-  //     residentialAddress: "123 Mock Street",
-  //   };
-
-  //   if (onPersistKycResult) {
-  //     await onPersistKycResult({
-  //       provider_session_id: sessionId,
-  //       kycData: nextKycData,
-  //       diditPayload: {
-  //         provider: "didit",
-  //         mock: true,
-  //         provider_session_id: sessionId,
-  //       },
-  //       mappedFields,
-  //     });
-  //   }
-  // };
-
-  // Restore already-saved KYC state after reload
   const restoredSessionRef = useRef("");
   useEffect(() => {
     if (retryingSessionRef.current) return;
@@ -558,10 +445,8 @@ const KycVerificationCard = ({
     };
 
     restoreAndRefresh();
-    // }, [data?.provider_session_id, data?.providerSessionId, kycData?.sessionId]);
   }, [data?.provider_session_id, onPersistKycResult]);
 
-  //callback effect
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const verificationSessionId = params.get("verificationSessionId");
@@ -613,7 +498,6 @@ const KycVerificationCard = ({
         const payload = mapDiditToPayload(diditData);
         const mappedFields = mapDiditToFormFields(diditData);
 
-        // persist liveness result to backend here
         try {
           if (payload?.provider_session_id) {
             const persistRes = await livenessDetectionApi(payload);
@@ -623,13 +507,11 @@ const KycVerificationCard = ({
           console.error("[KYC] failed to persist liveness detection:", err);
         }
 
-        //update parent form state
         if (onPersistKycResult) {
           try {
             await onPersistKycResult({
               provider_session_id: verificationSessionId,
               kycData: nextKycData,
-              // diditPayload: payload,
               mappedFields,
             });
           } catch (err) {

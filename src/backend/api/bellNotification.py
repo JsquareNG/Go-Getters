@@ -8,7 +8,6 @@ from backend.models.bellNotifications import BellNotification
 
 router = APIRouter(prefix="/bell", tags=["Bell Notifications"])
 
-
 def _notif_to_dict(n: BellNotification):
     return {
         "notification_id": str(n.id),
@@ -20,7 +19,6 @@ def _notif_to_dict(n: BellNotification):
         "is_read": n.is_read,
         "created_at": n.created_at,
     }
-
 
 def _current_user_id(current_user: dict) -> str:
     user_id = current_user.get("user_id")
@@ -120,7 +118,6 @@ def mark_one_read(
     db.commit()
 
     if updated == 0:
-        # avoids leaking whether the application_id exists for someone else
         raise HTTPException(status_code=404, detail="Notification not found")
 
     return {"message": "ok"}
