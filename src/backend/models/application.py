@@ -3,7 +3,6 @@ from sqlalchemy.orm import relationship
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.ext.mutable import MutableDict
 from backend.database import Base
-# from database import Base
 
 class ApplicationForm(Base):
     __tablename__ = "application_form"
@@ -19,7 +18,7 @@ class ApplicationForm(Base):
         "ReviewJobs",
         back_populates="application",
         cascade="all, delete-orphan",
-        passive_deletes=True,   # recommended when using ondelete=CASCADE
+        passive_deletes=True,  
     )
 
     bell_notifications = relationship(

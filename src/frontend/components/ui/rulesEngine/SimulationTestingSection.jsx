@@ -120,7 +120,7 @@ export default function SimulationTestingSection() {
       const matchesSearch =
         !term ||
         row.application_id?.toLowerCase().includes(term) ||
-        row.business_name?.toLowerCase().includes(term);
+        row.form_data?.businessName ?.toLowerCase().includes(term);
 
       const matchesStatus =
         statusFilter === "All" || row.current_status === statusFilter;
@@ -519,7 +519,7 @@ export default function SimulationTestingSection() {
                         className="cursor-pointer border-b border-gray-100 px-4 py-3 text-sm text-gray-700"
                         onClick={() => setSelectedApp(row)}
                       >
-                        {row.business_name || "-"}
+                        {row.form_data?.businessName || "-"}
                       </td>
 
                       <td
