@@ -1,11 +1,4 @@
-/**
- * Singapore SME Onboarding Configuration
- * Version: v1
- */
 
-//////////////////////////
-//HELPER FIELD SETS //
-//////////////////////////
 import { COUNTRIES } from "../utils/countries";
 import { INDUSTRY_OPTIONS } from "../utils/industries";
 
@@ -113,11 +106,7 @@ function getIndividualFields() {
       placeholder: "Enter your residential address",
     },
     dateOfBirth: { type: "date", label: "Date of Birth", required: true },
-    // idDocument: {
-    //   type: "file",
-    //   label: "National ID / Passport Document",
-    //   required: true,
-    // },
+
   };
 }
 
@@ -240,21 +229,14 @@ function getComplianceDeclarations() {
   };
 }
 
-///////////////////////////////
-// SINGAPORE CONFIG
-///////////////////////////////
 
 const SINGAPORE_CONFIG = {
   country: {
     code: "SG",
     name: "Singapore",
-    // currency: "SGD",
-    // regulator: "MAS",
-    // uboThreshold: 25,
   },
 
   entities: {
-    // 1st business type
     sole_proprietorship: {
       label: "Sole Proprietorship",
       steps: [
@@ -321,7 +303,7 @@ const SINGAPORE_CONFIG = {
         },
       ],
     },
-    // 2nd business type
+
     limited_partnership: {
       label: "Limited Partnership (LP)",
       steps: [
@@ -348,13 +330,7 @@ const SINGAPORE_CONFIG = {
                   value: "General Partner",
                   readonly: true,
                 },
-                // sharePercentage: {
-                //   type: "number",
-                //   label: "Share Percentage (%)",
-                //   min: 0,
-                //   max: 100,
-                //   required: true,
-                // },
+ 
                 ...getIndividualFields(),
                 ...getComplianceDeclarations(),
               },
@@ -453,7 +429,7 @@ const SINGAPORE_CONFIG = {
         },
       ],
     },
-    // 3rd business type
+
     llp: {
       label: "Limited Liability Partnership (LLP)",
       steps: [
@@ -532,14 +508,7 @@ const SINGAPORE_CONFIG = {
                   value: "Partner",
                   readonly: true,
                 },
-                // sharePercentage: {
-                //   type: "number",
-                //   label: "Share Percentage (%)",
-                //   min: 0,
-                //   max: 100,
-                //   required: true,
-                //   placeholder: "Enter your share percentage",
-                // },
+
                 ...getIndividualFields(),
                 ...getComplianceDeclarations(),
               },
@@ -570,18 +539,9 @@ const SINGAPORE_CONFIG = {
                   required: true,
                   placeholder: "Enter your share percentage",
                 },
-                // idDocument: {
-                //   type: "file",
-                //   label: "National ID / Passport Document",
-                //   required: true,
-                // },
+
                 ...getIndividualFields(),
-                // nationality: {
-                //   type: "text",
-                //   label: "Nationality",
-                //   required: true,
-                //   validation: { rule: "must_include", value: "Singapore" },
-                // },
+
                 ...getComplianceDeclarations(),
               },
             },
@@ -619,7 +579,7 @@ const SINGAPORE_CONFIG = {
         },
       ],
     },
-    // 4th business type
+
     private_limited: {
       label: "Private Limited Company (Pte Ltd)",
       steps: [
@@ -704,13 +664,7 @@ const SINGAPORE_CONFIG = {
                   value: "Director",
                   readonly: true,
                 },
-                // sharePercentage: {
-                //   type: "number",
-                //   label: "Share Percentage (%)",
-                //   min: 0,
-                //   max: 100,
-                //   required: true,
-                // },
+
                 ...getIndividualFields(),
                 ...getComplianceDeclarations(),
               },
@@ -760,11 +714,7 @@ const SINGAPORE_CONFIG = {
                         placeholder:
                           "For Singapore citizens, use the NRIC / Passport Number",
                       },
-                      // idDocument: {
-                      //   type: "file",
-                      //   label: "National ID / Passport Document",
-                      //   required: true,
-                      // },
+
                       nationality: {
                         type: "select",
                         label: "Nationality",
@@ -800,11 +750,7 @@ const SINGAPORE_CONFIG = {
                         required: true,
                         placeholder: "Enter your UEN / Registration Number",
                       },
-                      // uen: {
-                      //   type: "file",
-                      //   label: "UEN / Registration Number Document",
-                      //   required: true,
-                      // },
+
                       country: {
                         type: "select",
                         label: "Country of Incorporation",
@@ -822,11 +768,11 @@ const SINGAPORE_CONFIG = {
                   },
                 },
               },
-              // ...getComplianceDeclarations(),
+              
             },
-            // --- UBO conditional field ---
+           
             ubo: {
-              // type: "conditional",
+              
               label: "Ultimate Beneficial Owner (Of Ownership >= 25%)",
               storage: "individuals",
               rowTypeField: "role",

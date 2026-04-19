@@ -34,7 +34,6 @@ def run_review_job(application_id: str):
         if job.status in ["RUNNING", "COMPLETED"]:
             return
 
-        # 🔄 Mark job as running
         job.status = "RUNNING"
 
         create_audit_log(
@@ -126,7 +125,7 @@ def run_review_job(application_id: str):
         registration_date_str = form.get("registrationDate")
         expected_countries = form.get("expectedCountriesOfTransactionActivity", [])
 
-        years_incorporated = 1  # default fallback
+        years_incorporated = 1  
 
         if registration_date_str:
             try:
@@ -135,7 +134,6 @@ def run_review_job(application_id: str):
 
                 years_incorporated = today.year - registration_date.year
 
-                # adjust if anniversary hasn't passed this year
                 if (today.month, today.day) < (registration_date.month, registration_date.day):
                     years_incorporated -= 1
 
@@ -281,7 +279,7 @@ def run_review_job(application_id: str):
         db.rollback()
 
         print("\n🔥 ERROR IN run_review_job 🔥")
-        traceback.print_exc()   # ✅ THIS IS THE KEY LINE
+        traceback.print_exc()   
         print("Error message:", str(e))
 
         failed_job = db.query(ReviewJobs).filter(

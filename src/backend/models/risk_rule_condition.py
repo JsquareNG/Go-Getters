@@ -10,10 +10,8 @@ class RiskRuleCondition(Base):
     rule_id = Column(Integer, ForeignKey("risk_rule.id", ondelete="CASCADE"), nullable=False)
 
     condition_group = Column(Integer, nullable=False)
-    # group of conditions that must all match
 
     order_no = Column(Integer, nullable=False)
-    # evaluation order
 
     field_name = Column(String(100), nullable=True)
 

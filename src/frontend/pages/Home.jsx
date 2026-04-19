@@ -3,7 +3,7 @@ import { Shield, Zap, Globe } from "lucide-react";
 import { RegisterForm, LoginForm } from "@/components/ui";
 
 const Home = () => {
-  const [mode, setMode] = useState("login"); // 'login' or 'register'
+  const [mode, setMode] = useState("login"); 
 
   const handleSwitchToRegister = () => {
     setMode("register");
@@ -18,7 +18,6 @@ const Home = () => {
       <section className="pt-24 pb-16 md:pt-8 md:pb-24 bg-gradient-to-b from-secondary/50 to-background">
         <div className="section-container">
           <div className="grid lg:grid-cols-2 gap-12 items-center">
-            {/* Left Content */}
             <div className="animate-slide-up">
               <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-accent text-accent-foreground text-sm font-medium mb-6">
                 <span className="w-2 h-2 bg-primary rounded-full animate-pulse-soft"></span>
@@ -52,7 +51,6 @@ const Home = () => {
               </div>
             </div>
 
-            {/* Right Content - Login/Register Form */}
             <div className="relative animate-scale-in">
               <div className="card-elevated p-8">
                 <h3 className="text-xl font-semibold text-red-500 mb-6">
@@ -66,7 +64,6 @@ const Home = () => {
                 )}
               </div>
 
-              {/* Floating Elements */}
               <div className="absolute -top-4 -right-4 w-24 h-24 bg-accent rounded-full opacity-60 blur-2xl"></div>
               <div className="absolute -bottom-4 -left-4 w-32 h-32 bg-primary/10 rounded-full opacity-60 blur-2xl"></div>
             </div>

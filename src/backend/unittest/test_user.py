@@ -4,10 +4,6 @@ from fastapi import HTTPException
 import backend.api.user as user_module
 
 
-# ----------------------------
-# Fakes / helpers
-# ----------------------------
-
 class FakeQuery:
     def __init__(self, first_result=None, all_result=None):
         self._first_result = first_result
@@ -70,10 +66,6 @@ STAFF_USER = {"user_id": "S1", "role": "STAFF"}
 MGMT_USER = {"user_id": "M1", "role": "MANAGEMENT"}
 
 
-# ----------------------------
-# Password helper tests
-# ----------------------------
-
 def test_hash_password_returns_different_string():
     plain = "my-secret-password"
     hashed = user_module.hash_password(plain)
@@ -96,10 +88,6 @@ def test_verify_password_returns_false_for_wrong_password():
 
     assert user_module.verify_password("wrong-password", hashed) is False
 
-
-# ----------------------------
-# register_sme
-# ----------------------------
 
 def test_register_sme_raises_when_email_already_registered():
     db = FakeDB()
@@ -147,9 +135,6 @@ def test_register_sme_creates_user_successfully():
     assert result["role"] == "SME"
 
 
-# ----------------------------
-# login
-# ----------------------------
 
 def test_login_raises_when_user_not_found():
     db = FakeDB()
@@ -216,10 +201,6 @@ def test_login_returns_token_and_user_details(monkeypatch):
     assert result["last_name"] == "Doe"
     assert result["email"] == "john@example.com"
 
-
-# ----------------------------
-# get_all_staff / get_all_sme
-# ----------------------------
 
 def test_get_all_staff_returns_only_serialized_fields():
     db = FakeDB()
@@ -291,11 +272,6 @@ def test_get_all_sme_forbidden_for_sme():
 
     assert exc.value.status_code == 403
     assert exc.value.detail == "Forbidden"
-
-
-# ----------------------------
-# create_staff
-# ----------------------------
 
 def test_create_staff_raises_when_email_exists():
     db = FakeDB()
@@ -371,10 +347,6 @@ def test_create_staff_forbidden_for_staff():
     assert exc.value.status_code == 403
     assert exc.value.detail == "Forbidden"
 
-
-# ----------------------------
-# get_user_by_id
-# ----------------------------
 
 def test_get_user_by_id_raises_when_missing():
     db = FakeDB()

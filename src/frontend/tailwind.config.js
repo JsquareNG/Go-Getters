@@ -56,7 +56,6 @@ module.exports = {
           "red-light": "hsl(var(--dbs-red-light))",
         },
 
-        /* ✅ Added: status colors used by your pages */
         "status-not-started": "hsl(var(--status-not-started))",
         "status-in-progress": "hsl(var(--status-in-progress))",
         "status-submitted": "hsl(var(--status-submitted))",

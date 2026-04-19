@@ -72,10 +72,9 @@ class ActionRequestItem(Base):
         index=True,
     )
 
-    # DOCUMENT or QUESTION
+
     item_type = Column(String(20), nullable=False)
 
-    # DOCUMENT
     document_name = Column(String(500), nullable=True)
     document_desc = Column(String(500), nullable=True)
 
@@ -83,7 +82,6 @@ class ActionRequestItem(Base):
     substitution_reason = Column(String(1500), nullable=True)
     is_substitute = Column(Boolean, nullable=False, server_default=text("false"))
 
-    # QUESTION
     question_text = Column(String(500), nullable=True)
     answer_text = Column(String(1500), nullable=True)
 

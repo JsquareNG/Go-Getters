@@ -1,13 +1,10 @@
-# config.py
 
-# FATF High-Risk Jurisdictions (Call for Action)
 FATF_BLACKLIST = {
     "Iran",
     "North Korea",
     "Myanmar"
 }
 
-# FATF Jurisdictions Under Increased Monitoring
 HIGH_RISK_COUNTRIES = {
     "Algeria", 
     "Angola",

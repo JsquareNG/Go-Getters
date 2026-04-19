@@ -9,10 +9,10 @@ class RiskConfigList(Base):
     id = Column(Integer, primary_key=True, autoincrement=True)
 
     list_name = Column(String(100), nullable=False)
-    item_value = Column(String(50), nullable=True)   # IR, KP, Casino
-    item_label = Column(String(255), nullable=False)  # Iran, North Korea, Casino
+    item_value = Column(String(50), nullable=True)   
+    item_label = Column(String(255), nullable=False) 
 
-    item_type = Column(String(50), nullable=False)    # country / industry
+    item_type = Column(String(50), nullable=False)   
     is_active = Column(Boolean, nullable=False, server_default=text("true"))
 
     created_at = Column(

@@ -5,10 +5,6 @@ from types import SimpleNamespace
 from backend.compliance_rules_engine.rule_loader import load_active_rules_by_category
 
 
-# ==============================
-# Helper Factory Functions
-# ==============================
-
 def make_condition(is_active=True):
     return SimpleNamespace(is_active=is_active)
 
@@ -38,10 +34,6 @@ def setup_mock_db(return_rules):
     return db
 
 
-# ==============================
-# Tests
-# ==============================
-
 def test_load_active_rules_basic():
     db = setup_mock_db([
         make_rule("R1", [make_condition(True), make_condition(False)]),
@@ -52,11 +44,9 @@ def test_load_active_rules_basic():
 
     assert len(result) == 2
 
-    # Rule 1 should only keep active condition
     assert len(result[0].conditions) == 1
     assert result[0].conditions[0].is_active is True
 
-    # Rule 2 unchanged
     assert len(result[1].conditions) == 1
 
 
@@ -126,7 +116,6 @@ def test_mixed_active_and_inactive_conditions():
 
     result = load_active_rules_by_category(db, "KYC")
 
-    # R3 should be removed
     assert len(result) == 2
 
     for rule in result:

@@ -3,7 +3,6 @@ from sqlalchemy.orm import relationship
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.ext.mutable import MutableDict
 from backend.database import Base
-# from database import Base
 
 class ApplicationForm(Base):
     __tablename__ = "application_form"
@@ -19,14 +18,14 @@ class ApplicationForm(Base):
         "ReviewJobs",
         back_populates="application",
         cascade="all, delete-orphan",
-        passive_deletes=True,   # recommended when using ondelete=CASCADE
+        passive_deletes=True,   
     )
 
     bell_notifications = relationship(
         "BellNotification",
         back_populates="application",
         cascade="all, delete-orphan",
-        passive_deletes=True,   # recommended when using ondelete=CASCADE
+        passive_deletes=True,   
     )
 
     action_requests = relationship(
@@ -43,7 +42,7 @@ class ApplicationForm(Base):
         passive_deletes=True
     )
 
-    # 8-digit application id, auto-generated in DB
+
     application_id = Column(
         String(8),
         primary_key=True,
@@ -68,7 +67,7 @@ class ApplicationForm(Base):
     document_warning = Column(Boolean, nullable=False, default=False, server_default="false")
     cross_validation_result = Column(JSONB, nullable=True)
 
-    # Store as SGT-naive timestamp (TIMESTAMP WITHOUT TIME ZONE)
+
     last_edited = Column(
         DateTime(timezone=False),
         nullable=False,
@@ -82,7 +81,7 @@ class ApplicationForm(Base):
         CheckConstraint("char_length(application_id) = 8", name="chk_application_id_len"),
     )
 
-# Create the sequence before the table is created (PostgreSQL)
+
 event.listen(
     ApplicationForm.__table__,
     "before_create",

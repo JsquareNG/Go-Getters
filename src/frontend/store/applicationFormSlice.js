@@ -1,24 +1,5 @@
 import { createSlice, createSelector } from "@reduxjs/toolkit";
 
-// --- HELPER FUNCTION TO UPDATE NESTED FIELDS IN AN IMMUTABLE WAY ---
-// export const setIn = (obj, path, value) => {
-//   if (!path || typeof path !== "string") {
-//     throw new Error("Invalid path: " + path);
-//   }
-
-//   const keys = path.split(".").filter(Boolean); // remove empty segments
-//   if (keys.length === 0) throw new Error("Path cannot be empty");
-
-//   const lastKey = keys.pop();
-//   let ref = obj;
-
-//   keys.forEach((key) => {
-//     if (!ref[key] || typeof ref[key] !== "object") ref[key] = {};
-//     ref = ref[key];
-//   });
-
-//   ref[lastKey] = value;
-// };
 export const setIn = (obj, path, value) => {
   if (!path || typeof path !== "string") {
     throw new Error("Invalid path: " + path);
@@ -34,7 +15,6 @@ export const setIn = (obj, path, value) => {
     const nextKey = keys[i + 1];
     const isNextIndex = !Number.isNaN(Number(nextKey));
 
-    // current key is numeric => current ref must be array
     if (!Number.isNaN(Number(key))) {
       const idx = Number(key);
 
@@ -52,7 +32,6 @@ export const setIn = (obj, path, value) => {
       continue;
     }
 
-    // normal object key
     if (ref[key] == null) {
       ref[key] = isNextIndex ? [] : {};
     }
@@ -126,21 +105,6 @@ const applicationFormSlice = createSlice({
       const { field, value } = action.payload;
       if (!field) return;
 
-      // let appId = state.currentApplicationId;
-
-      // // If no currentApplicationId, use a temporary draft key
-      // if (!appId) {
-      //   appId = "temp_draft";
-      //   state.currentApplicationId = appId;
-      // }
-      //
-      // if (!state.drafts[appId]) {
-      //   state.drafts[appId] = {
-      //     formData: {},
-      //     status: "Draft",
-      //     lastModified: new Date().toISOString(),
-      //   };
-      // }
 
       let appId = state.currentApplicationId || "temp_draft";
       state.currentApplicationId = appId;
@@ -154,14 +118,12 @@ const applicationFormSlice = createSlice({
       }
 
       try {
-        // special case: replace entire formData root
         if (field === "formData") {
           state.drafts[appId].formData = value || {};
           state.drafts[appId].lastModified = new Date().toISOString();
           state.hasUnsavedChanges = true;
           return;
         }
-        // IMPORTANT: clone formData so React detects change
         const newFormData = { ...state.drafts[appId].formData };
         setIn(newFormData, field, value);
 
@@ -173,7 +135,6 @@ const applicationFormSlice = createSlice({
       }
     },
 
-    // Bulk update (useful when loading multiple fields)
     updateFormData: (state, action) => {
       const appId = state.currentApplicationId;
       if (!appId) return;
@@ -195,12 +156,10 @@ const applicationFormSlice = createSlice({
       state.hasUnsavedChanges = true;
     },
 
-    // Change step in stepper
     setCurrentStep: (state, action) => {
       state.currentStep = action.payload;
     },
 
-    // Save draft
 
     saveDraft: (state, action) => {
       const { appId, data } = action.payload || {};
@@ -224,7 +183,6 @@ const applicationFormSlice = createSlice({
       state.hasUnsavedChanges = false;
     },
 
-    // Submit application
     submitApplication: (state, action) => {
       const { appId, data } = action.payload || {};
       const realAppId = appId ? String(appId) : state.currentApplicationId;
@@ -250,12 +208,10 @@ const applicationFormSlice = createSlice({
       state.hasUnsavedChanges = false;
     },
 
-    // Switch edit/view mode
     setMode: (state, action) => {
       state.currentMode = action.payload;
     },
 
-    // Reset form
     clearApplication: (state) => {
       state.currentApplicationId = null;
       state.currentStep = 0;
@@ -263,7 +219,6 @@ const applicationFormSlice = createSlice({
       state.hasUnsavedChanges = false;
     },
 
-    // Delete draft
     deleteDraft: (state, action) => {
       const appId = action.payload;
       delete state.drafts[appId];
@@ -287,7 +242,7 @@ export const {
   deleteDraft,
 } = applicationFormSlice.actions;
 
-/* ---------------- Selectors ---------------- */
+
 
 export const selectApplicationForm = (state) => state.applicationForm;
 export const selectCurrentApplicationId = (state) =>
@@ -309,14 +264,13 @@ export const selectCurrentMode = (state) => state.applicationForm.currentMode;
 export const selectHasUnsavedChanges = (state) =>
   state.applicationForm.hasUnsavedChanges;
 
-// Add at the bottom with other selectors
+
 export const selectStepCompletion = createSelector(
   selectFormData,
   (formData) => {
-    // Example: mark step complete if fields exist
     return {
       0: !!formData.country && !!formData.businessType,
-      1: !!formData.step1_basic_info, // check actual step keys
+      1: !!formData.step1_basic_info, 
       2: !!formData.step2_financial,
       3: !!formData.step3_compliance,
     };

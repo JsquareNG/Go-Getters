@@ -46,17 +46,13 @@ def test_send_email_calls_sendgrid_successfully(monkeypatch):
 
     message = captured["message"]
 
-    # subject
     assert message.subject.get() == "Welcome"
 
-    # from email
     assert message.from_email.email == send_email_module.FROM_EMAIL
 
-    # to email
     tos = message.personalizations[0].tos
     assert tos[0]["email"] == "user@example.com"
 
-    # content
     content = message.contents[0].get()
     assert content["value"] == "Hello there"
     assert content["type"] == "text/plain"

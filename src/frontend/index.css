@@ -1,12 +1,11 @@
 @import "tailwindcss";
 
-/* DBS Bank Design System - Professional Enterprise Banking (Tailwind v4) */
 @import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap");
 
 @layer base {
   :root {
     
-    /* DBS Brand Colors (your new CSS) */
+
     --background: 0 0% 98%;
     --foreground: 220 20% 15%;
 
@@ -16,7 +15,6 @@
     --popover: 0 0% 100%;
     --popover-foreground: 220 20% 15%;
 
-    /* DBS Red */
     --primary: 351 85% 49%;
     --primary-foreground: 0 0% 100%;
 
@@ -26,9 +24,6 @@
     --muted: 220 14% 96%;
     --muted-foreground: 220 10% 45%;
 
-    /* IMPORTANT:
-       Your components (account-card, completed status, amount-positive)
-       rely on accent = green, so we keep accent green to preserve your UI. */
     --accent: 142 71% 45%;
     --accent-foreground: 0 0% 100%;
 
@@ -41,12 +36,10 @@
 
     --radius: 0.5rem;
 
-    /* Status Colors (your old + new combined) */
     --status-pending: 220 10% 46%;
     --status-completed: 142 71% 45%;
     --status-canceled: 0 84% 60%;
 
-    /* Workflow status set (your new CSS) */
     --status-not-started: 220 14% 75%;
     --status-in-progress: 210 100% 50%;
     --status-submitted: 262 83% 58%;
@@ -54,12 +47,10 @@
     --status-requires-action: 0 84% 60%;
     --status-approved: 142 71% 45%;
 
-    /* Semantic tokens (your new CSS) */
     --header-bg: 0 0% 100%;
     --surface-elevated: 0 0% 100%;
     --surface-subtle: 220 14% 98%;
 
-    /* Sidebar tokens (your new CSS) */
     --sidebar-background: 0 0% 100%;
     --sidebar-foreground: 220 20% 15%;
     --sidebar-primary: 351 85% 49%;
@@ -69,13 +60,11 @@
     --sidebar-border: 220 13% 91%;
     --sidebar-ring: 351 85% 49%;
 
-    /* Custom tokens used by your components */
     --nav-active: 142 71% 45%;
     --nav-active-foreground: 0 0% 100%;
     --amount-positive: 142 71% 45%;
     --amount-negative: 0 84% 60%;
 
-    /* ✅ Added: tokens referenced in tailwind.config.js */
     --success: 142 71% 45%;
     --success-foreground: 0 0% 100%;
 
@@ -131,7 +120,6 @@
     --amount-positive: 142 71% 45%;
     --amount-negative: 0 62% 55%;
 
-    /* ✅ Added: tokens referenced in tailwind.config.js (dark) */
     --success: 142 71% 45%;
     --success-foreground: 0 0% 100%;
 
@@ -140,7 +128,7 @@
     --dbs-red-light: 351 85% 65%;
   }
 
-  /* Tailwind v4-friendly base styles */
+ 
   * {
     border-color: hsl(var(--border));
   }

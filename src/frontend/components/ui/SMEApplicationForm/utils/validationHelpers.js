@@ -15,7 +15,7 @@ export const hasUploadedDocument = ({
   const localFile = unwrapFile(value);
   if (localFile) return true;
 
-  //added
+
   const hasStoredMetadata =
     !!value &&
     typeof value === "object" &&
@@ -112,17 +112,6 @@ export const validateStepConfig = ({
     }
   }
 
-  // for (const [sectionKey, section] of Object.entries(
-  //   stepConfig.repeatableSections || {},
-  // )) {
-  //   let rows = [];
-
-  //   if (section?.storage === "individuals") {
-  //     const roleValue = getSectionRoleValue(sectionKey, section);
-  //     rows = (data.individuals || []).filter((x) => x?.role === roleValue);
-  //   } else {
-  //     rows = Array.isArray(data[sectionKey]) ? data[sectionKey] : [];
-  //   }
   for (const [sectionKey, section] of Object.entries(
     stepConfig.repeatableSections || {},
   )) {
