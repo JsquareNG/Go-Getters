@@ -2,7 +2,7 @@ from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 
 from backend.database import Base, engine
-from backend.models.application import ApplicationForm  # import so table is registered
+from backend.models.application import ApplicationForm  
 from backend.models.documents import Document
 from backend.models.user import User
 from backend.models.bellNotifications import BellNotification
@@ -36,7 +36,6 @@ ENV_PATH = Path(__file__).resolve().parent / ".env"
 load_dotenv(dotenv_path=ENV_PATH)
 cred = os.getenv("GOOGLE_APPLICATION_CREDENTIALS", "")
 if cred.startswith("./"):
-    # interpret relative path as relative to backend/ (where this file lives)
     abs_cred = (Path(__file__).resolve().parent / cred.replace("./", "")).resolve()
     os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = str(abs_cred)
 
@@ -54,7 +53,6 @@ async def log_requests(request: Request, call_next):
     print("DONE:", request.method, request.url.path, response.status_code)
     return response
 
-#add cors middleware
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
@@ -66,13 +64,11 @@ app.add_middleware(
         "http://localhost:5177",
         "https://gogettersonboarding.netlify.app",
         ],
-    # allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# register routes
 app.include_router(application_router)
 app.include_router(application_document)
 app.include_router(user_router)  

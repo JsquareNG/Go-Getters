@@ -10,10 +10,6 @@ from backend.compliance_rules_engine.review_all_service import (
 )
 
 
-# ==============================
-# Helper Function Tests
-# ==============================
-
 def test_safe_bool_yes():
     assert _safe_bool_yes("yes") is True
     assert _safe_bool_yes("YES") is True
@@ -29,10 +25,6 @@ def test_safe_float():
     assert _safe_float(None, 5) == 5
 
 
-# ==============================
-# Years Calculation Tests
-# ==============================
-
 def test_calculate_years_incorporated_valid():
     result = _calculate_years_incorporated("2020-01-01")
     assert isinstance(result, int)
@@ -46,10 +38,6 @@ def test_calculate_years_incorporated_invalid():
 def test_calculate_years_incorporated_none():
     assert _calculate_years_incorporated(None) == 1
 
-
-# ==============================
-# build_company_from_form Tests
-# ==============================
 
 def test_build_company_basic():
     form = {
@@ -119,10 +107,6 @@ def test_build_company_defaults():
     assert company.ownership_layers == 1
     assert company.expected_tx_volume == 0
 
-
-# ==============================
-# run_simulation_review Tests
-# ==============================
 
 @patch("backend.compliance_rules_engine.review_all_service.submit_application")
 def test_run_simulation_review_success(mock_submit):

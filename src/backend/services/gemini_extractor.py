@@ -6,7 +6,6 @@ from vertexai.generative_models import GenerativeModel, GenerationConfig
 from backend.models.extract import DOCUMENT_SCHEMA_REGISTRY
 
 
-# Initialize Vertex AI
 project_id = os.getenv("GCP_PROJECT_ID")
 vertex_location = "asia-southeast1"
 vertexai.init(project=project_id, location=vertex_location)

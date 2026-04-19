@@ -29,7 +29,6 @@ class ShareholderEntry(BaseModel):
         default=None,
         description="Ownership percentage if explicitly stated or safely derivable",
     )
-# 1. ACRA Schema
 class ACRAExtractionData(BaseModel):
     businessName: str = Field(description="Registered name of the business")
     uen: str = Field(description="Unique Entity Number")
@@ -55,7 +54,6 @@ class ACRAExtractionData(BaseModel):
         return cleaned
 
 
-# 2. Indonesian NIB Schema
 class KBLIDetail(BaseModel):
     kbliCode: str = Field(default="", description="5-digit KBLI code")
     kbliTitle: str = Field(default="", description="English title/description of the KBLI activity")

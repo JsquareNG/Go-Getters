@@ -175,9 +175,7 @@ const SMEApplicationForm = () => {
     fetchDocuments();
   }, [appId]);
 
-  // ----------------------
-  // KYC VALIDATION
-  // ----------------------
+
   const isSuccessfulKycResult = (kyc) => {
     if (!kyc || typeof kyc !== "object") return false;
 
@@ -202,7 +200,7 @@ const SMEApplicationForm = () => {
     );
   };
 
-  // patch provider_session_id and kyc results into form, map fields, and save draft
+
   const handlePersistKycResult = useCallback(
     async ({
       provider_session_id,
@@ -217,7 +215,6 @@ const SMEApplicationForm = () => {
       const qualifiedProviderSessionField = qualify(providerSessionField);
       const qualifiedKycDataField = qualify(kycDataField);
 
-      // stale-session guard: ignore callback results from an old KYC session
       const currentFormRoot = getMergedFormState(formData);
 
       const currentRow = rowPrefix
@@ -228,14 +225,12 @@ const SMEApplicationForm = () => {
           }, currentFormRoot)
         : currentFormRoot;
 
-      // compare row's current session with incoming provider_session_id
       const currentSessionValue =
         currentRow?.provider_session_id ||
         currentRow?.providerSessionId ||
         currentRow?.kyc?.sessionId ||
         "";
 
-      //ignore callback that belongs to an old session
       if (
         currentSessionValue &&
         provider_session_id &&
@@ -249,7 +244,6 @@ const SMEApplicationForm = () => {
         return;
       }
 
-      // patch fields, map KYC and save draft
       let patchedFormData = currentFormRoot;
 
       patchedFormData = setNestedValue(
@@ -318,67 +312,17 @@ const SMEApplicationForm = () => {
     [formData, activeConfig, existingDocumentMap],
   );
 
-  // const goToStep = useCallback(
-  //   (targetStep) => {
-  //     if (targetStep === 0) {
-  //       navigate(`/application/${routeMode}/${appId}/${targetStep}`);
-  //       return;
-  //     }
 
-  //     if (targetStep >= 1 && targetStep <= 3) {
-  //       if (!isStep0Valid) {
-  //         toast({
-  //           title: "Fill in missing fields first",
-  //           description:
-  //             "Please select country and business type before proceeding.",
-  //           variant: "destructive",
-  //         });
-  //         return;
-  //       }
-
-  //       navigate(`/application/${routeMode}/${appId}/${targetStep}`);
-  //       return;
-  //     }
-
-  //     if (targetStep === 4) {
-  //       if (!isStep0Valid) {
-  //         toast({
-  //           title: "Fill in missing fields first",
-  //           description:
-  //             "Please select country and business type before proceeding.",
-  //           variant: "destructive",
-  //         });
-  //         return;
-  //       }
-
-  //       if (!hasConfigSteps) {
-  //         toast({
-  //           title: "Form structure unavailable",
-  //           description:
-  //             "Could not determine required fields for this application yet.",
-  //           variant: "destructive",
-  //         });
-  //         return;
-  //       }
-
-  //       navigate(`/application/${routeMode}/${appId}/${targetStep}`);
-  //     }
-  //   },
-  //   [navigate, routeMode, appId, isStep0Valid, hasConfigSteps, toast],
-  // );
 
   const persistApplication = async ({
     isInitial = false,
     rawFormDataOverride = null,
   } = {}) => {
-    //nested structures are normalized before payload building and saving.
+    
     const effectiveFormData = getMergedFormState(
       rawFormDataOverride || formData,
     );
 
-    // console.log("[1] rawFormDataOverride", rawFormDataOverride);
-    // console.log("[2] redux formData", formData);
-    // console.log("[3] effectiveFormData", effectiveFormData);
 
     try {
       let savedAppId = currentApp?.applicationId || appId;
@@ -451,7 +395,7 @@ const SMEApplicationForm = () => {
         providerSessionId: providerSessionId,
       });
 
-      // explicitly override / inject metadata into form_data
+
       cleanedFormPayload.last_saved_step = resolvedLastSavedStep;
       cleanedFormPayload.current_status = resolvedCurrentStatus;
       cleanedFormPayload.email =
@@ -469,9 +413,6 @@ const SMEApplicationForm = () => {
         form_data: cleanedFormPayload,
       };
 
-      // --------
-      // LOGS
-      // --------
       console.log("[SAVE before buildDynamicPayload]", effectiveFormData);
       console.log("[SAVE individuals before]", effectiveFormData?.individuals);
       console.log(
@@ -489,7 +430,7 @@ const SMEApplicationForm = () => {
       const res = await saveApplicationDraftApi(payload);
       savedAppId = res.application_id || savedAppId;
 
-      // upload all documents if not yet uploaded.
+
       try {
         await uploadAllDocumentsFromFormData(
           effectiveFormData,
@@ -502,7 +443,6 @@ const SMEApplicationForm = () => {
 
       const updatedFormData = {
         ...effectiveFormData,
-        // ...cleanedFormPayload,
         last_saved_step: resolvedLastSavedStep,
         current_status: resolvedCurrentStatus,
       };
@@ -538,12 +478,9 @@ const SMEApplicationForm = () => {
     }
   };
 
-  // when every switches page, it fetches the latest data from backend to ensure the form is up to date
-  // this causes user's latest changes to be overridden by backend data if they switch page without saving
   useEffect(() => {
     const initApplication = async () => {
       try {
-        //if same app is already loaded, do not overwrite local unsaved changes
         if (
           appId &&
           appId !== "new" &&
@@ -632,9 +569,7 @@ const SMEApplicationForm = () => {
     }
   }, [clampedStep, currentStepFromRedux, dispatch]);
 
-  // --------------------
-  // handlers
-  // --------------------
+
   const handleStepNavigation = async (targetStep) => {
     if (targetStep === 0) {
       navigate(`/application/${routeMode}/${appId}/${targetStep}`);
@@ -651,7 +586,7 @@ const SMEApplicationForm = () => {
       return;
     }
 
-    // if draft already exists, auto-save before step change
+
     if (appId && appId !== "new") {
       const savedAppId = await persistApplication({ isInitial: false });
 
@@ -661,12 +596,12 @@ const SMEApplicationForm = () => {
       return;
     }
 
-    // if still new and going beyond step 0, create it first
+
     if (appId === "new" && targetStep >= 1) {
       const savedAppId = await persistApplication({ isInitial: true });
       if (!savedAppId) return;
 
-      // after initial create, also save current data
+ 
       await persistApplication({
         isInitial: false,
         rawFormDataOverride: formData,
@@ -681,7 +616,7 @@ const SMEApplicationForm = () => {
     navigate(`/application/${routeMode}/${appId}/${targetStep}`);
   };
 
-  // allow form fields to be saved before navigating to external site
+
   const handleBeforeStartKyc = useCallback(async () => {
     const savedAppId = await persistApplication({ isInitial: false });
     console.log("handling before start kyc save");
@@ -717,7 +652,7 @@ const SMEApplicationForm = () => {
   };
 
   const isIncomplete = validationReport.total > 0;
-  // console.log("VALIDATION", validationReport);
+
 
   const isApprovedKyc = useCallback((kyc) => {
     if (!kyc || typeof kyc !== "object") return false;
@@ -856,7 +791,7 @@ const SMEApplicationForm = () => {
     [formData, handleFieldChange, isViewOnly],
   );
 
-  // useEffect(() => console.log("[FORM]: ", formData), [formData]);
+ 
 
   const isStep0Locked = Boolean(appId && appId !== "new");
 

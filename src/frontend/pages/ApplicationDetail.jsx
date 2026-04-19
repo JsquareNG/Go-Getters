@@ -113,7 +113,7 @@ export default function ApplicationDetail() {
   const [riskLoading, setRiskLoading] = useState(false);
   const [riskError, setRiskError] = useState(null);
 
-  // AI alternative-document states
+ 
   const [alternativeDocOptionsByItemId, setAlternativeDocOptionsByItemId] =
     useState({});
   const [alternativeDocsLoading, setAlternativeDocsLoading] = useState(false);
@@ -151,9 +151,6 @@ export default function ApplicationDetail() {
     (doc) => reuploadFiles[doc.document_id]
   ).length;
 
-  // -----------------------------
-  // Fetch application
-  // -----------------------------
   const fetchApplication = async (showLoader = true) => {
     try {
       if (showLoader) setIsLoading(true);
@@ -281,9 +278,7 @@ export default function ApplicationDetail() {
     return currentStatusKey === "draft" && previousStatusKey == null;
   }, [currentStatusKey, previousStatusKey]);
 
-  // -----------------------------
-  // HELPER
-  // -----------------------------
+ 
   const CONFIG_MAP = {
     Singapore: SINGAPORE_CONFIG,
     Indonesia: INDONESIA_CONFIG,
@@ -316,7 +311,7 @@ export default function ApplicationDetail() {
     return entityConfig?.steps?.find((s) => s.id === "step4") || null;
   }, [entityConfig]);
 
-  //read nested values
+
   const getNestedValue = (obj, path) => {
     if (!obj || !path) return undefined;
 
@@ -329,7 +324,7 @@ export default function ApplicationDetail() {
       }, obj);
   };
 
-  //format
+
   const prettifyKey = (key) => {
     return String(key || "")
       .replace(/([A-Z])/g, " $1")
@@ -380,7 +375,7 @@ export default function ApplicationDetail() {
     return rows.filter((row) => row?.[rowTypeField] === rowTypeValue);
   };
 
-  // group individuals by role
+
   const getRepeatableSectionRows = (sectionKey, sectionConfig, formData) => {
     const storageKey = sectionConfig?.storage;
     const rows = Array.isArray(formData?.[storageKey])
@@ -395,9 +390,7 @@ export default function ApplicationDetail() {
     return rows.filter((row) => row?.[rowTypeField] === rowTypeValue);
   };
 
-  // -----------------------------
-  // Fetch user info
-  // -----------------------------
+ 
   useEffect(() => {
     const fetchUser = async () => {
       if (!application?.user_id) return;
@@ -413,16 +406,11 @@ export default function ApplicationDetail() {
     fetchUser();
   }, [application]);
 
-  // -----------------------------
-  // Fetch documents
-  // -----------------------------
   useEffect(() => {
     if (id) fetchDocuments();
   }, [id]);
 
-  // -----------------------------
-  // Fetch review job / risk
-  // -----------------------------
+
   useEffect(() => {
     const fetchReviewJob = async () => {
       try {
@@ -457,25 +445,17 @@ export default function ApplicationDetail() {
     if (id && application) fetchReviewJob();
   }, [id, application]);
 
-  // -----------------------------
-  // Fetch QnA
-  // -----------------------------
+  
   useEffect(() => {
     const appIdToUse = application?.application_id || application?.id || id;
     if (id && application) fetchQnA(appIdToUse);
   }, [id, application]);
 
-  // -----------------------------
-  // Fetch Audit Trail
-  // -----------------------------
   useEffect(() => {
     const appIdToUse = application?.application_id || application?.id || id;
     if (id && application) fetchAuditEntries(appIdToUse);
   }, [id, application]);
 
-  // -----------------------------
-  // Derived values
-  // -----------------------------
   const actionRequests = useMemo(() => {
     const arr = actionRequestsData?.action_requests;
     return Array.isArray(arr) ? arr : [];
@@ -607,7 +587,7 @@ export default function ApplicationDetail() {
           return t && t >= currentTime && t < nextTime;
         })
         .map((doc) => {
-          // 🔥 find matching request document
+          
           const matchedRequestDoc = request.documents?.find(
             (reqDoc) => reqDoc.submitted_document_name === doc.document_type,
           );
@@ -665,14 +645,14 @@ export default function ApplicationDetail() {
     }));
   }, [requiredDocs, alternativeDocOptionsByItemId]);
 
-  // Reset AI alternatives when application / active request changes
+
   useEffect(() => {
     setAlternativeDocOptionsByItemId({});
     setAlternativeDocsError(null);
     setHasLoadedAlternativeDocs(false);
   }, [id, latestRelevantRequest?.action_request_id]);
 
-  // Prefetch AI alternatives once the page is ready for a Requires Action case
+
   useEffect(() => {
     const fetchAlternativeDocumentOptions = async () => {
       try {
@@ -739,9 +719,6 @@ export default function ApplicationDetail() {
     alternativeDocumentsAIPayload,
   ]);
 
-  // -----------------------------
-  // Handlers
-  // -----------------------------
   const handleDownload = async (doc) => {
     const newTab = window.open("", "_blank");
 
@@ -950,7 +927,6 @@ export default function ApplicationDetail() {
     try {
       setIsSubmittingReupload(true);
 
-      // 1️⃣ validate all required docs uploaded
       const missingUploads = mismatchDocumentDetails.filter(
         (doc) => !reuploadFiles[doc.document_id]
       );
@@ -964,7 +940,6 @@ export default function ApplicationDetail() {
         return;
       }
 
-      // 2️⃣ replace each problematic document
       for (const doc of mismatchDocumentDetails) {
         await replaceDocument({
           documentId: doc.document_id,
@@ -974,12 +949,10 @@ export default function ApplicationDetail() {
         });
       }
 
-      // 3️⃣ trigger backend workflow
       await submitSmeApplicationApi({
         application_id: id,
       });
 
-      // 4️⃣ success UI
       navigate("/landingpage", {
         state: {
           banner: {
@@ -1025,9 +998,6 @@ export default function ApplicationDetail() {
     });
   };
 
-  // -----------------------------
-  // Loading / error states
-  // -----------------------------
   if (isLoading) {
     return (
       <div className="flex min-h-screen items-center justify-center">
@@ -1182,7 +1152,6 @@ export default function ApplicationDetail() {
 
               <CardContent>
                 <TabsContent value="overview" className="mt-0 space-y-8">
-                  {/* BUSINESS INFORMATION */}
                   <section className="space-y-4">
                     <div className="flex items-center gap-2">
                       <Building2 className="h-5 w-5 text-muted-foreground" />
@@ -1198,7 +1167,6 @@ export default function ApplicationDetail() {
                     </div>
 
                     <div className="rounded-xl border border-border bg-card p-5 space-y-6">
-                      {/* BASIC BUSINESS FIELDS */}
                       <div>
                         <div className="grid grid-cols-1 gap-x-8 gap-y-4 md:grid-cols-2">
                           {Object.entries(step2Config?.fields || {})
@@ -1221,7 +1189,6 @@ export default function ApplicationDetail() {
                         </div>
                       </div>
 
-                      {/* BUSINESS ACTIVITY */}
                       {businessRepeatableSections.length > 0 && (
                         <>
                           <Separator />
@@ -1318,7 +1285,7 @@ export default function ApplicationDetail() {
                         </>
                       )}
 
-                      {/* REGISTERED ADDRESS */}
+                      
                       <Separator />
 
                       <div className="space-y-3">
@@ -1348,7 +1315,7 @@ export default function ApplicationDetail() {
                     </div>
                   </section>
 
-                  {/* INDIVIDUALS */}
+                 
                   <section className="space-y-5">
                     <div className="flex items-center gap-2">
                       <User className="h-5 w-5 text-muted-foreground" />
@@ -1428,7 +1395,7 @@ export default function ApplicationDetail() {
                                                 `${sectionConfig?.label || "Individual"} ${idx + 1}`}
                                             </p>
                                             <p className="text-xs text-muted-foreground">
-                                              {/* {row?.idNumber || "-"} •{" "} */}
+                                              
                                               • {row?.role || "-"}
                                             </p>
                                           </div>
@@ -1449,11 +1416,7 @@ export default function ApplicationDetail() {
                                                 ([fieldKey]) =>
                                                   fieldKey !== "kyc",
                                               )
-                                              // .filter(
-                                              //   ([fieldKey]) =>
-                                              //     fieldKey !==
-                                              //     "conditionalFields",
-                                              // )
+
                                               .map(([fieldKey, fieldCfg]) => (
                                                 <div
                                                   key={fieldKey}
@@ -1471,30 +1434,7 @@ export default function ApplicationDetail() {
                                                 </div>
                                               ))}
 
-                                            {/* {row?.kyc && (
-                                              <>
-                                                <div className="space-y-1">
-                                                  <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                                                    KYC Status
-                                                  </p>
-                                                  <p className="text-sm text-foreground">
-                                                    {row?.kyc?.overallStatus ||
-                                                      row?.kyc?.status ||
-                                                      "-"}
-                                                  </p>
-                                                </div>
-
-                                                <div className="space-y-1">
-                                                  <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                                                    Face Match Score
-                                                  </p>
-                                                  <p className="text-sm text-foreground">
-                                                    {row?.kyc?.faceMatchScore ??
-                                                      "-"}
-                                                  </p>
-                                                </div>
-                                              </>
-                                            )} */}
+                                            
                                           </div>
                                         </div>
                                       </AccordionContent>

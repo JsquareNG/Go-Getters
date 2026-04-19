@@ -9,19 +9,12 @@ from backend.api.extract import (
 )
 
 
-# ==============================
-# normalize_doc_type
-# ==============================
-
 def test_normalize_doc_type():
     assert normalize_doc_type("acra") == "ACRA"
     assert normalize_doc_type("ACRA_BUSINESS_PROFILE") == "ACRA"
     assert normalize_doc_type(None) == "UNKNOWN"
 
 
-# ==============================
-# validate_file_type
-# ==============================
 
 def test_validate_file_type_valid():
     _validate_file_type("application/pdf")
@@ -32,9 +25,6 @@ def test_validate_file_type_invalid():
         _validate_file_type("text/plain")
 
 
-# ==============================
-# light upload validation
-# ==============================
 
 def test_light_upload_validation_pass():
     result = _light_upload_validation(
@@ -61,10 +51,6 @@ def test_light_upload_validation_mismatch():
     assert result["status"] == "FAIL"
     assert result["expected_document_match"] is False
 
-
-# ==============================
-# resolve doc type
-# ==============================
 
 def test_resolve_doc_type_known(monkeypatch):
     monkeypatch.setattr(

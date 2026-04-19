@@ -20,9 +20,9 @@ class DocumentSuggestion(BaseModel):
 
 class AISuggestionResponse(BaseModel):
     case_summary: str
-    short_reason: str   # 🔥 NEW (replace reasons + draft note usage)
+    short_reason: str   
     recommended_action: Literal["approve", "reject", "escalate"]
-    suggested_documents: List[DocumentSuggestion]   # 🔥 CHANGED
+    suggested_documents: List[DocumentSuggestion]  
     suggested_questions: List[str]
 
 
@@ -276,11 +276,9 @@ def generate_manual_review_suggestions(
         action_requests=action_requests,
     )
 
-    # delete this line
     client = get_gemini_client()
 
     response = client.models.generate_content(
-        # model="gemini-2.5-pro",
         model="gemini-3-flash-preview",
         contents=f"{SYSTEM_PROMPT}\n\n{prompt}",
         config={

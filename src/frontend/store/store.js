@@ -3,13 +3,13 @@ import authReducer from "./authSlice";
 import smeReducer from "./smeFormConfigSlice";
 import applicationFormReducer from "./applicationFormSlice";
 
-import storage from "redux-persist/lib/storage"; // localStorage
+import storage from "redux-persist/lib/storage"; 
 import { persistReducer, persistStore } from "redux-persist";
 
 const persistConfig = {
   key: "root",
   storage,
-  whitelist: ["auth", "smeFormConfig", "applicationForm"], // persist these slices
+  whitelist: ["auth", "smeFormConfig", "applicationForm"], 
 };
 
 const rootReducer = combineReducers({
@@ -24,7 +24,7 @@ export const store = configureStore({
   reducer: persistedReducer,
   middleware: (getDefaultMiddleware) =>
     getDefaultMiddleware({
-      serializableCheck: false, // needed for redux-persist
+      serializableCheck: false, 
     }),
 });
 

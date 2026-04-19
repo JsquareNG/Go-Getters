@@ -1,4 +1,3 @@
-// ApplicationReviewDetail.jsx
 import React, { useState, useEffect, useMemo } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import {
@@ -107,16 +106,11 @@ export default function ApplicationReviewDetail() {
 
   const [requestDocsOpen, setRequestDocsOpen] = useState(false);
 
-  // New state for approve/reject popup
   const [decisionDialogOpen, setDecisionDialogOpen] = useState(false);
-  const [decisionType, setDecisionType] = useState(null); // "approve" | "reject"
+  const [decisionType, setDecisionType] = useState(null);
   const [decisionReason, setDecisionReason] = useState("");
 
   
-
-  // -----------------------------
-  // Fetch application
-  // -----------------------------
   useEffect(() => {
     const fetchApplication = async () => {
       try {
@@ -134,9 +128,8 @@ export default function ApplicationReviewDetail() {
 
     if (id) fetchApplication();
   }, [id]);
-  // -----------------------------
-  // Fetch uploaded documents
-  // -----------------------------
+ 
+  
   useEffect(() => {
     const fetchDocuments = async () => {
       try {
@@ -156,9 +149,6 @@ export default function ApplicationReviewDetail() {
     if (id) fetchDocuments();
   }, [id]);
 
-  // -----------------------------
-  // Fetch Risk Assessment
-  // -----------------------------
   useEffect(() => {
     const fetchReviewJob = async () => {
       try {
@@ -193,9 +183,7 @@ export default function ApplicationReviewDetail() {
     if (id && application) fetchReviewJob();
   }, [id, application]);
 
-  // -----------------------------
-  // Fetch KYC Details by Application ID
-  // -----------------------------
+
   useEffect(() => {
     const fetchKycDetails = async () => {
       try {
@@ -233,9 +221,7 @@ export default function ApplicationReviewDetail() {
     if (id && application) fetchKycDetails();
   }, [id, application]);
 
-  // -----------------------------
-  // Fetch Action Requests (QnA)
-  // -----------------------------
+
   useEffect(() => {
     const fetchQnA = async () => {
       try {
@@ -271,9 +257,7 @@ export default function ApplicationReviewDetail() {
     if (id && application) fetchQnA();
   }, [id, application]);
 
-  // -----------------------------
-  // Fetch Audit Trail
-  // -----------------------------
+
   useEffect(() => {
     const fetchAuditTrail = async () => {
       try {
@@ -308,9 +292,7 @@ export default function ApplicationReviewDetail() {
     if (id && application) fetchAuditTrail();
   }, [id, application]);
 
-  // -----------------------------
-  // Derived values
-  // -----------------------------
+
   const formData = application?.form_data || {};
 
   const currentStatus = application?.current_status || "Not started";
@@ -518,19 +500,19 @@ export default function ApplicationReviewDetail() {
 
     let messages = [];
 
-    // 🔥 BOTH present → single merged message
+   
     if (ocrWarning && crossValidationWarning) {
       messages = [
         "Document quality is moderate. Hence, extracted data may be inaccurate. Please review and cross-check it against the form data carefully.",
       ];
     }
-    // 🔸 Only cross-validation
+    
     else if (crossValidationWarning) {
       messages = [
         "This document has moderate quality issues. Please review and cross-check it against the form data.",
       ];
     }
-    // 🔸 Only OCR
+    
     else if (ocrWarning) {
       messages = [
         ocrWarning.message ||
@@ -545,15 +527,6 @@ export default function ApplicationReviewDetail() {
     };
   };
 
-  // const initialDocuments = useMemo(() => {
-  //   if (!Array.isArray(documents)) return [];
-  //   if (!firstActionRequestTime) return documents;
-
-  //   return documents.filter((doc) => {
-  //     const t = new Date(doc?.created_at || 0).getTime();
-  //     return t && t < firstActionRequestTime;
-  //   });
-  // }, [documents, firstActionRequestTime]);
   const initialDocuments = useMemo(() => {
     if (!Array.isArray(documents)) return [];
 
@@ -582,17 +555,14 @@ export default function ApplicationReviewDetail() {
           ? new Date(sortedActionRequestsAsc[index + 1]?.created_at || 0).getTime()
           : Infinity;
 
-      // const groupedDocs = documents.filter((doc) => {
-      //   const t = new Date(doc?.created_at || 0).getTime();
-      //   return t && t >= currentTime && t < nextTime;
-      // });
+
       const groupedDocs = documents
       .filter((doc) => {
         const t = new Date(doc?.created_at || 0).getTime();
         return t && t >= currentTime && t < nextTime;
       })
       .map((doc) => {
-        // 🔥 find matching request document
+        
         const matchedRequestDoc = request.documents?.find(
           (reqDoc) =>
             reqDoc.submitted_document_name === doc.document_type
@@ -634,11 +604,7 @@ export default function ApplicationReviewDetail() {
   const hasMultipleKycRecords = kycRecords.length > 1;
   const shouldShowKycBanner = !!latestKyc && !kycLoading && !kycError;
 
-  // const shouldShowKycBanner = !!kycDetails && !kycLoading && !kycError;
 
-  // -----------------------------
-  // Handlers
-  // -----------------------------
   const handleOpenDocument = async (doc) => {
     const newTab = window.open("", "_blank");
 
@@ -760,7 +726,6 @@ export default function ApplicationReviewDetail() {
         },
       });
 
-      // navigate("/staff-landingpage");
     } catch (err) {
       console.error(`${decisionType} failed:`, err);
 
@@ -778,11 +743,7 @@ export default function ApplicationReviewDetail() {
     }
   };
 
-  
 
-  // -----------------------------
-  // Loading / error states
-  // -----------------------------
   if (isLoading) {
     return (
       <div className="flex min-h-screen items-center justify-center">

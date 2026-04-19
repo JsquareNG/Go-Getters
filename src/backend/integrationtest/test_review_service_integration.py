@@ -6,11 +6,6 @@ from backend.models.user import User
 from backend.models.application import ApplicationForm
 from backend.models.reviewJobs import ReviewJobs
 
-
-# ==============================
-# Seed Helpers
-# ==============================
-
 def seed_user(db_session, email="review@example.com", role="SME"):
     user = User(
         first_name="Jane",
@@ -64,11 +59,6 @@ def seed_review_job(db_session, application_id):
     db_session.refresh(job)
     return job
 
-
-# ==============================
-# Integration Test: CDD Flow
-# ==============================
-
 def test_run_review_job_cdd_flow(db_session, monkeypatch):
     user = seed_user(db_session)
     app = seed_application(db_session, user.user_id)
@@ -99,7 +89,6 @@ def test_run_review_job_cdd_flow(db_session, monkeypatch):
         lambda **kwargs: None
     )
 
-    # ✅ FIX
     monkeypatch.setattr(
         "backend.compliance_rules_engine.review_service.cross_validate_application",
         lambda db, application_id: {
@@ -116,10 +105,6 @@ def test_run_review_job_cdd_flow(db_session, monkeypatch):
     assert updated_job.risk_grade == "Standard Due Diligence (CDD)"
     assert updated_job.rules_triggered == ["RULE_1"]
 
-
-# ==============================
-# Integration Test: SDD Approve
-# ==============================
 
 def test_run_review_job_sdd_approve(db_session, monkeypatch):
     user = seed_user(db_session, email="sdd@example.com")
@@ -160,7 +145,6 @@ def test_run_review_job_sdd_approve(db_session, monkeypatch):
         lambda **kwargs: None
     )
 
-    # ✅ FIX
     monkeypatch.setattr(
         "backend.compliance_rules_engine.review_service.cross_validate_application",
         lambda db, application_id: {
@@ -175,10 +159,6 @@ def test_run_review_job_sdd_approve(db_session, monkeypatch):
     assert updated_job.status == "COMPLETED"
     assert approve_mock["called"] is True
 
-
-# ==============================
-# Integration Test: Auto Reject
-# ==============================
 
 def test_run_review_job_auto_reject(db_session, monkeypatch):
     user = seed_user(db_session, email="reject@example.com")
@@ -215,7 +195,6 @@ def test_run_review_job_auto_reject(db_session, monkeypatch):
         lambda **kwargs: None
     )
 
-    # ✅ FIX
     monkeypatch.setattr(
         "backend.compliance_rules_engine.review_service.cross_validate_application",
         lambda db, application_id: {
@@ -229,11 +208,6 @@ def test_run_review_job_auto_reject(db_session, monkeypatch):
 
     assert updated_job.status == "COMPLETED"
     assert reject_called["called"] is True
-
-
-# ==============================
-# Integration Test: Exception -> FAILED
-# ==============================
 
 def test_run_review_job_exception(db_session, monkeypatch):
     user = seed_user(db_session, email="error@example.com")
@@ -251,7 +225,6 @@ def test_run_review_job_exception(db_session, monkeypatch):
         lambda *args, **kwargs: (_ for _ in ()).throw(Exception("Engine crash"))
     )
 
-    # ✅ FIX
     monkeypatch.setattr(
         "backend.compliance_rules_engine.review_service.cross_validate_application",
         lambda db, application_id: {

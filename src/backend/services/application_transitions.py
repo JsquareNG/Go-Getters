@@ -1,4 +1,3 @@
-# backend/services/application_transitions.py
 from fastapi import BackgroundTasks, HTTPException
 from sqlalchemy.orm import Session
 
@@ -11,7 +10,7 @@ from backend.api.resend import send_email
 from backend.api.notification import *
 from backend.services.audit_service import create_audit_log
 
-EXCLUDED_STATUSES = ("Withdrawn", "Approved", "Rejected")  # not "active"
+EXCLUDED_STATUSES = ("Withdrawn", "Approved", "Rejected") 
 
 
 def pick_least_loaded_staff_id(db: Session) -> str:
@@ -71,7 +70,6 @@ def approve_application_service(
     old_status = app.current_status
     approval_mode = "MANUAL" if old_status == "Under Manual Review" else "AUTO"
 
-    # Only require reason if approving from Under Manual Review
     if old_status == "Under Manual Review":
         if reason is None or str(reason).strip() == "":
             raise HTTPException(
@@ -112,7 +110,6 @@ def approve_application_service(
     db.commit()
     db.refresh(app)
 
-    # Prefer DB user contact details
     user_email = None
     user_firstName = None
 
@@ -140,17 +137,15 @@ def approve_application_service(
         subject, body = build_approved_email(app, user_firstName)
 
         if send_email_now:
-            # ✅ worker path: send immediately
             safe_send_email(user_email, subject, body)
             emails_queued = False
             email_notes.append("Approval email sent immediately (worker path).")
         else:
-            # ✅ API path: queue via BackgroundTasks
+
             if background_tasks is not None:
                 background_tasks.add_task(safe_send_email, user_email, subject, body)
                 emails_queued = True
             else:
-                # no background_tasks provided
                 emails_queued = False
                 email_notes.append("No BackgroundTasks provided; email not queued.")
     else:
@@ -174,7 +169,6 @@ def need_manual_review_service(
     old_reviewer_id = None
     reviewer_assigned_now = False
 
-    # start a transaction block
     with db.begin_nested():
         app = (
             db.query(ApplicationForm)
@@ -186,14 +180,12 @@ def need_manual_review_service(
         if not app:
             raise HTTPException(status_code=404, detail="Application not found")
 
-        # Only allow transition from Under Review -> Under Manual Review
         if app.current_status != "Under Review":
             return app, {"user": False, "staff": False}, [f"No status change; current_status is '{app.current_status}'"]
 
         old_status = app.current_status
         old_reviewer_id = app.reviewer_id
 
-        # assign reviewer if empty
         if not app.reviewer_id:
             chosen_staff_id = pick_least_loaded_staff_id(db)
             if not chosen_staff_id:
@@ -204,7 +196,6 @@ def need_manual_review_service(
         app.previous_status = "Under Review"
         app.current_status = "Under Manual Review"
 
-        # notifications
         db.add(BellNotification(
             application_id=app.application_id,
             recipient_id=app.user_id,
@@ -222,7 +213,7 @@ def need_manual_review_service(
                 message="You have an active application due for manual review."
             ))
 
-        # audit: sent to manual review
+
         create_audit_log(
             db=db,
             application_id=app.application_id,
@@ -235,7 +226,6 @@ def need_manual_review_service(
             description="Application flagged for manual review."
         )
 
-        # audit: reviewer assigned
         username = get_users_by_id(db, app.reviewer_id)
 
         if reviewer_assigned_now:
@@ -248,13 +238,12 @@ def need_manual_review_service(
                 entity_type="APPLICATION",
                 from_status=None,
                 to_status=None,
-                #add reviweer name
                 description=f"Application assigned to compliance reviewer {username}."
             )
 
         db.flush()
 
-    # after commit, fetch staff + user (no locks needed)
+
     staff = db.query(User).filter(User.user_id == app.reviewer_id).first() if app.reviewer_id else None
     user = db.query(User).filter(User.user_id == app.user_id).first() if app.user_id else None
 
@@ -267,7 +256,6 @@ def need_manual_review_service(
     emails_queued = {"user": False, "staff": False}
     email_notes: list[str] = []
 
-    # user email
     if user and getattr(user, "email", None):
         user_subject, user_body = build_user_manual_review_email(app, getattr(user, "first_name", None))
 
@@ -283,7 +271,6 @@ def need_manual_review_service(
     else:
         email_notes.append("User email not found; user email not queued.")
 
-    # staff email
     if staff and getattr(staff, "email", None):
         staff_subject, staff_body = build_staff_manual_review_email(app, getattr(staff, "first_name", None))
 
@@ -318,17 +305,15 @@ def auto_reject_application_service(
     if not app:
         raise HTTPException(status_code=404, detail="Application not found")
 
-    # prevent duplicate / invalid transitions
     if app.current_status in ("Approved", "Rejected", "Auto Rejected", "Withdrawn", "Deleted"):
         return app, False, [f"No status change; current_status is '{app.current_status}'"]
 
     old_status = app.current_status
 
-    # update statuses
     app.previous_status = old_status
     app.current_status = "Auto Rejected"
 
-    # bell notification to user
+
     db.add(BellNotification(
         application_id=app.application_id,
         recipient_id=app.user_id,
@@ -337,7 +322,7 @@ def auto_reject_application_service(
         message="Your application has been auto rejected after compliance check."
     ))
 
-    # audit log
+
     create_audit_log(
         db=db,
         application_id=app.application_id,
@@ -367,7 +352,6 @@ def auto_reject_application_service(
     email_notes = []
 
     if user and getattr(user, "email", None):
-        # use your own email builder if you already have one
         subject, body = build_auto_rejected_email(app, getattr(user, "first_name", None))
 
         if send_email_now:

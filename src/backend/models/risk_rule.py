@@ -9,12 +9,10 @@ class RiskRule(Base):
     id = Column(Integer, primary_key=True, autoincrement=True)
 
     rule_code = Column(String(50), nullable=False, unique=True, index=True)
-    # Example: R001, R002B
 
     rule_name = Column(String(255), nullable=False)
 
     category = Column(String(20), nullable=False)
-    # KYC / KYB
 
     description = Column(String(500), nullable=True)
 
@@ -33,7 +31,6 @@ class RiskRule(Base):
         onupdate=text("(now() AT TIME ZONE 'Asia/Singapore')")
     )
 
-    # relationship
     conditions = relationship(
         "RiskRuleCondition",
         back_populates="rule",

@@ -7,22 +7,12 @@ from pydantic import BaseModel
 
 load_dotenv()
 
-# GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
-# if not GEMINI_API_KEY:
-#     raise ValueError("GEMINI_API_KEY is missing")
-
-# client = genai.Client(api_key=GEMINI_API_KEY)
-
 def get_gemini_client():
     gemini_api_key = os.getenv("GEMINI_API_KEY")
     if not gemini_api_key:
         raise ValueError("GEMINI_API_KEY is missing")
     return genai.Client(api_key=gemini_api_key)
 
-
-# =========================
-# RESPONSE SCHEMA (STRICT)
-# =========================
 
 class AlternativeDocumentOption(BaseModel):
     label: str
@@ -40,9 +30,6 @@ class BulkAlternativeDocumentAIResponse(BaseModel):
     results: List[RequestedDocumentAlternativeResult]
 
 
-# =========================
-# SYSTEM PROMPT
-# =========================
 
 SYSTEM_PROMPT = """
 You are a bank compliance officer assisting with SME onboarding review.
@@ -185,9 +172,6 @@ Be concise, practical, and compliance-focused.
 """
 
 
-# =========================
-# USER PROMPT BUILDER
-# =========================
 
 def build_user_prompt(
     requested_documents: List[Dict[str, Any]],
@@ -232,10 +216,6 @@ Instructions:
 """
 
 
-# =========================
-# MAIN SERVICE FUNCTION
-# =========================
-
 def generate_bulk_alternative_document_options(
     requested_documents: List[Dict[str, Any]],
     application_data: Dict[str, Any],
@@ -252,7 +232,6 @@ def generate_bulk_alternative_document_options(
         action_requests=action_requests,
     )
 
-    # delete this line
     client = get_gemini_client()
 
     response = client.models.generate_content(
@@ -267,24 +246,5 @@ def generate_bulk_alternative_document_options(
 
     parsed = BulkAlternativeDocumentAIResponse.model_validate_json(response.text)
 
-    # =========================
-    # POST-PROCESSING (IMPORTANT)
-    # =========================
-
-    # Remove duplicates & clean values
-    # for doc in parsed.results:
-    #     seen = set()
-    #     filtered_options = []
-
-    #     for opt in doc.alternative_document_options:
-    #         key = opt.value.strip().lower()
-
-    #         if key in seen:
-    #             continue
-
-    #         seen.add(key)
-    #         filtered_options.append(opt)
-
-    #     doc.alternative_document_options = filtered_options
 
     return parsed.model_dump()

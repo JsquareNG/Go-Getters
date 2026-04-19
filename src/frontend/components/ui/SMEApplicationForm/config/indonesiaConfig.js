@@ -1,11 +1,4 @@
-/**
- * Indonesia SME Onboarding Configuration
- * Version: v1
- */
 
-//////////////////////////
-// HELPER FIELD SETS //
-//////////////////////////
 import { COUNTRIES } from "../utils/countries";
 
 const YES_NO_OPTIONS = ["Yes", "No"].map((opt) => ({
@@ -187,11 +180,7 @@ function getIndividualFields() {
       required: true,
       placeholder: "For Indonesian citizens, use the 16-digit NIK from the KTP",
     },
-    // idDocument: {
-    //   type: "file",
-    //   label: "KTP / Passport Document",
-    //   required: true,
-    // },
+
     nationality: {
       type: "select",
       label: "Nationality",
@@ -236,12 +225,7 @@ function getCoreFinancialFields() {
       required: true,
       placeholder: "Enter your annual revenue",
     },
-    // npwp: {
-    //   type: "text",
-    //   label: "Tax Identification Number (NPWP)",
-    //   required: true,
-    //   placeholder: "NPWP/TIN may appear in 15-digit or 16-digit format",
-    // },
+
     expectedMonthlyTransactionVolume: {
       type: "number",
       label: "Expected Monthly Transaction Volume",
@@ -323,9 +307,6 @@ function getComplianceDeclarations() {
   };
 }
 
-///////////////////////////////
-// INDONESIA CONFIG
-///////////////////////////////
 
 const INDONESIA_CONFIG = {
   country: {
@@ -335,7 +316,7 @@ const INDONESIA_CONFIG = {
   },
 
   entities: {
-    // 1st business type
+
     usaha_dagang: {
       label: "Usaha Dagang (UD) – Sole Proprietorship",
       steps: [
@@ -432,7 +413,7 @@ const INDONESIA_CONFIG = {
         },
       ],
     },
-    // 2nd business type
+ 
     commanditaire_vennootschap: {
       label: "Commanditaire Vennootschap (CV) – Limited Partnership",
       steps: [
@@ -486,14 +467,7 @@ const INDONESIA_CONFIG = {
                   value: "General Partner",
                   readonly: true,
                 },
-                // sharePercentage: {
-                //   type: "number",
-                //   label: "Share Percentage (%)",
-                //   min: 0,
-                //   max: 100,
-                //   required: true,
-                //   placeholder: "Enter the percentage of shares owned",
-                // },
+
                 ...getIndividualFields(),
                 ...getComplianceDeclarations(),
               },
@@ -590,7 +564,7 @@ const INDONESIA_CONFIG = {
         },
       ],
     },
-    // 3rd business type
+
     perseroan_terbatas: {
       label: "Perseroan Terbatas (PT) – Limited Liability Company",
       steps: [
@@ -616,13 +590,7 @@ const INDONESIA_CONFIG = {
           id: "step2",
           label: "Basic Information",
           fields: {
-            // incorporationUpload: {
-            //   type: "file",
-            //   label:
-            //     "Upload Certificate of Incorporation / Company Deed (OCR autofill)",
-            //   required: true,
-            //   ocrTarget: "business_profile",
-            // },
+
             ...getBasicBusinessFields(),
           },
           repeatableSections: {
@@ -645,18 +613,10 @@ const INDONESIA_CONFIG = {
                   value: "Director",
                   readonly: true,
                 },
-                // sharePercentage: {
-                //   type: "number",
-                //   label: "Share Percentage (%)",
-                //   min: 0,
-                //   max: 100,
-                //   required: true,
-                //   placeholder:
-                //     "Enter the percentage of shares owned, if applicable",
-                // },
+
                 ...getIndividualFields(),
                 ...getComplianceDeclarations(),
-                // position: { type: "text", label: "Position", required: true },
+
                 authorizedSignatory: {
                   type: "select",
                   label: "Authorized Signatory",
@@ -681,7 +641,7 @@ const INDONESIA_CONFIG = {
                 shareholderType: {
                   type: "select",
                   label: "Shareholder Type",
-                  // value: "Shareholder",
+
                   options: [
                     { label: "Individual", value: "Individual" },
                     { label: "Corporate", value: "Corporate" },
@@ -711,11 +671,7 @@ const INDONESIA_CONFIG = {
                         placeholder:
                           "For Singapore citizens, use the NRIC / Passport Number",
                       },
-                      // idDocument: {
-                      //   type: "file",
-                      //   label: "National ID / Passport Document",
-                      //   required: true,
-                      // },
+
                       nationality: {
                         type: "select",
                         label: "Nationality",
@@ -766,29 +722,14 @@ const INDONESIA_CONFIG = {
                       },
                     },
                   },
-                  // readonly: true,
+                  
                 },
-                // sharePercentage: {
-                //   type: "number",
-                //   label: "Share Percentage (%)",
-                //   min: 0,
-                //   max: 100,
-                //   required: true,
-                //   placeholder: "Enter the percentage of shares owned",
-                // },
-                // idDocument: {
-                //   type: "file",
-                //   label: "KTP / Passport Document",
-                //   required: true,
-                // },
-                // ...getIndividualFields(),
-                // ...getComplianceDeclarations(),
+
               },
             },
             ubo: {
               label: "Ultimate Beneficial Owner (Of Ownership >= 25%)",
-              // helpText:
-              //   "(Owns 25% or more of the company OR Exercises control through other means)",
+
               storage: "individuals",
               rowTypeField: "role",
               rowTypeValue: "Ultimate Beneficial Owner",

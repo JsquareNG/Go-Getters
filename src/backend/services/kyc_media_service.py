@@ -19,7 +19,6 @@ if not SUPABASE_URL or not SUPABASE_SERVICE_ROLE_KEY:
     raise RuntimeError("SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY must be set")
 
 
-# Increase storage timeout so uploads have more time to complete
 supabase: Client = create_client(
     SUPABASE_URL,
     SUPABASE_SERVICE_ROLE_KEY,
@@ -32,9 +31,6 @@ supabase: Client = create_client(
 
 
 def _build_requests_session() -> requests.Session:
-    """
-    Reusable requests session with retry for downloading Didit assets.
-    """
     session = requests.Session()
 
     retry = Retry(
@@ -57,10 +53,6 @@ requests_session = _build_requests_session()
 
 
 def download_file_bytes(source_url: str) -> tuple[bytes, str]:
-    """
-    Download file bytes from the Didit URL.
-    Returns: (bytes, content_type)
-    """
     response = requests_session.get(source_url, timeout=(10, 60))
     response.raise_for_status()
 
@@ -69,9 +61,6 @@ def download_file_bytes(source_url: str) -> tuple[bytes, str]:
 
 
 def guess_extension(source_url: str, content_type: str, fallback_ext: str = "") -> str:
-    """
-    Guess file extension from URL first, then content type, then fallback.
-    """
     path = urlparse(source_url).path
     ext = os.path.splitext(path)[1]
     if ext:
@@ -85,10 +74,6 @@ def guess_extension(source_url: str, content_type: str, fallback_ext: str = "") 
 
 
 def build_kyc_storage_path(application_id: str, target_name: str, ext: str) -> str:
-    """
-    Store directly under bucket by application.
-    Example: APP-000888/front.jpg
-    """
     safe_app_id = (application_id or "unknown-app").strip()
     return f"{safe_app_id}/{target_name}{ext}"
 
@@ -102,10 +87,6 @@ def upload_bytes_to_kyc_bucket(
     fallback_ext: str = "",
     retries: int = 3,
 ) -> str:
-    """
-    Upload bytes to Supabase public bucket with retry logic.
-    Returns the storage path.
-    """
     ext = guess_extension(source_url, content_type, fallback_ext)
     storage_path = build_kyc_storage_path(application_id, target_name, ext)
 
@@ -118,7 +99,6 @@ def upload_bytes_to_kyc_bucket(
                 f"path={storage_path} content_type={content_type} bytes={len(file_bytes)}"
             )
 
-            # Supabase Python docs show file_options values like "upsert": "false"
             supabase.storage.from_(SUPABASE_KYC_BUCKET).upload(
                 path=storage_path,
                 file=file_bytes,
@@ -136,7 +116,6 @@ def upload_bytes_to_kyc_bucket(
             print(f"[KYC UPLOAD] failed attempt={attempt} path={storage_path} error={repr(e)}")
 
             if attempt < retries:
-                # small backoff before retry
                 time.sleep(attempt * 1.5)
             else:
                 break
@@ -145,9 +124,6 @@ def upload_bytes_to_kyc_bucket(
 
 
 def get_kyc_public_url(storage_path: str) -> str:
-    """
-    Return public URL for a file in the public kyc bucket.
-    """
     result = supabase.storage.from_(SUPABASE_KYC_BUCKET).get_public_url(storage_path)
 
     if isinstance(result, str):
@@ -170,10 +146,6 @@ def download_upload_and_get_kyc_public_url(
     target_name: str,
     fallback_ext: str = "",
 ) -> str | None:
-    """
-    End-to-end helper:
-    Didit URL -> download bytes -> upload to Supabase -> return Supabase public URL
-    """
     if not source_url:
         return None
 

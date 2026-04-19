@@ -7,7 +7,6 @@ const LandingLayout = ({ children }) => {
     <>
       <ScrollToTopOnRouteChange />
       <LandingNavBar />
-      {/* Push content below navbar */}
       <main className="pt-16">{children}</main>
 
       <ScrollToTopButton />

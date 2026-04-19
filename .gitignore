@@ -12,3 +12,21 @@ node_modules/
 
 # env files & keys
 gcp-key.json
+
+# Python bytecode
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual environments (optional but recommended)
+venv/
+.env/
+.venv/
+
+# OS / editor junk
+.DS_Store
+.vscode/
+.idea/
+
+# Logs
+*.log
