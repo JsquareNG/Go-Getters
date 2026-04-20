@@ -22,17 +22,6 @@ export const COUNTRIES = () => {
  * Returns an array of all nationalities
  */
 
-// export const NATIONALITIES = Object.values(nationalities)
-//   .filter(c => c.demonym) // only include countries with a demonym
-//   .map(c => ({ label: c.demonym, value: c.demonym }));
-
-// export const NATIONALITIES = Object.entries(countries.getNames("en"))
-//   .map(([code, name]) => ({
-//     label: name,
-//     value: name,
-//     code,
-//   }));
-
 export const mapIsoToNationalityOption = (code) => {
   if (!code) return null;
 

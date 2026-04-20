@@ -5,7 +5,7 @@
 
 export { default as SMEApplicationForm } from "./SMEApplicationForm";
 export {
-  VALIDATION_RULES,
+  // VALIDATION_RULES,
   validateField,
   validateFile,
 } from "./config/validationRules";

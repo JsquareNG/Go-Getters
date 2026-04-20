@@ -1,4 +1,3 @@
-
 export const snakeToCamelDeep = (obj) => {
   if (Array.isArray(obj)) {
     return obj.map(snakeToCamelDeep);

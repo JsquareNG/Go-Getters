@@ -318,55 +318,6 @@ const SMEApplicationForm = () => {
     [formData, activeConfig, existingDocumentMap],
   );
 
-  // const goToStep = useCallback(
-  //   (targetStep) => {
-  //     if (targetStep === 0) {
-  //       navigate(`/application/${routeMode}/${appId}/${targetStep}`);
-  //       return;
-  //     }
-
-  //     if (targetStep >= 1 && targetStep <= 3) {
-  //       if (!isStep0Valid) {
-  //         toast({
-  //           title: "Fill in missing fields first",
-  //           description:
-  //             "Please select country and business type before proceeding.",
-  //           variant: "destructive",
-  //         });
-  //         return;
-  //       }
-
-  //       navigate(`/application/${routeMode}/${appId}/${targetStep}`);
-  //       return;
-  //     }
-
-  //     if (targetStep === 4) {
-  //       if (!isStep0Valid) {
-  //         toast({
-  //           title: "Fill in missing fields first",
-  //           description:
-  //             "Please select country and business type before proceeding.",
-  //           variant: "destructive",
-  //         });
-  //         return;
-  //       }
-
-  //       if (!hasConfigSteps) {
-  //         toast({
-  //           title: "Form structure unavailable",
-  //           description:
-  //             "Could not determine required fields for this application yet.",
-  //           variant: "destructive",
-  //         });
-  //         return;
-  //       }
-
-  //       navigate(`/application/${routeMode}/${appId}/${targetStep}`);
-  //     }
-  //   },
-  //   [navigate, routeMode, appId, isStep0Valid, hasConfigSteps, toast],
-  // );
-
   const persistApplication = async ({
     isInitial = false,
     rawFormDataOverride = null,
@@ -375,10 +326,6 @@ const SMEApplicationForm = () => {
     const effectiveFormData = getMergedFormState(
       rawFormDataOverride || formData,
     );
-
-    // console.log("[1] rawFormDataOverride", rawFormDataOverride);
-    // console.log("[2] redux formData", formData);
-    // console.log("[3] effectiveFormData", effectiveFormData);
 
     try {
       let savedAppId = currentApp?.applicationId || appId;
@@ -468,23 +415,6 @@ const SMEApplicationForm = () => {
         current_status: resolvedCurrentStatus,
         form_data: cleanedFormPayload,
       };
-
-      // --------
-      // LOGS
-      // --------
-      console.log("[SAVE before buildDynamicPayload]", effectiveFormData);
-      console.log("[SAVE individuals before]", effectiveFormData?.individuals);
-      console.log(
-        "[SAVE businessActivities before]",
-        effectiveFormData?.businessActivities,
-      );
-
-      console.log("[SAVE cleanedFormPayload]", cleanedFormPayload);
-      console.log("[SAVE individuals after]", cleanedFormPayload?.individuals);
-      console.log(
-        "[SAVE businessActivities after]",
-        cleanedFormPayload?.businessActivities,
-      );
 
       const res = await saveApplicationDraftApi(payload);
       savedAppId = res.application_id || savedAppId;
