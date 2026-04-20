@@ -5,7 +5,6 @@ import { CheckCircle2, AlertCircle } from "lucide-react";
 import { SINGAPORE_CONFIG, INDONESIA_CONFIG } from "../config";
 
 import { allDocuments } from "@/api/documentApi";
-
 import { selectFormData } from "@/store/applicationFormSlice";
 
 const Step4 = ({ onEdit, disabled = false, applicationId }) => {
