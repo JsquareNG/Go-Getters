@@ -1,3 +1,4 @@
+// flatten nested fields
 function flattenFields(fields, parentKey = null) {
   const extracted = [];
 

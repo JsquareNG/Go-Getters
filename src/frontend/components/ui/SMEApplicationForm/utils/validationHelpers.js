@@ -15,7 +15,6 @@ export const hasUploadedDocument = ({
   const localFile = unwrapFile(value);
   if (localFile) return true;
 
-
   const hasStoredMetadata =
     !!value &&
     typeof value === "object" &&

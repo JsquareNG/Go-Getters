@@ -14,6 +14,9 @@ export const COUNTRIES = () => {
 };
 
 
+/**
+ * Returns an array of all nationalities
+ */
 
 export const mapIsoToNationalityOption = (code) => {
   if (!code) return null;
