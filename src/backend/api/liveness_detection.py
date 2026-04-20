@@ -11,11 +11,6 @@ from backend.services.kyc_media_service import download_upload_and_get_kyc_publi
 
 router = APIRouter(prefix="/liveness-detection", tags=["liveness_detection"])
 
-
-# =====================================================
-# Auth / authorization helpers
-# =====================================================
-
 def _current_user_id(current_user: dict) -> str:
     user_id = current_user.get("user_id")
     if not user_id:
@@ -37,7 +32,6 @@ def _ensure_staff_or_management(current_user: dict):
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Forbidden",
         )
-
 
 def _get_application_or_404(db: Session, application_id: str) -> ApplicationForm:
     app = (
@@ -81,52 +75,6 @@ def _ensure_application_access(app: ApplicationForm, current_user: dict):
         detail="Forbidden",
     )
 
-
-def _ensure_application_owner(app: ApplicationForm, current_user: dict):
-    role = _current_user_role(current_user)
-    user_id = _current_user_id(current_user)
-
-    if role != "SME":
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Forbidden",
-        )
-
-    if app.user_id != user_id:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Forbidden",
-        )
-
-
-def _ensure_liveness_access(row: LivenessDetection, db: Session, current_user: dict):
-    role = _current_user_role(current_user)
-
-    if role in {"STAFF", "MANAGEMENT"}:
-        return
-
-    if role == "SME":
-        application_id = getattr(row, "application_id", None)
-        if not application_id:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="Forbidden",
-            )
-
-        app = _get_application_or_404(db, application_id)
-        _ensure_application_access(app, current_user)
-        return
-
-    raise HTTPException(
-        status_code=status.HTTP_403_FORBIDDEN,
-        detail="Forbidden",
-    )
-
-
-# =====================================================
-# Serialization helpers
-# =====================================================
-
 def model_to_dict(obj):
     result = {}
 
@@ -160,26 +108,14 @@ def parse_provider_created_at(value: str | None):
             detail="Invalid created_at format. Expected ISO format like 2026-03-11T09:30:42.745584Z"
         )
 
-
-# =====================================================
-# GET KYC BY SESSION ID
-# =====================================================
-
 @router.get("/bySessionID/{provider_session_id}")
 def get_liveness_detection_by_session_id(
     provider_session_id: str,
     db: Session = Depends(get_db),
-    # current_user: dict = Depends(get_current_user),
 ):
     row = _get_liveness_by_session_or_404(db, provider_session_id)
-    # _ensure_liveness_access(row, db, current_user)
 
     return model_to_dict(row)
-
-
-# =====================================================
-# CREATE KYC RECORD
-# =====================================================
 
 @router.post("/createDetection")
 def create_liveness_detection(
@@ -207,18 +143,13 @@ def create_liveness_detection(
     application_id = data.get("application_id")
     images = data.get("images") or {}
 
-    # If application_id is provided, enforce access to that application.
     if application_id:
         app = _get_application_or_404(db, application_id)
 
-        # SMEs can only create for their own application
-        # Staff/Management can also create if needed for internal flows
         _ensure_application_access(app, current_user)
 
-    # IMPORTANT: choose storage reference
     kyc_ref = application_id if application_id else provider_session_id
 
-    # DOWNLOAD FROM DIDIT → UPLOAD TO SUPABASE
     converted_images = {
         "portrait_image_url": download_upload_and_get_kyc_public_url(
             images.get("portrait_image_url"), kyc_ref, "portrait", ".jpg"
@@ -249,7 +180,6 @@ def create_liveness_detection(
         ),
     }
 
-    # CREATE DATABASE RECORD
     new_row = LivenessDetection(
         application_id=application_id,
         provider=data.get("provider"),
@@ -294,11 +224,6 @@ def create_liveness_detection(
         "data": model_to_dict(new_row)
     }
 
-
-# =====================================================
-# LINK APPLICATION AFTER DRAFT SAVE
-# =====================================================
-
 @router.put("/bySessionID/{provider_session_id}")
 def update_liveness_detection_by_session_id(
     provider_session_id: str,
@@ -308,12 +233,10 @@ def update_liveness_detection_by_session_id(
 ):
     row = _get_liveness_by_session_or_404(db, provider_session_id)
 
-    # If row is already linked, enforce access against existing linked application.
     if row.application_id:
         existing_app = _get_application_or_404(db, row.application_id)
         _ensure_application_access(existing_app, current_user)
 
-    # If client is trying to link to an application, enforce access to that application too.
     if "application_id" in data and data.get("application_id"):
         new_application_id = data.get("application_id")
         app = _get_application_or_404(db, new_application_id)
@@ -327,11 +250,6 @@ def update_liveness_detection_by_session_id(
         "message": "Liveness detection record updated successfully",
         "data": model_to_dict(row)
     }
-
-
-# =====================================================
-# GET KYC BY APPLICATION ID
-# =====================================================
 
 @router.get("/byApplicationID/{application_id}")
 def get_liveness_detection_by_application_id(

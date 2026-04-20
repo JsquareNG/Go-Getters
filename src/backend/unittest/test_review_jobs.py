@@ -5,10 +5,6 @@ from fastapi import HTTPException
 import backend.api.reviewJobs as review_jobs_module
 
 
-# ---------------------------
-# Fake DB + Query
-# ---------------------------
-
 class FakeQuery:
     def __init__(self, first_result=None, all_result=None):
         self._first_result = first_result
@@ -38,10 +34,6 @@ class FakeDB:
         return self._query_map.get(model, FakeQuery())
 
 
-# ---------------------------
-# Helper
-# ---------------------------
-
 def make_review_job(
     job_id=1,
     application_id="APP-001",
@@ -70,10 +62,6 @@ STAFF_USER = {"user_id": "STAFF-1", "role": "STAFF"}
 MGMT_USER = {"user_id": "MGMT-1", "role": "MANAGEMENT"}
 SME_USER = {"user_id": "USER-1", "role": "SME"}
 
-
-# ---------------------------
-# Tests
-# ---------------------------
 
 def test_get_review_by_application_id_returns_review_job():
     db = FakeDB()

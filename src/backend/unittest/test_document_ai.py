@@ -4,26 +4,17 @@ from unittest.mock import MagicMock, patch
 from backend.services import document_ai as docai
 
 
-# -------------------------------------------------------------------
-# TEST: normalize_key
-# -------------------------------------------------------------------
 def test_normalize_key():
     assert docai._normalize_key("  Hello World! ") == "hello world"
     assert docai._normalize_key("A@B#C123") == "abc123"
 
 
-# -------------------------------------------------------------------
-# TEST: clean_value
-# -------------------------------------------------------------------
 def test_clean_value():
     assert docai._clean_value("  Hello \n World ") == "Hello World"
     assert docai._clean_value(": value") == "value"
     assert docai._clean_value(None) == ""
 
 
-# -------------------------------------------------------------------
-# TEST: extract_text
-# -------------------------------------------------------------------
 def test_extract_text():
     mock_doc = MagicMock()
     mock_doc.text = "HelloWorld"
@@ -40,9 +31,6 @@ def test_extract_text():
     assert result == "Hello"
 
 
-# -------------------------------------------------------------------
-# TEST: cell_text
-# -------------------------------------------------------------------
 def test_cell_text():
     mock_doc = MagicMock()
     mock_doc.text = "HelloWorld"
@@ -55,9 +43,6 @@ def test_cell_text():
     assert result == ""
 
 
-# -------------------------------------------------------------------
-# TEST: table_to_grid
-# -------------------------------------------------------------------
 def test_table_to_grid():
     mock_doc = MagicMock()
     mock_doc.text = "abcdefghij"
@@ -79,9 +64,6 @@ def test_table_to_grid():
     assert len(grid[0]) == 2
 
 
-# -------------------------------------------------------------------
-# TEST: merge_chunk_results
-# -------------------------------------------------------------------
 def test_merge_chunk_results():
     mock_doc = MagicMock()
     mock_doc.text = "text1"
@@ -96,9 +78,6 @@ def test_merge_chunk_results():
     assert result["tables_by_page"] == [[{"table": 1}]]
 
 
-# -------------------------------------------------------------------
-# TEST: extract_kv_pairs_by_page
-# -------------------------------------------------------------------
 def test_extract_kv_pairs_by_page():
     mock_doc = MagicMock()
 
@@ -117,9 +96,6 @@ def test_extract_kv_pairs_by_page():
     assert len(result) == 1
 
 
-# -------------------------------------------------------------------
-# TEST: extract_tables_by_page
-# -------------------------------------------------------------------
 def test_extract_tables_by_page():
     mock_doc = MagicMock()
 
@@ -139,13 +115,10 @@ def test_extract_tables_by_page():
     assert result[0][0]["table_index"] == 0
 
 
-# -------------------------------------------------------------------
-# TEST: process_document_bytes (PDF path)
-# -------------------------------------------------------------------
 @patch("backend.services.document_ai._process_single_chunk")
 @patch("backend.services.document_ai.PdfReader")
 def test_process_document_bytes_single_chunk(mock_pdf_reader, mock_process):
-    mock_pdf_reader.return_value.pages = [1]  # <= 15 pages
+    mock_pdf_reader.return_value.pages = [1] 
 
     mock_process.return_value = MagicMock(text="hello")
 
@@ -154,9 +127,6 @@ def test_process_document_bytes_single_chunk(mock_pdf_reader, mock_process):
     assert result.text == "hello"
 
 
-# -------------------------------------------------------------------
-# TEST: process_document_bytes (multi chunk)
-# -------------------------------------------------------------------
 @patch("backend.services.document_ai._merge_chunk_results")
 @patch("backend.services.document_ai._process_single_chunk")
 @patch("backend.services.document_ai.PdfReader")
@@ -164,7 +134,7 @@ def test_process_document_bytes_single_chunk(mock_pdf_reader, mock_process):
 def test_process_document_bytes_multi_chunk(
     mock_split, mock_pdf_reader, mock_process, mock_merge
 ):
-    mock_pdf_reader.return_value.pages = list(range(20))  # > 15 pages
+    mock_pdf_reader.return_value.pages = list(range(20))  
 
     mock_split.return_value = [b"chunk1", b"chunk2"]
     mock_process.side_effect = ["doc1", "doc2"]
@@ -175,9 +145,6 @@ def test_process_document_bytes_multi_chunk(
     assert result == {"merged": True}
 
 
-# -------------------------------------------------------------------
-# TEST: extract_document_layout
-# -------------------------------------------------------------------
 @patch("backend.services.document_ai.process_document_bytes")
 def test_extract_document_layout_dict_path(mock_process):
     mock_process.return_value = {"raw_text": "test"}

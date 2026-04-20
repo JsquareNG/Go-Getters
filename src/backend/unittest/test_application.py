@@ -5,10 +5,6 @@ from fastapi import HTTPException, BackgroundTasks
 import backend.api.application as application_module
 
 
-# ----------------------------
-# Generic fakes / helpers
-# ----------------------------
-
 class FakeQuery:
     def __init__(self, first_result=None, all_result=None):
         self._first_result = first_result
@@ -153,10 +149,6 @@ STAFF_USER = {"user_id": "STAFF-1", "role": "STAFF"}
 MGMT_USER = {"user_id": "MGMT-1", "role": "MANAGEMENT"}
 
 
-# ----------------------------
-# apply_full_application_update
-# ----------------------------
-
 def test_apply_full_application_update_merges_new_form_data():
     app = make_app(form_data={"businessName": "Old Biz", "country": "SG"})
 
@@ -180,10 +172,6 @@ def test_apply_full_application_update_handles_empty_input():
 
     assert app.form_data == {"country": "SG"}
 
-
-# ----------------------------
-# close_open_action_request_and_update_answers
-# ----------------------------
 
 def test_close_open_action_request_returns_none_when_no_open_request():
     db = FakeDB()
@@ -258,22 +246,17 @@ def test_close_open_action_request_closes_when_all_requirements_met():
     assert result is ar
     assert ar.status == "CLOSED"
 
-    # New function behavior for document items
     assert doc_item.fulfilled is False
     assert doc_item.fulfilled_at is not None
     assert doc_item.is_substitute is False
     assert doc_item.submitted_document_name is None
     assert doc_item.substitution_reason is None
 
-    # Question items are explicitly fulfilled
     assert q_item.fulfilled is True
     assert q_item.fulfilled_at is not None
     assert q_item.answer_text == "Owned by founder directly"
 
 
-# ----------------------------
-# second_submit
-# ----------------------------
 
 def test_second_submit_invalid_status_raises_400(monkeypatch):
     db = FakeDB()
@@ -431,9 +414,6 @@ def test_second_submit_resubmission_moves_to_under_manual_review(monkeypatch):
     assert db.committed is True
 
 
-# ----------------------------
-# withdraw_application
-# ----------------------------
 
 def test_withdraw_application_closes_open_action_requests(monkeypatch):
     db = FakeDB()
@@ -448,7 +428,6 @@ def test_withdraw_application_closes_open_action_requests(monkeypatch):
     open_ar_1 = make_action_request(action_request_id=1, status="OPEN")
     open_ar_2 = make_action_request(action_request_id=2, status="OPEN")
 
-    # Keep emails as None so the buggy email body path is not executed.
     applicant = make_user(
         user_id="USER-1",
         first_name="John",
@@ -503,9 +482,6 @@ def test_withdraw_application_closes_open_action_requests(monkeypatch):
     assert result["status"] == "Withdrawn"
 
 
-# ----------------------------
-# get_required_requirements
-# ----------------------------
 
 def test_get_required_requirements_separates_documents_and_questions():
     db = FakeDB()
@@ -547,9 +523,6 @@ def test_get_required_requirements_separates_documents_and_questions():
     assert result["required_questions"][0]["question_text"] == "What is your monthly volume?"
 
 
-# ----------------------------
-# get_action_requests
-# ----------------------------
 
 def test_get_action_requests_groups_items_per_request():
     db = FakeDB()

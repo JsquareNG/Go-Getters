@@ -26,7 +26,7 @@ export default function AdminConfigPage() {
   const [documentTypesJson, setDocumentTypesJson] = useState("");
   const [activeTab, setActiveTab] = useState("countries");
 
-  // Sync Redux → JSON editors
+
   useEffect(() => {
     setCountriesJson(JSON.stringify(countries, null, 2));
     setBusinessTypesJson(JSON.stringify(businessTypes, null, 2));
@@ -129,7 +129,6 @@ export default function AdminConfigPage() {
 
     return (
       <div className="space-y-4">
-        {/* Countries Preview - Only show when Countries tab is active */}
         {activeTab === "countries" && (
           <Card className="p-4">
             <CardContent>
@@ -155,7 +154,6 @@ export default function AdminConfigPage() {
           </Card>
         )}
 
-        {/* Business Types Preview - Only show when Business Types tab is active */}
         {activeTab === "businessTypes" && (
           <Card className="p-4">
             <CardContent>
@@ -176,7 +174,6 @@ export default function AdminConfigPage() {
           </Card>
         )}
 
-        {/* Document Types Preview - Only show when Document Types tab is active */}
         {activeTab === "documentTypes" && (
           <Card className="p-4">
             <CardContent>
@@ -221,7 +218,6 @@ export default function AdminConfigPage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Static Header */}
       <div className="bg-white border-b border-gray-200 p-6 shadow-sm">
         <div className="max-w-7xl mx-auto">
           <h1 className="text-3xl font-bold text-gray-900">
@@ -236,9 +232,7 @@ export default function AdminConfigPage() {
       <div className="p-6">
         <div className="max-w-7xl mx-auto">
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            {/* Editor Section */}
             <div className="lg:col-span-2">
-              {/* Tabs */}
               <div className="flex gap-2 mb-4 border-b border-gray-200">
                 {[
                   { id: "countries", label: "Countries" },
@@ -259,7 +253,6 @@ export default function AdminConfigPage() {
                 ))}
               </div>
 
-              {/* Tab Content */}
               <Card className="mb-4">
                 <CardContent className="space-y-4">
                   {activeTab === "countries" && (
@@ -306,7 +299,6 @@ export default function AdminConfigPage() {
                 </CardContent>
               </Card>
 
-              {/* Action Buttons */}
               <div className="flex gap-3">
                 <Button onClick={handleSaveConfig} className="flex-1">
                   Save Changes
@@ -335,7 +327,6 @@ export default function AdminConfigPage() {
               </div>
             </div>
 
-            {/* Preview Section */}
             <div className="lg:col-span-1">
               <div className="sticky" style={{ top: "24px" }}>
                 <h2 className="text-lg font-semibold text-gray-900 mb-4">

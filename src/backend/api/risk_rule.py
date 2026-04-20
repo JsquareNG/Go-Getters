@@ -84,7 +84,6 @@ def condition_to_dict(c):
         "is_active": c.is_active,
     }
 
-
 def rule_to_dict(rule):
     return {
         "rule_id": rule.id,
@@ -96,7 +95,6 @@ def rule_to_dict(rule):
         "updated_at": rule.updated_at,
         "conditions": [condition_to_dict(c) for c in rule.conditions],
     }
-
 
 @router.get("/")
 def get_all_risk_rules(db: Session = Depends(get_db)):
@@ -175,19 +173,6 @@ def get_basic_compliance_categories(db: Session = Depends(get_db)):
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
-
-# @router.get("/byCategory/{category}")
-# def get_rules_by_category(category: str, db: Session = Depends(get_db)):
-#     rows = (
-#         db.query(RiskRule)
-#         .options(joinedload(RiskRule.conditions))
-#         .filter(RiskRule.category == category.upper())
-#         .order_by(RiskRule.rule_code.asc())
-#         .all()
-#     )
-
-#     return [rule_to_dict(r) for r in rows]
-
 @router.get("/byCategory/{category}")
 def get_rules_by_category(category: str, db: Session = Depends(get_db)):
     normalized_category = category.upper().strip()
@@ -250,10 +235,6 @@ def save_risk_rule_changes(payload: dict = Body(...), db: Session = Depends(get_
                 status_code=409,
                 detail="This rule category was updated by another user. Please refresh and try again."
             )
-        # rule_updates = payload.get("rules", [])
-        # condition_updates = payload.get("conditions", [])
-        # rule_creates = payload.get("creates", [])
-        # new_conditions = payload.get("new_conditions", [])
 
         touched_rules = set()
 
@@ -273,13 +254,6 @@ def save_risk_rule_changes(payload: dict = Body(...), db: Session = Depends(get_
                 description=(item.get("description") or "").strip(),
                 is_active=bool(item.get("is_active", True)),
             )
-            # new_rule = RiskRule(
-            #     rule_code=item["rule_code"].strip(),
-            #     rule_name=item["rule_name"].strip(),
-            #     category=item["category"],
-            #     description=(item.get("description") or "").strip(),
-            #     is_active=bool(item.get("is_active", True)),
-            # )
 
             db.add(new_rule)
             db.flush()
@@ -330,12 +304,6 @@ def save_risk_rule_changes(payload: dict = Body(...), db: Session = Depends(get_
                     status_code=400,
                     detail=f"Rule {rule.id} does not belong to category '{category}'"
                 )
-            # rule = db.query(RiskRule).options(joinedload(RiskRule.conditions)).filter(
-            #     RiskRule.id == item["rule_id"]
-            # ).first()
-
-            # if not rule:
-            #     continue
 
             if "rule_code" in item:
                 rule.rule_code = item["rule_code"].strip()
@@ -379,12 +347,6 @@ def save_risk_rule_changes(payload: dict = Body(...), db: Session = Depends(get_
                     status_code=400,
                     detail=f"New condition rule {rule.id} does not belong to category '{category}'"
                 )
-            # rule = db.query(RiskRule).options(joinedload(RiskRule.conditions)).filter(
-            #     RiskRule.id == item["rule_id"]
-            # ).first()
-
-            # if not rule:
-            #     continue
 
             new_condition = RiskRuleCondition(
                 rule_id=rule.id,
@@ -426,14 +388,6 @@ def save_risk_rule_changes(payload: dict = Body(...), db: Session = Depends(get_
                     status_code=400,
                     detail=f"Condition {condition.id} does not belong to category '{category}'"
                 )
-            # condition = (
-            #     db.query(RiskRuleCondition)
-            #     .filter(RiskRuleCondition.id == item["condition_id"])
-            #     .first()
-            # )
-
-            # if not condition:
-            #     continue
 
             if "condition_group" in item:
                 condition.condition_group = item["condition_group"]

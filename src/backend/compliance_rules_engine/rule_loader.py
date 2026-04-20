@@ -21,7 +21,6 @@ def load_active_rules_by_category(db: Session, category: str):
         .all()
     )
 
-    # extra safety: remove rules that ended up with no active conditions
     result = []
     for rule in rules:
         active_conditions = [c for c in rule.conditions if c.is_active]

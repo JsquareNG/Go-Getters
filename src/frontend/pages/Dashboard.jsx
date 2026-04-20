@@ -34,13 +34,13 @@ function getPresetDateRange(value) {
   switch (value) {
     case "last-7":
       return {
-        from: startOfDay(subDays(now, 6)), // includes today = 7 days total
+        from: startOfDay(subDays(now, 6)), 
         to: endOfDay(now),
       };
 
     case "last-30":
       return {
-        from: startOfDay(subDays(now, 29)), // includes today = 30 days total
+        from: startOfDay(subDays(now, 29)), 
         to: endOfDay(now),
       };
 

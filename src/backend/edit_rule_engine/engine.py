@@ -17,12 +17,10 @@ def evaluate_company(company):
     total_score = 0
     triggered_rules = []
 
-    # General KYB rules
     score, rules = evaluate_rules(company, GENERAL_RULES)
     total_score += score
     triggered_rules.extend(rules)
 
-    # Country rules
     if company.country == "Singapore":
 
         score, rules = evaluate_rules(company, SG_RULES)
@@ -37,7 +35,7 @@ def evaluate_company(company):
     total_score += score
     triggered_rules.extend(rules)
 
-    # KYC rules for individuals
+
     for person in company.individuals:
 
         score, rules = evaluate_rules(person, KYC_RULES)
@@ -45,7 +43,6 @@ def evaluate_company(company):
         total_score += score
         triggered_rules.extend(rules)
 
-    # Risk Decision
     if total_score < SIMPLIFIED_THRESHOLD:
 
         decision = "Simplified CDD"

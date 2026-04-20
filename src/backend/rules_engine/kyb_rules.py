@@ -38,12 +38,6 @@ def evaluate_company(company):
             "description": "Trust or nominee ownership detected"
         })
 
-    # if company.expected_volume > TX_VOLUME_RISK_TABLE:
-    #     score += 15
-    #     triggers.append({
-    #         "code": "R005B",
-    #         "description": "Expected transaction volume unusually high"
-    #     })
 
     if company.years_incorporated < 1:
         score += 10

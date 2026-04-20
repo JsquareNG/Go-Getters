@@ -1,6 +1,5 @@
 import os
 from typing import Optional, Dict, Any, List
-from pydantic import ValidationError
 from fastapi import APIRouter, UploadFile, File, HTTPException, Form
 
 from backend.services.gemini_extractor import (
@@ -193,7 +192,6 @@ def _build_ocr_quality_assessment(
     if effective_primary < OCR_MIN_PRIMARY_CONFIDENCE:
         hard_fail = True
 
-    # New logic based on quality score bands
     if quality_score < OCR_FAIL_THRESHOLD:
         hard_fail = True
 
@@ -206,7 +204,6 @@ def _build_ocr_quality_assessment(
     if quality_score < OCR_MIN_QUALITY_SCORE:
         hard_fail = True
 
-    # page minimum confidence is warning-only, not hard fail
     passes_threshold = not hard_fail
 
     if quality_score >= 75:

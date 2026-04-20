@@ -20,7 +20,6 @@ const MissingSteps = ({ report }) => {
           .filter(({step}) => step.missing.length > 0)
           .map(({step, index}) => {
             const prevStep = allSteps[index - 1];
-            // console.log("STEP", index);
             return (
               <div
                 key={step.stepId}

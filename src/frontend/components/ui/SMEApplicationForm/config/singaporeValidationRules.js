@@ -1,15 +1,9 @@
-/**
- * Singapore SME Form Validation Rules
- * Extends VALIDATION_RULES for all Singapore-specific fields
- */
 import { VALIDATION_RULES } from "./validationRules";
 
 const SINGAPORE_VALIDATION_RULES = {
   ...VALIDATION_RULES,
 
-  ///////////////////////////
-  // BASIC BUSINESS FIELDS //
-  ///////////////////////////
+
   businessName: {
     validation: (v) => v.trim().length >= 3,
     error: "Business Name must be at least 3 characters",
@@ -27,9 +21,7 @@ const SINGAPORE_VALIDATION_RULES = {
     error: "Registered Address must be at least 5 characters",
   },
 
-  ///////////////////////
-  // INDIVIDUAL FIELDS //
-  ///////////////////////
+
   fullName: {
     validation: (v) => /^[A-Za-z\s\-]{3,}$/.test(v.trim()),
     error: "Full Name must be at least 3 alphabetic characters",
@@ -52,9 +44,7 @@ const SINGAPORE_VALIDATION_RULES = {
     error: "Date of Birth must be valid",
   },
 
-  /////////////////////////////
-  // CORE FINANCIAL FIELDS  //
-  /////////////////////////////
+ 
   bankAccountNumber: {
     validation: (v) => /^[\d\-]{10,34}$/.test(v),
     error: "Bank Account Number must be 10–34 digits",
@@ -80,9 +70,6 @@ const SINGAPORE_VALIDATION_RULES = {
     error: "Source of Funds is required",
   },
 
-  ////////////////////////////////
-  // SHAREHOLDER / DIRECTOR / UBO
-  ////////////////////////////////
   sharePercentage: {
     validation: (v) => parseFloat(v) > 0 && parseFloat(v) <= 100,
     error: "Share Percentage must be 0–100",
@@ -112,9 +99,6 @@ const SINGAPORE_VALIDATION_RULES = {
     error: "UBO Date of Birth must be valid",
   },
 
-  //////////////////////
-  // DOCUMENT FIELDS  //
-  //////////////////////
   file: {
     validation: (file) =>
       file &&

@@ -8,10 +8,6 @@ import { allDocuments } from "@/api/documentApi";
 
 import { selectFormData } from "@/store/applicationFormSlice";
 
-/**
- * Step4ReviewSubmit
- * Pure review screen (submission handled by parent)
- */
 const Step4 = ({ onEdit, disabled = false, applicationId }) => {
   const data = useSelector(selectFormData);
   const [existingDocuments, setExistingDocuments] = useState([]);
@@ -32,9 +28,6 @@ const Step4 = ({ onEdit, disabled = false, applicationId }) => {
     fetchDocuments();
   }, [applicationId]);
 
-  /* ------------------------------------------------ */
-  /* ENTITY CONFIG */
-  /* ------------------------------------------------ */
   const CONFIG_MAP = {
     Singapore: SINGAPORE_CONFIG,
     Indonesia: INDONESIA_CONFIG,
@@ -56,17 +49,10 @@ const Step4 = ({ onEdit, disabled = false, applicationId }) => {
     );
   };
 
-  // console.log(entityConfig);
-
-  //TODO: currently id only able to retrieve normal fields, misses repeatableSections object
   const step2Config = getStepConfigById("step2"); // match your config
   const step3Config = getStepConfigById("step3"); // match your config
   const step4Config = getStepConfigById("step4"); // match your config
 
-  /* ------------------------------------------------ */
-  /* HELPERS */
-  /* ------------------------------------------------ */
-  // const normalizeDocType = (value) => (value || "").trim();
   const normalizeDocType = (value) =>
     String(value || "")
       .trim()
@@ -80,16 +66,12 @@ const Step4 = ({ onEdit, disabled = false, applicationId }) => {
     sectionConfig = null,
     rowIndex = null,
   }) => {
-    // explicit config override
     if (cfg?.documentType) return cfg.documentType;
 
-    // top-level file
     if (!sectionKey) {
-      // console.log("fieldkey", fieldKey)
       return fieldKey;
     }
 
-    // repeatable section
     if (sectionConfig?.storage === "individuals") {
       const roleValue = getSectionRoleValue(sectionKey, sectionConfig);
       return `${roleValue}_${rowIndex + 1}_${fieldKey}`;
@@ -134,7 +116,6 @@ const Step4 = ({ onEdit, disabled = false, applicationId }) => {
     );
   };
 
-  // TODO: fix the file now the file name etc type not stored properly, cannot read actual filename person uploaded.
   const formatDisplayedDocument = (value) => {
     const localFile = unwrapLocalFile(value);
 
@@ -166,9 +147,6 @@ const Step4 = ({ onEdit, disabled = false, applicationId }) => {
     return "Not uploaded";
   };
 
-  // ------------------------------------------
-  // core function to determine what file shown
-  // ------------------------------------------
   const getDisplayedDocument = ({
     cfg,
     fieldKey,
@@ -178,7 +156,6 @@ const Step4 = ({ onEdit, disabled = false, applicationId }) => {
     sectionConfig = null,
     rowIndex = null,
   }) => {
-    // 1. local unsaved file first
     const localValue = item
       ? (item?.[fieldKey] ?? null)
       : (getNestedValue(stepData?.formData || {}, fieldKey) ??
@@ -193,10 +170,8 @@ const Step4 = ({ onEdit, disabled = false, applicationId }) => {
       rowIndex,
     });
 
-    // return null;
     const localFile = unwrapLocalFile(localValue);
 
-    // PRIORITY 1: any local row value that already represents the current file
     if (
       localValue &&
       (localFile ||
@@ -208,7 +183,6 @@ const Step4 = ({ onEdit, disabled = false, applicationId }) => {
       return localValue;
     }
 
-    // PRIORITY 2: backend fallback only when there is no current local value
     const backendDoc =
       existingDocumentMap[normalizeDocType(documentType)] || null;
 
@@ -216,10 +190,8 @@ const Step4 = ({ onEdit, disabled = false, applicationId }) => {
 
     return null;
 
-    // return existingDocumentMap[normalizeDocType(documentType)] || null;
   };
 
-  // HELPER FOR NESTED INDIVIDUAL FIELDS:
   const getMergedFormState = (rawData = {}) => {
     const nested = rawData?.formData || {};
     return {
@@ -233,7 +205,6 @@ const Step4 = ({ onEdit, disabled = false, applicationId }) => {
     return sectionConfig?.fields?.role?.value || sectionKey;
   };
 
-  //correctly read repeatable section items, with special handling for "individuals" storage type which nests under formData
   const getSectionItems = (stepData, sectionKey, sectionConfig) => {
     const merged = getMergedFormState(stepData);
     const storageKey = sectionConfig?.storage || sectionKey;
@@ -258,12 +229,10 @@ const Step4 = ({ onEdit, disabled = false, applicationId }) => {
 
     if (!stepConfig) return fields;
 
-    // --- Helper to process normal/conditional fields ---
     const processFields = (fieldSet, data, prefix = "") => {
       Object.entries(fieldSet || {}).forEach(([key, cfg]) => {
         let value = data?.[key] ?? "";
 
-        // Handle conditionalFields (like select/checkbox with extra subfields)
         if (cfg.conditionalFields && value in cfg.conditionalFields) {
           fields.push({
             label: prefix + cfg.label,
@@ -277,7 +246,6 @@ const Step4 = ({ onEdit, disabled = false, applicationId }) => {
           console.log("subfields", subFields);
           Object.entries(subFields).forEach(([subKey, subCfg]) => {
             const subValue = data?.[subKey];
-            // const subValue = item?.[subKey];
 
             let formattedSubValue;
             if (subCfg.type === "file") {
@@ -326,14 +294,11 @@ const Step4 = ({ onEdit, disabled = false, applicationId }) => {
             value,
             missing:
               (cfg.required &&
-                // ((cfg.type === "file" && !getDisplayedDocumentValue(key, data))
                 cfg.type === "file" &&
                 !getDisplayedDocument({
                   cfg,
                   fieldKey: key,
                   stepData: data,
-                  // }) ||
-                  // value === "Not provided"),
                 })) ||
               (cfg.type === "kyc" && isKycIncomplete(data?.[key])) ||
               (cfg.type !== "file" &&
@@ -344,10 +309,8 @@ const Step4 = ({ onEdit, disabled = false, applicationId }) => {
       });
     };
 
-    // --- Top-level fields ---
     processFields(stepConfig.fields, stepData);
 
-    // --- Repeatable sections ---
     Object.entries(stepConfig.repeatableSections || {}).forEach(
       ([sectionKey, sectionCfg]) => {
         const items = getSectionItems(stepData, sectionKey, sectionCfg);
@@ -449,35 +412,27 @@ const Step4 = ({ onEdit, disabled = false, applicationId }) => {
     return fields;
   };
 
-  //helper to format fields based on text, arrays etc:
   const formatReviewValue = (value, cfg = {}) => {
     if (value === null || value === undefined || value === "") {
       return "Not provided";
     }
 
-    // files
     const localFile = unwrapLocalFile(value);
     if (localFile) {
       return `${localFile.name} (${(localFile.size / 1024).toFixed(2)} KB)`;
     }
 
-    // arrays
     if (Array.isArray(value)) {
       if (value.length === 0) return "Not provided";
       return value.join(", ");
     }
 
-    // KYC object
     if (cfg?.type === "kyc" && typeof value === "object") {
       console.log("Formatting KYC value:", value);
       const overallStatus = value?.overallStatus || "Incomplete";
       return `Status: ${overallStatus}`;
     }
 
-    // generic object
-    // if (typeof value === "object") {
-    //   return "Provided";
-    // }
     if (
       value &&
       typeof value === "object" &&
@@ -496,7 +451,6 @@ const Step4 = ({ onEdit, disabled = false, applicationId }) => {
     return String(value);
   };
 
-  //manual - missing/declined kyc check handling
   const isKycIncomplete = (value) => {
     if (!value || typeof value !== "object") return true;
 
@@ -532,9 +486,6 @@ const Step4 = ({ onEdit, disabled = false, applicationId }) => {
     return false;
   };
 
-  /* ------------------------------------------------ */
-  /* REVIEW FIELDS */
-  /* ------------------------------------------------ */
   const isEmptyValue = (value) => {
     return (
       value === null ||
@@ -555,7 +506,6 @@ const Step4 = ({ onEdit, disabled = false, applicationId }) => {
     for (const [key, cfg] of Object.entries(fields || {})) {
       const value = data?.[key];
 
-      // handle conditional fields
       if (cfg.conditionalFields && value in cfg.conditionalFields) {
         const conditionalFields = cfg.conditionalFields[value] || {};
         const conditionalOk = validateFieldSet({
@@ -596,7 +546,6 @@ const Step4 = ({ onEdit, disabled = false, applicationId }) => {
   const isStepComplete = (stepConfig, formData = {}) => {
     if (!stepConfig) return true;
 
-    // top-level fields
     if (
       !validateFieldSet({
         fields: stepConfig.fields,
@@ -607,7 +556,6 @@ const Step4 = ({ onEdit, disabled = false, applicationId }) => {
       return false;
     }
 
-    // repeatable sections
     for (const [sectionKey, sectionCfg] of Object.entries(
       stepConfig.repeatableSections || {},
     )) {
@@ -652,21 +600,10 @@ const Step4 = ({ onEdit, disabled = false, applicationId }) => {
   );
 
   const allFields = [...basicFields, ...financialFields, ...complianceFields];
-  //   const allStepsComplete = allFields.every(
-  //     (f) => f.value && f.value !== "Not provided",
-  //   );
   const allStepsComplete =
     isStepComplete(step2Config, data) &&
     isStepComplete(step3Config, data) &&
     isStepComplete(step4Config, data);
-
-  /* ------------------------------------------------ */
-  /* STEP COMPLETION */
-  /* ------------------------------------------------ */
-
-  /* ------------------------------------------------ */
-  /* REVIEW SECTION */
-  /* ------------------------------------------------ */
 
   const ReviewSection = ({ title, fields, onEditClick }) => (
     <div className="mb-8 border rounded-lg p-6 bg-gray-50">
@@ -711,10 +648,6 @@ const Step4 = ({ onEdit, disabled = false, applicationId }) => {
     </div>
   );
 
-  /* ------------------------------------------------ */
-  /* UI */
-  /* ------------------------------------------------ */
-
   return (
     <div>
       <h2 className="text-2xl font-bold mb-2 text-gray-900">
@@ -744,7 +677,6 @@ const Step4 = ({ onEdit, disabled = false, applicationId }) => {
         onEditClick={() => onEdit?.(3)}
       />
 
-      {/* STATUS BANNER */}
       <div
         className={`mb-8 p-4 rounded-lg border flex items-start gap-3 ${
           allStepsComplete

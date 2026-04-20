@@ -4,7 +4,6 @@ from unittest.mock import patch, MagicMock
 
 import pytest
 
-# Prevent real Vertex AI import/init during tests
 sys.modules["vertexai"] = MagicMock()
 sys.modules["vertexai.generative_models"] = MagicMock()
 
@@ -14,10 +13,6 @@ from backend.services.gemini_extractor import (
 )
 from backend.models.extract import DOCUMENT_SCHEMA_REGISTRY
 
-
-# -------------------------------------------------------------------
-# TEST: classify_document
-# -------------------------------------------------------------------
 @patch("backend.services.gemini_extractor.GenerativeModel")
 def test_classify_document_acra(mock_model_class):
     mock_model = MagicMock()
@@ -75,9 +70,6 @@ def test_classify_document_large_input(mock_model_class):
     mock_model.generate_content.assert_called_once()
 
 
-# -------------------------------------------------------------------
-# TEST: parse_universal_document (valid ACRA)
-# -------------------------------------------------------------------
 @patch("backend.services.gemini_extractor.GenerativeModel")
 def test_parse_universal_document_acra_valid(mock_model_class):
     mock_model = MagicMock()
@@ -112,9 +104,6 @@ def test_parse_universal_document_acra_valid(mock_model_class):
     assert result["entityType"] == "PRIVATE LIMITED"
 
 
-# -------------------------------------------------------------------
-# TEST: parse_universal_document (valid NIB)
-# -------------------------------------------------------------------
 @patch("backend.services.gemini_extractor.GenerativeModel")
 def test_parse_universal_document_nib_valid(mock_model_class):
     mock_model = MagicMock()
@@ -145,10 +134,6 @@ def test_parse_universal_document_nib_valid(mock_model_class):
     assert result["registrationNumber"] == "1234567890123"
     assert result["kbliCodes"] == ["62010"]
 
-
-# -------------------------------------------------------------------
-# TEST: parse_universal_document (valid UNKNOWN)
-# -------------------------------------------------------------------
 @patch("backend.services.gemini_extractor.GenerativeModel")
 def test_parse_universal_document_unknown_valid(mock_model_class):
     mock_model = MagicMock()
@@ -182,9 +167,6 @@ def test_parse_universal_document_unknown_valid(mock_model_class):
     assert isinstance(result["missingOrUnclearItems"], list)
 
 
-# -------------------------------------------------------------------
-# TEST: invalid doc type
-# -------------------------------------------------------------------
 def test_parse_universal_document_invalid_type():
     with pytest.raises(ValueError) as exc:
         parse_universal_document(
@@ -195,9 +177,6 @@ def test_parse_universal_document_invalid_type():
     assert "Unsupported document type" in str(exc.value)
 
 
-# -------------------------------------------------------------------
-# TEST: invalid JSON response
-# -------------------------------------------------------------------
 @patch("backend.services.gemini_extractor.GenerativeModel")
 def test_parse_universal_document_invalid_json(mock_model_class):
     mock_model = MagicMock()
@@ -211,9 +190,6 @@ def test_parse_universal_document_invalid_json(mock_model_class):
         )
 
 
-# -------------------------------------------------------------------
-# TEST: missing required fields should fail
-# -------------------------------------------------------------------
 @patch("backend.services.gemini_extractor.GenerativeModel")
 def test_parse_universal_document_missing_required_fields(mock_model_class):
     mock_model = MagicMock()
@@ -226,10 +202,6 @@ def test_parse_universal_document_missing_required_fields(mock_model_class):
             doc_type="ACRA",
         )
 
-
-# -------------------------------------------------------------------
-# TEST: registry sanity
-# -------------------------------------------------------------------
 def test_document_schema_registry_contains_expected_keys():
     assert "ACRA" in DOCUMENT_SCHEMA_REGISTRY
     assert "NIB" in DOCUMENT_SCHEMA_REGISTRY

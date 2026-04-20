@@ -26,13 +26,6 @@ def get_extracted_payload(doc: Any) -> Dict[str, Any]:
         if isinstance(extracted, dict):
             return extracted
 
-        # Support mock payloads directly passed as:
-        # {
-        #   "document_type": "...",
-        #   "classified_as": "...",
-        #   "upload_validation": {...},
-        #   "data": {...}
-        # }
         if "data" in doc or "upload_validation" in doc or "classified_as" in doc:
             return doc
 

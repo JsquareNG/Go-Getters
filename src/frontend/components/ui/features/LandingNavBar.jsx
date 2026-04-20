@@ -43,7 +43,6 @@ const LandingNavBar = () => {
   const user = useSelector(selectUser);
   const userRole = user?.role;
 
-  // recipientId is the same as user (your redux stores user_id)
   const recipientId = user?.user_id;
 
   const [notifications, setNotifications] = useState([]);
@@ -52,7 +51,6 @@ const LandingNavBar = () => {
   const [loadingNotifs, setLoadingNotifs] = useState(false);
   const [notifError, setNotifError] = useState(null);
 
-  // Tracks which applicationIds are currently being marked read (to avoid double clicks)
   const [updatingAppIds, setUpdatingAppIds] = useState(() => new Set());
   const [markingAll, setMarkingAll] = useState(false);
 
@@ -104,7 +102,6 @@ const LandingNavBar = () => {
       const count = Number(data?.total ?? 0);
       setUnreadCount(Number.isFinite(count) ? count : 0);
     } catch (e) {
-      // optional: keep old count, don't hard fail
     }
   }, [recipientId]);
 
@@ -120,7 +117,6 @@ const LandingNavBar = () => {
       ui.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
       setNotifications(ui);
 
-      // fallback sync for badge
       const unreadFromAll = Number(data?.unread);
       if (Number.isFinite(unreadFromAll)) setUnreadCount(unreadFromAll);
     } catch (e) {
@@ -152,22 +148,16 @@ const LandingNavBar = () => {
     return "/landingpage";
   };
 
-  /**
-   * ✅ Mark ONE notification/application as read, THEN navigate to details page
-   * Backend endpoint is /bell/read-one/:applicationId
-   */
   const handleMarkOneReadAndGo = useCallback(
     async (notif) => {
       const applicationId = notif?.applicationId;
       if (!applicationId) return;
 
-      // prevent spam clicks
       if (updatingAppIds.has(applicationId) || markingAll) return;
 
       const wasUnread = !notif.read;
       const prevNotifications = notifications;
 
-      // optimistic UI update (only if unread)
       if (wasUnread) {
         setNotifications((prev) =>
           prev.map((n) =>
@@ -198,8 +188,6 @@ const LandingNavBar = () => {
           return next;
         });
 
-        // ✅ navigate to the application detail page for this applicationId
-        // Change the route below if your route differs.
         navigate(`/landingpage/${applicationId}`);
       }
     },
@@ -213,15 +201,10 @@ const LandingNavBar = () => {
     ],
   );
 
-  /**
-   * ✅ Mark ALL as read (backend + UI)
-   * Backend endpoint is /bell/read-all/:recipientId
-   */
   const handleMarkAllRead = useCallback(async () => {
     if (!recipientId) return;
     if (markingAll) return;
 
-    // optimistic UI update
     const prevNotifications = notifications;
     setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
     setUnreadCount(0);
@@ -232,7 +215,6 @@ const LandingNavBar = () => {
       await readAllApplication(recipientId);
       await Promise.all([fetchUnreadCount(), fetchAllNotifications()]);
     } catch (e) {
-      // rollback optimistic update
       setNotifications(prevNotifications);
       await Promise.all([fetchUnreadCount(), fetchAllNotifications()]);
     } finally {

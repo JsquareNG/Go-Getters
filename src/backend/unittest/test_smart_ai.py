@@ -4,10 +4,6 @@ from fastapi import HTTPException
 import backend.api.smart_ai as manual_review_ai_module
 
 
-# ----------------------------
-# Helpers
-# ----------------------------
-
 class FakeRequestedDocument:
     def __init__(self, data):
         self._data = data
@@ -45,10 +41,6 @@ class FakeBulkAlternativePayload:
         self.documents = documents or []
         self.action_requests = action_requests or []
 
-
-# ----------------------------
-# generate_ai_suggestions
-# ----------------------------
 
 def test_generate_ai_suggestions_returns_success(monkeypatch):
     captured = {}
@@ -123,10 +115,6 @@ def test_generate_ai_suggestions_raises_http_500_on_error(monkeypatch):
     assert exc.value.status_code == 500
     assert exc.value.detail == "manual review AI failed"
 
-
-# ----------------------------
-# generate_bulk_alternative_documents
-# ----------------------------
 
 def test_generate_bulk_alternative_documents_returns_success(monkeypatch):
     captured = {}

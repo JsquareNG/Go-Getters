@@ -9,11 +9,6 @@ from backend.database import get_db
 
 router = APIRouter(prefix="/users", tags=["users"])
 
-
-# =====================================================
-# Helpers
-# =====================================================
-
 def hash_password(password: str) -> str:
     return bcrypt.hashpw(password.encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
 
@@ -54,11 +49,6 @@ def _get_user_or_404(db: Session, user_id: str) -> User:
             detail="User not found",
         )
     return user
-
-
-# =====================================================
-# Public endpoints
-# =====================================================
 
 @router.post("/register")
 def register_sme(data: dict = Body(...), db: Session = Depends(get_db)):
@@ -158,7 +148,6 @@ def create_staff(
     db: Session = Depends(get_db),
     current_user: dict = Depends(get_current_user),
 ):
-    # Restrict this to MANAGEMENT only
     _require_roles(current_user, "MANAGEMENT")
 
     if db.query(User).filter(User.email == data["email"]).first():
@@ -192,7 +181,7 @@ def create_management(data: dict = Body(...), db: Session = Depends(get_db)):
         first_name=data["first_name"],
         last_name=data["last_name"],
         email=data["email"],
-        password=hash_password(data["password"]),  # Temp password
+        password=hash_password(data["password"]),
         user_role="MANAGAMENT"
     )
     db.add(new_management)
@@ -215,14 +204,12 @@ def get_user_by_id(
     current_role = _current_user_role(current_user)
     current_id = _current_user_id(current_user)
 
-    # SME can only view own profile
     if current_role == "SME" and current_id != user_id:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Forbidden",
         )
 
-    # STAFF / MANAGEMENT can view user records
     if current_role not in {"SME", "STAFF", "MANAGEMENT"}:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,

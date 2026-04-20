@@ -262,7 +262,6 @@ def normalize_form_data(form_data: Dict[str, Any]) -> Dict[str, Any]:
         ),
         "individuals": normalize_form_individuals(form_data.get("individuals")),
 
-        # extra form-only fields to preserve for rules engine
         "business_country": first_non_empty(
             form_data.get("country"),
             form_data.get("businessCountry"),

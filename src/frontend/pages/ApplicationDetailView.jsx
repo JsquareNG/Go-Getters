@@ -89,9 +89,7 @@ export default function ManagementApplicationDetail() {
   const [kycLoading, setKycLoading] = useState(false);
   const [kycError, setKycError] = useState(null);
 
-  // -----------------------------
-  // Fetch application
-  // -----------------------------
+
   const fetchApplication = async (showLoader = true) => {
     try {
       if (showLoader) setIsLoading(true);
@@ -192,16 +190,11 @@ export default function ManagementApplicationDetail() {
   const currentStatusKey = normKey(application?.current_status);
   const showActionRequired = currentStatusKey === "requires action";
 
-  // -----------------------------
-  // Fetch documents
-  // -----------------------------
   useEffect(() => {
     if (id) fetchDocuments();
   }, [id]);
 
-  // -----------------------------
-  // Fetch review job / risk
-  // -----------------------------
+
   useEffect(() => {
     const fetchReviewJob = async () => {
       try {
@@ -236,17 +229,11 @@ export default function ManagementApplicationDetail() {
     if (id && application) fetchReviewJob();
   }, [id, application]);
 
-  // -----------------------------
-  // Fetch QnA
-  // -----------------------------
   useEffect(() => {
     const appIdToUse = application?.application_id || application?.id || id;
     if (id && application) fetchQnA(appIdToUse);
   }, [id, application]);
 
-  // -----------------------------
-  // Fetch Audit Trail
-  // -----------------------------
   useEffect(() => {
     const appIdToUse = application?.application_id || application?.id || id;
     if (id && application) fetchAuditEntries(appIdToUse);
@@ -289,9 +276,6 @@ export default function ManagementApplicationDetail() {
     if (id && application) fetchKycDetails();
   }, [id, application]);
 
-  // -----------------------------
-  // Derived values
-  // -----------------------------
   const actionRequests = useMemo(() => {
     const arr = actionRequestsData?.action_requests;
     return Array.isArray(arr) ? arr : [];
@@ -519,16 +503,6 @@ export default function ManagementApplicationDetail() {
     };
   };
 
-  // const initialDocuments = useMemo(() => {
-  //   if (!Array.isArray(documents)) return [];
-  //   if (!firstActionRequestTime) return documents;
-
-  //   return documents.filter((doc) => {
-  //     const t = new Date(doc?.created_at || 0).getTime();
-  //     return t && t < firstActionRequestTime;
-  //   });
-  // }, [documents, firstActionRequestTime]);
-
   const initialDocuments = useMemo(() => {
     if (!Array.isArray(documents)) return [];
 
@@ -603,9 +577,7 @@ export default function ManagementApplicationDetail() {
     return kycRecords[0] || null;
   }, [kycRecords]);
 
-  // -----------------------------
-  // Handlers
-  // -----------------------------
+
   const handleDownload = async (doc) => {
     const newTab = window.open("", "_blank");
 
@@ -638,9 +610,7 @@ export default function ManagementApplicationDetail() {
     }
   };
 
-  // -----------------------------
-  // Loading / error states
-  // -----------------------------
+
   if (isLoading) {
     return (
       <div className="flex min-h-screen items-center justify-center">

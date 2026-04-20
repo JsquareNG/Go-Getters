@@ -2,7 +2,6 @@ import PropTypes from "prop-types";
 import { cn } from "@/lib/utils";
 import { AlertTriangle, AlertCircle, Info, Shield } from "lucide-react";
 
-/* ENUM VALUES */
 const RiskLevels = ["critical", "high", "medium", "low"];
 const Sizes = ["sm", "md", "lg"];
 
@@ -55,13 +54,11 @@ const RiskBadge = ({ level, showIcon, size }) => {
   );
 };
 
-/* DEFAULT PROPS */
 RiskBadge.defaultProps = {
   showIcon: true,
   size: "md",
 };
 
-/* PROP TYPES */
 RiskBadge.propTypes = {
   level: PropTypes.oneOf(RiskLevels).isRequired,
   showIcon: PropTypes.bool,

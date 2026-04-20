@@ -3,7 +3,7 @@ from sendgrid import SendGridAPIClient
 from sendgrid.helpers.mail import Mail
 
 SENDGRID_API_KEY = os.getenv("SENDGRID_API_KEY")
-FROM_EMAIL = "gogetters2026@gmail.com"  # temporary
+FROM_EMAIL = "gogetters2026@gmail.com"  # Change this to your company's email
 
 def send_email(to_email: str, subject: str, body: str):
     if not SENDGRID_API_KEY:
@@ -19,7 +19,7 @@ def send_email(to_email: str, subject: str, body: str):
     try:
         sg = SendGridAPIClient(SENDGRID_API_KEY)
         response = sg.send(message)
-        print(f"✅ Email sent ({response.status_code}) to {to_email}")
+        print(f"Email sent ({response.status_code}) to {to_email}")
     except Exception as e:
-        print("❌ SendGrid email failed")
+        print("SendGrid email failed")
         raise e

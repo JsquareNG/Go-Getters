@@ -10,7 +10,6 @@ from backend.database import get_db
 from backend.database import Base
 from backend.auth.dependencies import get_current_user
 
-# Import models so metadata is registered
 from backend.models.user import User
 from backend.models.application import ApplicationForm
 from backend.models.bellNotifications import BellNotification

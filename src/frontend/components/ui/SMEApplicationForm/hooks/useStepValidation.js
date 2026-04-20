@@ -2,10 +2,9 @@ import { useMemo } from "react";
 
 export function useStepValidation(data = {}, documents = {}) {
   return useMemo(() => {
-    // ---- STEP 0: Country & Business Type ---- //
+
     const step0Valid = !!data.country?.trim() && !!data.businessType?.trim();
 
-    // ---- STEP 1: Basic Information ---- //
     const step1Valid =
       step0Valid &&
       !!data.companyName?.trim() &&
@@ -18,7 +17,6 @@ export function useStepValidation(data = {}, documents = {}) {
       validateCountrySpecificFields(data) &&
       validateBusinessTypeSpecificFields(data);
 
-    // ---- STEP 2: Financial Details ---- //
     const step2Valid =
       step0Valid &&
       !!data.bankAccountNumber?.trim() &&
@@ -27,14 +25,13 @@ export function useStepValidation(data = {}, documents = {}) {
       !!String(data.annualRevenue)?.trim() &&
       !!String(data.expectedMonthlyTransactionVolume)?.trim();
 
-    // ---- STEP 3: Compliance Documents ---- //
     const requiredDocKeys = getRequiredDocumentKeys(data);
     const step3Valid =
       step0Valid &&
       requiredDocKeys.length > 0 &&
       requiredDocKeys.every((docKey) => documents[docKey]?.name);
 
-    // ---- STEP 4: Review ---- //
+
     const step4Valid = step1Valid && step2Valid && step3Valid;
 
     return {
@@ -47,7 +44,6 @@ export function useStepValidation(data = {}, documents = {}) {
   }, [data, documents]);
 }
 
-// ------------------- HELPERS ------------------- //
 
 function validateCountrySpecificFields(data = {}) {
   if (!data.country) return false;
